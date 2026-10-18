@@ -5,6 +5,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
+    id("androidx.room")
+}
+
+// Room writes each database version's schema here (checked in); MigrationTest builds old versions from them.
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 android {
@@ -101,6 +107,8 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.material3:material3")
+    // Window size and fold posture (tablets, foldables, landscape): Apache-2.0, brings androidx.window.
+    implementation("androidx.compose.material3.adaptive:adaptive:1.3.0")
 
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.activity:activity-compose:1.13.0")

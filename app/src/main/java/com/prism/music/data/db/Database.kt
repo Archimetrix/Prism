@@ -1,6 +1,7 @@
 package com.prism.music.data.db
 
 import android.content.Context
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -12,6 +13,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.prism.music.data.model.AlbumRef
 import com.prism.music.data.model.ArtistRef
 import com.prism.music.data.model.Song
@@ -66,6 +69,10 @@ data class PlayEventEntity(
     val songId: String,
     val timestamp: Long,
     val playedMs: Long,
+    /** What the song was playing as part of: a [com.prism.music.playback.QueueKind] name, or a feature ("smart", "dj", "sing", "blend", "mix:<id>"). */
+    val source: String? = null,
+    /** From something the listener excluded from their taste profile: Replay counts it, recommendations don't. */
+    @ColumnInfo(defaultValue = "0") val excluded: Boolean = false,
 )
 
 @Entity(tableName = "lyrics", primaryKeys = ["songId", "source"])
@@ -260,8 +267,8 @@ interface MetaDao {
 
 @Database(
     entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class],
-    version = 1,
-    exportSchema = false,
+    version = 2,
+    exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
     abstract fun songs(): SongDao
@@ -270,9 +277,24 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun meta(): MetaDao
 
     companion object {
+        /**
+         * Every schema change gets a migration here (and its exported schema in app/schemas): the database holds the
+         * listener's whole play history, so an upgrade must never fall back to wiping it. MigrationTest checks each one.
+         */
+        val MIGRATIONS = arrayOf(
+            object : Migration(1, 2) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE play_events ADD COLUMN source TEXT")
+                    db.execSQL("ALTER TABLE play_events ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
+                }
+            },
+        )
+
         fun build(context: Context): PrismDatabase =
             Room.databaseBuilder(context, PrismDatabase::class.java, "prism.db")
-                .fallbackToDestructiveMigration(true)
+                .addMigrations(*MIGRATIONS)
+                // Only a downgrade (installing an older Prism over a newer one) may start the database over.
+                .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
     }
 }

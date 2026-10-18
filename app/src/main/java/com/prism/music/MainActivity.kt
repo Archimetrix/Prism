@@ -146,7 +146,11 @@ open class MainActivity : ComponentActivity() {
         if (c.settings.current.isLoggedIn) c.library.syncInBackground()
         deepLink.value = linkIn(intent)
         setContent {
-            CompositionLocalProvider(LocalContainer provides c, com.prism.music.ui.player.LocalPip provides inPip.value) {
+            CompositionLocalProvider(
+                LocalContainer provides c,
+                com.prism.music.ui.player.LocalPip provides inPip.value,
+                com.prism.music.ui.theme.LocalWindowLayout provides com.prism.music.ui.theme.rememberWindowLayout(),
+            ) {
                 PrismRoot(deepLink)
             }
         }

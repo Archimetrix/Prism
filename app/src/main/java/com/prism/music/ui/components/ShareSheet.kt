@@ -40,15 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -57,20 +53,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import coil3.compose.AsyncImage
 import com.prism.music.data.model.Song
 import com.prism.music.data.model.hiRes
 import com.prism.music.ui.theme.LocalContainer
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import kotlin.math.roundToInt
 
 /** Something to share: a song, album, playlist or artist, or one of Prism's own lists. */
 data class ShareTarget(
@@ -112,21 +102,10 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
         if (busy) return
         busy = true
         scope.launch {
-            runCatching {
-                val bmp = card.toImageBitmap().asAndroidBitmap()
-                val file = withContext(Dispatchers.IO) {
-                    File(context.cacheDir, "share").apply { mkdirs() }.resolve("prism-share.png").also { f ->
-                        f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                    }
-                }
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
-                val send = Intent(Intent.ACTION_SEND).setType("image/png")
-                    .putExtra(Intent.EXTRA_STREAM, uri)
-                    .putExtra(Intent.EXTRA_TEXT, target.url?.let { "$message\n$it" } ?: message)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                send.clipData = ClipData.newRawUri(null, uri)
-                context.startActivity(Intent.createChooser(send, chooserTitle))
-            }.onFailure { Toast.makeText(context, "Couldn't make the picture to share", Toast.LENGTH_SHORT).show() }
+            val text = target.url?.let { "$message\n$it" } ?: message
+            if (!shareLayer(context, card, "prism-share.png", text, chooserTitle)) {
+                Toast.makeText(context, "Couldn't make the picture to share", Toast.LENGTH_SHORT).show()
+            }
             busy = false
         }
     }
@@ -140,14 +119,7 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
             Box(
                 Modifier.width(212.dp).aspectRatio(9f / 16f)
                     .shadow(18.dp, RoundedCornerShape(22.dp))
-                    .drawWithContent {
-                        val s = 1080f / size.width
-                        // A full-size copy for sharing, and the card as usual on screen.
-                        card.record(size = IntSize(1080, (size.height * s).roundToInt())) {
-                            scale(s, s, pivot = Offset.Zero) { this@drawWithContent.drawContent() }
-                        }
-                        drawContent()
-                    },
+                    .recordInto(card),
             ) { ShareCard(target, frost, palette) }
 
             if (target.url != null && privacy == "PRIVATE") PrivateNotice(changing) {

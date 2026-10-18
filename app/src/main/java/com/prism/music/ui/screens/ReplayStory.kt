@@ -107,6 +107,8 @@ import com.prism.music.playback.QueueKind
 import com.prism.music.playback.QueueSource
 import com.prism.music.playback.toMediaItem
 import com.prism.music.ui.components.PlayingBars
+import com.prism.music.ui.components.recordInto
+import com.prism.music.ui.components.shareLayer
 import com.prism.music.ui.theme.ArtistType
 import com.prism.music.ui.theme.ArtistTypography
 import com.prism.music.ui.theme.LocalContainer
@@ -806,7 +808,7 @@ private fun Summary(s: ReplayStory, modifier: Modifier, onReplay: () -> Unit, on
         // The card that gets shared, drawn into a layer so it can be saved as an image.
         Column(
             Modifier.reveal(100).fillMaxWidth()
-                .drawWithContent { card.record { this@drawWithContent.drawContent() }; drawLayer(card) }
+                .recordInto(card)
                 .clip(RoundedCornerShape(26.dp))
                 .background(Brush.linearGradient(listOf(Color(0xFF1B0F3B), Color(0xFF5B3DD6), Color(0xFFE0335A))))
                 .padding(20.dp),
@@ -850,18 +852,9 @@ private fun Summary(s: ReplayStory, modifier: Modifier, onReplay: () -> Unit, on
         Row(Modifier.reveal(500), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Pill("Share", PrismIcons.Share, primary = true) {
                 scope.launch {
-                    runCatching {
-                        val bmp = card.toImageBitmap().asAndroidBitmap()
-                        val file = withContext(Dispatchers.IO) {
-                            File(context.cacheDir, "share").apply { mkdirs() }.resolve("prism-replay.png").also { f ->
-                                f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                            }
-                        }
-                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.share", file)
-                        val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
-                            .putExtra(Intent.EXTRA_TEXT, "My Prism Replay · ${s.title}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        context.startActivity(Intent.createChooser(send, "Share your Replay"))
-                    }.onFailure { Toast.makeText(context, "Couldn't share your Replay", Toast.LENGTH_SHORT).show() }
+                    if (!shareLayer(context, card, "prism-replay.png", "My Prism Replay · ${s.title}", "Share your Replay")) {
+                        Toast.makeText(context, "Couldn't share your Replay", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             Pill("Play", PrismIcons.Play, onClick = onPlayAll)

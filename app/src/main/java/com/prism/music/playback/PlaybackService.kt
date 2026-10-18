@@ -93,6 +93,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     private var playStartedAt = 0L
     private var accumulatedMs = 0L
     private var trackedSong: Song? = null
+    /** What [trackedSong] is playing as part of, read when it starts (the queue may change before its play is counted). */
+    private var trackedSource: String? = null
     private val retries = HashMap<String, Int>()
     private var saveJob: Job? = null
     private var extrasJob: Job? = null
@@ -375,6 +377,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             }
         }
         trackedSong = song
+        trackedSource = sourceOf(mediaItem)
         // Podcast episodes pick up where they were left, and play at the speed picked for episodes.
         if (song.isEpisode) {
             val resume = c.episodes.positionOf(song.id)
@@ -985,15 +988,19 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (playStartedAt > 0) accumulatedMs += now - playStartedAt
         playStartedAt = if (::player.isInitialized && player.isPlaying) now else 0
         val song = trackedSong
+        val source = trackedSource
         val ms = accumulatedMs
         accumulatedMs = 0
         // Replay, smart downloads and search taste are about music: episodes aren't counted.
         if (song != null && ms >= 10_000 && !song.isEpisode) {
             scope.launch(Dispatchers.IO) {
-                c.db.plays().insert(PlayEventEntity(songId = song.id, timestamp = System.currentTimeMillis(), playedMs = ms))
+                c.db.plays().insert(PlayEventEntity(songId = song.id, timestamp = System.currentTimeMillis(), playedMs = ms, source = source))
             }
         }
     }
+
+    /** What a play of [item] is counted as (play_events.source): the kind of queue it's in. */
+    private fun sourceOf(@Suppress("UNUSED_PARAMETER") item: MediaItem): String = c.queue.source.value.kind.name.lowercase()
 
     /**
      * Buttons beside play/pause/skip. The phone's media controls show the first two (like, shuffle);
