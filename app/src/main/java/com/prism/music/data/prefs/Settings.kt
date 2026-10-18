@@ -245,6 +245,10 @@ data class AppSettings(
     val romanize: RomanizeMode = RomanizeMode.UNDER,
     /** Also scripts of the phone's own language (off: a Korean phone isn't shown Korean in Latin letters). */
     val romanizeAll: Boolean = false,
+    /** Sing gets songs ready (downloads them whole) on mobile data too. */
+    val singOnCellular: Boolean = false,
+    /** How much room Sing's separated vocals may take, in MB. */
+    val singCacheMb: Int = 1024,
     val lyricsScale: Float = 1f,
     /** Lyrics on Android Auto's player (the car's Lyrics button flips this too). */
     val carLyrics: Boolean = true,
@@ -459,6 +463,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsTranslateTo = stringPreferencesKey("lyrics_translate_to")
         val romanize = stringPreferencesKey("romanize_lyrics")
         val romanizeAll = booleanPreferencesKey("romanize_all")
+        val singOnCellular = booleanPreferencesKey("sing_cellular")
+        val singCacheMb = intPreferencesKey("sing_cache_mb")
         val lyricsScale = floatPreferencesKey("lyrics_scale")
         val carLyrics = booleanPreferencesKey("car_lyrics")
         val carLyricsStyle = stringPreferencesKey("car_lyrics_style")
@@ -617,6 +623,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsTranslateTo = p[K.lyricsTranslateTo] ?: d.lyricsTranslateTo,
             romanize = p.enum(K.romanize, d.romanize),
             romanizeAll = p[K.romanizeAll] ?: d.romanizeAll,
+            singOnCellular = p[K.singOnCellular] ?: d.singOnCellular,
+            singCacheMb = p[K.singCacheMb] ?: d.singCacheMb,
             lyricsScale = p[K.lyricsScale] ?: d.lyricsScale,
             carLyrics = p[K.carLyrics] ?: d.carLyrics,
             carLyricsStyle = p.enum(K.carLyricsStyle, d.carLyricsStyle),
@@ -801,6 +809,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setLyricsTranslateTo(v: String) = edit { it[K.lyricsTranslateTo] = v }
     fun setRomanize(v: RomanizeMode) = edit { it[K.romanize] = v.name }
     fun setRomanizeAll(v: Boolean) = edit { it[K.romanizeAll] = v }
+    fun setSingOnCellular(v: Boolean) = edit { it[K.singOnCellular] = v }
+    fun setSingCacheMb(v: Int) = edit { it[K.singCacheMb] = v }
     fun setLyricsScale(v: Float) = edit { it[K.lyricsScale] = v }
     fun setCarLyrics(v: Boolean) = edit { it[K.carLyrics] = v }
     fun setCarLyricsStyle(v: CarLyricsStyle) = edit { it[K.carLyricsStyle] = v.name }

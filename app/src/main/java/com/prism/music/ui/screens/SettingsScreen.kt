@@ -1176,6 +1176,43 @@ private fun JapaneseReadingData() {
 
 private fun formatMb(bytes: Long) = "%.0f MB".format(bytes / 1_048_576.0)
 
+/** Settings → Lyrics → Sing: its download, mobile data, and the room its songs' separated vocals take. */
+@Composable
+private fun SingSettings() {
+    val c = LocalContainer.current
+    val s = LocalAppSettings.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val states by c.models.states.collectAsState()
+    val runtime = com.prism.music.data.ModelStore.Model.singRuntime()
+    val model = com.prism.music.data.ModelStore.Model.SING_MODEL
+    var used by remember { mutableStateOf(c.sing.store.bytes()) }
+    Group("Sing") {
+        if (runtime == null) {
+            Note("Sing doesn't run on this phone's kind of processor.")
+            return@Group
+        }
+        val ready = states[runtime] == com.prism.music.data.ModelStore.State.Ready && states[model] == com.prism.music.data.ModelStore.State.Ready
+        val downloading = listOf(runtime, model).mapNotNull { states[it] as? com.prism.music.data.ModelStore.State.Downloading }.firstOrNull()
+        Item(
+            "Sing's voice separation",
+            when {
+                ready -> "On this phone (${formatMb(c.models.sizeOnPhone(runtime) + c.models.sizeOnPhone(model))}). Tap to remove it"
+                downloading != null -> "Downloading… ${(downloading.fraction * 100).toInt()}%"
+                else -> "Separates songs' voices on your phone, for karaoke. ${(runtime.bytes + model.bytes) / 1_000_000} MB, downloaded once"
+            },
+            onClick = {
+                if (ready) { c.sing.setOn(false); c.models.delete(runtime); c.models.delete(model) }
+                else if (downloading == null) scope.launch { c.sing.downloadEngine() }
+            },
+        )
+        Toggle("Get songs ready on mobile data", "Sing needs each song whole on the phone (a few MB). Off, it waits for Wi-Fi unless the song is downloaded or already played through", s.singOnCellular) { c.settings.setSingOnCellular(it) }
+        SliderSetting("Room for sung songs", s.singCacheMb.toFloat(), 256f..4096f, { "${(it / 1024f).let { gb -> if (gb >= 1) "%.1f GB".format(gb) else "${it.roundToInt()} MB" }}" }, steps = 14) {
+            c.settings.setSingCacheMb(it.roundToInt())
+        }
+        Item("Clear sung songs", "Using ${formatMb(used)}. Songs are worked out again when you next sing them", onClick = { c.sing.store.clear(); used = 0 })
+    }
+}
+
 @Composable
 private fun LyricsSettings() {
     val s = LocalAppSettings.current
@@ -1206,6 +1243,7 @@ private fun LyricsSettings() {
             Chips(LyricsAlign.entries, s.lyricsAlign, { it.label }) { prefs.setLyricsAlign(it) }
             SliderSetting("Text size", s.lyricsScale, 0.75f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsScale(it) }
         }
+        SingSettings()
         Group("Sources") {
             Toggle("Prefer karaoke & synced lyrics", "Karaoke lyrics (lit up word by word) first, from any source that has them, then time-synced lines, then plain text", s.preferSynced) { prefs.setPreferSynced(it) }
             Toggle("Uncensor lyrics", "Fill starred-out swear words (f**k) back in from Genius, keeping word timings, and pass over a source that still stars them out", s.skipCensored) { prefs.setSkipCensored(it) }

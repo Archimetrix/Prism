@@ -40,6 +40,7 @@ fun PlayerOptionsSheet(
     onCollapse: () -> Unit,
     /** The lyrics have lines in a script other than Latin letters: romanizing them is offered. */
     romanizable: Boolean = false,
+    onSing: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val c = LocalContainer.current
@@ -103,6 +104,7 @@ fun PlayerOptionsSheet(
     }
     val translating = c.settings.flow.collectAsState().value.lyricsTranslate
     val lyrics = listOf(
+        ActionItem(PrismIcons.Mic, "Sing", value = if (c.sing.on.collectAsState().value) "On" else null, active = c.sing.on.collectAsState().value, onClick = onSing),
         ActionItem(PrismIcons.Lyrics, "Lyrics source", onClick = onLyricsSource),
         ActionItem(PrismIcons.Timer, "Lyrics timing", onClick = onLyricsTiming),
         ActionItem(

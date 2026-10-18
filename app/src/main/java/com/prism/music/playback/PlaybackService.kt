@@ -74,6 +74,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     lateinit var effects: AudioEffects
         private set
     /** Headphone correction (AutoEq): first, so the spatializer and the limiter work on the corrected sound. */
+    /** Sing: the song's vocals taken out as it plays (first, on the music as it came from the decoder). */
+    private val vocals by lazy { com.prism.music.playback.sing.VocalStemProcessor(c.sing) }
     private val headphoneEq = ParametricEqProcessor()
     private val spatial = SpatialAudioProcessor()
     private val normalizer = NormalizerProcessor()
@@ -111,7 +113,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput || c.settings.current.lossless)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(headphoneEq, spatial, normalizer))
+                    .setAudioProcessors(arrayOf(vocals, headphoneEq, spatial, normalizer))
                     .build()
 
             override fun buildAudioRenderers(
@@ -209,6 +211,14 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             }
         }
         scope.launch { c.library.likedIds.collect { updateButtons() } }
+        // Sing: getting the playing and next songs ready, and the key moved for the singer.
+        scope.launch {
+            kotlinx.coroutines.flow.combine(c.sing.on, c.sing.semitones) { on, st -> on to st }.collect { (on, st) ->
+                val pitch = if (on) Math.pow(2.0, st / 12.0).toFloat() else 1f
+                if (player.playbackParameters.pitch != pitch) player.playbackParameters = androidx.media3.common.PlaybackParameters(player.playbackParameters.speed, pitch)
+                if (on) singAhead()
+            }
+        }
         scope.launch {
             c.settings.flow.map { Triple(it.carLyrics, it.carLyricsStyle, it.carLyricsOnPhone) }.distinctUntilChanged().collect {
                 carLyrics.refresh(); updateButtons()
@@ -260,6 +270,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (a.isLive || b.isLive || from.videoModeId != null || to.videoModeId != null) return false
         // Talk doesn't blend.
         if (a.isEpisode || b.isEpisode) return false
+        // Singing along: each song plays whole, with its own vocals taken out.
+        if (c.sing.onNow) return false
         if (c.queue.followingHost || c.together.state.value !is com.prism.music.playback.together.TogetherState.Idle) return false
         // Only while an album plays through (a radio or playlist that puts two of an album's songs side by side blends).
         val album = a.album?.id
@@ -412,6 +424,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         c.streamDetails[song.id]?.let { applyStreamStats(song.id) }
         scope.launch(Dispatchers.IO) { c.library.recordPlayed(song) }
         scope.launch { c.bestParts.onSongStarted(song) }
+        singAhead()
         loadExtras(song)
         // Audio only (the Song / Video switch is off): nothing plays as its video, whatever lined it up (#48).
         // Posted: swapping the item from inside this callback would report its transition after the swap was over.
@@ -496,12 +509,16 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+        vocals.shuffle = shuffleModeEnabled
         updateButtons()
         // Shuffling picks a different next song.
         prefetchNext()
     }
 
-    override fun onRepeatModeChanged(repeatMode: Int) = updateButtons()
+    override fun onRepeatModeChanged(repeatMode: Int) {
+        vocals.repeatMode = repeatMode
+        updateButtons()
+    }
 
     override fun onAudioSessionIdChanged(audioSessionId: Int) {
         effects.attach(audioSessionId)
@@ -1015,8 +1032,16 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         }
     }
 
+    /** Sing on: the playing song's vocals first, then the next song's, so it's ready when it starts. */
+    private fun singAhead() {
+        if (!c.sing.onNow) return
+        val songs = listOfNotNull(player.currentMediaItem, *upcoming(1).toTypedArray()).filter { it.videoModeId == null }.mapNotNull { it.toSong() }
+        c.sing.prepare(songs)
+    }
+
     /** What a play of [item] is counted as (play_events.source): the kind of queue it's in. */
-    private fun sourceOf(@Suppress("UNUSED_PARAMETER") item: MediaItem): String = c.queue.source.value.kind.name.lowercase()
+    private fun sourceOf(@Suppress("UNUSED_PARAMETER") item: MediaItem): String =
+        if (c.sing.onNow) "sing" else c.queue.source.value.kind.name.lowercase()
 
     /**
      * Buttons beside play/pause/skip. The phone's media controls show the first two (like, shuffle);

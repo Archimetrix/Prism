@@ -16,6 +16,8 @@ enum class Script {
                 cp in 0x1E00..0x1EFF -> LATIN
                 cp in 0xAC00..0xD7A3 || cp in 0x1100..0x11FF || cp in 0x3130..0x318F -> HANGUL
                 cp in 0x3040..0x30FF || cp in 0x31F0..0x31FF || cp in 0xFF66..0xFF9F -> KANA
+                // 々 (repeat the kanji before: 日々), 〆 and 〻 aren't "ideographs" to Unicode, but they're kanji in use.
+                cp == 0x3005 || cp == 0x3006 || cp == 0x303B -> HAN
                 Character.isIdeographic(cp) || cp in 0x3400..0x4DBF || cp in 0x4E00..0x9FFF || cp in 0xF900..0xFAFF -> HAN
                 cp in 0x0400..0x052F -> CYRILLIC
                 cp in 0x0370..0x03FF || cp in 0x1F00..0x1FFF -> GREEK

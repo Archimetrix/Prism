@@ -467,6 +467,23 @@ object PrismIcons {
     val Star = icon("Star") { line(d = star) }
     val StarFilled = icon("StarFilled") { solid(d = star); line(1.2f, d = star) }
 
+    /** A stage microphone: Sing. */
+    private val mic: PathBuilder.() -> Unit = {
+        roundRect(8.5f, 2.8f, 15.5f, 14.2f, 3.5f)
+    }
+    val Mic = icon("Mic") {
+        line(d = mic)
+        line { moveTo(5.5f, 11f); quadTo(5.5f, 17.5f, 12f, 17.5f); quadTo(18.5f, 17.5f, 18.5f, 11f) }
+        line { moveTo(12f, 17.5f); lineTo(12f, 21f) }
+        line { moveTo(8.5f, 21f); lineTo(15.5f, 21f) }
+    }
+    val MicFilled = icon("MicFilled") {
+        solid(d = mic)
+        line { moveTo(5.5f, 11f); quadTo(5.5f, 17.5f, 12f, 17.5f); quadTo(18.5f, 17.5f, 18.5f, 11f) }
+        line { moveTo(12f, 17.5f); lineTo(12f, 21f) }
+        line { moveTo(8.5f, 21f); lineTo(15.5f, 21f) }
+    }
+
     /** A letter A with a line under it: lyrics spelled in Latin letters. */
     val Romanize = icon("Romanize") {
         line { moveTo(5f, 17f); lineTo(10f, 4.5f); lineTo(15f, 17f) }

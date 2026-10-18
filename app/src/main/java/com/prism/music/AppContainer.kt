@@ -129,7 +129,7 @@ class AppContainer(val app: Application) {
      * Where a song's audio is on the phone, for scanning it without the network: a local file as it is; a download or
      * a song cached whole, copied out of its cache into [scratch]. Null when it isn't all here.
      */
-    private fun audioOnPhone(id: String, scratch: File): android.net.Uri? {
+    internal fun audioOnPhone(id: String, scratch: File): android.net.Uri? {
         if (id.startsWith(com.prism.music.data.model.Song.LOCAL_PREFIX)) return localMusic.uriFor(id)
         for (cache in listOf(downloadCache, playerCache)) {
             if (!cache.fullyCached(id, 0, C.LENGTH_UNSET.toLong())) continue
@@ -241,6 +241,9 @@ class AppContainer(val app: Application) {
             (player.isPlaying.value && android.os.SystemClock.elapsedRealtime() - songStartedAt < 20_000)
         ) kotlinx.coroutines.delay(2_000)
     }
+
+    /** Sing: karaoke with the song's own backing (vocals separated on the phone). */
+    val sing by lazy { com.prism.music.playback.sing.Sing(this) }
 
     /** Headphone correction (AutoEq profiles per headphones). */
     val headphoneEq by lazy { com.prism.music.data.HeadphoneEq(app, http, scope, player.preferredOutput) }

@@ -43,6 +43,10 @@ class RomanizeTest {
         assertEquals("sono hitokoto de subete ga wakatta", ja.romanize("その一言で全てが分かった"))
         assertEquals("futari dake no sora ga hirogaru yoru ni", ja.romanize("二人だけの空が広がる夜に"))
         assertEquals("kasanatte ita", ja.romanize("重なっていた"))
+        // 々 counts as a kanji, so the line stays with the reader rather than going to Google.
+        assertEquals(setOf(com.prism.music.data.lyrics.roman.Script.HAN, com.prism.music.data.lyrics.roman.Script.KANA),
+            com.prism.music.data.lyrics.roman.Script.foreignIn("騒がしい日々に"))
+        assertEquals("sawagashii hibi ni", ja.romanize("騒がしい日々に"))
         // Latin words in a Japanese line stay as written.
         assertEquals("I love you to iu", ja.romanize("I love youという").replace("toiu", "to iu"))
         // One piece per character: a word's reading on its first character.

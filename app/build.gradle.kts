@@ -80,6 +80,11 @@ android {
     }
 
     packaging {
+        // ONNX Runtime's engine (13+ MB per CPU type) comes with Sing's download (ModelStore.Model.SING_RUNTIME_*), not
+        // in the APK. Its small Java bridge (~120 KB) stays: Android only finds that one in the APK (it has no soname).
+        jniLibs {
+            excludes += setOf("**/libonnxruntime.so")
+        }
         resources {
             excludes += setOf(
                 "/META-INF/{AL2.0,LGPL2.1}",
@@ -148,6 +153,11 @@ dependencies {
     // Japanese lyrics' kanji readings for romanization (Apache-2.0). Its 13 MB dictionary isn't packed into the APK
     // (see packaging below): it's downloaded on first use (ModelStore). Tests read it from the jar.
     implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
+    // Sing's vocal separation (Spleeter) runs on ONNX Runtime (MIT). Its native libraries (13+ MB per CPU type) aren't
+    // packed into the APK (see packaging below): they're downloaded with Sing's model on first use (ModelStore).
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.0")
+    // On the PC, tests run the same models with ONNX Runtime's desktop build.
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.31.0")
 
     implementation("dev.chrisbanes.haze:haze:2.0.1")
     implementation("dev.chrisbanes.haze:haze-blur:2.0.1")
@@ -156,6 +166,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Renders the backgrounds to PNGs on the PC (BackdropRenderTest), with Robolectric's real graphics.
     testImplementation("org.robolectric:robolectric:4.14.1")
+}
+
+// The tests use ONNX Runtime's desktop build (with its PC libraries); the Android one's classes would clash with it.
+configurations.matching { it.name.endsWith("UnitTestRuntimeClasspath") }.configureEach {
+    exclude(group = "com.microsoft.onnxruntime", module = "onnxruntime-android")
 }
 
 tasks.withType<Test>().configureEach {

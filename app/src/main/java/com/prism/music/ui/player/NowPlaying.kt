@@ -179,13 +179,14 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var showActions by remember { mutableStateOf(false) }
     var showSleep by remember { mutableStateOf(false) }
     var showTiming by remember { mutableStateOf(false) }
+    var showSing by remember { mutableStateOf(false) }
     var fullscreenVideo by rememberSaveable { mutableStateOf(false) }
     var videoFill by rememberSaveable { mutableStateOf(true) }
 
     // A sheet over the player (⋯, lyrics source, sleep timer): what moves underneath it every frame (the animated
     // cover, the word sweep, the title marquee) holds still, since both windows draw on the same thread and dragging
     // the sheet stuttered. The timing sheet isn't counted: the lyrics are what's being lined up there.
-    val covered = showActions || showProviders || showSleep
+    val covered = showActions || showProviders || showSleep || showSing
     val lyricsState = rememberLyricsState(song)
     // With the lyrics in, the best part can start where a line does (or come from the chorus, without a heat curve).
     LaunchedEffect(song.id, lyricsState.lyrics) { if (lyricsState.lyrics?.synced == true) c.bestParts.refine(song) }
@@ -339,9 +340,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onSleepTimer = { showSleep = true },
             onCollapse = onCollapse,
             romanizable = hasForeignScript(lyricsState),
+            onSing = { showSing = true },
         ) { showActions = false }
         if (showSleep) SleepTimerDialog { showSleep = false }
         if (showTiming) LyricsTimingSheet { showTiming = false }
+        if (showSing) SingSheet(song) { showSing = false }
     }
 
     // ------------------------------------------------ Immersive mode (⋯ menu): the cover fills the screen, lyrics over it
@@ -493,6 +496,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onMore = { showActions = true },
             onLyricsSource = { showProviders = true },
             onCollapse = onCollapse,
+            onSing = { showSing = true },
         ) else
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().then(skipGesture), horizontalAlignment = Alignment.CenterHorizontally) {
             // ------------------------------------------------ Handle + caption
@@ -699,7 +703,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     exit = shrinkVertically(tween(420, easing = FastOutSlowInEasing), shrinkTowards = Alignment.Top) + fadeOut(tween(300)),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (lyricsOpen) LyricsStatusWithChange(lyricsState) { showProviders = true }
+                        // With the lyrics open: where they're from, and Sing beside it.
+                        if (lyricsOpen) Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.weight(1f)) { LyricsStatusWithChange(lyricsState) { showProviders = true } }
+                            if (c.sing.canSing(song)) SingButton(song) { showSing = true }
+                        }
                         else if (settings.lyricsOnPlayer) CurrentLyricStrip(lyricsState, isPlaying && !covered, openLyrics)
                         // With "Current lyric" off no blank line is kept for it: the cover and title get the room.
                         PlayerScrubber(position, pc.duration) {
