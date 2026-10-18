@@ -115,6 +115,8 @@ enum class ImmersiveLyrics(val label: String) { HIGH("High"), MIDDLE("Middle"), 
 enum class ImmersiveArt(val label: String, val zoom: Float) { FILL("Fill the screen", 1f), ZOOMED("Zoomed out", 0.4f), WHOLE("Whole cover", 0f) }
 enum class ScrubberStyle(val label: String) { HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb") }
 enum class LyricsAlign(val label: String) { START("Left"), CENTER("Centre") }
+/** Lyrics in a script the listener can't read, in Latin letters too: under each line, or in its place. */
+enum class RomanizeMode(val label: String) { OFF("Off"), UNDER("Under each line"), INSTEAD("Instead") }
 enum class LibraryView(val label: String) { GRID("Grid"), LIST("List") }
 
 @Serializable
@@ -239,6 +241,10 @@ data class AppSettings(
     val lyricsTranslate: Boolean = false,
     /** Language code to translate lyrics into; blank means the phone's language. */
     val lyricsTranslateTo: String = "",
+    /** Romanized lyrics (Lyrics → Display). */
+    val romanize: RomanizeMode = RomanizeMode.UNDER,
+    /** Also scripts of the phone's own language (off: a Korean phone isn't shown Korean in Latin letters). */
+    val romanizeAll: Boolean = false,
     val lyricsScale: Float = 1f,
     /** Lyrics on Android Auto's player (the car's Lyrics button flips this too). */
     val carLyrics: Boolean = true,
@@ -451,6 +457,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val skipCensored = booleanPreferencesKey("skip_censored")
         val lyricsTranslate = booleanPreferencesKey("lyrics_translate")
         val lyricsTranslateTo = stringPreferencesKey("lyrics_translate_to")
+        val romanize = stringPreferencesKey("romanize_lyrics")
+        val romanizeAll = booleanPreferencesKey("romanize_all")
         val lyricsScale = floatPreferencesKey("lyrics_scale")
         val carLyrics = booleanPreferencesKey("car_lyrics")
         val carLyricsStyle = stringPreferencesKey("car_lyrics_style")
@@ -607,6 +615,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             skipCensored = p[K.skipCensored] ?: d.skipCensored,
             lyricsTranslate = p[K.lyricsTranslate] ?: d.lyricsTranslate,
             lyricsTranslateTo = p[K.lyricsTranslateTo] ?: d.lyricsTranslateTo,
+            romanize = p.enum(K.romanize, d.romanize),
+            romanizeAll = p[K.romanizeAll] ?: d.romanizeAll,
             lyricsScale = p[K.lyricsScale] ?: d.lyricsScale,
             carLyrics = p[K.carLyrics] ?: d.carLyrics,
             carLyricsStyle = p.enum(K.carLyricsStyle, d.carLyricsStyle),
@@ -789,6 +799,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setSkipCensored(v: Boolean) = edit { it[K.skipCensored] = v }
     fun setLyricsTranslate(v: Boolean) = edit { it[K.lyricsTranslate] = v }
     fun setLyricsTranslateTo(v: String) = edit { it[K.lyricsTranslateTo] = v }
+    fun setRomanize(v: RomanizeMode) = edit { it[K.romanize] = v.name }
+    fun setRomanizeAll(v: Boolean) = edit { it[K.romanizeAll] = v }
     fun setLyricsScale(v: Float) = edit { it[K.lyricsScale] = v }
     fun setCarLyrics(v: Boolean) = edit { it[K.carLyrics] = v }
     fun setCarLyricsStyle(v: CarLyricsStyle) = edit { it[K.carLyricsStyle] = v.name }

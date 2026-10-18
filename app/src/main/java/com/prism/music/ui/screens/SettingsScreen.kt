@@ -1151,6 +1151,31 @@ private val TRANSLATE_LANGUAGES = listOf(
     "tl" to "Filipino", "ja" to "Japanese", "ko" to "Korean", "zh-CN" to "Chinese (Simplified)", "zh-TW" to "Chinese (Traditional)",
 )
 
+/** Kuromoji's dictionary, for Japanese lyrics' kanji: download, progress, or remove. */
+@Composable
+private fun JapaneseReadingData() {
+    val c = LocalContainer.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val states by c.models.states.collectAsState()
+    val m = com.prism.music.data.ModelStore.Model.JAPANESE
+    val state = states[m]
+    val subtitle = when (state) {
+        com.prism.music.data.ModelStore.State.Ready -> "On this phone (${formatMb(c.models.sizeOnPhone(m))}). Tap to remove it"
+        is com.prism.music.data.ModelStore.State.Downloading -> "Downloading… ${(state.fraction * 100).toInt()}%"
+        is com.prism.music.data.ModelStore.State.Failed -> "Couldn't download it (${state.message}). Tap to try again"
+        else -> "Readings for kanji, for proper romaji (\"kimi no na wa\"). 13 MB, downloaded once. Without it, Google spells kanji out"
+    }
+    Item("Japanese reading data", subtitle, onClick = {
+        when (state) {
+            com.prism.music.data.ModelStore.State.Ready -> c.models.delete(m)
+            is com.prism.music.data.ModelStore.State.Downloading -> {}
+            else -> scope.launch { c.models.download(m) }
+        }
+    })
+}
+
+private fun formatMb(bytes: Long) = "%.0f MB".format(bytes / 1_048_576.0)
+
 @Composable
 private fun LyricsSettings() {
     val s = LocalAppSettings.current
@@ -1168,6 +1193,15 @@ private fun LyricsSettings() {
                 Chips(TRANSLATE_LANGUAGES.map { it.first }, s.lyricsTranslateTo.takeIf { code -> TRANSLATE_LANGUAGES.any { it.first == code } } ?: "",
                     { code -> TRANSLATE_LANGUAGES.first { it.first == code }.second }) { prefs.setLyricsTranslateTo(it) }
             }
+            Label("Romanize lyrics")
+            Note("Korean, Japanese, Chinese, Arabic, Hindi, Russian and other scripts in Latin letters, so you can sing along. Korean, Japanese, Russian and Greek are spelled out on the phone (word by word with karaoke); the rest by Google Translate (only the lyrics' text is sent). Turn it on or off for one song from the player's ⋯ menu.")
+            Chips(com.prism.music.data.prefs.RomanizeMode.entries, s.romanize, { it.label }) { prefs.setRomanize(it) }
+            if (s.romanize != com.prism.music.data.prefs.RomanizeMode.OFF) Toggle(
+                "Romanize my own language too",
+                "Off, lyrics in your phone's language (${java.util.Locale.getDefault().displayLanguage}) stay as they are",
+                s.romanizeAll,
+            ) { prefs.setRomanizeAll(it) }
+            JapaneseReadingData()
             Label("Alignment")
             Chips(LyricsAlign.entries, s.lyricsAlign, { it.label }) { prefs.setLyricsAlign(it) }
             SliderSetting("Text size", s.lyricsScale, 0.75f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsScale(it) }

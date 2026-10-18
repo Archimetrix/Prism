@@ -108,6 +108,14 @@ data class HeatmapEntity(
     val fetchedAt: Long,
 )
 
+/** A song's lyrics in Latin letters ([com.prism.music.data.lyrics.Romanizer]), keyed by song, lyrics and engine. */
+@Entity(tableName = "romanized")
+data class RomanizedEntity(
+    @PrimaryKey val key: String,
+    val content: String,
+    val fetchedAt: Long,
+)
+
 data class SongPlays(
     val songId: String,
     val plays: Int,
@@ -283,9 +291,19 @@ interface HeatmapDao {
     suspend fun put(e: HeatmapEntity)
 }
 
+@Dao
+interface RomanizedDao {
+    @Query("SELECT * FROM romanized WHERE `key` = :key")
+    suspend fun get(key: String): RomanizedEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(e: RomanizedEntity)
+}
+
 @Database(
-    entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class],
-    version = 3,
+    entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class,
+        RomanizedEntity::class],
+    version = 4,
     exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
@@ -294,6 +312,7 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun lyrics(): LyricsDao
     abstract fun meta(): MetaDao
     abstract fun heatmaps(): HeatmapDao
+    abstract fun romanized(): RomanizedDao
 
     companion object {
         /**
@@ -310,6 +329,11 @@ abstract class PrismDatabase : RoomDatabase() {
             object : Migration(2, 3) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("CREATE TABLE IF NOT EXISTS `heatmaps` (`videoId` TEXT NOT NULL, `segmentMs` INTEGER NOT NULL, `intensity` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`videoId`))")
+                }
+            },
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `romanized` (`key` TEXT NOT NULL, `content` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))")
                 }
             },
         )

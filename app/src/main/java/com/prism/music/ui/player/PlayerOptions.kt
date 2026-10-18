@@ -38,6 +38,8 @@ fun PlayerOptionsSheet(
     onToggleStats: () -> Unit,
     onSleepTimer: () -> Unit,
     onCollapse: () -> Unit,
+    /** The lyrics have lines in a script other than Latin letters: romanizing them is offered. */
+    romanizable: Boolean = false,
     onDismiss: () -> Unit,
 ) {
     val c = LocalContainer.current
@@ -108,6 +110,13 @@ fun PlayerOptionsSheet(
         ) { c.settings.setLyricsTranslate(!translating) },
         ActionItem(PrismIcons.Refresh, "Download lyrics again") { onRedownloadLyrics(); toast("Downloading lyrics again") },
     ) + listOfNotNull(
+        // This song in Latin letters, or not (whatever Settings → Lyrics says for songs in general).
+        if (!romanizable) null else {
+            val romanOn = romanizeMode(song.id) != com.prism.music.data.prefs.RomanizeMode.OFF
+            ActionItem(PrismIcons.Romanize, "Romanize lyrics", value = if (romanOn) "On" else "Off", active = romanOn, keepOpen = true) {
+                c.romanizer.setOverride(song.id, !romanOn)
+            }
+        },
         // Into your own FLAC / MP3 file, for other players (#16).
         if (song.isLocal || c.downloads.downloads.value[song.id]?.lossless == true)
             ActionItem(PrismIcons.Download, "Save lyrics into the file") { c.lyricsToFiles.request(listOf(song)) } else null,

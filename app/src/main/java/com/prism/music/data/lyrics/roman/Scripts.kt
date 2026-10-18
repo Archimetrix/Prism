@@ -86,18 +86,17 @@ object Cyrillic {
     )
     private val vowels = "аеёиоуыэюяіїє".toSet()
 
-    fun romanize(text: String): String {
-        val out = StringBuilder()
-        for ((i, ch) in text.withIndex()) {
-            val lower = ch.lowercaseChar()
-            val prev = text.getOrNull(i - 1)?.lowercaseChar()
-            var r = map[lower] ?: run { out.append(ch); null } ?: continue
-            // "е" is "ye" at the start of a word and after a vowel or a hard/soft sign, as it sounds.
-            if (lower == 'е' && (prev == null || !prev.isLetter() || prev in vowels || prev == 'ъ' || prev == 'ь')) r = "ye"
-            out.append(if (ch.isUpperCase() && r.isNotEmpty()) r.replaceFirstChar { it.uppercaseChar() } else r)
-        }
-        return out.toString()
+    /** Each character of [text] spelled out; anything that isn't Cyrillic stays as it is. */
+    fun pieces(text: String): List<String> = text.mapIndexed { i, ch ->
+        val lower = ch.lowercaseChar()
+        val prev = text.getOrNull(i - 1)?.lowercaseChar()
+        var r = map[lower] ?: return@mapIndexed ch.toString()
+        // "е" is "ye" at the start of a word and after a vowel or a hard/soft sign, as it sounds.
+        if (lower == 'е' && (prev == null || !prev.isLetter() || prev in vowels || prev == 'ъ' || prev == 'ь')) r = "ye"
+        if (ch.isUpperCase() && r.isNotEmpty()) r.replaceFirstChar { it.uppercaseChar() } else r
     }
+
+    fun romanize(text: String): String = pieces(text).joinToString("")
 }
 
 /** Greek in Latin letters (after ELOT 743, simplified): "Σ' αγαπώ" → "S' agapo". */
@@ -110,19 +109,25 @@ object Greek {
         'ς' to "s", 'τ' to "t", 'υ' to "y", 'φ' to "f", 'χ' to "ch", 'ψ' to "ps", 'ω' to "o",
     )
 
-    fun romanize(text: String): String {
-        val plain = Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
-        val out = StringBuilder()
+    /** Each character of [text] spelled out (a letter pair's spelling on its first letter); the rest as it is. */
+    fun pieces(text: String): List<String> {
+        val out = MutableList(text.length) { text[it].toString() }
+        // Accents come off letter by letter, so the pieces stay lined up with [text].
+        val plain = text.map { Normalizer.normalize(it.toString(), Normalizer.Form.NFD).firstOrNull() ?: it }.joinToString("")
         var i = 0
         while (i < plain.length) {
             val ch = plain[i]
             val two = plain.substring(i, minOf(i + 2, plain.length)).lowercase()
             val pair = pairs.firstOrNull { it.first == two }
             val r = pair?.second ?: map[ch.lowercaseChar()]
-            if (r == null) { out.append(ch); i++; continue }
-            out.append(if (ch.isUpperCase()) r.replaceFirstChar { it.uppercaseChar() } else r)
-            i += if (pair != null) 2 else 1
+            if (r == null) { i++; continue }
+            out[i] = if (ch.isUpperCase()) r.replaceFirstChar { it.uppercaseChar() } else r
+            if (pair != null) { out[i + 1] = ""; i += 2 } else i++
         }
-        return out.toString()
+        // Greek combining accents (written as separate marks) take no room.
+        for (k in out.indices) if (Character.getType(text[k]) == Character.NON_SPACING_MARK.toInt()) out[k] = ""
+        return out
     }
+
+    fun romanize(text: String): String = pieces(text).joinToString("")
 }

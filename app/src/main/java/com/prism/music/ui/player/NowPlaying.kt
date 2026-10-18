@@ -244,7 +244,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     BackHandler {
         when {
             fullscreenVideo -> fullscreenVideo = false
-            lyricsOpen -> closeLyrics()
+            // A wide player always shows its lyrics pane: "open" (left from portrait) isn't something Back undoes there.
+            lyricsOpen && !wide -> closeLyrics()
             queueOpen -> queueOpen = false
             statsOpen -> statsOpen = false
             else -> slideClosed()
@@ -337,6 +338,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onToggleStats = { toggleStats() },
             onSleepTimer = { showSleep = true },
             onCollapse = onCollapse,
+            romanizable = hasForeignScript(lyricsState),
         ) { showActions = false }
         if (showSleep) SleepTimerDialog { showSleep = false }
         if (showTiming) LyricsTimingSheet { showTiming = false }

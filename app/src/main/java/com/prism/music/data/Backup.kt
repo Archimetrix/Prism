@@ -76,7 +76,8 @@ class Backup(private val c: AppContainer) {
         }
         File(data, "datastore").walkTopDown().filter { it.isFile }.forEach { keep += it }
         ctx.filesDir.walkTopDown()
-            .onEnter { dir -> dir == ctx.filesDir || dir.relativeTo(ctx.filesDir).invariantSeparatorsPath.substringBefore('/').let { top -> top != STAGING && (withDownloads || top !in MEDIA) } }
+            // Downloaded data files (models/) can always be downloaded again: never in a backup.
+            .onEnter { dir -> dir == ctx.filesDir || dir.relativeTo(ctx.filesDir).invariantSeparatorsPath.substringBefore('/').let { top -> top != STAGING && top != "models" && (withDownloads || top !in MEDIA) } }
             .filter { it.isFile }
             .forEach { keep += it }
         return keep

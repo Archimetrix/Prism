@@ -199,6 +199,12 @@ class AppContainer(val app: Application) {
     // background thread before this property is assigned.
     init { losslessSync.start() }
     val taste = com.prism.music.data.TasteRepository(this)
+    /** Big data files downloaded on first use (the Japanese reading dictionary, Sing's model). */
+    val models = com.prism.music.data.ModelStore(app, http)
+    /** Lyrics in Latin letters (Korean, Japanese, Chinese, Arabic, Hindi…). */
+    val romanizer = com.prism.music.data.lyrics.Romanizer(
+        http, db.romanized(), models, scope, app.getSharedPreferences("romanize_songs", android.content.Context.MODE_PRIVATE),
+    )
     /** Songs' best parts, from YouTube's "Most replayed" curves (and the chorus in the lyrics). */
     val bestParts = com.prism.music.data.BestParts(this)
 

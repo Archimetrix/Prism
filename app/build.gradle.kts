@@ -86,8 +86,11 @@ android {
                 "META-INF/DEPENDENCIES",
                 "META-INF/LICENSE*",
                 "META-INF/NOTICE*",
+                "META-INF/CONTRIBUTORS.md",
                 "META-INF/*.kotlin_module",
                 "mozilla/public-suffix-list.txt",
+                // Kuromoji's dictionary: downloaded when Japanese lyrics are first romanized (ModelStore.Model.JAPANESE).
+                "com/atilika/kuromoji/ipadic/*.bin",
             )
         }
     }
@@ -142,6 +145,9 @@ dependencies {
     // Runs yt-dlp's EJS solver (assets/ejs) on WebView's V8 to decipher signed-in stream URLs.
     implementation("androidx.javascriptengine:javascriptengine:1.1.1")
     implementation("org.jsoup:jsoup:1.23.2")
+    // Japanese lyrics' kanji readings for romanization (Apache-2.0). Its 13 MB dictionary isn't packed into the APK
+    // (see packaging below): it's downloaded on first use (ModelStore). Tests read it from the jar.
+    implementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
 
     implementation("dev.chrisbanes.haze:haze:2.0.1")
     implementation("dev.chrisbanes.haze:haze-blur:2.0.1")

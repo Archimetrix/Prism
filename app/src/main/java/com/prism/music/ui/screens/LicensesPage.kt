@@ -43,6 +43,9 @@ private val libraries = listOf(
     Library("Guava, Error Prone annotations, J2ObjC annotations, JSR 305, JSpecify", "Google and others", "Apache 2.0", "apache-2.0", "https://github.com/google/guava"),
     Library("Protocol Buffers (lite)", "Google", "BSD 3-Clause", "protobuf", "https://github.com/protocolbuffers/protobuf"),
     Library("Checker Framework qualifiers", "Checker Framework developers", "MIT", "checker-qual", "https://checkerframework.org"),
+    Library("Kuromoji (Japanese readings for romanized lyrics)", "Atilika", "Apache 2.0", "apache-2.0", "https://github.com/atilika/kuromoji"),
+    Library("IPADIC (downloaded with Japanese reading data)", "Nara Institute of Science and Technology", "IPADIC license", "ipadic", "https://github.com/atilika/kuromoji"),
+    Library("Material 3 adaptive, AndroidX Window", "The Android Open Source Project", "Apache 2.0", "apache-2.0", "https://developer.android.com/jetpack/androidx"),
 )
 
 /** Settings → About → Open-source licenses: Prism's own license, then everything it ships with. */

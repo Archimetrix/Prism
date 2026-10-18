@@ -239,8 +239,13 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHeatHill(heat: 
     if (values.size < 2 || durationMs <= 0) return
     val base = size.height / 2 - trackPx / 2 - 1.dp.toPx()
     val top = 13.dp.toPx()
+    // Drawn over the curve's own range (most curves sit in a narrow band, which drew as a flat slab), with the
+    // opening's spike (everyone starts there) left out of it: it just reaches the top.
+    val lo = values.min()
+    val hi = values.drop(2).maxOrNull()?.takeIf { it - lo > 0.02f } ?: values.max()
+    val span = (hi - lo).coerceAtLeast(0.02f)
     fun x(i: Int) = ((i * heat.segmentMs + heat.segmentMs / 2).toFloat() / durationMs * size.width).coerceIn(0f, size.width)
-    fun y(i: Int) = base - top * values[i].coerceIn(0f, 1f)
+    fun y(i: Int) = base - top * (0.12f + 0.88f * ((values[i] - lo) / span).coerceIn(0f, 1f))
     val path = androidx.compose.ui.graphics.Path().apply {
         moveTo(0f, base)
         lineTo(x(0), y(0))

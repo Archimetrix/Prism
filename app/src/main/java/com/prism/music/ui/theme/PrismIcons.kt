@@ -467,6 +467,14 @@ object PrismIcons {
     val Star = icon("Star") { line(d = star) }
     val StarFilled = icon("StarFilled") { solid(d = star); line(1.2f, d = star) }
 
+    /** A letter A with a line under it: lyrics spelled in Latin letters. */
+    val Romanize = icon("Romanize") {
+        line { moveTo(5f, 17f); lineTo(10f, 4.5f); lineTo(15f, 17f) }
+        line { moveTo(7f, 12.5f); lineTo(13f, 12.5f) }
+        line { moveTo(4f, 20.5f); lineTo(20f, 20.5f) }
+        line { moveTo(17.5f, 8f); lineTo(20f, 10.5f); lineTo(17.5f, 13f) }
+    }
+
     /** A flame: the hot part of a song (its most replayed stretch). */
     private val flame: PathBuilder.() -> Unit = {
         moveTo(12f, 2.5f)

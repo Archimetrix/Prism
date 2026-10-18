@@ -310,7 +310,9 @@ fun ImmersivePlayer(
 /** What's sung now, big, with the next line small under it; the song's name before the first line and without lyrics. */
 @Composable
 private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: Alignment) {
-    val lines = state.lines
+    val roman = rememberRomanized(state)
+    val instead = romanizeMode(song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
+    val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
     val synced = lines.any { it.timeMs >= 0 }
     val lineStyle = MaterialTheme.typography.headlineMedium.copy(
         fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold,
@@ -343,6 +345,13 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
                 line == null -> Text("♪", style = lineStyle, color = Color.White.copy(alpha = 0.7f))
                 line.isWordSynced -> SweptLine(line, clock, lineStyle, Modifier.fillMaxWidth(), maxLines = 4, dimAlpha = 0.45f)
                 else -> Text(line.text, style = lineStyle, color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+            }
+            // Romanized "under each line": the Latin spelling, smaller, under the big line.
+            if (!instead && line != null) roman?.getOrNull(i)?.let { r ->
+                val romanStyle = lineStyle.copy(fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, textDirection = TextDirection.Ltr)
+                Spacer(Modifier.height(6.dp))
+                if (r.isWordSynced) SweptLine(r, clock, romanStyle, Modifier.fillMaxWidth(), maxLines = 3, dimAlpha = 0.45f)
+                else Text(r.text, style = romanStyle, color = Color.White.copy(alpha = 0.85f), maxLines = 3, modifier = Modifier.fillMaxWidth())
             }
             // The line to come, small and dim under it.
             next?.let { n ->
@@ -450,7 +459,9 @@ private fun HoldToLeaveButton(onTap: () -> Unit, onPressing: (Boolean) -> Unit, 
  */
 @Composable
 private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modifier: Modifier) {
-    val lines = state.lines
+    val roman = rememberRomanized(state)
+    val instead = romanizeMode(song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
+    val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
     if (lines.isEmpty() || lines.none { it.timeMs >= 0 }) {
         Box(modifier, contentAlignment = Alignment.Center) { TitleCard(song) }
         return
@@ -494,10 +505,17 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
                     Modifier.fillMaxWidth().padding(vertical = 9.dp).graphicsLayer { this.alpha = alpha; scaleX = scale; scaleY = scale },
                     contentAlignment = Alignment.Center,
                 ) {
-                    when {
-                        line.isGap -> Text("♪", style = style, color = Color.White)
-                        current && line.isWordSynced -> SweptLine(line, clock, style, Modifier.fillMaxWidth(), dimAlpha = 0.45f)
-                        else -> Text(line.text, style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
+                    Column(Modifier.fillMaxWidth()) {
+                        when {
+                            line.isGap -> Text("♪", style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
+                            current && line.isWordSynced -> SweptLine(line, clock, style, Modifier.fillMaxWidth(), dimAlpha = 0.45f)
+                            else -> Text(line.text, style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
+                        }
+                        if (!instead && !line.isGap) roman?.getOrNull(i)?.let { r ->
+                            val romanStyle = style.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, textDirection = TextDirection.Ltr)
+                            if (current && r.isWordSynced) SweptLine(r, clock, romanStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = 0.45f)
+                            else Text(r.text, style = romanStyle, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+                        }
                     }
                 }
             }

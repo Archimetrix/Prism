@@ -334,7 +334,10 @@ internal fun List<LyricLine>.activeAt(ms: Long): List<Int> {
 /** Current lyric, one line, directly above the scrubber. */
 @Composable
 fun CurrentLyricStrip(state: LyricsState, isPlaying: Boolean, onClick: () -> Unit) {
-    val lines = state.lines
+    // Romanized "instead": the strip sings the Latin spelling too (same timings).
+    val roman = rememberRomanized(state)
+    val instead = romanizeMode(state.song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
+    val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
     val synced = lines.any { it.timeMs >= 0 }
     Box(Modifier.fillMaxWidth().offset(y = 6.dp)) {
         when {
@@ -587,6 +590,9 @@ fun LyricsPanel(
             .onFailure { android.util.Log.w("PrismLyrics", "Couldn't translate the lyrics: $it") }.getOrNull()
     }
     val translations = translation?.takeUnless { it.sameLanguage }?.translations
+    // Lyrics in a script the listener can't read, in Latin letters: under each line, or in its place.
+    val roman = rememberRomanized(state)
+    val romanInstead = romanizeMode(state.song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
 
     if (lines.isEmpty()) {
         Box(modifier.pointerInput(Unit) { detectTapGestures { onRevealControls() } }, contentAlignment = Alignment.Center) {
@@ -639,9 +645,12 @@ fun LyricsPanel(
                 return@itemsIndexed
             }
             val centred = settings.lyricsAlign == com.prism.music.data.prefs.LyricsAlign.CENTER
+            val romanLine = roman?.getOrNull(index)
+            // "Instead": the line is sung in Latin letters (the original's timings kept).
+            val shown = if (romanInstead && romanLine != null) romanLine else line
             // Arabic, Hebrew and the like read right to left: such a line starts at the right (its direction comes from
             // its words; left unset, Compose laid every line out left to right, so Arabic sat on the left).
-            val rtl = remember(line) { isRtl(line.text) }
+            val rtl = remember(shown) { isRtl(shown.text) }
             val style = (if (synced) TextStyle(fontSize = (34 * scale).sp, lineHeight = (41 * scale).sp) else TextStyle(fontSize = (30 * scale).sp, lineHeight = (38 * scale).sp))
                 .copy(
                     fontWeight = FontWeight.ExtraBold,
@@ -668,13 +677,24 @@ fun LyricsPanel(
                 // Inactive lines sit back; the sung line is full white.
                 val lineAlpha = if (synced && !isActive) alpha * 0.55f else alpha
                 Column(Modifier.fillMaxWidth()) {
-                    if (isActive && line.isWordSynced) {
-                        SweptLine(line, clock, style, Modifier.fillMaxWidth())
+                    if (isActive && shown.isWordSynced) {
+                        SweptLine(shown, clock, style, Modifier.fillMaxWidth())
                     } else {
-                        Text(line.text, style = style, color = Color.White.copy(alpha = lineAlpha), modifier = Modifier.fillMaxWidth())
+                        Text(shown.text, style = style, color = Color.White.copy(alpha = lineAlpha), modifier = Modifier.fillMaxWidth())
+                    }
+                    // "Under each line": the line in Latin letters, smaller, lit word by word with it.
+                    if (!romanInstead && romanLine != null) {
+                        val romanStyle = style.copy(
+                            fontSize = style.fontSize * 0.56f, lineHeight = style.lineHeight * 0.62f, fontWeight = FontWeight.Bold,
+                            // Under a right-to-left line it keeps to that line's side.
+                            textAlign = if (rtl && !centred) TextAlign.End else style.textAlign,
+                            textDirection = androidx.compose.ui.text.style.TextDirection.Ltr,
+                        )
+                        if (isActive && romanLine.isWordSynced) SweptLine(romanLine, clock, romanStyle, Modifier.fillMaxWidth().padding(top = 4.dp), dimAlpha = UNSUNG_ALPHA * 0.9f)
+                        else Text(romanLine.text, style = romanStyle, color = Color.White.copy(alpha = if (isActive) 0.85f else lineAlpha * 0.8f), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                     }
                     // Background vocals, smaller under the line, lighting up word by word in their own time (#66).
-                    line.backgroundLine?.let { bg ->
+                    shown.backgroundLine?.let { bg ->
                         val bgStyle = style.copy(fontSize = style.fontSize * 0.6f, lineHeight = style.lineHeight * 0.64f, fontWeight = FontWeight.Bold)
                         if (isActive) SweptLine(bg, clock, bgStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = UNSUNG_ALPHA * 0.8f)
                         else Text(bg.text, style = bgStyle, color = Color.White.copy(alpha = lineAlpha * 0.75f), modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
@@ -696,6 +716,25 @@ fun LyricsPanel(
                 style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.4f),
                 modifier = Modifier.padding(top = 20.dp),
             )
+            // Japanese kanji were spelled out by Google (no reading data yet): offer the proper readings.
+            val needsJapanese by c.romanizer.needsJapanese.collectAsState()
+            val models by c.models.states.collectAsState()
+            val ja = models[com.prism.music.data.ModelStore.Model.JAPANESE]
+            if (roman != null && needsJapanese && ja != com.prism.music.data.ModelStore.State.Ready) {
+                val scope = rememberCoroutineScope()
+                Text(
+                    when (ja) {
+                        is com.prism.music.data.ModelStore.State.Downloading -> "Downloading Japanese reading data… ${(ja.fraction * 100).toInt()}%"
+                        is com.prism.music.data.ModelStore.State.Failed -> "Couldn't download the Japanese reading data. Tap to try again"
+                        else -> "Better romaji for Japanese: tap to download the reading data (13 MB)"
+                    },
+                    style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = ja !is com.prism.music.data.ModelStore.State.Downloading) {
+                            scope.launch { c.models.download(com.prism.music.data.ModelStore.Model.JAPANESE) }
+                        }.padding(vertical = 6.dp),
+                )
+            }
         }
     }
     // Full-screen lyrics: the bottom of the screen brings the controls back (tap or swipe up).

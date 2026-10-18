@@ -1,0 +1,118 @@
+package com.prism.music.data
+
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
+import java.io.IOException
+import java.security.MessageDigest
+import java.util.zip.ZipInputStream
+
+/**
+ * Big data files some features need, downloaded the first time they're used rather than carried in every APK:
+ * each one a zip attached to Prism's own GitHub release `models-v1`, checked against its SHA-256 before use, and kept
+ * in `filesDir/models` (left out of backups; it can always be downloaded again).
+ */
+class ModelStore(private val context: Context, private val http: OkHttpClient) {
+    enum class Model(val id: String, val file: String, val sha256: String, val bytes: Long, val title: String) {
+        /** Kuromoji's IPADIC dictionary (Apache-2.0 / IPADIC licence): readings for Japanese lyrics' kanji. */
+        JAPANESE(
+            "ja-ipadic", "ja-ipadic-0.9.0.zip",
+            "286c372433219548c20fed47f813a84b334a68a7eb694787369789d8008f0b2a", 13_331_021, "Japanese reading data",
+        ),
+    }
+
+    sealed interface State {
+        data object Missing : State
+        data class Downloading(val fraction: Float) : State
+        data object Ready : State
+        data class Failed(val message: String) : State
+    }
+
+    private val root by lazy { File(context.filesDir, "models") }
+    private val _states = MutableStateFlow(Model.entries.associateWith { if (ready(it)) State.Ready else State.Missing })
+    val states: StateFlow<Map<Model, State>> = _states
+    private val locks = Model.entries.associateWith { Mutex() }
+
+    fun dir(m: Model) = File(root, m.id)
+    fun ready(m: Model) = File(dir(m), READY).isFile
+
+    /** Downloads, checks and unpacks [m] (once at a time; at once if it's already there). True when it's ready. */
+    suspend fun download(m: Model): Boolean = locks.getValue(m).withLock {
+        if (ready(m)) return@withLock true
+        set(m, State.Downloading(0f))
+        val result = runCatching { withContext(Dispatchers.IO) { fetch(m) } }
+        set(m, if (result.isSuccess) State.Ready else State.Failed(result.exceptionOrNull()?.message ?: "Download failed"))
+        result.isSuccess
+    }
+
+    /** Removes [m] from the phone (Settings, to free the space). */
+    fun delete(m: Model) {
+        dir(m).deleteRecursively()
+        set(m, State.Missing)
+    }
+
+    fun sizeOnPhone(m: Model): Long = dir(m).walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+    private fun set(m: Model, s: State) = _states.update { it + (m to s) }
+
+    private fun fetch(m: Model) {
+        root.mkdirs()
+        val part = File(root, m.file + ".part")
+        val req = Request.Builder().url("$BASE/${m.file}").build()
+        http.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) throw IOException("The download answered HTTP ${resp.code}")
+            val body = resp.body
+            val total = body.contentLength().takeIf { it > 0 } ?: m.bytes
+            val digest = MessageDigest.getInstance("SHA-256")
+            part.outputStream().use { out ->
+                body.byteStream().use { input ->
+                    val buf = ByteArray(64 * 1024)
+                    var done = 0L
+                    var shown = 0f
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        digest.update(buf, 0, n)
+                        done += n
+                        val f = (done.toFloat() / total).coerceIn(0f, 1f)
+                        if (f - shown >= 0.01f) { shown = f; set(m, State.Downloading(f)) }
+                    }
+                }
+            }
+            val sha = digest.digest().joinToString("") { "%02x".format(it) }
+            if (sha != m.sha256) { part.delete(); throw IOException("The download didn't check out (it may have been cut short)") }
+        }
+        install(m, part)
+    }
+
+    /** Unpacks a checked zip into the model's folder; the ready marker goes last, so a half-unpacked one never counts. */
+    internal fun install(m: Model, zip: File) {
+        val dir = dir(m)
+        dir.deleteRecursively()
+        dir.mkdirs()
+        ZipInputStream(zip.inputStream().buffered()).use { z ->
+            while (true) {
+                val e = z.nextEntry ?: break
+                val name = File(e.name).name
+                if (e.isDirectory || name.isBlank()) continue
+                File(dir, name).outputStream().use { z.copyTo(it) }
+            }
+        }
+        zip.delete()
+        File(dir, READY).writeText(m.sha256)
+    }
+
+    private companion object {
+        const val BASE = "https://github.com/Yigder/Prism/releases/download/models-v1"
+        const val READY = ".ready"
+    }
+}
