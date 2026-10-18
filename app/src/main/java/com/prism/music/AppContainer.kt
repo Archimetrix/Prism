@@ -242,6 +242,9 @@ class AppContainer(val app: Application) {
         ) kotlinx.coroutines.delay(2_000)
     }
 
+    /** Headphone correction (AutoEq profiles per headphones). */
+    val headphoneEq by lazy { com.prism.music.data.HeadphoneEq(app, http, scope, player.preferredOutput) }
+
     /** "Listening to Prism" on the listener's Discord profile, when they've turned it on (Settings → Discord). */
     val discord = com.prism.music.playback.DiscordPresence(app, http, scope)
     init {

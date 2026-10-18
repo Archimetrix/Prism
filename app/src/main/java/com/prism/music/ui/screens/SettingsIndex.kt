@@ -125,7 +125,7 @@ object SettingsIndex {
         SettingEntry(S, "Sound", "Normalize volume", "loudness lufs level"),
         SettingEntry(S, "Sound", "Measure songs on mobile data", "cellular"),
         SettingEntry(S, "Sound", "Prism Spatial", "spatial audio 3d surround atmos"),
-        SettingEntry(S, "Sound", "Equalizer", "eq bass boost treble loudness"),
+        SettingEntry(S, "Sound", "Equalizer", "eq bass boost treble loudness headphone correction autoeq harman target"),
         // Lyrics
         SettingEntry(Y, "Display", "Focus blur"),
         SettingEntry(Y, "Display", "Translate lyrics", "translation language"),

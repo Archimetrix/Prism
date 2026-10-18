@@ -73,6 +73,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     private val tree by lazy { MediaTree(c) }
     lateinit var effects: AudioEffects
         private set
+    /** Headphone correction (AutoEq): first, so the spatializer and the limiter work on the corrected sound. */
+    private val headphoneEq = ParametricEqProcessor()
     private val spatial = SpatialAudioProcessor()
     private val normalizer = NormalizerProcessor()
     private var songLoudness: Float? = null
@@ -109,7 +111,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput || c.settings.current.lossless)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(spatial, normalizer))
+                    .setAudioProcessors(arrayOf(headphoneEq, spatial, normalizer))
                     .build()
 
             override fun buildAudioRenderers(
@@ -200,6 +202,12 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch { c.settings.flow.map { it.videoContinues }.distinctUntilChanged().drop(1).collect { if (it) armNextVideo() else disarmVideos() } }
         scope.launch { c.settings.flow.map { it.spatial to it.spatialAmount }.distinctUntilChanged().collect { (on, amount) -> spatial.configure(on, amount) } }
         scope.launch { c.settings.flow.map { it.normalize }.distinctUntilChanged().collect { applyNormalization() } }
+        // The correction for whatever headphones are playing (none for the speaker, the car, or anything not picked for).
+        scope.launch {
+            c.headphoneEq.active.collect { b ->
+                headphoneEq.configure(b?.profile, b?.strength ?: 1f)
+            }
+        }
         scope.launch { c.library.likedIds.collect { updateButtons() } }
         scope.launch {
             c.settings.flow.map { Triple(it.carLyrics, it.carLyricsStyle, it.carLyricsOnPhone) }.distinctUntilChanged().collect {
@@ -216,7 +224,10 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 if (tick % 15 == 0 && player.isPlaying) pushWidgets()
                 if (player.mediaItemCount > 0) c.nerdStats.value = c.nerdStats.value.copy(
                     bufferMs = (player.bufferedPosition - player.currentPosition).coerceAtLeast(0),
-                    effects = effects.activeSummary,
+                    effects = listOfNotNull(
+                        effects.activeSummary.takeIf { it.isNotBlank() && it != "None" },
+                        headphoneEq.active?.let { "Headphone correction: ${it.name}" },
+                    ).joinToString(" · ").ifEmpty { "None" },
                     audioSessionId = player.audioSessionId,
                 )
             }
@@ -264,12 +275,14 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         val s = c.settings.current
         val tailSpatial = SpatialAudioProcessor().apply { configure(s.spatial, s.spatialAmount) }
         val tailNormalizer = NormalizerProcessor().apply { setGainDb(normalizeGainDb) }
+        // The same headphone correction as the main player, so a blend doesn't change the sound.
+        val tailEq = ParametricEqProcessor().apply { c.headphoneEq.active.value.let { configure(it?.profile, it?.strength ?: 1f) } }
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput || s.lossless)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(shift, tailSpatial, tailNormalizer))
+                    .setAudioProcessors(arrayOf(shift, tailEq, tailSpatial, tailNormalizer))
                     .build()
 
             override fun buildAudioRenderers(

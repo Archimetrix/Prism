@@ -72,6 +72,8 @@ fun EqualizerScreen(bottomPadding: Dp) {
         horizontalPadding = 16.dp, spacing = 22.dp,
         actions = { Switch(eq.enabled, { update(eq.copy(enabled = it)) }) },
     ) {
+            // Correction for the headphones themselves comes first (it's applied first, and it's on its own switch).
+            item { HeadphoneCorrection() }
             item {
                 Group("10-band equalizer · ${eq.preset}") {
                     EqGraph(eq, Modifier.fillMaxWidth().height(240.dp).padding(horizontal = 8.dp)) { band, db ->
