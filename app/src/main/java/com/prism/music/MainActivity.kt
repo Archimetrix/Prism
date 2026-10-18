@@ -41,6 +41,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -309,10 +315,16 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
 
         val together by c.together.state.collectAsState()
         val inSession = together is com.prism.music.playback.together.TogetherState.Hosting || together is com.prism.music.playback.together.TogetherState.Guest
+        // Wide windows (tablets, foldables, a phone on its side) put the tabs in a rail down the start edge.
+        val window = com.prism.music.ui.theme.LocalWindowLayout.current
+        val useRail = window.rail && showChrome
+        val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
+        val cutoutStart = WindowInsets.displayCutout.union(WindowInsets.navigationBars).asPaddingValues().calculateStartPadding(layoutDirection)
+        val railInset = if (useRail) cutoutStart + RAIL_MARGIN + RAIL_WIDTH + 4.dp else 0.dp
         // Room the pages leave at the bottom for the bar, the mini player and the system's own bar.
         val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        val bottomPadding = navInset + navHeight(settings.navStyle) +
-            (if (settings.navStyle == NavBarStyle.DOCKED) 0.dp else 16.dp) +
+        val bottomPadding = navInset +
+            (if (useRail) 16.dp else navHeight(settings.navStyle) + (if (settings.navStyle == NavBarStyle.DOCKED) 0.dp else 16.dp)) +
             (if (song != null) miniHeight(settings.miniPlayerStyle) + 8.dp else 0.dp) +
             (if (inSession) 42.dp else 0.dp)
 
@@ -376,7 +388,11 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
             }
         }
 
-        CompositionLocalProvider(LocalNavigator provides navigator, LocalHazeState provides haze) {
+        CompositionLocalProvider(
+            LocalNavigator provides navigator,
+            LocalHazeState provides haze,
+            com.prism.music.ui.theme.LocalChromeStart provides railInset,
+        ) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 Box(Modifier.fillMaxSize().nestedScroll(barScroll).hazeSource(haze)) {
                     // The same cross-fade both ways, and for the back gesture too: left to its default,
@@ -420,9 +436,9 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         composable(Routes.TOGETHER) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.TogetherScreen(bottomPadding) } }
                         composable(Routes.PODCASTS) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.PodcastsScreen(bottomPadding) } }
                         composable("podcast/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
-                            com.prism.music.ui.screens.PodcastScreen(it.arguments?.getString("id")!!, bottomPadding)
+                            Beside { com.prism.music.ui.screens.PodcastScreen(it.arguments?.getString("id")!!, bottomPadding) }
                         }
-                        composable(Routes.DOWNLOADS) { CollectionScreen(CollectionType.DOWNLOADS, "downloads", null, bottomPadding) }
+                        composable(Routes.DOWNLOADS) { Beside { CollectionScreen(CollectionType.DOWNLOADS, "downloads", null, bottomPadding) } }
                         composable(Routes.LOCAL) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.LocalMusicScreen(bottomPadding) } }
                         composable(Routes.LOGIN) {
                             LoginScreen(
@@ -441,16 +457,16 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             )
                         }
                         composable("album/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
-                            CollectionScreen(CollectionType.ALBUM, it.arguments?.getString("id")!!, null, bottomPadding)
+                            Beside { CollectionScreen(CollectionType.ALBUM, it.arguments?.getString("id")!!, null, bottomPadding) }
                         }
                         composable("playlist/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
-                            CollectionScreen(CollectionType.PLAYLIST, it.arguments?.getString("id")!!, null, bottomPadding)
+                            Beside { CollectionScreen(CollectionType.PLAYLIST, it.arguments?.getString("id")!!, null, bottomPadding) }
                         }
                         composable("liked?genre={genre}", listOf(navArgument("genre") { type = NavType.StringType; nullable = true; defaultValue = null })) {
-                            CollectionScreen(CollectionType.LIKED, "liked", it.arguments?.getString("genre"), bottomPadding)
+                            Beside { CollectionScreen(CollectionType.LIKED, "liked", it.arguments?.getString("genre"), bottomPadding) }
                         }
                         composable("artist/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
-                            ArtistScreen(it.arguments?.getString("id")!!, bottomPadding)
+                            Beside { ArtistScreen(it.arguments?.getString("id")!!, bottomPadding) }
                         }
                         composable(
                             "browse/{id}?params={params}&title={title}",
@@ -460,18 +476,39 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                                 navArgument("title") { type = NavType.StringType; defaultValue = "" },
                             ),
                         ) {
-                            BrowseScreen(
-                                it.arguments?.getString("id")!!,
-                                it.arguments?.getString("params")?.takeIf { p -> p.isNotBlank() },
-                                it.arguments?.getString("title") ?: "",
-                                bottomPadding,
-                            )
+                            Beside {
+                                BrowseScreen(
+                                    it.arguments?.getString("id")!!,
+                                    it.arguments?.getString("params")?.takeIf { p -> p.isNotBlank() },
+                                    it.arguments?.getString("title") ?: "",
+                                    bottomPadding,
+                                )
+                            }
                         }
                     }
                 }
 
+                // Wide windows: the tabs in a rail down the start edge, the mini player along the bottom beside it.
+                if (useRail) {
+                    NavRail(
+                        tabs, route, settings, selectTab,
+                        Modifier.align(Alignment.CenterStart).padding(start = cutoutStart + RAIL_MARGIN),
+                    )
+                    Column(
+                        Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                            .padding(start = railInset).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        AnimatedVisibility(inSession && !playerOpen && route != Routes.TOGETHER, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                            TogetherPill(together, Modifier.padding(bottom = 8.dp)) { navigator.go(Routes.TOGETHER) }
+                        }
+                        AnimatedVisibility(song != null && !playerOpen, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                            MiniPlayer(Modifier.widthIn(max = 720.dp)) { playerOpen = true }
+                        }
+                    }
+                }
                 // Floating chrome: mini player + tab bar
-                if (showChrome) {
+                if (showChrome && !useRail) {
                     val docked = settings.navStyle == NavBarStyle.DOCKED
                     Column(
                         Modifier.align(Alignment.BottomCenter).fillMaxWidth()
@@ -524,6 +561,54 @@ private fun TogetherPill(state: com.prism.music.playback.together.TogetherState,
                 Icon(icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(6.dp))
                 Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            }
+        }
+    }
+}
+
+private val RAIL_WIDTH = 76.dp
+private val RAIL_MARGIN = 12.dp
+
+/** A page that draws its own background, kept clear of the navigation rail (the [ScreenBackdrop] pages do it themselves). */
+@Composable
+private fun Beside(content: @Composable () -> Unit) {
+    val start = com.prism.music.ui.theme.LocalChromeStart.current
+    Box(Modifier.fillMaxSize().padding(start = start)) {
+        CompositionLocalProvider(com.prism.music.ui.theme.LocalChromeStart provides 0.dp) { content() }
+    }
+}
+
+/**
+ * The tabs on wide windows: a floating glass column down the start edge, the tab bar's twin (same tabs, icons and
+ * label setting), so a tablet or a phone on its side keeps its height for the page.
+ */
+@Composable
+private fun NavRail(tabs: List<Tab>, route: String?, settings: AppSettings, onSelect: (String) -> Unit, modifier: Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    GlassSurface(modifier.width(RAIL_WIDTH), shape = RoundedCornerShape(RAIL_WIDTH / 2)) {
+        Column(
+            Modifier.padding(vertical = 8.dp, horizontal = 6.dp).verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            tabs.forEach { tab ->
+                val selected = isSelected(tab, route)
+                val fg = if (selected) scheme.primary else scheme.onSurfaceVariant
+                val indicator by animateColorAsState(if (selected) scheme.primary.copy(alpha = 0.16f) else Color.Transparent, label = "railTab")
+                val showLabel = settings.navLabels == NavLabels.ALWAYS || (settings.navLabels == NavLabels.SELECTED && selected)
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(indicator)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = tab.label) { onSelect(tab.route) }
+                        .padding(vertical = if (showLabel) 8.dp else 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = fg, modifier = Modifier.size(24.dp))
+                    if (showLabel) Text(
+                        tab.label, color = fg, style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
     }

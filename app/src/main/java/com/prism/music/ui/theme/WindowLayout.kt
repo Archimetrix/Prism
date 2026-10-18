@@ -4,7 +4,9 @@ import android.content.res.Configuration
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalConfiguration
 
@@ -49,6 +51,12 @@ data class WindowLayout(
 }
 
 val LocalWindowLayout = staticCompositionLocalOf { WindowLayout.PHONE }
+
+/**
+ * Room the app's chrome takes along the start edge (the navigation rail on wide windows). Page backgrounds still
+ * reach under it; [ScreenBackdrop] and the pages that draw their own keep their content clear of it.
+ */
+val LocalChromeStart = compositionLocalOf { 0.dp }
 
 @Composable
 fun rememberWindowLayout(): WindowLayout {

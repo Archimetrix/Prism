@@ -354,14 +354,15 @@ private fun Browse(
 ) {
     val nav = LocalNavigator.current
     LazyVerticalGrid(
-        GridCells.Fixed(2),
+        // Two mood tiles a row on a phone, more on a wide window.
+        GridCells.Adaptive(170.dp),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomPadding + 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (recents.isNotEmpty()) {
-            item(span = { GridItemSpan(2) }) { Text("Recent searches", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)) }
-            items(recents.take(6), span = { GridItemSpan(2) }) { r ->
+            item(span = { GridItemSpan(maxLineSpan) }) { Text("Recent searches", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)) }
+            items(recents.take(6), span = { GridItemSpan(maxLineSpan) }) { r ->
                 SuggestionRow(PrismIcons.History, r, onFill = onFill, onRemove = { onRemove(r) }) { onPick(r) }
             }
         }
@@ -372,7 +373,7 @@ private fun Browse(
                 ranked.sections.filterNot { it.first.contains("for you", true) }.map { it.first to it.second.take(6) }
             groups.forEach { (title, m) ->
                 if (m.isEmpty()) return@forEach
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         Modifier.fillMaxWidth().clickable { nav.go(com.prism.music.ui.Routes.MOODS) }.padding(top = 14.dp, bottom = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,

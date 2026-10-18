@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -131,6 +132,9 @@ fun RoundAction(icon: ImageVector, description: String, modifier: Modifier = Mod
     }
 }
 
+/** The widest a [SubPage]'s content gets; wider windows centre it. */
+val SUBPAGE_MAX_WIDTH = 760.dp
+
 /**
  * A secondary page (settings pages, Customize Home, Equalizer…): a big title that scrolls away under
  * a slim bar with a glass back button, which turns solid and shows the title once you've scrolled.
@@ -156,11 +160,13 @@ fun SubPage(
     // On a frosted page the content melts away under the bar into the page's own backdrop, as
     // on the artist and album pages; elsewhere the bar turns solid.
     val melts = LocalFrosted.current && LocalPageBackdrop.current != null
-    Box(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // On a wide window the page keeps a readable width in the middle (it still scrolls from anywhere).
+        val gutter = ((maxWidth - SUBPAGE_MAX_WIDTH) / 2).coerceAtLeast(0.dp)
         LazyColumn(
             state = state,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = horizontalPadding, end = horizontalPadding, top = statusTop + 60.dp, bottom = bottomPadding + 28.dp),
+            contentPadding = PaddingValues(start = horizontalPadding + gutter, end = horizontalPadding + gutter, top = statusTop + 60.dp, bottom = bottomPadding + 28.dp),
             verticalArrangement = Arrangement.spacedBy(spacing),
         ) {
             item(key = "subpage:title") {

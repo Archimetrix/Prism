@@ -234,8 +234,10 @@ private fun ArtistContent(page: ArtistPage, bottomPadding: Dp) {
     }
 
     val config = LocalConfiguration.current
-    val heroHeight = minOf(config.screenWidthDp.dp * 1.1f, config.screenHeightDp.dp * 0.6f)
     val density = androidx.compose.ui.platform.LocalDensity.current
+    // The page's own width (beside the navigation rail on wide windows), not the screen's.
+    var pageWidth by remember { mutableStateOf(config.screenWidthDp.dp) }
+    val heroHeight = minOf(pageWidth * 1.1f, config.screenHeightDp.dp * 0.6f)
     val heroPx = with(density) { heroHeight.toPx() }
     val heroScroll = { if (list.firstVisibleItemIndex == 0) list.firstVisibleItemScrollOffset.toFloat() else heroPx }
     // How far the bar has taken over from the hero (0 at the top of the page, 1 once the photo has gone).
@@ -249,7 +251,7 @@ private fun ArtistContent(page: ArtistPage, bottomPadding: Dp) {
     val statusTop = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     ArtworkAccent(palette) {
-        Box(Modifier.fillMaxSize().onSizeChanged { pageHeight = with(density) { it.height.toDp() } }) {
+        Box(Modifier.fillMaxSize().onSizeChanged { with(density) { pageHeight = it.height.toDp(); pageWidth = it.width.toDp() } }) {
             FrostedBackdrop(frost, palette, heroHeight, heroScroll, bleed = true)
             LazyColumn(state = list, contentPadding = PaddingValues(bottom = bottomPadding + 32.dp)) {
                 item("hero") {
@@ -511,8 +513,10 @@ private fun TopSongsGrid(songs: List<Song>, title: String) {
     val current by c.player.currentSong.collectAsState()
     val columns = remember(songs) { songs.chunked(4) }
     val state = rememberLazyListState()
-    val width = (LocalConfiguration.current.screenWidthDp.dp - 20.dp - if (columns.size > 1) 36.dp else 20.dp)
     var menuFor by remember { mutableStateOf<Song?>(null) }
+    androidx.compose.foundation.layout.BoxWithConstraints {
+    // A column nearly the page's width, the next peeking in; on a wide window several fit side by side.
+    val width = (maxWidth - 20.dp - if (columns.size > 1) 36.dp else 20.dp).coerceAtMost(420.dp)
     LazyRow(
         state = state,
         flingBehavior = rememberSnapFlingBehavior(state),
@@ -553,6 +557,7 @@ private fun TopSongsGrid(songs: List<Song>, title: String) {
                 }
             }
         }
+    }
     }
     menuFor?.let { s -> SongActionsSheet(s) { menuFor = null } }
 }

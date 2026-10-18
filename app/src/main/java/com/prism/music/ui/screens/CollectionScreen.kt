@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -415,10 +418,20 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     var title by remember(page.id) { mutableStateOf(page.title) }
     var description by remember(page.id) { mutableStateOf(page.description) }
 
-    val hero = type != CollectionType.ALBUM && settings.playlistHeroCover
+    // A wide landscape window (a tablet on its side) keeps the cover and its details beside the songs, as Apple Music
+    // does on an iPad, instead of a header the width of the screen above them.
+    val window = com.prism.music.ui.theme.LocalWindowLayout.current
+    val sideBySide = window.width == com.prism.music.ui.theme.WidthClass.EXPANDED && window.landscape
+    val hero = type != CollectionType.ALBUM && settings.playlistHeroCover && !sideBySide
     val config = LocalConfiguration.current
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val heroHeight = if (hero) config.screenWidthDp.dp / 1.08f else statusTop + 470.dp
+    var pageWidth by remember { mutableStateOf(config.screenWidthDp.dp) }
+    val heroHeight = when {
+        sideBySide -> statusTop + 160.dp
+        // Never taller than most of the window (a phone on its side would otherwise get a hero taller than the screen).
+        hero -> minOf(pageWidth / 1.08f, config.screenHeightDp.dp * 0.62f)
+        else -> statusTop + 470.dp
+    }
     val heroPx = with(LocalDensity.current) { heroHeight.toPx() }
     val heroScroll = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else heroPx }
     val shown = page.copy(title = title, description = description)
@@ -435,14 +448,34 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     val frosted = if (settings.frostedPages) frostFill(1.4f) else Color.Unspecified
 
     ArtworkAccent(palette) {
-        Box(Modifier.fillMaxSize().onSizeChanged { pageHeight = with(density) { it.height.toDp() } }) {
+        Box(Modifier.fillMaxSize().onSizeChanged { with(density) { pageHeight = it.height.toDp(); pageWidth = it.width.toDp() } }) {
             FrostedBackdrop(frost, palette, heroHeight, heroScroll, parallax = if (hero) 0.5f else 0.35f, bleed = true)
-            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = bottomPadding + 24.dp)) {
-                item("header") {
-                    if (hero) HeroHeader(type, shown, art, { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0 }, heroHeight)
-                    else Header(type, shown, art, coverKey) { coverSheet = true }
-                    HeaderDetails(shown, centred = !hero, privacy = privacy, saved = saved.takeIf { savableId != null }, onSaved = toggleSaved)
-                }
+            val header: @Composable () -> Unit = {
+                if (hero) HeroHeader(type, shown, art, { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0 }, heroHeight)
+                else Header(type, shown, art, coverKey) { coverSheet = true }
+                HeaderDetails(shown, centred = !hero, privacy = privacy, saved = saved.takeIf { savableId != null }, onSaved = toggleSaved)
+            }
+            val playRow: @Composable () -> Unit = {
+                PlayShufflePills(
+                    enabled = playable.isNotEmpty(),
+                    onPlay = { c.player.playQueue(playable, 0, source) },
+                    onShuffle = { c.player.playQueue(playable, 0, source, shuffle = true) },
+                )
+            }
+            val sideWidth = (pageWidth * 0.4f).coerceIn(320.dp, 460.dp)
+            if (sideBySide) Column(
+                Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState())
+                    .padding(top = statusTop + 40.dp, bottom = bottomPadding + 24.dp),
+            ) {
+                header()
+                playRow()
+            }
+            LazyColumn(
+                state = listState,
+                modifier = if (sideBySide) Modifier.padding(start = sideWidth) else Modifier,
+                contentPadding = PaddingValues(top = if (sideBySide) statusTop + 60.dp else 0.dp, bottom = bottomPadding + 24.dp),
+            ) {
+                if (!sideBySide) item("header") { header() }
                 if (type == CollectionType.DOWNLOADS) item { DownloadsInfo(page.songs) { text, action -> confirm = text to action } }
                 if (type == CollectionType.DOWNLOADS) item("downloaded-collections") { DownloadedCollections() }
                 if (ready != null && type != CollectionType.DOWNLOADS) item("offline") {
@@ -453,13 +486,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp),
                     )
                 }
-                item("play") {
-                    PlayShufflePills(
-                        enabled = playable.isNotEmpty(),
-                        onPlay = { c.player.playQueue(playable, 0, source) },
-                        onShuffle = { c.player.playQueue(playable, 0, source, shuffle = true) },
-                    )
-                }
+                if (!sideBySide) item("play") { playRow() }
                 if (showSearch || showGenres) item(key = "search") {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (showSearch) com.prism.music.ui.components.SearchField(

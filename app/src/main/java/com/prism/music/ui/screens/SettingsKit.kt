@@ -129,10 +129,13 @@ fun Item(title: String, subtitle: String?, onClick: () -> Unit, icon: ImageVecto
 
 /** A row that opens another page: a plain line icon, title, summary, chevron. */
 @Composable
-fun NavRow(icon: ImageVector, title: String, subtitle: String?, onClick: () -> Unit) {
+fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolean = false, onClick: () -> Unit) {
     val ui = LocalUi.current
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = ui.gap(12.dp)),
+        Modifier.fillMaxWidth()
+            // The page open beside the list (wide windows) is marked.
+            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)) else Modifier)
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = ui.gap(12.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

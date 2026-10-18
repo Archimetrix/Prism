@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -138,14 +139,48 @@ private val hubGroups = listOf(
     "" to listOf(SettingsSection.ABOUT),
 )
 
-/** Settings: the account, then the categories; [section] shows one category's page. */
+/**
+ * Settings: the account, then the categories; [section] shows one category's page. On a wide window the hub lists
+ * the categories down the side with the picked one's page beside it.
+ */
 @Composable
 fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null, find: String? = null) {
+    if (section != null || !com.prism.music.ui.theme.LocalWindowLayout.current.listDetail) {
+        SettingsPage(bottomPadding, section, find)
+        return
+    }
+    var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(SettingsSection.APPEARANCE.key) }
+    var openFind by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    Row(Modifier.fillMaxSize()) {
+        Box(Modifier.width(400.dp).fillMaxHeight()) {
+            SettingsPage(bottomPadding, null, null, selected = SettingsSection.of(open)) { picked, group -> open = picked.key; openFind = group }
+        }
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            androidx.compose.runtime.key(open, openFind) {
+                SettingsPage(bottomPadding, SettingsSection.of(open) ?: SettingsSection.APPEARANCE, openFind, showBack = false)
+            }
+        }
+    }
+}
+
+/**
+ * One settings page: the hub ([section] null) or a category. [onOpen], when given, opens a category beside the hub
+ * (wide windows) instead of as its own page; [selected] marks the open one.
+ */
+@Composable
+private fun SettingsPage(
+    bottomPadding: Dp,
+    section: SettingsSection?,
+    find: String?,
+    selected: SettingsSection? = null,
+    showBack: Boolean = true,
+    onOpen: ((SettingsSection, String?) -> Unit)? = null,
+) {
     val c = LocalContainer.current
     val s = LocalAppSettings.current
     val nav = LocalNavigator.current
     // As a tab, the hub is a root page and has nothing to go back to.
-    val isTab = section == null && NavTab.SETTINGS in s.navTabs
+    val isTab = (section == null && NavTab.SETTINGS in s.navTabs) || !showBack
     // Search (#73), on the hub: matching settings in place of the categories. A result on the hub itself (Discord)
     // is found here; one on a page opens that page at its group.
     var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
@@ -178,6 +213,7 @@ fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null, find: St
                                     listOf(e.section?.title ?: "Settings", e.group).filter { it != e.title }.joinToString(" › "),
                                 ) {
                                     if (e.section == null) { query = ""; foundHere = e.group }
+                                    else if (onOpen != null) onOpen(e.section, e.group)
                                     else nav.go(Routes.settings(e.section.key, e.group))
                                 }
                             }
@@ -190,7 +226,11 @@ fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null, find: St
                 hubGroups.forEach { (title, sections) ->
                     item {
                         Group(title) {
-                            sections.forEach { sec -> NavRow(sec.icon, sec.title, sec.summary(s)) { nav.go(Routes.settings(sec.key)) } }
+                            sections.forEach { sec ->
+                                NavRow(sec.icon, sec.title, sec.summary(s), selected = sec == selected) {
+                                    if (onOpen != null) onOpen(sec, null) else nav.go(Routes.settings(sec.key))
+                                }
+                            }
                         }
                     }
                 }

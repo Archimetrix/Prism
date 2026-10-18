@@ -299,7 +299,11 @@ private class StoryAudio(context: Context, c: AppContainer) {
 @Composable
 internal fun ReplayStoryDialog(story: ReplayStory, onDismiss: () -> Unit) {
     Dialog(onDismiss, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        StoryContent(story, onDismiss)
+        // A story is a phone-shaped thing: on a wide window it stays 9:16 in the middle, on black.
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            val width = minOf(maxWidth, maxHeight * 9f / 16f)
+            Box(Modifier.width(width).fillMaxHeight()) { StoryContent(story, onDismiss) }
+        }
     }
 }
 

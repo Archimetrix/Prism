@@ -190,6 +190,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val position = rememberPosition(fast = false, hold = covered)
     val volume = rememberPlayerVolume()
     val scope = rememberCoroutineScope()
+    // A wide window (tablet, foldable, phone on its side) shows the cover and controls beside lyrics / the queue.
+    val window = com.prism.music.ui.theme.LocalWindowLayout.current
+    val wide = window.twoPanePlayer || window.shortLandscape || window.tabletop
 
     // The player always owns light status-bar icons.
     DisposableEffect(Unit) {
@@ -199,8 +202,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         ctl?.isAppearanceLightStatusBars = false
         onDispose { if (previous != null) ctl.isAppearanceLightStatusBars = previous }
     }
-    DisposableEffect(lyricsOpen) {
-        view.keepScreenOn = lyricsOpen
+    // Lyrics on screen keep it awake (a wide player shows them unless its other pane is picked).
+    val lyricsInView = lyricsOpen || (wide && !queueOpen && !statsOpen)
+    DisposableEffect(lyricsInView) {
+        view.keepScreenOn = lyricsInView
         onDispose { view.keepScreenOn = false }
     }
 
@@ -299,7 +304,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // open it starts out small, and the picture decoded for that size was then stretched over the whole cover.
     val artRequest = remember(artUrl) { coil3.request.ImageRequest.Builder(context).data(artUrl).size(1200).build() }
     var artLoaded by remember(artUrl) { mutableStateOf(false) }
-    val heroMode = settings.fullBleedArtwork && !videoMode
+    val heroMode = settings.fullBleedArtwork && !videoMode && !wide
     var heroHeight by remember { mutableStateOf(0.dp) }
     val heroT = animateFloatAsState(if (heroMode && (artLoaded || canvasCover > 0f)) 1f else 0f, tween(420, easing = FastOutSlowInEasing), label = "hero")
     val heroVisible: () -> Float = { heroT.value * (1f - p()) }
@@ -470,6 +475,21 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             }
         }
 
+        if (wide) WidePlayerContent(
+            song, isPlaying, buffering, position, hasNext, hasPrevious, videoMode, videoAvailable, lyricsState, covered,
+            canvas, canvasSaved, artRequest, volume,
+            pane = when { queueOpen -> PlayerPane.QUEUE; statsOpen -> PlayerPane.STATS; else -> PlayerPane.LYRICS },
+            onPane = { p ->
+                // The lyrics are the wide player's resting pane; the flags only say when another one is picked.
+                lyricsOpen = false
+                queueOpen = p == PlayerPane.QUEUE
+                statsOpen = p == PlayerPane.STATS
+            },
+            dismissGesture = dismissGesture,
+            onMore = { showActions = true },
+            onLyricsSource = { showProviders = true },
+            onCollapse = onCollapse,
+        ) else
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().then(skipGesture), horizontalAlignment = Alignment.CenterHorizontally) {
             // ------------------------------------------------ Handle + caption
             Box(Modifier.fillMaxWidth().height(DISMISS_STRIP).then(dismissGesture)) {
@@ -837,11 +857,11 @@ private fun FullscreenVideo(song: Song, forceLandscape: Boolean, pip: Boolean = 
 }
 
 /** The last double-tap seek on the cover (#79): which way, how many taps in a row, and when (to time the label out). */
-private data class SeekFlash(val ahead: Boolean, val steps: Int, val at: Long)
+internal data class SeekFlash(val ahead: Boolean, val steps: Int, val at: Long)
 
 /** "−10 s" / "+10 s" over the cover's side while double-taps seek. */
 @Composable
-private fun SeekLabel(f: SeekFlash, step: Int, modifier: Modifier) {
+internal fun SeekLabel(f: SeekFlash, step: Int, modifier: Modifier) {
     Row(
         modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

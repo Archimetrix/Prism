@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -169,7 +170,10 @@ fun ScreenBackdrop(screen: BackdropScreen, content: @Composable BoxScope.() -> U
     val page = remember(style, photo, frosted, height, s.backdropDim, motion) { PageBackdrop(height, draw) }
     Box(Modifier.fillMaxSize().onSizeChanged { height = with(density) { it.height.toDp() } }) {
         if (style != Backdrop.DEFAULT || frosted) draw(Modifier.fillMaxSize())
-        CompositionLocalProvider(LocalFrosted provides frosted, LocalPageBackdrop provides page) { content() }
+        // The background reaches under the navigation rail (wide windows); the page itself starts beside it.
+        Box(Modifier.fillMaxSize().padding(start = LocalChromeStart.current)) {
+            CompositionLocalProvider(LocalFrosted provides frosted, LocalPageBackdrop provides page, LocalChromeStart provides 0.dp) { content() }
+        }
     }
 }
 
