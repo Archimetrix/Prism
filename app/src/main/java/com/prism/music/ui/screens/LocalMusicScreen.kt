@@ -202,6 +202,17 @@ fun LocalMusicScreen(bottomPadding: Dp) {
             scope.launch { c.losslessSync.sync() }
         }
     }
+    // Access given somewhere else (Android's settings, the lossless prompt) after Prism started: nothing has scanned
+    // with it yet, so the page sat on its spinner until Prism was restarted.
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) allowed = c.localMusic.hasPermission()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+    androidx.compose.runtime.LaunchedEffect(allowed) { if (allowed && !c.localMusic.scanned.value) c.localMusic.start() }
     val settings = com.prism.music.ui.theme.LocalAppSettings.current
     val orders = remember(settings.localSort) { LocalOrders.parse(settings.localSort) }
     val sort = orders.songs

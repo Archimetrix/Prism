@@ -227,8 +227,25 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     var genreVersion by remember(page.id) { mutableStateOf(0) }
     fun genresOf(id: String): List<String> = listOfNotNull(genres[id]) + extraGenres[id].orEmpty()
     var genreFilter by rememberSaveable(page.id) { mutableStateOf(initialGenre) }
-    var sort by rememberSaveable(page.id) { mutableStateOf(SortMode.DEFAULT) }
-    var groupByGenre by rememberSaveable(page.id) { mutableStateOf(false) }
+    // Liked songs', Downloads' and each playlist's sort is kept, so leaving the page doesn't undo it.
+    val sortList = when (type) {
+        CollectionType.LIKED -> "liked"
+        CollectionType.DOWNLOADS -> "downloads"
+        CollectionType.PLAYLIST -> "playlist:${page.id}"
+        else -> null
+    }
+    var sort by remember(page.id) {
+        mutableStateOf(sortList?.let(c.library::sortOf)?.let { n -> SortMode.entries.firstOrNull { it.name == n } } ?: SortMode.DEFAULT)
+    }
+    var groupByGenre by remember(page.id) { mutableStateOf(sortList?.let { c.library.sortOf("$it:genre") } != null) }
+    fun pickSort(m: SortMode) {
+        sort = m
+        sortList?.let { c.library.setSort(it, m.name.takeIf { m != SortMode.DEFAULT }) }
+    }
+    fun toggleGenreGroups() {
+        groupByGenre = !groupByGenre
+        sortList?.let { c.library.setSort("$it:genre", if (groupByGenre) "on" else null) }
+    }
     var sortMenu by remember { mutableStateOf(false) }
     var query by rememberSaveable(page.id) { mutableStateOf("") }
     val showGenres = type != CollectionType.ALBUM && songs.size > 1
@@ -427,6 +444,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                     HeaderDetails(shown, centred = !hero, privacy = privacy, saved = saved.takeIf { savableId != null }, onSaved = toggleSaved)
                 }
                 if (type == CollectionType.DOWNLOADS) item { DownloadsInfo(page.songs) { text, action -> confirm = text to action } }
+                if (type == CollectionType.DOWNLOADS) item("downloaded-collections") { DownloadedCollections() }
                 if (ready != null && type != CollectionType.DOWNLOADS) item("offline") {
                     Text(
                         "You're offline · ${ready.size} of ${songs.size} songs are on this phone and play" +
@@ -457,10 +475,10 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                             }
                             DropdownMenu(sortMenu, { sortMenu = false }) {
                                 SortMode.entries.filter { it != SortMode.OLDEST || type == CollectionType.DOWNLOADS }.forEach { m ->
-                                    DropdownMenuItem({ Text(sortLabel(m, type)) }, { sort = m; sortMenu = false }, trailingIcon = { if (m == sort) Icon(PrismIcons.Check, null) })
+                                    DropdownMenuItem({ Text(sortLabel(m, type)) }, { pickSort(m); sortMenu = false }, trailingIcon = { if (m == sort) Icon(PrismIcons.Check, null) })
                                 }
                                 HorizontalDivider()
-                                DropdownMenuItem({ Text("Group by genre") }, { groupByGenre = !groupByGenre; sortMenu = false }, trailingIcon = { if (groupByGenre) Icon(PrismIcons.Check, null) })
+                                DropdownMenuItem({ Text("Group by genre") }, { toggleGenreGroups(); sortMenu = false }, trailingIcon = { if (groupByGenre) Icon(PrismIcons.Check, null) })
                             }
                         }
                     }
@@ -823,6 +841,56 @@ private fun HeroHeader(type: CollectionType, page: CollectionPage, art: String?,
             ),
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/**
+ * Downloads' albums and playlists, as two rows of cards above the songs (nothing shows without any). Albums: any album
+ * two or more downloaded songs come from, newest download first. Playlists: those kept on the phone
+ * ([com.prism.music.data.OfflineLibrary], i.e. opened since 1.6.8) whose every song is downloaded, as their own page
+ * marks them; a fully downloaded album kept there counts too.
+ */
+@Composable
+private fun DownloadedCollections() {
+    val c = LocalContainer.current
+    val nav = LocalNavigator.current
+    val all by c.downloads.downloads.collectAsState()
+    // Only a finished download changes this (not every progress tick), so the rows aren't worked out again for those.
+    val done = remember(all) { all.filterValues { it.state == Download.STATE_COMPLETED }.keys }
+    val kept by produceState<List<Pair<String, CollectionPage>>?>(null) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.offline.pages() }
+    }
+    val (albums, playlists) = remember(kept, done) {
+        // A single's page is one song: that's already in the list below.
+        val (keptAlbums, keptPlaylists) = kept.orEmpty()
+            .filter { (_, p) -> p.songs.size >= 2 && p.songs.all { it.id in done } }
+            .distinctBy { it.second.id }
+            .partition { it.second.kind == CollectionKind.ALBUM }
+        // One card per album name and artist: YouTube lists some albums twice (two editions, two ids), and the songs
+        // can come from either. The card opens the edition most of them are from.
+        val fromSongs = c.downloads.completedSongs().filter { it.album?.id != null }
+            .groupBy { it.album!!.title.lowercase() to it.primaryArtist.lowercase() }.values
+            .filter { it.size >= 2 }
+            .map { songs ->
+                val id = songs.groupingBy { it.album!!.id!! }.eachCount().maxBy { it.value }.key
+                AlbumItem(id, songs.first().album!!.title, listOf(songs.first().primaryArtist, "${songs.size} downloaded").joinToString(" • "), songs.first().thumbnail)
+            }
+        val albums = (fromSongs + keptAlbums.map { (id, p) ->
+            AlbumItem(id, p.title, listOfNotNull(p.artists.firstOrNull()?.name, com.prism.music.data.model.songCount(p.songs.size)).joinToString(" • "), p.thumbnail)
+        }).distinctBy { it.title.lowercase() to it.subtitle.substringBefore(" • ").lowercase() }
+        albums to keptPlaylists.map { (id, p) -> PlaylistItem(id, p.title, com.prism.music.data.model.songCount(p.songs.size), p.thumbnail) }
+    }
+    if (albums.isEmpty() && playlists.isEmpty()) return
+    Column {
+        if (albums.isNotEmpty()) {
+            SectionHeader("Albums")
+            ItemCarousel(albums, { nav.go(Routes.album(it.id)) })
+        }
+        if (playlists.isNotEmpty()) {
+            SectionHeader("Playlists")
+            ItemCarousel(playlists, { nav.go(Routes.playlist(it.id)) })
+        }
+        SectionHeader("Songs")
     }
 }
 

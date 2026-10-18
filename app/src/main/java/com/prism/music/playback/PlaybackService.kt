@@ -120,10 +120,14 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             }
         }
         player = ExoPlayer.Builder(this, renderers)
-            // Start (and resume after a switch to video) once 1 s is buffered rather than 2.5 s.
+            // Start (and resume after a switch to video) once 1 s is buffered rather than 2.5 s. Ahead of that, the whole
+            // song: it used to keep only 30–60 s, so a signal drop longer than that (a tunnel, a lift, a weak spot) stalled
+            // a streamed song even though the rest of it is only a few MB. Kept loading in one go (min = max), and the
+            // song cache keeps what's loaded. 32 MB at most, so a music video (far bigger per minute) stays a minute or two.
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(30_000, 60_000, 1_000, 2_000)
+                    .setBufferDurationsMs(WHOLE_SONG_MS, WHOLE_SONG_MS, 1_000, 2_000)
+                    .setTargetBufferBytes(32 * 1024 * 1024)
                     .build()
             )
             .setMediaSourceFactory(
@@ -706,6 +710,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (song.isLocal || videoId in prefetched) return
         prefetched += videoId
         scope.launch(Dispatchers.IO) {
+            // Not alongside the song's own start: it was one of the resolves slowing that down.
+            c.yieldToPlaying(null)
             runCatching { c.streams.resolve(videoId, withVideo = true) }.onFailure { prefetched -= videoId }
             val metered = getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered != false
             if (metered || videoId == song.id || c.videoSync.cached(song.id, videoId) != null) return@launch
@@ -769,8 +775,13 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         }
         if (next.startsWith(Song.LOCAL_PREFIX)) return
         if (c.downloads.isDownloaded(next)) { armNextVideo(); return }
+        // The song after it is resolved too (no audio fetched): skipping twice used to land on one that wasn't, which
+        // took ~2 s to start. Each song is resolved once either way, only earlier.
+        val afterNext = upcoming(2).getOrNull(1)?.mediaId
+            ?.takeIf { it.isNotBlank() && !it.startsWith(Song.LOCAL_PREFIX) && !c.downloads.isDownloaded(it) }
         scope.launch(Dispatchers.IO) {
             c.warmUp(next, cellular = c.settings.current.preloadCellular)
+            afterNext?.let { c.streams.prefetch(it) }
             // A live stream coming up is lined up as one, so it starts without a failed attempt first.
             if (runCatching { c.streams.isLive(next) }.getOrDefault(false)) withContext(Dispatchers.Main) {
                 val at = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == next && it != player.currentMediaItemIndex }
@@ -1403,3 +1414,5 @@ private const val SETTLE_MS = 2_000L
 private const val UNDER_WAY_MS = 5_000L
 /** How many queued songs ahead are got ready (their loudness and edges). */
 private const val QUEUE_AHEAD = 3
+/** How far ahead the player loads: a whole song (and the start of the next, near its end). */
+private const val WHOLE_SONG_MS = 300_000

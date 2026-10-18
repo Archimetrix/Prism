@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit
 
 /** About 10 seconds of a song's stream (Opus ~160 kbps, AAC up to 256 kbps), saved ahead by [AppContainer.warmUp]. */
 private const val PREBUFFER_BYTES = 320L * 1024
+private const val YIELD_MS = 8_000L
 
 class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
     lateinit var container: AppContainer
@@ -298,6 +299,7 @@ class AppContainer(val app: Application) {
     fun warmUp(id: String, whole: Boolean = false, cellular: Boolean = false) {
         if (id.startsWith(com.prism.music.data.model.Song.LOCAL_PREFIX)) return // a file on the phone is ready already
         if (downloadCache.fullyCached(id, 0, C.LENGTH_UNSET.toLong())) return
+        yieldToPlaying(id)
         val s = runCatching { streams.resolve(id) }.getOrNull() ?: return // live streams and failures: nothing to save
         val metered = app.getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered != false
         // On mobile data only when allowed (Settings → Load ahead on mobile data).
@@ -312,6 +314,22 @@ class AppContainer(val app: Application) {
         runCatching { androidx.media3.datasource.cache.CacheWriter(source, spec, null, null).cache() }
             .onSuccess { prebuffered[id] = s.itag }
             .onFailure { android.util.Log.w("PrismStream", "Couldn't save the start of $id ahead: $it") }
+    }
+
+    /**
+     * Getting another song ready waits (up to [YIELD_MS]) while the song that's playing is loading, at its start or in a
+     * stall. Resolving is heavy (NewPipe makes several requests and runs YouTube's player code), and several at once
+     * slowed each other down: on the phone, resolves that took ~2 s on their own took 3–6 s side by side, the playing
+     * song's own among them. [id]: the song being got ready (no wait when it's the one playing); null always waits.
+     * Blocking; call it off the main thread.
+     */
+    fun yieldToPlaying(id: String?) {
+        // Called as a song changes: the player's "loading" reaches this side a moment after the change itself.
+        Thread.sleep(250)
+        val until = android.os.SystemClock.elapsedRealtime() + YIELD_MS
+        while (player.buffering.value && (id == null || player.currentSong.value?.id != id) && android.os.SystemClock.elapsedRealtime() < until) {
+            Thread.sleep(150)
+        }
     }
 
     /** Download cache → song cache → network, with prism:// URIs resolved lazily. */

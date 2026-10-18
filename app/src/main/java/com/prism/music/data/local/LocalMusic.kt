@@ -104,9 +104,6 @@ class LocalMusic(private val context: Context, private val scope: CoroutineScope
                         artists = artistsOf(c.getString(2)),
                         album = c.getString(3)?.takeIf { it.isNotBlank() && it != UNKNOWN }?.let { AlbumRef(it) },
                         durationSec = (c.getLong(5) / 1000).toInt(),
-                        // The album's artwork as Android serves it (from the files' embedded covers): it opens as an
-                        // image, so Coil, the media notification and the car can all show it.
-                        thumbnail = artFor(albumId),
                     )
                     out += Track(
                         song, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id), albumId,
@@ -116,11 +113,21 @@ class LocalMusic(private val context: Context, private val scope: CoroutineScope
                 }
             }
         }.onFailure { Log.w(TAG, "scan failed", it) }
-        byId = out.associateBy { it.song.id }
-        _tracks.value = out
+        // The list shows as soon as the files are known; covers follow (opening every album's artwork took long
+        // enough on a big library that the page sat on its spinner).
+        publish(out)
         _scanned.value = true
         Log.i(TAG, "${out.size} music files")
-        fillEmbeddedArt(out)
+        // The album's artwork as Android serves it (from the files' embedded covers): it opens as an image, so Coil,
+        // the media notification and the car can all show it.
+        val withArt = out.map { t -> artFor(t.albumId)?.let { t.copy(song = t.song.copy(thumbnail = it)) } ?: t }
+        if (art.values.any { it != null }) publish(withArt)
+        fillEmbeddedArt(withArt)
+    }
+
+    private fun publish(tracks: List<Track>) {
+        byId = tracks.associateBy { it.song.id }
+        _tracks.value = tracks
     }
 
     private val artDir by lazy { java.io.File(context.filesDir, "artwork/local").apply { mkdirs() } }
@@ -149,9 +156,7 @@ class LocalMusic(private val context: Context, private val scope: CoroutineScope
             found[t.song.id] = Uri.fromFile(file).toString()
         }
         if (found.isEmpty()) return
-        val filled = tracks.map { t -> found[t.song.id]?.let { t.copy(song = t.song.copy(thumbnail = it)) } ?: t }
-        byId = filled.associateBy { it.song.id }
-        _tracks.value = filled
+        publish(tracks.map { t -> found[t.song.id]?.let { t.copy(song = t.song.copy(thumbnail = it)) } ?: t })
     }
 
     companion object {

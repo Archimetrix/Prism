@@ -10,6 +10,7 @@ import com.prism.music.data.prefs.AppSettings
 import com.prism.music.data.prefs.LyricsSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -734,10 +735,14 @@ class LyricsRepository(
                     if (song.durationSec > 0) addQueryParameter("duration", song.durationSec.toString())
                     song.album?.title?.let { addQueryParameter("album", it) }
                 }.build()
-            val body = runCatching {
+            val (code, body) = runCatching {
                 quickHttp.newCall(Request.Builder().url(url).header("User-Agent", browserUa).build()).execute()
-                    .use { r -> if (r.isSuccessful) r.body.string() else null }
+                    .use { r -> r.code to (if (r.isSuccessful) r.body.string() else null) }
             }.getOrNull() ?: continue
+            // The mirror known to work saying it hasn't got the song is the answer: asking the others as well only made
+            // a song without lyrics wait longer. (A dead mirror answers 404 to everything, so only the good one counts.)
+            if (code == 404 && host == lyricsPlusGood) return null
+            if (body == null) continue
             if (LyricsPlusFormat.parse(body).isNotEmpty()) {
                 lyricsPlusGood = host
                 return LyricsPlusFormat.PREFIX + body
@@ -835,6 +840,8 @@ class LyricsRepository(
         const val LENGTH_CHECK_SINCE = 1_791_936_000_000L
         /** YouTube Music's synced lyrics came in (1.6.4); plain text from it saved before this is asked for again. */
         const val YT_SYNCED_SINCE = 1_792_627_200_000L // 2026-10-22
+        /** How long [auto] waits on a source before asking the next one as well. */
+        const val HEAD_START_MS = 1_200L
         val LENGTH_CHECKED = setOf(LyricsSource.KUGOU, LyricsSource.NETEASE, LyricsSource.LRCLIB, LyricsSource.BINI)
 
         /** Where the full words for starred-out lyrics come from, in order. */
@@ -959,21 +966,38 @@ class LyricsRepository(
         }
         var plainFallback: Lyrics? = null
         var censored: Lyrics? = null
-        for ((i, src) in s.lyricsSources.withIndex()) {
-            val l = fetch(song, src, force) ?: continue
-            if (unwanted(l)) { if (censored == null || (l.synced && !censored.synced)) censored = l; continue }
-            if (l.wordSynced || !s.preferSynced) return l
-            if (l.synced) {
-                // Karaoke beats time-synced lines, even from a source further down the list: those that can have it
-                // are asked as well, all at once so it stays quick, and the first in the listener's order wins.
-                val rest = s.lyricsSources.drop(i + 1).filter { it in WORD_SOURCES }
-                val karaoke = kotlinx.coroutines.coroutineScope {
-                    rest.map { r -> async { runCatching { fetch(song, r, force) }.getOrNull() } }
-                        .map { it.await() }
-                }.firstOrNull { it != null && it.wordSynced && !unwanted(it) }
-                return karaoke ?: l
+        val order = s.lyricsSources
+        // The sources used to be asked strictly one after another, so a song most of them don't have (or one slow
+        // source) waited for each in turn: about a minute for some songs. Now each source has [HEAD_START_MS] to
+        // answer before the next one is asked as well (at once if it's done sooner), and the answers are still taken
+        // in the listener's order. Whatever is still out when the choice is made is dropped.
+        val job = kotlinx.coroutines.SupervisorJob()
+        val asks = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + job)
+        try {
+            val answers = order.map { src ->
+                asks.async(start = kotlinx.coroutines.CoroutineStart.LAZY) { runCatching { fetch(song, src, force) }.getOrNull() }
             }
-            if (plainFallback == null) plainFallback = l
+            asks.launch {
+                for (a in answers) {
+                    a.start()
+                    kotlinx.coroutines.withTimeoutOrNull(HEAD_START_MS) { a.join() }
+                }
+            }
+            for ((i, src) in order.withIndex()) {
+                val l = answers[i].await() ?: continue
+                if (unwanted(l)) { if (censored == null || (l.synced && !censored.synced)) censored = l; continue }
+                if (l.wordSynced || !s.preferSynced) return l
+                if (l.synced) {
+                    // Karaoke beats time-synced lines, even from a source further down the list: those that can have
+                    // it are asked as well, all at once so it stays quick, and the first in the listener's order wins.
+                    val rest = order.indices.drop(i + 1).filter { order[it] in WORD_SOURCES }.map { answers[it] }
+                    rest.forEach { it.start() }
+                    return rest.firstNotNullOfOrNull { a -> a.await()?.takeIf { it.wordSynced && !unwanted(it) } } ?: l
+                }
+                if (plainFallback == null) plainFallback = l
+            }
+        } finally {
+            job.cancel()
         }
         // Saved lyrics beat what's left (offline, say); censored words beat no words at all.
         return savedBest?.takeIf { it.synced } ?: plainFallback ?: savedBest ?: censored

@@ -117,10 +117,10 @@ fun LibraryScreen(bottomPadding: Dp) {
         }
     }
 
-    // ---- Sorting (each tab remembers its own)
-    var songSort by rememberSaveable { mutableStateOf(SongSort.RECENT) }
-    var albumSort by rememberSaveable { mutableStateOf(AlbumSort.LIBRARY) }
-    var artistSort by rememberSaveable { mutableStateOf(ArtistSort.LIBRARY) }
+    // ---- Sorting (each tab remembers its own, kept between visits)
+    var songSort by remember { mutableStateOf(SongSort.entries.firstOrNull { it.name == c.library.sortOf("library:songs") } ?: SongSort.RECENT) }
+    var albumSort by remember { mutableStateOf(AlbumSort.entries.firstOrNull { it.name == c.library.sortOf("library:albums") } ?: AlbumSort.LIBRARY) }
+    var artistSort by remember { mutableStateOf(ArtistSort.entries.firstOrNull { it.name == c.library.sortOf("library:artists") } ?: ArtistSort.LIBRARY) }
     val sortedSongs = remember(liked, songSort) {
         when (songSort) {
             SongSort.RECENT -> liked
@@ -264,7 +264,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                     }
                     LibTab.SONGS -> {
                         if (liked.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                            SortBar(com.prism.music.data.model.songCount(liked.size), SongSort.entries, songSort, { it.label }) { songSort = it }
+                            SortBar(com.prism.music.data.model.songCount(liked.size), SongSort.entries, songSort, { it.label }) { songSort = it; c.library.setSort("library:songs", it.name) }
                         }
                         items(sortedSongs, key = { "s" + it.id }, span = { GridItemSpan(maxLineSpan) }) { s ->
                             SongRow(s) { c.player.playQueue(sortedSongs, sortedSongs.indexOf(s), com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.LIBRARY, "Liked songs")) }
@@ -272,13 +272,13 @@ fun LibraryScreen(bottomPadding: Dp) {
                     }
                     LibTab.ALBUMS -> {
                         if (albums.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                            SortBar("${albums.size} albums", AlbumSort.entries, albumSort, { it.label }) { albumSort = it }
+                            SortBar("${albums.size} albums", AlbumSort.entries, albumSort, { it.label }) { albumSort = it; c.library.setSort("library:albums", it.name) }
                         }
                         items(sortedAlbums, key = { "a" + it.id }) { a -> LibraryItem(a, asList) { nav.open(a, onSong) } }
                     }
                     LibTab.ARTISTS -> {
                         if (artists.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                            SortBar(if (artists.size == 1) "1 artist" else "${artists.size} artists", ArtistSort.entries, artistSort, { it.label }) { artistSort = it }
+                            SortBar(if (artists.size == 1) "1 artist" else "${artists.size} artists", ArtistSort.entries, artistSort, { it.label }) { artistSort = it; c.library.setSort("library:artists", it.name) }
                         }
                         items(sortedArtists, key = { "r" + it.id }) { a -> LibraryItem(a, asList) { nav.open(a, onSong) } }
                     }

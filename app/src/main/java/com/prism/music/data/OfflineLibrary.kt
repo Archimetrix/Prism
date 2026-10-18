@@ -94,6 +94,11 @@ class OfflineLibrary(context: Context) {
         )
     }.getOrNull()
 
+    /** Every kept playlist and album with the id it was opened as, last kept first. Reads files: call off the main thread. */
+    fun pages(): List<Pair<String, CollectionPage>> = pagesDir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
+        .sortedByDescending { it.lastModified() }
+        .mapNotNull { f -> f.name.removeSuffix(".json").let { id -> page(id)?.let { id to it } } }
+
     /** Forgets everything kept (after signing out). */
     fun clear() {
         listsFile.delete()

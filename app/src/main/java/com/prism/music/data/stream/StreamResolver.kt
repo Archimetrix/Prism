@@ -271,7 +271,8 @@ class StreamException(message: String, cause: Throwable? = null) : Exception(mes
 class LiveStreamException(val videoId: String) : IOException("$videoId is a live stream")
 
 /**
- * Resolves playable googlevideo URLs for a video id. NewPipeExtractor does this anonymously; songs
+ * Resolves playable googlevideo URLs for a video id. One direct request as YouTube's visionOS app comes first
+ * ([InnerTube.visionOsPlayer], ~0.2 s); NewPipeExtractor does it anonymously when that has no plain answer; songs
  * YouTube won't play anonymously (age-restricted, Music Premium-only) are asked for again as the
  * signed-in user ([InnerTube.signedInPlayer]), with the stream URLs deciphered by YouTube's player
  * JS ([PlayerJsSolver]).
@@ -394,6 +395,7 @@ class StreamResolver(
         if (signedIn && System.currentTimeMillis() < newPipeBlockedUntil) {
             runCatching { signedInFormats(videoId) }.getOrNull()?.let { return it }
         }
+        directFormats(videoId, signedIn)?.let { return it }
         return try {
             anonymousFormats(videoId).also { if (it.audio.isEmpty() && it.hlsUrl == null) throw StreamException("No playable audio stream was found") }
         } catch (e: Exception) {
@@ -417,6 +419,44 @@ class StreamResolver(
                 else -> throw StreamException(why, e)
             }
         }
+    }
+
+    /** Until when [directFormats] is skipped: YouTube was answering it with bot checks from this network. */
+    @Volatile
+    private var directOffUntil = 0L
+
+    /**
+     * The quick way: one player request as YouTube's visionOS app ([InnerTube.visionOsPlayer]), the client NewPipe
+     * takes its streams from, without NewPipe's other requests. On the phone a song not resolved ahead started ~2 s
+     * later through NewPipe. Null whenever its answer isn't one to play as it is (refused, ciphered, an "n" to solve,
+     * a live stream without its HLS manifest): NewPipe then resolves it as before. Songs that need an account
+     * (age-restricted, Premium-only) go straight to the signed-in clients when signed in.
+     */
+    private fun directFormats(videoId: String, signedIn: Boolean): Formats? {
+        if (System.currentTimeMillis() < directOffUntil) return null
+        val res = try {
+            innerTube.visionOsPlayer(videoId)
+        } catch (e: Exception) {
+            Log.w("StreamResolver", "Direct lookup of $videoId failed: $e")
+            return null
+        }
+        val status = res.str("playabilityStatus", "status")
+        if (status != "OK") {
+            val reason = res.str("playabilityStatus", "reason")
+            Log.i("StreamResolver", "Direct lookup of $videoId: $status ($reason)")
+            if (reason?.contains("bot", ignoreCase = true) == true) {
+                directOffUntil = System.currentTimeMillis() + BLOCK_BACKOFF_MS
+            } else if (signedIn && status == "LOGIN_REQUIRED") {
+                runCatching { signedInFormats(videoId) }.getOrNull()?.let { needsAccount += videoId; return it }
+            }
+            return null
+        }
+        // Every format plain (music videos' pictures come from the same answer).
+        val adaptive = res.obj("streamingData")?.arr("adaptiveFormats").orEmpty().mapNotNull { it as? JsonObject }
+        if (adaptive.any { o -> o.str("url").let { it == null || Regex("[?&]n=").containsMatchIn(it) } }) return null
+        val f = parsePlayer(res, null)
+        if (f.live) return f.takeIf { it.hlsUrl != null }
+        return f.takeIf { it.audio.isNotEmpty() }?.also { Log.i("PrismStream", "$videoId resolved directly (visionOS)") }
     }
 
     private fun anonymousFormats(videoId: String): Formats {

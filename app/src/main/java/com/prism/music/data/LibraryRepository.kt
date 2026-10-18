@@ -304,6 +304,16 @@ class LibraryRepository(private val c: AppContainer) {
         orderPrefs.edit().putString("playlist_sort", name).apply()
     }
 
+    /**
+     * How the listener last sorted a list ("liked", "downloads", "playlist:<id>", "library:songs"…), as a name the
+     * screen knows; null for its default. Kept so a sort isn't lost on leaving the page.
+     */
+    fun sortOf(list: String): String? = orderPrefs.getString("sort:$list", null)
+
+    fun setSort(list: String, name: String?) {
+        orderPrefs.edit().apply { if (name == null) remove("sort:$list") else putString("sort:$list", name) }.apply()
+    }
+
     fun syncInBackground() {
         c.scope.launch { sync() }
     }

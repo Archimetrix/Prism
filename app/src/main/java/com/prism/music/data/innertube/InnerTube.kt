@@ -48,6 +48,11 @@ class InnerTube(
         const val ANDROID_MUSIC_VERSION = "7.27.52"
         /** youtube.com's web client, for [webPost] (live stream search). */
         const val WEB_CLIENT_VERSION = "2.20250925.01.00"
+        /**
+         * The visionOS YouTube app's version [visionOsPlayer] asks as (NewPipe 0.26.5's). If YouTube stops answering it,
+         * newer NewPipe releases' ClientsConstants have the current one.
+         */
+        const val VISIONOS_VERSION = "1.02"
     }
 
     @Volatile
@@ -389,6 +394,74 @@ class InnerTube(
             }
             return json.parseToJsonElement(text).jsonObject
         }
+    }
+
+    /** The visitor id the visionOS player requests go out with (asked for once, again after a bot check). */
+    @Volatile
+    private var visionVisitor: String? = null
+
+    private fun visionOsUserAgent() =
+        "com.google.visionos.youtube/$VISIONOS_VERSION(RealityDevice14,1; U; CPU visionOS 25_6_0 like Mac OS X; $gl)"
+
+    private fun visionOsPost(endpoint: String, body: JsonObject, visitor: String?): JsonObject {
+        val payload = buildJsonObject {
+            putJsonObject("context") {
+                putJsonObject("client") {
+                    put("clientName", "VISIONOS")
+                    put("clientVersion", VISIONOS_VERSION)
+                    put("clientScreen", "WATCH")
+                    put("platform", "MOBILE")
+                    put("deviceMake", "Apple")
+                    put("deviceModel", "RealityDevice14,1")
+                    put("osName", "visionOS")
+                    put("osVersion", "25.6.0.23O471")
+                    put("hl", hl)
+                    put("gl", gl)
+                    put("utcOffsetMinutes", 0)
+                    if (visitor != null) put("visitorData", visitor)
+                }
+            }
+            body.forEach { (k, v) -> put(k, v) }
+        }
+        val req = Request.Builder()
+            .url("https://www.youtube.com/youtubei/v1/$endpoint?prettyPrint=false")
+            .post(payload.toString().toRequestBody(JSON_TYPE))
+            .header("User-Agent", visionOsUserAgent())
+            .header("X-Goog-Api-Format-Version", "2")
+            .header("X-YouTube-Client-Name", "101")
+            .header("X-YouTube-Client-Version", VISIONOS_VERSION)
+            .apply { if (visitor != null) header("X-Goog-Visitor-Id", visitor) }
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body.string()
+            if (!resp.isSuccessful) throw InnerTubeException("YouTube returned HTTP ${resp.code}", resp.code)
+            return json.parseToJsonElement(text).jsonObject
+        }
+    }
+
+    private fun visionVisitor(): String =
+        visionVisitor ?: (visionOsPost("visitor_id", JsonObject(emptyMap()), null).str("responseContext", "visitorData")
+            ?: throw InnerTubeException("No visitor id")).also { visionVisitor = it }
+
+    /**
+     * A song's player response as YouTube's visionOS app, anonymously: the client NewPipe (0.26.5) gets its streams
+     * from, asked directly in one request (~0.2 s) instead of NewPipe's three or four (visitor id, player, the web
+     * page's details), ~2 s. Its stream URLs need no signature or "n" solving, and googlevideo serves them whole
+     * (ANDROID_VR's stopped after the first megabyte). Without a visitor id YouTube answers with a bot check, so one is
+     * asked for once and kept; a bot check later gets one fresh id and one more try. Blocking.
+     */
+    fun visionOsPlayer(videoId: String): JsonObject {
+        val body = buildJsonObject {
+            put("videoId", videoId)
+            put("contentCheckOk", true)
+            put("racyCheckOk", true)
+        }
+        val res = visionOsPost("player", body, visionVisitor())
+        val botCheck = res.str("playabilityStatus", "status") == "LOGIN_REQUIRED" &&
+            res.str("playabilityStatus", "reason")?.contains("bot", ignoreCase = true) == true
+        if (!botCheck) return res
+        visionVisitor = null
+        return visionOsPost("player", body, visionVisitor())
     }
 
     /** Fire-and-forget GET used for playback-history pings. */
