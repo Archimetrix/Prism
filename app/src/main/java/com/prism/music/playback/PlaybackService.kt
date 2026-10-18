@@ -398,6 +398,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         c.nerdStats.value = NerdStats(videoId = song.id, outputDevice = AudioEffects.outputDevice(this))
         c.streamDetails[song.id]?.let { applyStreamStats(song.id) }
         scope.launch(Dispatchers.IO) { c.library.recordPlayed(song) }
+        scope.launch { c.bestParts.onSongStarted(song) }
         loadExtras(song)
         // Audio only (the Song / Video switch is off): nothing plays as its video, whatever lined it up (#48).
         // Posted: swapping the item from inside this callback would report its transition after the swap was over.
@@ -777,6 +778,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             }
         }
         if (next.startsWith(Song.LOCAL_PREFIX)) return
+        // Its "Most replayed" curve (for the best part), ready before it plays.
+        player.getMediaItemAt(i).toSong()?.let { s -> scope.launch { c.bestParts.prefetch(s) } }
         if (c.downloads.isDownloaded(next)) { armNextVideo(); return }
         // The song after it is resolved too (no audio fetched): skipping twice used to land on one that wasn't, which
         // took ~2 s to start. Each song is resolved once either way, only earlier.

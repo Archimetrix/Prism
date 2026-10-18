@@ -934,6 +934,8 @@ private fun PlayerSettings() {
             Toggle("\"Playing from\"", "The song's album above the artwork; tap it to open the album", s.showPlayingFrom) { prefs.setShowPlayingFrom(it) }
             Toggle("Current lyric", "The line being sung, just above the progress bar; tap it to open the lyrics", s.lyricsOnPlayer) { prefs.setLyricsOnPlayer(it) }
             Toggle("Stream quality", "The codec and bitrate (or \"Downloaded\") under the progress bar; tap it for the full stats", s.showQuality) { prefs.setShowQuality(it) }
+            Toggle("Most replayed", "YouTube's \"Most replayed\" curve, faintly along the top of the progress bar", s.showMostReplayed) { prefs.setShowMostReplayed(it) }
+            Toggle("Best part button", "In a song's first seconds, a button under the progress bar skips to the part people replay most (or its chorus)", s.bestPartButton) { prefs.setBestPartButton(it) }
             Toggle("Song length", "The right-hand time shows how long the song is, not the time left. Tapping the time switches too", s.showTrackLength) { prefs.setShowTrackLength(it) }
             Toggle("Shuffle and repeat buttons", "Either side of play, always (they're also above the queue). Repeat goes all, one, off", s.playerShuffleRepeat) { prefs.setPlayerShuffleRepeat(it) }
             Toggle("Volume bar", "The volume slider under the controls", !s.hideVolumeBar) { prefs.setHideVolumeBar(!it) }

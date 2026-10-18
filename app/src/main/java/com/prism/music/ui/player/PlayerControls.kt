@@ -62,6 +62,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -197,8 +199,14 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
     // The song's length or the time left (#82): tapping the time switches, and it stays that way.
     val showLength = LocalAppSettings.current.showTrackLength
     val c = LocalContainer.current
+    // YouTube's "Most replayed" curve, a faint hill along the top of the bar (not over a music video's own timeline).
+    val best by c.bestParts.current.collectAsState()
+    val videoMode by pc.videoMode.collectAsState()
+    val heat = best?.takeIf { it.songId == current?.id && LocalAppSettings.current.showMostReplayed && !videoMode }?.heat
+    val idle = when (style) { ScrubberStyle.HAIRLINE -> 7.dp; ScrubberStyle.BOLD -> 11.dp; ScrubberStyle.THUMB -> 4.dp }
     Column(Modifier.fillMaxWidth()) {
         ThinSlider(
+            modifier = if (heat == null) Modifier else Modifier.drawBehind { drawHeatHill(heat, duration, idle.toPx()) },
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
@@ -220,6 +228,61 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
             centerLabel()
         }
     }
+}
+
+/**
+ * The heat curve as a soft hill sitting on the bar: each stretch of the song as high as it's replayed. [trackPx] is
+ * the bar's resting thickness (the hill starts at its top edge).
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHeatHill(heat: com.prism.music.data.Heatmap, durationMs: Long, trackPx: Float) {
+    val values = heat.intensity
+    if (values.size < 2 || durationMs <= 0) return
+    val base = size.height / 2 - trackPx / 2 - 1.dp.toPx()
+    val top = 13.dp.toPx()
+    fun x(i: Int) = ((i * heat.segmentMs + heat.segmentMs / 2).toFloat() / durationMs * size.width).coerceIn(0f, size.width)
+    fun y(i: Int) = base - top * values[i].coerceIn(0f, 1f)
+    val path = androidx.compose.ui.graphics.Path().apply {
+        moveTo(0f, base)
+        lineTo(x(0), y(0))
+        for (i in 1 until values.size) {
+            // Smooth: through the midpoints, with each sample as the control point.
+            val mx = (x(i - 1) + x(i)) / 2
+            val my = (y(i - 1) + y(i)) / 2
+            quadraticTo(x(i - 1), y(i - 1), mx, my)
+        }
+        lineTo(x(values.lastIndex), y(values.lastIndex))
+        lineTo(x(values.lastIndex), base)
+        close()
+    }
+    drawPath(path, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.06f)), startY = base - top, endY = base))
+}
+
+/**
+ * "Best part ›" in the middle under the bar while a song's best part is still ahead, in its first 30 s. Returns
+ * false (draws nothing) otherwise, so the stream-quality label can take the place.
+ */
+@Composable
+fun BoxScope.BestPartChip(): Boolean {
+    val c = LocalContainer.current
+    val pc = c.player
+    val settings = LocalAppSettings.current
+    val song by pc.currentSong.collectAsState()
+    val best by c.bestParts.current.collectAsState()
+    val start = best?.takeIf { it.songId == song?.id }?.startMs ?: return false
+    val at = pc.lyricPosition
+    if (!settings.bestPartButton || at > 30_000 || at > start - 3_000) return false
+    val haptics = rememberHaptics()
+    Row(
+        Modifier.align(Alignment.Center).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
+            .clickable(onClickLabel = "Skip to the best part") { haptics.tick(); pc.seekToLyric(start) }
+            .padding(horizontal = 12.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(PrismIcons.FlameFilled, null, tint = Color.White, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(5.dp))
+        Text("Best part", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+    return true
 }
 
 /** Previous, play/pause, next — oversized glyphs, no circles. */

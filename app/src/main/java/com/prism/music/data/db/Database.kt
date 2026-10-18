@@ -99,6 +99,15 @@ data class MotionArtEntity(
     val fetchedAt: Long,
 )
 
+/** YouTube's "Most replayed" curve for a video ([com.prism.music.data.Heatmap]); empty [intensity] = it has none. */
+@Entity(tableName = "heatmaps")
+data class HeatmapEntity(
+    @PrimaryKey val videoId: String,
+    val segmentMs: Long,
+    val intensity: String,
+    val fetchedAt: Long,
+)
+
 data class SongPlays(
     val songId: String,
     val plays: Int,
@@ -265,9 +274,18 @@ interface MetaDao {
     suspend fun putMotion(e: MotionArtEntity)
 }
 
+@Dao
+interface HeatmapDao {
+    @Query("SELECT * FROM heatmaps WHERE videoId = :id")
+    suspend fun get(id: String): HeatmapEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(e: HeatmapEntity)
+}
+
 @Database(
-    entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class],
-    version = 2,
+    entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class],
+    version = 3,
     exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
@@ -275,6 +293,7 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun plays(): PlayEventDao
     abstract fun lyrics(): LyricsDao
     abstract fun meta(): MetaDao
+    abstract fun heatmaps(): HeatmapDao
 
     companion object {
         /**
@@ -286,6 +305,11 @@ abstract class PrismDatabase : RoomDatabase() {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE play_events ADD COLUMN source TEXT")
                     db.execSQL("ALTER TABLE play_events ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0")
+                }
+            },
+            object : Migration(2, 3) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `heatmaps` (`videoId` TEXT NOT NULL, `segmentMs` INTEGER NOT NULL, `intensity` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`videoId`))")
                 }
             },
         )

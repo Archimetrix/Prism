@@ -182,6 +182,13 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         return LiveStreams.parse(res, owner)
     }
 
+    /**
+     * YouTube's "Most replayed" curve for a video (song uploads have one too, once enough people have played them),
+     * from youtube.com's own `next` answer; YouTube Music's doesn't carry it. Null when the video has none.
+     */
+    suspend fun heatmap(videoId: String): com.prism.music.data.Heatmap? =
+        com.prism.music.data.BestPart.parse(api.webPost("next", buildJsonObject { put("videoId", videoId) }))
+
     // ---------------------------------------------------------------- Collections
 
     private fun songsFrom(res: JsonObject): List<Song> =

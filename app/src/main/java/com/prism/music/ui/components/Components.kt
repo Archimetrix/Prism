@@ -487,6 +487,8 @@ fun SongActionsSheet(song: Song, extra: List<SheetItem> = emptyList(), onDismiss
         ) { if (dl != null) c.downloads.remove(song.id) else c.downloads.download(song) },
     ).filterNotNull()
     val go = listOfNotNull(
+        // Straight to its most replayed stretch (or its chorus).
+        if (song.isEpisode || song.isLive || guest != null) null else ActionItem(PrismIcons.FlameFilled, "Play from the best part") { c.player.playFromBestPart(song) },
         song.podcastId?.let { id -> ActionItem(PrismIcons.Podcasts, "Go to podcast") { nav.go(Routes.podcast(id)) } },
         if (song.isEpisode && song.id in c.episodes.played.value) ActionItem(PrismIcons.Refresh, "Mark as unplayed") { c.episodes.forget(song.id); c.episodes.unmarkPlayed(song.id) }
         else if (song.isEpisode) ActionItem(PrismIcons.DoneAll, "Mark as played") { c.episodes.markPlayed(song.id) } else null,

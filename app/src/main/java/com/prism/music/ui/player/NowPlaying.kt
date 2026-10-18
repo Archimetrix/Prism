@@ -187,6 +187,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // the sheet stuttered. The timing sheet isn't counted: the lyrics are what's being lined up there.
     val covered = showActions || showProviders || showSleep
     val lyricsState = rememberLyricsState(song)
+    // With the lyrics in, the best part can start where a line does (or come from the chorus, without a heat curve).
+    LaunchedEffect(song.id, lyricsState.lyrics) { if (lyricsState.lyrics?.synced == true) c.bestParts.refine(song) }
     val position = rememberPosition(fast = false, hold = covered)
     val volume = rememberPlayerVolume()
     val scope = rememberCoroutineScope()
@@ -700,7 +702,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         // With "Current lyric" off no blank line is kept for it: the cover and title get the room.
                         PlayerScrubber(position, pc.duration) {
                             // Settings → Player → "Stream quality" hides it (the full stats stay in the ⋯ menu).
-                            if (settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = statsOpen) { toggleStats() }
+                            // In a song's opening seconds the middle offers its best part instead, while it's still ahead.
+                            if (!BestPartChip() && settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = statsOpen) { toggleStats() }
                         }
                         Spacer(Modifier.height(8.dp))
                         TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || position > 3000, nextEnabled = hasNext)

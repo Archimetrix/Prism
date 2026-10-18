@@ -258,6 +258,10 @@ data class AppSettings(
     val canvasWithDownloadsCellular: Boolean = false,
     /** The stream's quality (codec and bitrate, or "Downloaded") under the player's scrubber. */
     val showQuality: Boolean = true,
+    /** YouTube's "Most replayed" curve, faintly along the top of the player's scrubber. */
+    val showMostReplayed: Boolean = true,
+    /** A "Best part" button by the scrubber in a song's first seconds, to skip to its most replayed stretch. */
+    val bestPartButton: Boolean = true,
     /** The Song / Video switch on the player. Off, the player stays audio only. */
     val showVideoSwitch: Boolean = true,
     /** Holding previous / next seeks back / forward this many seconds, again every moment it's held (0 = off). */
@@ -454,6 +458,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val carLyricsKeepTitle = booleanPreferencesKey("car_lyrics_keep_title")
         val showNerdStats = booleanPreferencesKey("nerd_stats")
         val showQuality = booleanPreferencesKey("show_quality")
+        val showMostReplayed = booleanPreferencesKey("show_most_replayed")
+        val bestPartButton = booleanPreferencesKey("best_part_button")
         val showVideoSwitch = booleanPreferencesKey("show_video_switch")
         val holdSeekSeconds = intPreferencesKey("hold_seek_seconds")
         val canvasWithDownloads = booleanPreferencesKey("canvas_with_downloads")
@@ -608,6 +614,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             carLyricsKeepTitle = p[K.carLyricsKeepTitle] ?: d.carLyricsKeepTitle,
             showNerdStats = p[K.showNerdStats] ?: d.showNerdStats,
             showQuality = p[K.showQuality] ?: d.showQuality,
+            showMostReplayed = p[K.showMostReplayed] ?: d.showMostReplayed,
+            bestPartButton = p[K.bestPartButton] ?: d.bestPartButton,
             showVideoSwitch = p[K.showVideoSwitch] ?: d.showVideoSwitch,
             holdSeekSeconds = p[K.holdSeekSeconds] ?: d.holdSeekSeconds,
             canvasWithDownloads = p[K.canvasWithDownloads] ?: d.canvasWithDownloads,
@@ -788,6 +796,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCarLyricsKeepTitle(v: Boolean) = edit { it[K.carLyricsKeepTitle] = v }
     fun setShowNerdStats(v: Boolean) = edit { it[K.showNerdStats] = v }
     fun setShowQuality(v: Boolean) = edit { it[K.showQuality] = v }
+    fun setShowMostReplayed(v: Boolean) = edit { it[K.showMostReplayed] = v }
+    fun setBestPartButton(v: Boolean) = edit { it[K.bestPartButton] = v }
     fun setShowVideoSwitch(v: Boolean) = edit { it[K.showVideoSwitch] = v }
     fun setHoldSeekSeconds(v: Int) = edit { it[K.holdSeekSeconds] = v.coerceIn(0, 20) }
     fun setCanvasWithDownloads(v: Boolean) = edit { it[K.canvasWithDownloads] = v }

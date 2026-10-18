@@ -467,6 +467,21 @@ object PrismIcons {
     val Star = icon("Star") { line(d = star) }
     val StarFilled = icon("StarFilled") { solid(d = star); line(1.2f, d = star) }
 
+    /** A flame: the hot part of a song (its most replayed stretch). */
+    private val flame: PathBuilder.() -> Unit = {
+        moveTo(12f, 2.5f)
+        quadTo(13f, 6.5f, 15.6f, 8.8f)
+        quadTo(19.5f, 12.2f, 18.8f, 15.8f)
+        quadTo(18f, 21.2f, 12f, 21.5f)
+        quadTo(6f, 21.2f, 5.2f, 15.8f)
+        quadTo(4.7f, 12.4f, 7.6f, 9.6f)
+        quadTo(7.8f, 12.4f, 9.6f, 13.2f)
+        quadTo(9f, 7f, 12f, 2.5f)
+        close()
+    }
+    val Flame = icon("Flame") { line(d = flame) }
+    val FlameFilled = icon("FlameFilled") { solid(d = flame) }
+
     private val thumb: PathBuilder.() -> Unit = {
         moveTo(7.5f, 10.5f); lineTo(7.5f, 20f); lineTo(5f, 20f); quadTo(3.5f, 20f, 3.5f, 18.5f); lineTo(3.5f, 12f); quadTo(3.5f, 10.5f, 5f, 10.5f); close()
         moveTo(7.5f, 10.5f); lineTo(11.2f, 4.3f); quadTo(11.8f, 3.3f, 12.9f, 3.6f); quadTo(14.6f, 4.1f, 14.3f, 5.9f); lineTo(13.8f, 9f)

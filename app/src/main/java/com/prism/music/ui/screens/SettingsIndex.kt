@@ -90,6 +90,8 @@ object SettingsIndex {
         SettingEntry(P, "On the player", "\"Playing from\"", "album caption"),
         SettingEntry(P, "On the player", "Current lyric", "lyrics line"),
         SettingEntry(P, "On the player", "Stream quality", "codec bitrate nerd stats"),
+        SettingEntry(P, "On the player", "Most replayed", "heatmap curve youtube popular part"),
+        SettingEntry(P, "On the player", "Best part button", "skip chorus hook highlight most replayed jump"),
         SettingEntry(P, "On the player", "Song length", "duration time left remaining"),
         SettingEntry(P, "On the player", "Shuffle and repeat buttons"),
         SettingEntry(P, "On the player", "Volume bar", "slider"),

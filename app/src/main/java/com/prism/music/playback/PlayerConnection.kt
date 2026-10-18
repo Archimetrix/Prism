@@ -272,7 +272,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
             runCatching { kotlinx.coroutines.withContext(Dispatchers.IO) { c.ytm.songForVideo(video) } }.getOrNull()
         }?.also { videoSongs[video.id] = it })?.also { c.queue.counterparts[it.id] = video.id }
 
-    private fun startQueue(songs: List<Song>, startIndex: Int, source: QueueSource, shuffle: Boolean, startVideo: String?) {
+    private fun startQueue(songs: List<Song>, startIndex: Int, source: QueueSource, shuffle: Boolean, startVideo: String?, startMs: Long = 0) {
         c.queue.source.value = source
         c.queue.autoplayContinuation = null
         c.queue.autoplayStart.value = -1
@@ -281,7 +281,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         withPlayer { p ->
             p.shuffleModeEnabled = shuffle
             val start = startIndex.coerceIn(0, songs.lastIndex)
-            p.setMediaItems(songs.mapIndexed { i, s -> s.toMediaItem(if (i == start) startVideo else null) }, start, 0)
+            p.setMediaItems(songs.mapIndexed { i, s -> s.toMediaItem(if (i == start) startVideo else null) }, start, startMs.coerceAtLeast(0))
             if (shuffle) reshuffle(p)
             p.prepare()
             p.play()
@@ -291,6 +291,20 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
 
     /** Plays a lone song; autoplay then continues with similar music. */
     fun playSingle(song: Song) = playQueue(listOf(song), 0, QueueSource(QueueKind.SINGLE, "Autoplay", seedId = song.id))
+
+    /**
+     * Plays [song] from its best part (its most replayed stretch, or its chorus), then on as [playSingle] would.
+     * Without one it plays from the start, and says so.
+     */
+    fun playFromBestPart(song: Song) {
+        val token = ++playToken
+        scope.launch {
+            val start = kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { c.bestParts.startMs(song) }.getOrNull() }
+            if (token != playToken) return@launch
+            if (start == null) reportError("Prism doesn't know a best part for \"${song.title}\" yet, so it plays from the start")
+            startQueue(listOf(song), 0, QueueSource(QueueKind.SINGLE, "Autoplay", seedId = song.id), shuffle = false, startVideo = null, startMs = start ?: 0)
+        }
+    }
 
     /** Plays [song] and then a radio of songs like it (YouTube Music's), whether or not Autoplay is on. */
     fun playRadio(song: Song) = playQueue(listOf(song), 0, QueueSource(QueueKind.RADIO, "${song.title} Radio", seedId = song.id))

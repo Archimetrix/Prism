@@ -2,6 +2,12 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7 (unreleased)
+
+### New
+- **Tablets, foldables and landscape**: on a wide screen the tabs move to a rail down the side, and the player shows the cover and controls beside the lyrics, the queue or the stream stats. On its side a phone gets the same player with a smaller cover. A foldable half-open like a laptop puts the cover above the fold and the controls below it. Settings lists its pages beside the one that's open, and albums and playlists keep their cover beside the songs on a tablet in landscape.
+- **Jump to the best part**: a faint "Most replayed" curve along the player's progress bar (YouTube's own, from what listeners replay), and in a song's first seconds a **Best part** button that skips to it. Without a curve, the best part is where the chorus first comes round in the lyrics. The start lands on a lyric line or a bar, not mid-word. A song's menu has **Play from the best part** too. Both can be turned off in Settings → Player.
+
 ## 1.6.9.2
 
 ### Fixed

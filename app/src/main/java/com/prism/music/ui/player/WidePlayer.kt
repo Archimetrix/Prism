@@ -111,7 +111,7 @@ internal fun WidePlayerContent(
     val deck: @Composable (short: Boolean) -> Unit = { short ->
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             PlayerScrubber(position, pc.duration) {
-                if (settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = pane == PlayerPane.STATS) {
+                if (!BestPartChip() && settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = pane == PlayerPane.STATS) {
                     onPane(if (pane == PlayerPane.STATS) PlayerPane.LYRICS else PlayerPane.STATS)
                 }
             }

@@ -199,6 +199,8 @@ class AppContainer(val app: Application) {
     // background thread before this property is assigned.
     init { losslessSync.start() }
     val taste = com.prism.music.data.TasteRepository(this)
+    /** Songs' best parts, from YouTube's "Most replayed" curves (and the chorus in the lyrics). */
+    val bestParts = com.prism.music.data.BestParts(this)
 
     /** One-off upkeep that runs once per install, in the background, after Prism has settled. */
     private val migrations: android.content.SharedPreferences = app.getSharedPreferences("migrations", android.content.Context.MODE_PRIVATE)
