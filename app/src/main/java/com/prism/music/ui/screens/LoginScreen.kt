@@ -158,6 +158,8 @@ fun LoginScreen(onDone: () -> Unit, onBack: () -> Unit, addAccount: Boolean = fa
             onRelease = { it.stopLoading(); it.destroy() },
             factory = { ctx ->
                 WebView(ctx).apply {
+                    // Fills the box (see DiscordLoginScreen: a WRAP_CONTENT WebView measures viewport units as 0).
+                    layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     // Google blocks sign-in from user agents flagged as embedded web views.
@@ -296,6 +298,9 @@ fun DiscordLoginScreen(onBack: () -> Unit) {
                 factory = { ctx ->
                     if (com.prism.music.BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
                     WebView(ctx).apply {
+                        // A WebView left at AndroidView's WRAP_CONTENT takes its page height from its content, so a page
+                        // sized in viewport units (100vh) measures 0: Discord's login drew nothing (#72). It fills the box.
+                        layoutParams = android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         // As Chrome on the phone: Android's in-app browser marks itself ("; wv", "Version/4.0"), which

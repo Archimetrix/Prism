@@ -140,13 +140,19 @@ private val hubGroups = listOf(
 
 /** Settings: the account, then the categories; [section] shows one category's page. */
 @Composable
-fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null) {
+fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null, find: String? = null) {
     val c = LocalContainer.current
     val s = LocalAppSettings.current
     val nav = LocalNavigator.current
     // As a tab, the hub is a root page and has nothing to go back to.
     val isTab = section == null && NavTab.SETTINGS in s.navTabs
+    // Search (#73), on the hub: matching settings in place of the categories. A result on the hub itself (Discord)
+    // is found here; one on a page opens that page at its group.
+    var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var foundHere by remember { mutableStateOf<String?>(null) }
+    val results = remember(query) { SettingsIndex.search(query) }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalSettingsFind provides (find ?: foundHere)) {
     SubPage(
         title = section?.title ?: "Settings",
         bottomPadding = bottomPadding,
@@ -156,6 +162,29 @@ fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null) {
     ) {
         when (section) {
             null -> {
+                item(key = "find") {
+                    com.prism.music.ui.components.SearchField(query, "Search settings", { query = it; foundHere = null })
+                }
+                if (query.isNotBlank()) {
+                    item(key = "results") {
+                        if (results.isEmpty()) Text(
+                            "No settings match \"${query.trim()}\"",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        ) else Group("") {
+                            results.take(30).forEach { e ->
+                                NavRow(
+                                    e.section?.icon ?: PrismIcons.Settings, e.shown,
+                                    listOf(e.section?.title ?: "Settings", e.group).filter { it != e.title }.joinToString(" › "),
+                                ) {
+                                    if (e.section == null) { query = ""; foundHere = e.group }
+                                    else nav.go(Routes.settings(e.section.key, e.group))
+                                }
+                            }
+                        }
+                    }
+                    return@SubPage
+                }
                 item { AccountCard() }
                 item { DiscordGroup() }
                 hubGroups.forEach { (title, sections) ->
@@ -201,6 +230,7 @@ fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null) {
             }
             SettingsSection.LICENSES -> item { LicensesPage() }
         }
+    }
     }
 }
 
@@ -451,66 +481,70 @@ private fun AccountSwitcher(onDismiss: () -> Unit) {
 // ---------------------------------------------------------------------------- Appearance
 
 private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
-    item(key = "theme") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Theme") {
-            Chips(ThemeMode.entries, s.themeMode, { it.label }) { prefs.setThemeMode(it) }
-            Toggle("Pure black", "AMOLED-friendly dark theme", s.pureBlack) { prefs.setPureBlack(it) }
-        }
-    }
-    item(key = "colour") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Colour") {
-            Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
-            if (s.colorSource != ColorSource.DYNAMIC) {
-                Note(
-                    if (s.colorSource == ColorSource.ARTWORK) "Adapts to the cover of what's playing; this accent is used when nothing is."
-                    else "Pick an accent colour"
-                )
-                AccentPicker(s.accent) { prefs.setAccent(it) }
+    item(key = "appearance") {
+        Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Theme") {
+                    Chips(ThemeMode.entries, s.themeMode, { it.label }) { prefs.setThemeMode(it) }
+                    Toggle("Pure black", "AMOLED-friendly dark theme", s.pureBlack) { prefs.setPureBlack(it) }
+                }
             }
-        }
-    }
-    item(key = "type") { TypeSettings() }
-    item(key = "icons") { IconSettings() }
-    item(key = "app-icon") { AppIconSettings() }
-    item(key = "shape") { ShapeSettings() }
-    item(key = "backgrounds") {
-        val s = LocalAppSettings.current
-        val nav = LocalNavigator.current
-        Group("Backgrounds") {
-            val count = s.backdrops.size
-            Item(
-                "Screen backgrounds",
-                if (count == 0) "Ready-made designs or your own photo for Home, Search, Library and more"
-                else s.backdrops.values.map { com.prism.music.ui.theme.Backdrop.parse(it).first.label }.distinct().joinToString(" · ") + " on $count ${if (count == 1) "screen" else "screens"}",
-                onClick = { nav.go(Routes.BACKGROUNDS) },
-            ) { Chevron() }
-        }
-    }
-    item(key = "glass") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Glass") {
-            Toggle("Liquid Glass", "Refractive glass for the bars, mini player and player controls", s.liquidGlass) { prefs.setLiquidGlass(it) }
-            if (s.liquidGlass) {
-                Label("Glass style")
-                Chips(GlassKind.entries, s.glassKind, { it.label }) { prefs.setGlassKind(it) }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Colour") {
+                    Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
+                    if (s.colorSource != ColorSource.DYNAMIC) {
+                        Note(
+                            if (s.colorSource == ColorSource.ARTWORK) "Adapts to the cover of what's playing; this accent is used when nothing is."
+                            else "Pick an accent colour"
+                        )
+                        AccentPicker(s.accent) { prefs.setAccent(it) }
+                    }
+                }
             }
-            Toggle("Frosted Glass", "Soft blurred glass instead, without the refraction", s.frostedGlass) { prefs.setFrostedGlass(it) }
-            Toggle("Frosted pages", "Artist, album and playlist pages sit on frosted glass made from their picture, and take its colour; Home, Library, Search and Settings on frost from what's playing", s.frostedPages) { prefs.setFrostedPages(it) }
+            TypeSettings()
+            IconSettings()
+            AppIconSettings()
+            ShapeSettings()
+            Box {
+                val s = LocalAppSettings.current
+                val nav = LocalNavigator.current
+                Group("Backgrounds") {
+                    val count = s.backdrops.size
+                    Item(
+                        "Screen backgrounds",
+                        if (count == 0) "Ready-made designs or your own photo for Home, Search, Library and more"
+                        else s.backdrops.values.map { com.prism.music.ui.theme.Backdrop.parse(it).first.label }.distinct().joinToString(" · ") + " on $count ${if (count == 1) "screen" else "screens"}",
+                        onClick = { nav.go(Routes.BACKGROUNDS) },
+                    ) { Chevron() }
+                }
+            }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Glass") {
+                    Toggle("Liquid Glass", "Refractive glass for the bars, mini player and player controls", s.liquidGlass) { prefs.setLiquidGlass(it) }
+                    if (s.liquidGlass) {
+                        Label("Glass style")
+                        Chips(GlassKind.entries, s.glassKind, { it.label }) { prefs.setGlassKind(it) }
+                    }
+                    Toggle("Frosted Glass", "Soft blurred glass instead, without the refraction", s.frostedGlass) { prefs.setFrostedGlass(it) }
+                    Toggle("Frosted pages", "Artist, album and playlist pages sit on frosted glass made from their picture, and take its colour; Home, Library, Search and Settings on frost from what's playing", s.frostedPages) { prefs.setFrostedPages(it) }
+                }
+            }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Motion") {
+                    Toggle("Reduce motion", "Calmer animations: no drifting backgrounds, no artwork bounce, quicker transitions", s.reduceMotion) { prefs.setReduceMotion(it) }
+                }
+            }
+            ResetLook()
         }
     }
-    item(key = "motion") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Motion") {
-            Toggle("Reduce motion", "Calmer animations: no drifting backgrounds, no artwork bounce, quicker transitions", s.reduceMotion) { prefs.setReduceMotion(it) }
-        }
-    }
-    item(key = "reset") { ResetLook() }
 }
 
 @Composable
@@ -713,39 +747,50 @@ private fun ResetLook() {
 // ---------------------------------------------------------------------------- Layout & navigation
 
 private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation() {
-    item(key = "nav") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Navigation bar") {
-            Label("Style")
-            Chips(NavBarStyle.entries, s.navStyle, { it.label }) { prefs.setNavStyle(it) }
-            Label("Labels")
-            Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
-            Toggle("Shrink while scrolling", "The bar slims down as you scroll a page and comes back when you scroll up", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
-        }
-    }
-    item(key = "tabs") { TabsEditor() }
-    item(key = "mini") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Mini player") {
-            Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
-            Toggle("Previous & next buttons", "Swiping the mini player sideways changes songs either way", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
-            Label("Progress")
-            Chips(MiniProgress.entries, s.miniProgress, { it.label }) { prefs.setMiniProgress(it) }
-        }
-    }
-    item(key = "density") {
-        val s = LocalAppSettings.current
-        val prefs = LocalContainer.current.settings
-        Group("Pages") {
-            Label("Spacing")
-            Chips(UiDensity.entries, s.uiDensity, { it.label }) { prefs.setUiDensity(it) }
-            Label("Page titles")
-            Chips(TitleSize.entries, s.titleSize, { it.label }) { prefs.setTitleSize(it) }
-            Label("Album & playlist cards")
-            Chips(CardSize.entries, s.cardSize, { it.label }) { prefs.setCardSize(it) }
-            Spacer(Modifier.height(6.dp))
+    item(key = "layout") {
+        Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Navigation bar") {
+                    Label("Style")
+                    Chips(NavBarStyle.entries, s.navStyle, { it.label }) { prefs.setNavStyle(it) }
+                    Label("Labels")
+                    Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
+                    Toggle("Shrink while scrolling", "The bar slims down as you scroll a page and comes back when you scroll up", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
+                }
+            }
+            TabsEditor()
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Mini player") {
+                    Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
+                    Toggle("Previous & next buttons", "Swiping the mini player sideways changes songs either way", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
+                    Label("Progress")
+                    Chips(MiniProgress.entries, s.miniProgress, { it.label }) { prefs.setMiniProgress(it) }
+                }
+            }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Pages") {
+                    Label("Spacing")
+                    Chips(UiDensity.entries, s.uiDensity, { it.label }) { prefs.setUiDensity(it) }
+                    Label("Page titles")
+                    Chips(TitleSize.entries, s.titleSize, { it.label }) { prefs.setTitleSize(it) }
+                    Label("Album & playlist cards")
+                    Chips(CardSize.entries, s.cardSize, { it.label }) { prefs.setCardSize(it) }
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Search") {
+                    Toggle("Open the keyboard", "Search comes up ready to type when you open it", s.searchKeyboard) { prefs.setSearchKeyboard(it) }
+                }
+            }
         }
     }
 }
@@ -849,6 +894,7 @@ private fun PlayerSettings() {
             Toggle("\"Playing from\"", "The song's album above the artwork; tap it to open the album", s.showPlayingFrom) { prefs.setShowPlayingFrom(it) }
             Toggle("Current lyric", "The line being sung, just above the progress bar; tap it to open the lyrics", s.lyricsOnPlayer) { prefs.setLyricsOnPlayer(it) }
             Toggle("Stream quality", "The codec and bitrate (or \"Downloaded\") under the progress bar; tap it for the full stats", s.showQuality) { prefs.setShowQuality(it) }
+            Toggle("Song length", "The right-hand time shows how long the song is, not the time left. Tapping the time switches too", s.showTrackLength) { prefs.setShowTrackLength(it) }
             Toggle("Shuffle and repeat buttons", "Either side of play, always (they're also above the queue). Repeat goes all, one, off", s.playerShuffleRepeat) { prefs.setPlayerShuffleRepeat(it) }
             Toggle("Volume bar", "The volume slider under the controls", !s.hideVolumeBar) { prefs.setHideVolumeBar(!it) }
             Toggle("Song / Video switch", "Off, the player stays audio only and never switches to the music video", s.showVideoSwitch) {
@@ -857,13 +903,18 @@ private fun PlayerSettings() {
             }
             Toggle("Output device", "Where the sound is going, at the bottom; tap it to switch", s.showOutputDevice) { prefs.setShowOutputDevice(it) }
         }
-        Group("Hold to seek") {
+        Group("Seeking") {
             Toggle("Hold previous / next to seek", "Holding them jumps back or forward, again and again while you hold; a tap still changes songs", s.holdSeekSeconds > 0) {
                 prefs.setHoldSeekSeconds(if (it) 10 else 0)
             }
             if (s.holdSeekSeconds > 0) SliderSetting("Each step", s.holdSeekSeconds.toFloat(), 1f..20f, { "${it.roundToInt()} s" }, steps = 18) {
                 prefs.setHoldSeekSeconds(it.roundToInt())
             }
+            // #79, as on YouTube Music.
+            Toggle("Double-tap the cover to seek", "Double-tap its left side to go back, its right side to go ahead", s.doubleTapSeekSeconds > 0) {
+                prefs.setDoubleTapSeekSeconds(if (it) 10 else 0)
+            }
+            if (s.doubleTapSeekSeconds > 0) Chips(listOf(3, 5, 10, 15), s.doubleTapSeekSeconds, { "$it s" }) { prefs.setDoubleTapSeekSeconds(it) }
         }
         Group("Feel") {
             Toggle("Haptics", "A light tap when you press player buttons or swipe the mini player and artwork to change songs", s.haptics) { prefs.setHaptics(it) }
@@ -932,6 +983,13 @@ private fun SoundPage() {
                 "Autoplay and radios play songs: a music video plays as its song, and videos with no song version are left out",
                 s.radioSongsOnly,
             ) { prefs.setRadioSongsOnly(it) }
+            // #80: the same everywhere else music videos turn up.
+            if (s.radioSongsOnly) Toggle(
+                "Everywhere",
+                "Music videos in search, albums, playlists, Liked songs and downloads play as their song too, with its album and cover. " +
+                    "The Video button still shows the video; a video with no song plays as it is",
+                s.songsEverywhere,
+            ) { prefs.setSongsEverywhere(it) }
             Toggle("Keep playing videos", "While a music video is showing, the next song plays as its video too, until you switch back to Song", s.videoContinues) { prefs.setVideoContinues(it) }
             Toggle("Skip silence", "Trims silent gaps at the start and end of songs", s.skipSilence) { prefs.setSkipSilence(it) }
             Toggle(

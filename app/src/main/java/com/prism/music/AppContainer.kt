@@ -100,7 +100,7 @@ class AppContainer(val app: Application) {
         .build()
 
     val innerTube = InnerTube(http, { settings.current }, settings::setVisitorData)
-    val ytm = YouTubeMusic(innerTube)
+    val ytm = YouTubeMusic(innerTube) { settings.current.let { it.radioSongsOnly && it.songsEverywhere } }
     val db = PrismDatabase.build(app)
     val streams by lazy { StreamResolver(app, http, settings, innerTube) }
     val translator = com.prism.music.data.lyrics.LyricsTranslator(http)
@@ -111,6 +111,7 @@ class AppContainer(val app: Application) {
     val offline = com.prism.music.data.OfflineLibrary(app)
     val lyrics = LyricsRepository(http, db.lyrics(), ytm) { settings.current }.apply {
         choices = app.getSharedPreferences("lyrics_choice", android.content.Context.MODE_PRIVATE)
+        searchNames = app.getSharedPreferences("lyrics_search_as", android.content.Context.MODE_PRIVATE)
     }
     val meta = MetaRepository(http, db.meta())
     val canvas = com.prism.music.data.canvas.CanvasRepository(http).apply {

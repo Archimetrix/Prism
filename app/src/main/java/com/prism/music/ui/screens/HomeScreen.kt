@@ -545,7 +545,8 @@ private fun SpeedDialPages(items: List<BrowseItem>, open: (BrowseItem) -> Unit) 
             pager,
             // The next page peeks in from the side, so it's clear there's more.
             contentPadding = PaddingValues(start = 16.dp, end = if (pages.size > 1) 40.dp else 16.dp),
-            pageSpacing = 10.dp,
+            // As wide as the start padding, so the page before doesn't show as a sliver at the left edge (#67).
+            pageSpacing = 16.dp,
             verticalAlignment = Alignment.Top,
         ) { p ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -320,8 +320,11 @@ class DownloadRepository(private val context: Context, private val c: AppContain
      * those (your own artwork), else the one YouTube Music shows, at full size.
      */
     private suspend fun saveCover(song: Song) {
-        if (song.isLocal || c.artwork.has(song.thumbnail)) return
-        val file = if (isLosslessOnly(song.id)) c.localLossless.match(song)?.uri else null
+        if (song.isLocal) return
+        val lossless = isLosslessOnly(song.id)
+        // A cover kept small for the library (an album's, 544 px) is fetched again at full size (#86).
+        if (if (lossless) c.artwork.has(song.thumbnail) else c.artwork.hasFull(song.thumbnail)) return
+        val file = if (lossless) c.localLossless.match(song)?.uri else null
         if (file != null) {
             val embedded = runCatching {
                 val r = android.media.MediaMetadataRetriever()
@@ -503,8 +506,9 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         c.scope.launch(Dispatchers.Main) { for (song in completedSongs()) if (!saveCanvas(song)) break }
     }
 
+    /** Newest first (#77: they came in the download index's own order, which the "Recently added" sort showed as is). */
     fun completedSongs(): List<Song> = _downloads.value.values
-        .filter { it.state == Download.STATE_COMPLETED }.mapNotNull { it.song }
+        .filter { it.state == Download.STATE_COMPLETED }.sortedByDescending { it.addedAt }.mapNotNull { it.song }
 
     val totalBytes: Long get() = _downloads.value.values.sumOf { it.bytes } + _videos.value.values.sumOf { it.bytes }
 }

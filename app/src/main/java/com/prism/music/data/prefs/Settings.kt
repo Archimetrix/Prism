@@ -267,6 +267,17 @@ data class AppSettings(
     val autoplay: Boolean = true,
     /** Autoplay and radios play songs: music videos swap for their song, and videos with no song version are left out (#39). */
     val radioSongsOnly: Boolean = true,
+    /**
+     * "Songs, not videos" everywhere (#80): with [radioSongsOnly], a music video in any queue (search, albums, playlists,
+     * Liked songs, downloads) plays as its song, the video kept for the Video button; without a song it plays as it is.
+     */
+    val songsEverywhere: Boolean = false,
+    /** The player's right-hand time shows the song's length instead of the time left (#82; tapping it switches). */
+    val showTrackLength: Boolean = false,
+    /** Search opens with the keyboard up (#71). */
+    val searchKeyboard: Boolean = false,
+    /** Double-tapping the left or right of the player's cover seeks back / ahead this many seconds (#79); 0 = off. */
+    val doubleTapSeekSeconds: Int = 10,
     /** Swiping Prism away from Recents stops the music (#45); off, it keeps playing in the background. */
     val stopOnSwipeAway: Boolean = false,
     /**
@@ -451,6 +462,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val cellularQuality = stringPreferencesKey("cellular_quality")
         val autoplay = booleanPreferencesKey("autoplay")
         val radioSongsOnly = booleanPreferencesKey("radio_songs_only")
+        val songsEverywhere = booleanPreferencesKey("songs_everywhere")
+        val showTrackLength = booleanPreferencesKey("show_track_length")
+        val searchKeyboard = booleanPreferencesKey("search_keyboard")
+        val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
         val stopOnSwipeAway = booleanPreferencesKey("stop_on_swipe_away")
         val dataSaver = booleanPreferencesKey("data_saver")
         val videoContinues = booleanPreferencesKey("video_continues")
@@ -601,6 +616,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             cellularQuality = p.enum(K.cellularQuality, d.cellularQuality),
             autoplay = p[K.autoplay] ?: d.autoplay,
             radioSongsOnly = p[K.radioSongsOnly] ?: d.radioSongsOnly,
+            songsEverywhere = p[K.songsEverywhere] ?: d.songsEverywhere,
+            showTrackLength = p[K.showTrackLength] ?: d.showTrackLength,
+            searchKeyboard = p[K.searchKeyboard] ?: d.searchKeyboard,
+            doubleTapSeekSeconds = p[K.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
             stopOnSwipeAway = p[K.stopOnSwipeAway] ?: d.stopOnSwipeAway,
             dataSaver = p[K.dataSaver] ?: d.dataSaver,
             videoContinues = p[K.videoContinues] ?: d.videoContinues,
@@ -777,6 +796,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCellularQuality(v: AudioQuality) = edit { it[K.cellularQuality] = v.name }
     fun setAutoplay(v: Boolean) = edit { it[K.autoplay] = v }
     fun setRadioSongsOnly(v: Boolean) = edit { it[K.radioSongsOnly] = v }
+    fun setSongsEverywhere(v: Boolean) = edit { it[K.songsEverywhere] = v }
+    fun setShowTrackLength(v: Boolean) = edit { it[K.showTrackLength] = v }
+    fun setSearchKeyboard(v: Boolean) = edit { it[K.searchKeyboard] = v }
+    fun setDoubleTapSeekSeconds(v: Int) = edit { it[K.doubleTapSeekSeconds] = v }
     fun setStopOnSwipeAway(v: Boolean) = edit { it[K.stopOnSwipeAway] = v }
     fun setDataSaver(v: Boolean) = edit { it[K.dataSaver] = v }
     fun setVideoContinues(v: Boolean) = edit { it[K.videoContinues] = v }

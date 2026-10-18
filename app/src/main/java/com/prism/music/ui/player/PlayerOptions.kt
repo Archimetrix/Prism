@@ -129,7 +129,7 @@ fun PlayerOptionsSheet(
     )
     val go = listOfNotNull(
         song.album?.id?.let { id -> ActionItem(PrismIcons.Album, "Go to album") { onCollapse(); nav.go(Routes.album(id)) } },
-    ) + com.prism.music.ui.components.goToArtists(song) { id -> onCollapse(); nav.go(Routes.artist(id)) } + listOfNotNull(
+    ) + com.prism.music.ui.components.goToArtists(song) { route -> onCollapse(); nav.go(route) } + listOfNotNull(
         if (song.id in disliked) ActionItem(PrismIcons.ThumbDownFilled, "Not for me", active = true, keepOpen = true) { c.library.setDisliked(song, false) }
         else ActionItem(PrismIcons.ThumbDown, "Not for me") {
             c.library.setDisliked(song, true)
