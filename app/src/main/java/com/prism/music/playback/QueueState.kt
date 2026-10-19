@@ -22,8 +22,20 @@ class QueueState {
     val source = MutableStateFlow(QueueSource(QueueKind.OTHER, ""))
     /** audio track id -> official music video id */
     val counterparts = ConcurrentHashMap<String, String>()
-    /** ids with no music video available */
-    val noVideo = ConcurrentHashMap.newKeySet<String>()
+    /** ids YouTube had no music video for: not asked again for an hour (a bad moment shouldn't hide one all session). */
+    val noVideo = NoVideo()
+
+    class NoVideo {
+        private val at = ConcurrentHashMap<String, Long>()
+        fun add(id: String) { at[id] = System.currentTimeMillis() }
+        operator fun contains(id: String): Boolean {
+            val t = at[id] ?: return false
+            if (System.currentTimeMillis() - t < RETRY_MS) return true
+            at.remove(id)
+            return false
+        }
+        private companion object { const val RETRY_MS = 60 * 60_000L }
+    }
     @Volatile var autoplayContinuation: String? = null
     @Volatile var autoplayLoading = false
     /** Index in the queue where autoplay suggestions begin (-1 when none). */

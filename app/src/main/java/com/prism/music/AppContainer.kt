@@ -421,9 +421,11 @@ class AppContainer(val app: Application) {
 
     /** A music video's picture: from Downloads when it's saved there (key `video:<id>`), else streamed (never cached). */
     fun videoDataSourceFactory(): DataSource.Factory {
+        val http = OkHttpDataSource.Factory(streamHttp)
         val downloadsFirst = CacheDataSource.Factory()
             .setCache(downloadCache)
-            .setUpstreamDataSourceFactory(OkHttpDataSource.Factory(streamHttp))
+            // A link YouTube turns away is forgotten (and its next lookup goes through NewPipe), as for songs.
+            .setUpstreamDataSourceFactory { ForgetOnForbidden(http.createDataSource()) { key, code -> streams.invalidate(key.removePrefix("video:"), refused = code == 403) } }
             .setCacheWriteDataSinkFactory(null)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         return ResolvingDataSource.Factory(downloadsFirst) { spec ->

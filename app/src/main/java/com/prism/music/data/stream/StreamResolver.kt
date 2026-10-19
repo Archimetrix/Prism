@@ -647,16 +647,8 @@ class StreamResolver(
         return AnalysisStream(pick.url, pick.contentLength, f.durationSec)
     }
 
-    private fun pickAudio(streams: List<Fmt>, quality: AudioQuality): Fmt? {
-        val usable = streams.filter { it.original }.ifEmpty { streams }
-        if (usable.isEmpty()) return null
-        val sorted = usable.sortedBy { it.kbps }
-        return when (quality) {
-            AudioQuality.HIGH -> sorted.last()
-            AudioQuality.LOW -> sorted.first()
-            AudioQuality.NORMAL -> sorted.minByOrNull { kotlin.math.abs((it.kbps.takeIf { b -> b > 0 } ?: 128) - 128) }
-        }
-    }
+    private fun pickAudio(streams: List<Fmt>, quality: AudioQuality): Fmt? =
+        AudioPick.pick(streams.map { AudioPick.Choice(it.mime, it.codec, it.kbps, it.original) }, quality)?.let { streams[it] }
 
     private fun pickVideo(streams: List<Fmt>, maxHeight: Int): Fmt? {
         val usable = streams.filter { it.height in 1..maxHeight }

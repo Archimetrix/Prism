@@ -447,38 +447,11 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
      */
     suspend fun findMusicVideo(song: Song): String? {
         next(song.id).counterparts[song.id]?.let { return it }
-        fun norm(s: String) = s.lowercase().replace(Regex("\\(.*?\\)|\\[.*?]"), "").replace(Regex("[^\\p{L}\\p{N}]"), "")
-        val title = norm(song.title)
-        val artists = song.artists.map { norm(it.name) }.filter { it.isNotBlank() }
-        if (title.isBlank() || artists.isEmpty()) return null
+        if (song.artists.isEmpty() || song.title.isBlank()) return null
         val videos = search("${song.title} ${song.primaryArtist}", SearchFilter.VIDEOS).items
             .filterIsInstance<SongItem>().map { it.song }
-        val songWords = song.title.lowercase()
-        return videos.firstOrNull { v ->
-            val vt = norm(v.title)
-            val words = v.title.lowercase()
-            // Posted by the artist (their channel, or its VEVO / "Official" one), not by whoever names them in a title:
-            // a guitar cover and a fan's lyric video both said "Nirvana" / "Billie Eilish" in theirs (#60).
-            val byArtist = v.artists.any { a -> officialChannel(norm(a.name)).let { ch -> ch.isNotBlank() && ch in artists } }
-            val durationOk = song.durationSec == 0 || v.durationSec == 0 || kotlin.math.abs(v.durationSec - song.durationSec) < 150
-            // Other takes on the song, unless the song itself is one ("… (Live)", "… (Acoustic)").
-            val otherTake = NOT_THE_VIDEO.any { it.containsMatchIn(words) && !it.containsMatchIn(songWords) }
-            vt.contains(title) && byArtist && durationOk && !otherTake
-        }?.id
+        return MusicVideoMatch.pick(song, videos)
     }
-
-    /** "NirvanaVEVO", "Charly García Oficial", "Official Billie Eilish" → the artist's own name, normalized. */
-    private fun officialChannel(name: String): String {
-        var n = name
-        for (s in listOf("vevo", "official", "oficial", "officiel", "offiziell", "ufficiale", "music", "tv", "channel")) n = n.removeSuffix(s)
-        return n.removePrefix("official").ifBlank { name }
-    }
-
-    private val NOT_THE_VIDEO = listOf(
-        "lyric", "lyrics", "letra", "letras", "paroles", "testo", "traducida", "traducción", "sub español", "subtitulad", "перевод", "текст",
-        "cover", "karaoke", "instrumental", "acoustic", "acústic", "unplugged", "live", "en vivo", "ao vivo", "concert", "remix",
-        "reaction", "tutorial", "lesson", "guitar", "piano", "drum", "bass", "slowed", "sped up", "nightcore", "8d", "fan made", "fanmade",
-    ).map { Regex("(?<![\\p{L}\\p{N}])${Regex.escape(it)}(?![\\p{L}\\p{N}])") }
 
     suspend fun lyrics(browseId: String): String? {
         val res = browse(browseId)

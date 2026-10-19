@@ -620,13 +620,28 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 return
             }
         }
-        // A music video that won't load falls back to the song itself — never skip ahead.
-        if (player.currentMediaItem?.videoModeId != null) {
+        val httpCode = generateSequence(error as Throwable) { it.cause }
+            .filterIsInstance<HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode
+        // A music video that won't load gets one more go with its streams asked for afresh (YouTube now and then turns
+        // a direct link away, and the next answer comes the other way, through NewPipe); after that it falls back to
+        // the song itself — never skip ahead.
+        player.currentMediaItem?.videoModeId?.let { videoId ->
+            val key = "video:$videoId"
+            val tries = retries[key] ?: 0
+            val parse = generateSequence(error as Throwable) { it.cause }.any { it is androidx.media3.common.ParserException }
+            if (tries < 1 && (httpCode == 403 || httpCode == 410 || parse)) {
+                retries[key] = tries + 1
+                AudioDiagnostics.log("video", "video $videoId failed (${httpCode ?: "unreadable"}): trying its streams afresh")
+                c.streams.invalidate(videoId, refused = true)
+                val pos = player.currentPosition
+                player.prepare()
+                player.seekTo(pos)
+                player.play()
+                return
+            }
             scope.launch { revertVideo(id) }
             return
         }
-        val httpCode = generateSequence(error as Throwable) { it.cause }
-            .filterIsInstance<HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode
         val attempts = retries[id] ?: 0
         if (attempts < 2 && (httpCode == 403 || httpCode == 410 || error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
