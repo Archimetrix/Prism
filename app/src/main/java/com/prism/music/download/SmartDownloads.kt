@@ -95,7 +95,8 @@ class SmartDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         val now = System.currentTimeMillis()
         val downloads = c.downloads.downloads.value
 
-        val events = c.db.plays().eventsSince(now - 120L * 86_400_000)
+        // Plays the listener left out of their taste don't count.
+        val events = c.db.plays().tasteEventsSince(now - 120L * 86_400_000)
         val songIds = events.map { it.songId }.distinct()
         val known = songIds.chunked(500).flatMap { c.db.songs().getAll(it) }.associate { it.id to it.toSong() }.toMutableMap()
         val liked = c.db.songs().liked().map { it.toSong() }
@@ -105,7 +106,7 @@ class SmartDownloadWorker(context: Context, params: WorkerParameters) : Coroutin
         // Candidates: what you play and like, plus recommendations seeded from your strongest favourites.
         val scored = HashMap<String, Pair<Song, Double>>()
         fun consider(song: Song, score: Double) {
-            if (song.durationSec > 1200 || song.isVideo || song.isLocal || c.library.isDisliked(song.id)) return
+            if (song.durationSec > 1200 || song.isVideo || song.isLocal || c.library.isDisliked(song.id) || c.exclusions.blocks(song)) return
             val prev = scored[song.id]
             if (prev == null || prev.second < score) scored[song.id] = song to score
         }

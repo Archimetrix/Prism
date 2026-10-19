@@ -250,6 +250,18 @@ private fun SettingsPage(
                         Toggle("Customize button at the top", "The round button at the top right of Home", s.homeCustomizeTopButton) { c.settings.setHomeCustomizeTopButton(it) }
                         Toggle("Customize button at the bottom", "The \"Customize Home\" button at the very end of Home", s.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
                     }
+                    Group("Made for you") {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        Item("Your artists", "Pick artists you like: they shape your mixes and Release Radar", onClick = { nav.go(Routes.PICK_ARTISTS) }) { Chevron() }
+                        Toggle(
+                            "New release notifications", "When an artist you've starred puts out a single, EP or album",
+                            s.releaseNotifications,
+                        ) { c.settings.setReleaseNotifications(it) }
+                        Item("Make my mixes again", "Your Daily Mixes and the time-of-day mix, made fresh now", onClick = {
+                            c.scope.launch { c.forYou.refresh(force = true) }
+                            android.widget.Toast.makeText(context, "Making your mixes…", android.widget.Toast.LENGTH_SHORT).show()
+                        })
+                    }
                     ContentCountrySetting()
                 }
             }
@@ -1396,6 +1408,10 @@ private fun LibraryReplaySettings() {
         Group("Replay") {
             Toggle("Show time in hours", if (s.replayHours) "Listening time reads like \"20h 4m\"" else "Listening time reads like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
             Toggle("Use theme colours", "Replay's cards follow your accent instead of Prism's own gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }
+        }
+        Group("Recommendations") {
+            val nav = LocalNavigator.current
+            Item("Exclusions", "Artists not to play, and playlists or songs left out of your taste", onClick = { nav.go(Routes.EXCLUSIONS) }) { Chevron() }
         }
     }
 }

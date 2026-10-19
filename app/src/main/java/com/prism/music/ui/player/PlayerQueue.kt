@@ -86,8 +86,16 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
     val dj by c.dj.on.collectAsState()
     val djProgress by c.dj.progress.collectAsState()
     val djRevision by c.dj.revision.collectAsState()
-    val badge: (Song) -> String? = remember(dj, djRevision) {
-        { song -> if (!dj) null else if (!c.mixTempo.keyed(song.id)) "…" else djBadge(c.mixTempo.key(song.id), c.mixTempo.cached(song.id)) }
+    // Smart Shuffle's picks are marked ✦.
+    val smartPicks by c.queue.smartPicks.collectAsState()
+    val badge: (Song) -> String? = remember(dj, djRevision, smartPicks) {
+        { song ->
+            when {
+                dj -> if (!c.mixTempo.keyed(song.id)) "…" else djBadge(c.mixTempo.key(song.id), c.mixTempo.cached(song.id))
+                song.id in smartPicks -> "✦ Pick"
+                else -> null
+            }
+        }
     }
 
     var saving by remember { mutableStateOf(false) }

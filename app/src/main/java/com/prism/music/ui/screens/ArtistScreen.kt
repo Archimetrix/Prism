@@ -442,6 +442,15 @@ private fun TopBar(
                             leadingIcon = { Icon(if (favorite) PrismIcons.StarFilled else PrismIcons.Star, null) },
                         )
                         DropdownMenuItem({ Text("Signature style") }, { menu = false; onSignature() }, leadingIcon = { Icon(PrismIcons.Signature, null) })
+                        // Never in radios, autoplay, Smart Shuffle, mixes or Smart Downloads (Settings → Library & Replay → Exclusions).
+                        val c = com.prism.music.ui.theme.LocalContainer.current
+                        val excluded by c.exclusions.artists.collectAsState()
+                        val out = excluded.any { it.id == page.id || it.name.equals(page.name, true) }
+                        DropdownMenuItem(
+                            { Text(if (out) "Play this artist again" else "Don't play this artist") },
+                            { menu = false; c.exclusions.setArtist(com.prism.music.data.foryou.Excluded(page.id, page.name, page.thumbnail), !out) },
+                            leadingIcon = { Icon(PrismIcons.Block, null) },
+                        )
                     }
                 }
             }

@@ -18,6 +18,8 @@ import com.prism.music.data.model.Shelf
 import com.prism.music.data.model.Song
 import com.prism.music.data.model.SongItem
 import com.prism.music.data.model.hiRes
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import okhttp3.Request
 import java.io.File
 import java.security.MessageDigest
@@ -35,6 +37,8 @@ class MediaTree(private val c: AppContainer) {
         const val LIBRARY = "library"
         const val RECENT = "recent"
         const val DOWNLOADS = "downloads"
+        /** Prism's own mixes (Daily Mixes, the time-of-day mix, Release Radar). */
+        const val MADE_FOR_YOU = "foryou"
         const val SHUFFLE = "shuffle:"
     }
 
@@ -72,6 +76,7 @@ class MediaTree(private val c: AppContainer) {
     suspend fun children(parentId: String): List<MediaItem> = when {
         parentId == ROOT -> listOf(
             folder(HOME, "Home"),
+            folder(MADE_FOR_YOU, "Made for you", type = MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
             folder(LIKED, "Liked songs", art = c.covers.custom("liked"), type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
             folder(LIBRARY, "Library", type = MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
             folder(RECENT, "Recently played", type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
@@ -94,6 +99,14 @@ class MediaTree(private val c: AppContainer) {
                 }
             }
         }
+        parentId == MADE_FOR_YOU -> {
+            // What's kept is listed straight away (the car waits for nothing); anything due is made behind it.
+            c.scope.launch { runCatching { c.forYou.refresh() } }
+            c.forYou.mixes.first().filter { it.songs.isNotEmpty() }.map { m ->
+                folder("fy:${m.id}", m.title, m.subtitle, m.covers.firstOrNull(), MediaMetadata.MEDIA_TYPE_PLAYLIST)
+            }
+        }
+        parentId.startsWith("fy:") -> c.forYou.mix(parentId.removePrefix("fy:"))?.let { songList(parentId, it.title, it.songs) } ?: emptyList()
         parentId == LIKED -> songList(parentId, "Liked songs", c.library.liked.value)
         parentId == RECENT -> songList(parentId, "Recently played", c.library.recent.value)
         parentId == DOWNLOADS -> songList(parentId, "Downloads", c.downloads.completedSongs())

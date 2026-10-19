@@ -302,9 +302,13 @@ fun TransportRow(isPlaying: Boolean, isLoading: Boolean, previousEnabled: Boolea
     // Settings → Player: shuffle and repeat either side of the transport.
     val modes = LocalAppSettings.current.playerShuffleRepeat
     val shuffle by pc.shuffle.collectAsState()
+    val smart by LocalContainer.current.queue.smartShuffle.collectAsState()
     val repeat by pc.repeatMode.collectAsState()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
-        if (modes) ModeGlyph(PrismIcons.Shuffle, if (shuffle) "Shuffle on" else "Shuffle off", shuffle) { pc.toggleShuffle() }
+        if (modes) ModeGlyph(
+            if (smart) PrismIcons.SmartShuffle else PrismIcons.Shuffle,
+            if (smart) "Smart Shuffle on" else if (shuffle) "Shuffle on" else "Shuffle off", shuffle,
+        ) { pc.toggleShuffle() }
         val prevIcon = if (style == TransportStyle.GLYPHS) PrismIcons.Backward else PrismIcons.Previous
         val nextIcon = if (style == TransportStyle.GLYPHS) PrismIcons.Forward else PrismIcons.Next
         val skip = if (style == TransportStyle.GLYPHS) skipSize else skipSize * 0.82f
@@ -506,6 +510,7 @@ fun PlayerActionRow(
     val c = LocalContainer.current
     val pc = c.player
     val shuffle by pc.shuffle.collectAsState()
+    val smart by c.queue.smartShuffle.collectAsState()
     val repeat by pc.repeatMode.collectAsState()
     val settings by c.settings.flow.collectAsState()
     val videoLoading by pc.videoLoading.collectAsState()
@@ -522,7 +527,10 @@ fun PlayerActionRow(
                 label = "pill",
             ) { modes ->
                 if (modes) Pill {
-                    PillSegment(PrismIcons.Shuffle, "Shuffle", shuffle, width = PILL_SEGMENT_WIDTH_TRIPLE) { pc.toggleShuffle() }
+                    PillSegment(
+                        if (smart) PrismIcons.SmartShuffle else PrismIcons.Shuffle, if (smart) "Smart Shuffle" else "Shuffle", shuffle,
+                        width = PILL_SEGMENT_WIDTH_TRIPLE,
+                    ) { pc.toggleShuffle() }
                     PillDivider()
                     PillSegment(
                         if (repeat == Player.REPEAT_MODE_ONE) null else PrismIcons.Repeat, "Repeat",

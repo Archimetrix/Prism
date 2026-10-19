@@ -32,4 +32,11 @@ class QueueState {
     val userQueued = MutableStateFlow<Set<String>>(emptySet())
     /** Playing along with a Listen Together host: their queue decides what's next (no autoplay or skipping here). */
     @Volatile var followingHost = false
+    /** Smart Shuffle: shuffle with recommendations mixed in (the shuffle button's third state). */
+    val smartShuffle = MutableStateFlow(false)
+    /** The songs Smart Shuffle added (marked ✦ in the queue, counted as "smart" plays). */
+    val smartPicks = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Queues Smart Shuffle can add to: the listener's own lists, not radios (already all recommendations). */
+    fun smartAllowed(): Boolean = !followingHost && source.value.kind in setOf(QueueKind.PLAYLIST, QueueKind.ALBUM, QueueKind.LIBRARY)
 }

@@ -205,6 +205,8 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                             if (songs.isNotEmpty()) SongSection(cfg, "Downloads", null, songs.take(20)) { nav.go(Routes.DOWNLOADS) }
                         }
                         HomeSections.SPEED_DIAL -> SpeedDialSection(cfg, dialItems, openItem)
+                        HomeSections.MADE_FOR_YOU -> MadeForYouSection(cfg)
+                        HomeSections.NEW_RELEASES -> NewReleasesSection(cfg)
                         HomeSections.REPLAY -> ReplayTeaser()
                         HomeSections.GENRES -> TopGenresSection()
                         HomeSections.MOODS -> {

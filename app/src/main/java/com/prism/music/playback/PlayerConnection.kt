@@ -277,6 +277,9 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         val dj = djNext && !shuffle
         djNext = false
         c.dj.setOn(false)
+        // A new queue starts as plain shuffle (or none); Smart Shuffle is turned on per queue.
+        c.queue.smartShuffle.value = false
+        c.queue.smartPicks.value = emptySet()
         c.queue.source.value = source
         c.queue.autoplayContinuation = null
         c.queue.autoplayStart.value = -1
@@ -460,9 +463,13 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         if (auto > index) c.queue.autoplayStart.value = auto - 1
     }
     fun move(from: Int, to: Int) = withPlayer { it.moveMediaItem(from, to) }
+    /** Shuffle's button: off → shuffle → Smart Shuffle (where the queue allows it) → off. */
     fun toggleShuffle() = withPlayer {
-        if (!it.shuffleModeEnabled) reshuffle(it)
-        it.shuffleModeEnabled = !it.shuffleModeEnabled
+        when {
+            !it.shuffleModeEnabled -> { reshuffle(it); it.shuffleModeEnabled = true }
+            !c.queue.smartShuffle.value && c.queue.smartAllowed() -> c.queue.smartShuffle.value = true
+            else -> { c.queue.smartShuffle.value = false; it.shuffleModeEnabled = false }
+        }
     }
 
     /**

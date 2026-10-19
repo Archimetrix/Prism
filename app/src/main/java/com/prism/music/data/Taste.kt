@@ -34,7 +34,7 @@ class TasteRepository(private val c: AppContainer) {
         cached?.let { (at, p) -> if (System.currentTimeMillis() - at < 10 * 60_000) return p }
         val now = System.currentTimeMillis()
         val weights = LinkedHashMap<String, Double>()
-        c.db.plays().topSongs(now - 90L * 86_400_000, now, 120).forEach { weights.merge(it.songId, it.plays.toDouble(), Double::plus) }
+        c.db.plays().tasteTopSongs(now - 90L * 86_400_000, now, 120).forEach { weights.merge(it.songId, it.plays.toDouble(), Double::plus) }
         c.db.songs().liked().take(200).forEach { weights.merge(it.id, 0.6, Double::plus) }
         c.library.recent.value.take(30).forEach { weights.merge(it.id, 0.8, Double::plus) }
         if (weights.isEmpty()) return emptyMap()
@@ -74,7 +74,7 @@ class TasteRepository(private val c: AppContainer) {
         }
         val thumbs = c.library.artistThumbs.value
         // "Artist, Featured" is stored joined; the first name is the one with the id.
-        plays.topArtists(since, now, 300).forEach { a ->
+        plays.tasteTopArtists(since, now, 300).forEach { a ->
             a.artistName.split(", ").forEachIndexed { i, n -> add(n, a.plays.toDouble() * if (i == 0) 1.0 else 0.4, if (i == 0) a.artistId else null) }
         }
         c.db.songs().liked().forEach { s ->
@@ -89,7 +89,7 @@ class TasteRepository(private val c: AppContainer) {
         c.library.artists.value.forEach { a -> artists += SearchRank.KnownArtist(a.id, a.title, a.thumbnail ?: thumbs[a.id], 0.7) }
 
         val songs = HashMap<String, Double>()
-        plays.topSongs(since, now, 500).forEach { s -> songs[s.songId] = 0.5 + 0.5 * (ln(1.0 + s.plays) / ln(1 + 30.0)).coerceAtMost(1.0) }
+        plays.tasteTopSongs(since, now, 500).forEach { s -> songs[s.songId] = 0.5 + 0.5 * (ln(1.0 + s.plays) / ln(1 + 30.0)).coerceAtMost(1.0) }
         c.library.likedIds.value.forEach { id -> songs[id] = maxOf(songs[id] ?: 0.0, 0.8) }
         return SearchRank.Taste(artists, songs).also { searchCached = System.currentTimeMillis() to it }
     }

@@ -116,7 +116,7 @@ import com.prism.music.ui.theme.LocalIsDark
 import com.prism.music.ui.theme.LocalUi
 import kotlinx.coroutines.launch
 
-enum class CollectionType { ALBUM, PLAYLIST, LIKED, DOWNLOADS }
+enum class CollectionType { ALBUM, PLAYLIST, LIKED, DOWNLOADS, MIX }
 
 /** Names of artists YouTube Music lists as similar ("Fans might also like"), for classifying obscure artists. */
 private suspend fun relatedArtists(c: com.prism.music.AppContainer, s: Song): List<String> {
@@ -142,6 +142,11 @@ fun CollectionScreen(type: CollectionType, id: String, initialGenre: String?, bo
         CollectionType.ALBUM -> rememberLoad("album:$id") { orSaved(c, id) { LiveCollection(c.ytm.album(id), c.scope, null) } }
         // The first page shows straight away; the rest of a long playlist streams in behind it.
         CollectionType.PLAYLIST -> rememberLoad("playlist:$id") { orSaved(c, id) { LiveCollection(c.ytm.playlist(id), c.scope, c.ytm::playlistPage) } }
+        // Prism's own mixes (Daily Mix, the time-of-day mix, Release Radar): kept on the phone.
+        CollectionType.MIX -> rememberLoad("mix:$id") {
+            val mix = c.forYou.mix(id) ?: throw IllegalStateException("This mix isn't made yet")
+            LiveCollection(CollectionPage(mix.id, CollectionKind.PLAYLIST, mix.title, mix.subtitle, thumbnail = mix.covers.firstOrNull(), songs = mix.songs), c.scope, null)
+        }
         else -> null
     }
     // Opened from YouTube Music: kept (with all its songs, once they're in) to open offline later (#55).
@@ -302,7 +307,12 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             SortMode.OLDEST -> filtered.asReversed()
         }
     }
-    val source = QueueSource(if (type == CollectionType.ALBUM) QueueKind.ALBUM else QueueKind.PLAYLIST, page.title + (genreFilter?.let { " · $it" } ?: ""))
+    // The page's own id goes with the queue: exclusions ("leave this playlist out of my taste") and Smart Shuffle's
+    // "Add to this playlist" know which playlist is playing.
+    val source = QueueSource(
+        if (type == CollectionType.ALBUM) QueueKind.ALBUM else QueueKind.PLAYLIST, page.title + (genreFilter?.let { " · $it" } ?: ""),
+        originId = page.playlistId ?: page.id.removePrefix("VL").takeIf { type == CollectionType.PLAYLIST || type == CollectionType.MIX } ?: page.id,
+    )
     // Offline (#55): only songs on the phone (downloaded, cached whole, or files) play; the rest show greyed out.
     val online by c.network.online.collectAsState()
     val ready = remember(songs, downloads, online) { if (online) null else songs.filter { c.availableOffline(it.id) }.map { it.id }.toSet() }
@@ -612,6 +622,21 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                     DropdownMenuItem({ Text("Delete playlist") }, { close(); deleting = true }, leadingIcon = { Icon(PrismIcons.Delete, null) })
                 }
                 if (type == CollectionType.DOWNLOADS) DownloadsMenuItems(close) { text, action -> confirm = text to action }
+                // A sleep or kids' playlist: plays as usual, but doesn't shape recommendations.
+                if (type == CollectionType.PLAYLIST) {
+                    val excludedLists by c.exclusions.playlists.collectAsState()
+                    val listId = page.playlistId ?: page.id.removePrefix("VL")
+                    val out = excludedLists.any { it.id == listId }
+                    DropdownMenuItem(
+                        { Text(if (out) "Back in my taste" else "Leave out of my taste") },
+                        {
+                            close()
+                            c.exclusions.setPlaylist(com.prism.music.data.foryou.Excluded(listId, title, art), !out)
+                            Toast.makeText(context, if (out) "Its plays count towards your recommendations again" else "Its plays won't shape your recommendations", Toast.LENGTH_SHORT).show()
+                        },
+                        leadingIcon = { Icon(PrismIcons.Block, null) },
+                    )
+                }
             }
         }
 
@@ -658,6 +683,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             )
             CollectionType.LIKED -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
             CollectionType.DOWNLOADS -> ShareTarget("Downloads", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
+            CollectionType.MIX -> ShareTarget(title, page.subtitle, "Mix", art, null, songs = songs)
         },
     ) { sharing = false }
 }

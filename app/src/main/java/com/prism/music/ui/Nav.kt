@@ -41,6 +41,13 @@ object Routes {
     const val IMPORT = "import"
     const val TOGETHER = "together"
     const val PODCASTS = "podcasts"
+    /** Release Radar's page: new albums, singles and EPs from the listener's artists. */
+    const val NEW_RELEASES = "new_releases"
+    /** "Pick artists you like" (after the welcome screen, or Settings → Home screen → Your artists). */
+    const val PICK_ARTISTS = "pick_artists"
+    const val EXCLUSIONS = "exclusions"
+    /** One of Prism's own mixes (Daily Mix 1, the time-of-day mix, Release Radar). */
+    fun mix(id: String) = "mix/${Uri.encode(id)}"
     fun podcast(id: String) = "podcast/${Uri.encode(id)}"
     /** A settings page; [find] is the group to bring into view (a Settings search result, #73). */
     fun settings(section: String, find: String? = null) = "settings/$section" + (find?.let { "?find=${Uri.encode(it)}" } ?: "")

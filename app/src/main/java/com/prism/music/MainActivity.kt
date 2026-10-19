@@ -409,8 +409,25 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         composable(Routes.WELCOME) {
                             WelcomeScreen(
                                 onSignIn = { navController.navigate(Routes.LOGIN) },
-                                onSkip = { c.settings.setOnboarded(true); goRoot() },
+                                // Signed out: pick a few artists first, so the mixes and Release Radar have something to start from.
+                                onSkip = { navController.navigate(Routes.PICK_ARTISTS + "?onboarding=true") },
                             )
+                        }
+                        composable(
+                            Routes.PICK_ARTISTS + "?onboarding={onboarding}",
+                            listOf(navArgument("onboarding") { type = NavType.BoolType; defaultValue = false }),
+                        ) {
+                            val onboarding = it.arguments?.getBoolean("onboarding") == true
+                            ScreenBackdrop(BackdropScreen.HOME) {
+                                com.prism.music.ui.screens.PickArtistsScreen(onboarding, if (onboarding) 0.dp else bottomPadding) {
+                                    if (onboarding) { c.settings.setOnboarded(true); goRoot() } else navController.popBackStack()
+                                }
+                            }
+                        }
+                        composable(Routes.NEW_RELEASES) { ScreenBackdrop(BackdropScreen.HOME) { com.prism.music.ui.screens.NewReleasesScreen(bottomPadding) } }
+                        composable(Routes.EXCLUSIONS) { ScreenBackdrop(BackdropScreen.SETTINGS) { com.prism.music.ui.screens.ExclusionsScreen(bottomPadding) } }
+                        composable("mix/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
+                            Beside { CollectionScreen(CollectionType.MIX, it.arguments?.getString("id")!!, null, bottomPadding) }
                         }
                         composable(Routes.HOME) { ScreenBackdrop(BackdropScreen.HOME) { HomeScreen(bottomPadding) } }
                         composable(Routes.SEARCH) { ScreenBackdrop(BackdropScreen.SEARCH) { SearchScreen(bottomPadding) } }
@@ -717,6 +734,9 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
     when {
         // A widget's cover or title: the player.
         uri.scheme == "prism" && uri.host == "player" -> nav.openPlayer()
+        // Release Radar's notification.
+        uri.scheme == "prism" && uri.host == "releases" -> nav.go(Routes.NEW_RELEASES)
+        uri.scheme == "prism" && uri.host == "mix" && path.isNotEmpty() -> nav.go(Routes.mix(path[0]))
         v != null -> {
             nav.openPlayer()
             launchSingle(c, v)

@@ -116,6 +116,45 @@ data class RomanizedEntity(
     val fetchedAt: Long,
 )
 
+/**
+ * A release on one of the listener's artists' pages (Release Radar): albums, singles and EPs, as first seen there.
+ * [baseline]: there when the artist was first looked at (their back catalogue, never announced as new).
+ */
+@Entity(tableName = "releases", indices = [Index("artistId")])
+data class ReleaseEntity(
+    /** YouTube's browse id for it (MPREb_…). */
+    @PrimaryKey val id: String,
+    val artistId: String,
+    val artistName: String,
+    val title: String,
+    /** "Album", "Single" or "EP". */
+    val kind: String,
+    val year: Int,
+    /** "2026-10-16" when Deezer knows it; null until then (or when it doesn't). */
+    val releaseDate: String?,
+    val thumbnail: String?,
+    val playlistId: String?,
+    val firstSeenAt: Long,
+    val baseline: Boolean,
+    @ColumnInfo(defaultValue = "0") val notifiedAt: Long = 0,
+)
+
+/** A mix Prism made for the listener (Daily Mix, the time-of-day mix, Release Radar): kept so it's the same all day, offline too. */
+@Entity(tableName = "mixes")
+data class MixEntity(
+    /** "daily:1"…"daily:6", "time", "radar". */
+    @PrimaryKey val id: String,
+    val title: String,
+    val subtitle: String,
+    /** The artists it's built around (for its cover and the subtitle), "|"-separated. */
+    val seedArtists: String,
+    /** Accent colour for its cover (ARGB). */
+    val color: Int,
+    val createdAt: Long,
+    /** The songs, as JSON ([com.prism.music.data.foryou.MixSongs]). */
+    val songsJson: String,
+)
+
 data class SongPlays(
     val songId: String,
     val plays: Int,
@@ -242,6 +281,74 @@ interface PlayEventDao {
 
     @Query("SELECT songId FROM play_events WHERE timestamp > :since GROUP BY songId ORDER BY COUNT(*) DESC LIMIT :limit")
     suspend fun mostPlayedIds(since: Long, limit: Int): List<String>
+
+    /** [topSongs] for taste: plays the listener left out of it don't count. */
+    @Query(
+        """SELECT e.songId AS songId, COUNT(*) AS plays, SUM(e.playedMs) AS ms, s.title AS title,
+           s.artistName AS artistName, s.thumbnail AS thumbnail, s.albumTitle AS albumTitle,
+           s.durationSec AS durationSec, s.artistId AS artistId
+           FROM play_events e JOIN songs s ON s.id = e.songId
+           WHERE e.timestamp BETWEEN :from AND :to AND e.excluded = 0
+           GROUP BY e.songId ORDER BY ms DESC, plays DESC LIMIT :limit"""
+    )
+    suspend fun tasteTopSongs(from: Long, to: Long, limit: Int): List<SongPlays>
+
+    /** [topArtists] for taste: plays the listener left out of it don't count. */
+    @Query(
+        """SELECT s.artistName AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
+           MAX(s.thumbnail) AS thumbnail, MAX(s.artistId) AS artistId
+           FROM play_events e JOIN songs s ON s.id = e.songId
+           WHERE e.timestamp BETWEEN :from AND :to AND e.excluded = 0
+           GROUP BY s.artistName ORDER BY ms DESC LIMIT :limit"""
+    )
+    suspend fun tasteTopArtists(from: Long, to: Long, limit: Int): List<ArtistPlays>
+
+    /** Plays that count towards the listener's taste (not from anything they excluded from it), oldest first. */
+    @Query("SELECT * FROM play_events WHERE timestamp > :since AND excluded = 0 ORDER BY timestamp")
+    suspend fun tasteEventsSince(since: Long): List<PlayEventEntity>
+}
+
+@Dao
+interface ReleaseDao {
+    @Query("SELECT id FROM releases WHERE artistId = :artistId")
+    suspend fun idsFor(artistId: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(releases: List<ReleaseEntity>)
+
+    @Query("UPDATE releases SET releaseDate = :date WHERE id = :id")
+    suspend fun setDate(id: String, date: String)
+
+    @Query("UPDATE releases SET notifiedAt = :at WHERE id IN (:ids)")
+    suspend fun setNotified(ids: List<String>, at: Long)
+
+    /** Releases that aren't back catalogue, newest first (by date where known, else when they were first seen). */
+    @Query("SELECT * FROM releases WHERE baseline = 0 AND year >= :minYear ORDER BY COALESCE(releaseDate, '') DESC, firstSeenAt DESC")
+    suspend fun fresh(minYear: Int): List<ReleaseEntity>
+
+    @Query("SELECT * FROM releases WHERE baseline = 0 AND year >= :minYear ORDER BY COALESCE(releaseDate, '') DESC, firstSeenAt DESC")
+    fun freshFlow(minYear: Int): Flow<List<ReleaseEntity>>
+
+    @Query("DELETE FROM releases WHERE artistId NOT IN (:keep)")
+    suspend fun forgetArtistsExcept(keep: List<String>)
+}
+
+@Dao
+interface MixDao {
+    @Query("SELECT * FROM mixes ORDER BY id")
+    fun allFlow(): Flow<List<MixEntity>>
+
+    @Query("SELECT * FROM mixes ORDER BY id")
+    suspend fun all(): List<MixEntity>
+
+    @Query("SELECT * FROM mixes WHERE id = :id")
+    suspend fun get(id: String): MixEntity?
+
+    @Upsert
+    suspend fun put(m: MixEntity)
+
+    @Query("DELETE FROM mixes WHERE id LIKE :pattern AND id NOT IN (:keep)")
+    suspend fun deleteOthers(pattern: String, keep: List<String>)
 }
 
 @Dao
@@ -302,8 +409,8 @@ interface RomanizedDao {
 
 @Database(
     entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class,
-        RomanizedEntity::class],
-    version = 4,
+        RomanizedEntity::class, ReleaseEntity::class, MixEntity::class],
+    version = 5,
     exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
@@ -313,6 +420,8 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun meta(): MetaDao
     abstract fun heatmaps(): HeatmapDao
     abstract fun romanized(): RomanizedDao
+    abstract fun releases(): ReleaseDao
+    abstract fun mixes(): MixDao
 
     companion object {
         /**
@@ -334,6 +443,13 @@ abstract class PrismDatabase : RoomDatabase() {
             object : Migration(3, 4) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("CREATE TABLE IF NOT EXISTS `romanized` (`key` TEXT NOT NULL, `content` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`key`))")
+                }
+            },
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `releases` (`id` TEXT NOT NULL, `artistId` TEXT NOT NULL, `artistName` TEXT NOT NULL, `title` TEXT NOT NULL, `kind` TEXT NOT NULL, `year` INTEGER NOT NULL, `releaseDate` TEXT, `thumbnail` TEXT, `playlistId` TEXT, `firstSeenAt` INTEGER NOT NULL, `baseline` INTEGER NOT NULL, `notifiedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_releases_artistId` ON `releases` (`artistId`)")
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `mixes` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT NOT NULL, `seedArtists` TEXT NOT NULL, `color` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `songsJson` TEXT NOT NULL, PRIMARY KEY(`id`))")
                 }
             },
         )

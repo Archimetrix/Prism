@@ -659,6 +659,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             }
                         }
                         Spacer(Modifier.width(10.dp))
+                        // A Smart Shuffle pick: keep it in the playlist, or turn it down.
+                        val smartPicks by c.queue.smartPicks.collectAsState()
+                        if (song.id in smartPicks) {
+                            SmartPickButton(song)
+                            Spacer(Modifier.width(8.dp))
+                        }
                         val isLiked = song.id in liked
                         CircleGlyph(if (isLiked) PrismIcons.HeartFilled else PrismIcons.Heart, if (isLiked) "Remove from liked" else "Like", isLiked) {
                             c.library.toggleLike(song)

@@ -299,6 +299,29 @@ object PrismIcons {
         }
     }.or { Cupertino.Shuffle }
 
+    /** Left out: a circle struck through (exclusions). */
+    val Block = icon("Block") {
+        line {
+            moveTo(12f, 3.5f); arcTo(8.5f, 8.5f, 0f, true, true, 11.99f, 3.5f)
+            moveTo(6f, 6f); lineTo(18f, 18f)
+        }
+    }
+
+    /** Smart Shuffle: shuffle with a small four-point sparkle (recommendations mixed in). */
+    val SmartShuffle = icon("SmartShuffle") {
+        line {
+            moveTo(3f, 7f); lineTo(6f, 7f); curveTo(10.5f, 7f, 11f, 17f, 15.5f, 17f); lineTo(20.5f, 17f)
+            moveTo(3f, 17f); lineTo(6f, 17f); curveTo(7.9f, 17f, 9.1f, 15.3f, 10f, 13.4f)
+            moveTo(13.4f, 10.4f); curveTo(14.2f, 8.6f, 15.4f, 7f, 17.5f, 7f); lineTo(20.5f, 7f)
+            moveTo(18f, 4.5f); lineTo(20.5f, 7f); lineTo(18f, 9.5f)
+            moveTo(18f, 14.5f); lineTo(20.5f, 17f); lineTo(18f, 19.5f)
+        }
+        solid {
+            moveTo(4.6f, 9.4f); quadTo(4.9f, 11.7f, 7.2f, 12f); quadTo(4.9f, 12.3f, 4.6f, 14.6f)
+            quadTo(4.3f, 12.3f, 2f, 12f); quadTo(4.3f, 11.7f, 4.6f, 9.4f); close()
+        }
+    }
+
     val Repeat = icon("Repeat") {
         line {
             moveTo(4f, 11.5f); lineTo(4f, 9.6f); quadTo(4f, 7f, 6.6f, 7f); lineTo(19.5f, 7f)

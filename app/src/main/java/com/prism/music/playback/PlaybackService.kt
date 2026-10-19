@@ -99,6 +99,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     private var trackedSong: Song? = null
     /** What [trackedSong] is playing as part of, read when it starts (the queue may change before its play is counted). */
     private var trackedSource: String? = null
+    /** The tracked play doesn't count towards taste (an excluded song, playlist or artist). */
+    private var trackedExcluded = false
     private val retries = HashMap<String, Int>()
     private var saveJob: Job? = null
     private var extrasJob: Job? = null
@@ -219,6 +221,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 if (on) singAhead()
             }
         }
+        // Smart Shuffle: picks go in when it's turned on, and leave when it's turned off.
+        scope.launch { c.queue.smartShuffle.drop(1).collect { on -> if (on) smartAhead() else dropSmartPicks() } }
         // DJ mode: the set is worked out when it's turned on, and again when its energy curve changes.
         scope.launch { c.dj.on.collect { on -> if (on) djAhead() else { djJob?.cancel(); djSoon?.cancel() } } }
         scope.launch { c.settings.flow.map { it.djFlow }.distinctUntilChanged().drop(1).collect { resequence() } }
@@ -395,8 +399,11 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         flushPlayTime()
         applyLiveVideo()
         val song = mediaItem?.toSong() ?: return
-        // Disliked songs are passed over when the queue reaches them on its own (tapping one still plays it).
-        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !c.queue.followingHost && c.library.isDisliked(song.id) && player.hasNextMediaItem()) {
+        // Disliked songs are passed over when the queue reaches them on its own (tapping one still plays it), and so are
+        // artists the listener doesn't want played when a radio or autoplay brought them (a playlist they picked plays as it is).
+        val picked = c.queue.source.value.kind == QueueKind.RADIO || player.currentMediaItemIndex >= c.queue.autoplayStart.value.let { if (it < 0) Int.MAX_VALUE else it }
+        val unwanted = c.library.isDisliked(song.id) || (picked && c.exclusions.blocks(song))
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !c.queue.followingHost && unwanted && player.hasNextMediaItem()) {
             player.seekToNextMediaItem()
             return
         }
@@ -414,6 +421,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         }
         trackedSong = song
         trackedSource = sourceOf(mediaItem)
+        trackedExcluded = c.exclusions.outOfTaste(song, c.queue.source.value.originId)
         // Podcast episodes pick up where they were left, and play at the speed picked for episodes.
         if (song.isEpisode) {
             val resume = c.episodes.positionOf(song.id)
@@ -437,6 +445,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch { c.bestParts.onSongStarted(song) }
         singAhead()
         djAhead()
+        smartAhead()
         loadExtras(song)
         // Audio only (the Song / Video switch is off): nothing plays as its video, whatever lined it up (#48).
         // Posted: swapping the item from inside this callback would report its transition after the swap was over.
@@ -529,6 +538,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         vocals.shuffle = shuffleModeEnabled
         // Shuffle and DJ mode both decide the order: the listener's shuffle wins.
         if (shuffleModeEnabled && c.dj.onNow) c.dj.setOn(false)
+        // Shuffle off (from anywhere: the notification, the car) is Smart Shuffle off too.
+        if (!shuffleModeEnabled && c.queue.smartShuffle.value) c.queue.smartShuffle.value = false
         updateButtons()
         // Shuffling picks a different next song.
         prefetchNext()
@@ -714,7 +725,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             if (r == null || c.queue.source.value !== src || (!c.settings.current.autoplay && !radio)) return@launch
             c.queue.autoplayContinuation = r.continuation
             val existing = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
-            val add = r.songs.filter { it.id !in existing && !c.library.isDisliked(it.id) }
+            val add = r.songs.filter { it.id !in existing && !c.library.isDisliked(it.id) && !c.exclusions.blocks(it) }
             if (add.isNotEmpty()) {
                 if (c.queue.autoplayStart.value < 0) c.queue.autoplayStart.value = player.mediaItemCount
                 player.addMediaItems(add.map { it.toMediaItem() })
@@ -1041,12 +1052,13 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         playStartedAt = if (::player.isInitialized && player.isPlaying) now else 0
         val song = trackedSong
         val source = trackedSource
+        val excluded = trackedExcluded
         val ms = accumulatedMs
         accumulatedMs = 0
         // Replay, smart downloads and search taste are about music: episodes aren't counted.
         if (song != null && ms >= 10_000 && !song.isEpisode) {
             scope.launch(Dispatchers.IO) {
-                c.db.plays().insert(PlayEventEntity(songId = song.id, timestamp = System.currentTimeMillis(), playedMs = ms, source = source))
+                c.db.plays().insert(PlayEventEntity(songId = song.id, timestamp = System.currentTimeMillis(), playedMs = ms, source = source, excluded = excluded))
             }
         }
     }
@@ -1059,10 +1071,94 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     /** What a play of [item] is counted as (play_events.source): the kind of queue it's in. */
-    private fun sourceOf(@Suppress("UNUSED_PARAMETER") item: MediaItem): String = when {
+    private fun sourceOf(item: MediaItem): String = when {
         c.sing.onNow -> "sing"
         c.dj.onNow -> "dj"
+        item.mediaId in c.queue.smartPicks.value -> "smart"
         else -> c.queue.source.value.kind.name.lowercase()
+    }
+
+    // ------------------------------------------------------------------ Smart Shuffle
+
+    private var smartJob: kotlinx.coroutines.Job? = null
+    /** Recommendations ready to slip in (from radios of the queue's own songs). */
+    private val smartPool = ArrayDeque<Song>()
+    private var smartPoolFor: QueueSource? = null
+
+    /**
+     * Smart Shuffle: a recommendation after every three or four of the queue's own songs, in the shuffled order (each
+     * goes in at the queue index after one of the songs coming up, which [HistoryShuffleOrder] keeps beside it). Only
+     * the next dozen songs are looked at, so it keeps step as the queue plays; Smart Shuffle off takes the ones not
+     * played yet back out.
+     */
+    private fun smartAhead() {
+        smartJob?.cancel()
+        if (!c.queue.smartShuffle.value || !player.shuffleModeEnabled || !c.queue.smartAllowed()) return
+        smartJob = scope.launch {
+            val picks = c.queue.smartPicks.value
+            val tl = player.currentTimeline
+            var i = player.currentMediaItemIndex
+            if (i == C.INDEX_UNSET) return@launch
+            // Own songs since the last pick, counting the one playing.
+            var run = if (player.getMediaItemAt(i).mediaId in picks) 0 else 1
+            val anchors = ArrayList<Int>()
+            var seen = 0
+            while (seen < SMART_LOOK_AHEAD && anchors.size < 2) {
+                val next = tl.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, true)
+                if (next == C.INDEX_UNSET) break
+                seen++
+                if (player.getMediaItemAt(next).mediaId in picks) { run = 0; i = next; continue }
+                run++
+                // Three or four own songs between picks, alternately.
+                val gap = 3 + (picks.size + anchors.size) % 2
+                val after = tl.getNextWindowIndex(next, Player.REPEAT_MODE_OFF, true)
+                if (run >= gap && (after == C.INDEX_UNSET || player.getMediaItemAt(after).mediaId !in picks)) { anchors += next; run = 0 }
+                i = next
+            }
+            if (anchors.isEmpty()) return@launch
+            val src = c.queue.source.value
+            if (smartPoolFor !== src) { smartPool.clear(); smartPoolFor = src }
+            if (smartPool.size < anchors.size) fillSmartPool()
+            // Highest index first, so the other anchors' indices stay put.
+            for (a in anchors.sortedDescending()) {
+                if (!c.queue.smartShuffle.value || c.queue.source.value !== src) return@launch
+                val song = smartPool.removeFirstOrNull() ?: break
+                val at = a + 1
+                if (c.queue.autoplayStart.value >= at) c.queue.autoplayStart.value += 1
+                c.queue.smartPicks.value = c.queue.smartPicks.value + song.id
+                player.addMediaItem(at, song.toMediaItem())
+            }
+        }
+    }
+
+    /** More recommendations: radios from a few of the queue's own songs, less what's queued, disliked or excluded. */
+    private suspend fun fillSmartPool() {
+        val inQueue = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+        val own = (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
+            .filter { it.mediaId !in c.queue.smartPicks.value }.mapNotNull { it.toSong() }.filter { !it.isLocal && !it.isEpisode && !it.isLive }
+        if (own.isEmpty()) return
+        val recent = c.library.recent.value.take(50).map { it.id }.toSet()
+        for (seed in own.shuffled().take(2)) {
+            val r = runCatching { withContext(Dispatchers.IO) { c.radio(seed.id, "RDAMVM${seed.id}") } }.getOrNull() ?: continue
+            r.songs.filter { s ->
+                s.id !in inQueue && s.id !in recent && !s.isVideo && !s.isLive && !c.library.isDisliked(s.id) && !c.exclusions.blocks(s) &&
+                    smartPool.none { it.id == s.id }
+            }.shuffled().take(6).forEach { smartPool += it }
+        }
+    }
+
+    /** Smart Shuffle off: its picks still to come leave the queue (the one playing stays). */
+    private fun dropSmartPicks() {
+        smartJob?.cancel()
+        val picks = c.queue.smartPicks.value
+        if (picks.isEmpty()) return
+        val cur = player.currentMediaItemIndex
+        for (i in player.mediaItemCount - 1 downTo 0) {
+            if (i == cur || player.getMediaItemAt(i).mediaId !in picks) continue
+            player.removeMediaItem(i)
+            if (c.queue.autoplayStart.value > i) c.queue.autoplayStart.value -= 1
+        }
+        c.queue.smartPicks.value = player.currentMediaItem?.mediaId?.takeIf { it in picks }?.let { setOf(it) } ?: emptySet()
     }
 
     // ------------------------------------------------------------------ DJ mode
@@ -1214,7 +1310,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch {
             val r = runCatching { withContext(Dispatchers.IO) { c.radio(song.id, "RDAMVM${song.id}") } }.getOrNull() ?: return@launch
             if (player.currentMediaItem?.mediaId != song.id) return@launch
-            val add = r.songs.filter { it.id != song.id && !c.library.isDisliked(it.id) }
+            val add = r.songs.filter { it.id != song.id && !c.library.isDisliked(it.id) && !c.exclusions.blocks(it) }
             if (add.isEmpty()) return@launch
             val idx = player.currentMediaItemIndex
             if (idx + 1 < player.mediaItemCount) player.removeMediaItems(idx + 1, player.mediaItemCount)
@@ -1573,6 +1669,8 @@ private const val SETTLE_MS = 2_000L
 private const val UNDER_WAY_MS = 5_000L
 /** How many songs ahead DJ mode scans and orders (each scan is a whole song decoded, ~15 s on a phone). */
 private const val DJ_WINDOW = 40
+/** How many songs ahead (in play order) Smart Shuffle places its picks among. */
+private const val SMART_LOOK_AHEAD = 12
 /** How many queued songs ahead are got ready (their loudness and edges). */
 private const val QUEUE_AHEAD = 3
 /** How far ahead the player loads: a whole song (and the start of the next, near its end). */

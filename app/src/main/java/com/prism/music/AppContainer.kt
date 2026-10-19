@@ -77,6 +77,9 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         com.prism.music.ui.theme.AppFonts.init(this)
         container = AppContainer(this)
         runCatching { com.prism.music.data.Notifications.createChannels(this) }
+        // For you (1.7): Home gets its sections once, and Release Radar looks round every few days.
+        container.settings.addNewHomeSections()
+        runCatching { com.prism.music.data.foryou.ReleaseRadar.schedule(this) }
         runCatching { container.backup.resumeDownloads() }
         // A lyrics save into a music file that Prism closing cut short is put right (#16).
         if (java.io.File(filesDir, "lyrics-tags").list()?.isNotEmpty() == true) {
@@ -256,6 +259,9 @@ class AppContainer(val app: Application) {
     /** Sing: karaoke with the song's own backing (vocals separated on the phone). */
     val sing by lazy { com.prism.music.playback.sing.Sing(this) }
     val dj = com.prism.music.playback.DjMode()
+    val exclusions by lazy { com.prism.music.data.foryou.Exclusions(app) }
+    val forYou by lazy { com.prism.music.data.foryou.ForYou(this) }
+    val releaseRadar by lazy { com.prism.music.data.foryou.ReleaseRadar(this) }
 
     /** Headphone correction (AutoEq profiles per headphones). */
     val headphoneEq by lazy { com.prism.music.data.HeadphoneEq(app, http, scope, player.preferredOutput) }

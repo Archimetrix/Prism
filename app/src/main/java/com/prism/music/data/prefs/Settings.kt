@@ -150,6 +150,10 @@ object HomeSections {
     /** YouTube Music's Speed dial (#53): your go-to songs, albums, playlists and artists as big tiles, nine to a page. */
     const val SPEED_DIAL = "local:speed_dial"
     const val MOODS = "yt:moods"
+    /** Prism's own mixes: the time-of-day mix, Daily Mixes, Release Radar. */
+    const val MADE_FOR_YOU = "local:made_for_you"
+    /** Release Radar's new albums, singles and EPs from the listener's artists. */
+    const val NEW_RELEASES = "local:new_releases"
     const val YT_PREFIX = "yt:shelf:"
     /** GREETING's key predates the rename: the section is only the shortcut tiles. */
     const val TILES_TITLE = "Shortcut tiles"
@@ -157,6 +161,8 @@ object HomeSections {
     val defaults = listOf(
         HomeSectionConfig(GREETING, TILES_TITLE, style = SectionStyle.HERO),
         HomeSectionConfig(QUICK_PICKS, "Quick picks", style = SectionStyle.LIST),
+        HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
+        HomeSectionConfig(NEW_RELEASES, "New releases"),
         HomeSectionConfig(RECENT, "Recently played"),
         HomeSectionConfig(REPLAY, "Replay teaser", style = SectionStyle.HERO),
         HomeSectionConfig(GENRES, "Your top genres", style = SectionStyle.GRID),
@@ -171,8 +177,22 @@ object HomeSections {
         HomeSectionConfig(REPLAY, "Replay teaser", style = SectionStyle.HERO),
         HomeSectionConfig(GREETING, TILES_TITLE, style = SectionStyle.HERO),
         HomeSectionConfig(QUICK_PICKS, "Quick picks", style = SectionStyle.LIST),
+        HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
+        HomeSectionConfig(NEW_RELEASES, "New releases"),
         HomeSectionConfig("${YT_PREFIX}mixed for you", "Mixed for you"),
     )
+
+    /**
+     * Sections added in a later Prism, put into an existing layout once (after Quick picks, or at the top), so people
+     * who customized Home before still get them; removing them afterwards sticks.
+     */
+    fun withNewSections(layout: List<HomeSectionConfig>): List<HomeSectionConfig> {
+        val add = listOf(HomeSectionConfig(MADE_FOR_YOU, "Made for you"), HomeSectionConfig(NEW_RELEASES, "New releases"))
+            .filter { n -> layout.none { it.key == n.key } }
+        if (add.isEmpty()) return layout
+        val at = layout.indexOfFirst { it.key == QUICK_PICKS }.let { if (it < 0) minOf(1, layout.size) else it + 1 }
+        return layout.toMutableList().apply { addAll(at, add) }
+    }
 }
 
 /** The order lyric sources are tried in on a fresh install. */
@@ -251,6 +271,8 @@ data class AppSettings(
     val singCacheMb: Int = 1024,
     /** DJ mode's energy curve (picked in the queue, where DJ mode is switched on for the queue playing). */
     val djFlow: com.prism.music.playback.DjFlow = com.prism.music.playback.DjFlow.STEADY,
+    /** A notification when an artist the listener starred puts something out (Release Radar). */
+    val releaseNotifications: Boolean = true,
     val lyricsScale: Float = 1f,
     /** Lyrics on Android Auto's player (the car's Lyrics button flips this too). */
     val carLyrics: Boolean = true,
@@ -468,6 +490,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val singOnCellular = booleanPreferencesKey("sing_cellular")
         val singCacheMb = intPreferencesKey("sing_cache_mb")
         val djFlow = stringPreferencesKey("dj_flow")
+        val releaseNotifications = booleanPreferencesKey("release_notifications")
         val lyricsScale = floatPreferencesKey("lyrics_scale")
         val carLyrics = booleanPreferencesKey("car_lyrics")
         val carLyricsStyle = stringPreferencesKey("car_lyrics_style")
@@ -629,6 +652,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             singOnCellular = p[K.singOnCellular] ?: d.singOnCellular,
             singCacheMb = p[K.singCacheMb] ?: d.singCacheMb,
             djFlow = p.enum(K.djFlow, d.djFlow),
+            releaseNotifications = p[K.releaseNotifications] ?: d.releaseNotifications,
             lyricsScale = p[K.lyricsScale] ?: d.lyricsScale,
             carLyrics = p[K.carLyrics] ?: d.carLyrics,
             carLyricsStyle = p.enum(K.carLyricsStyle, d.carLyricsStyle),
@@ -750,6 +774,18 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
 
     fun setOnboarded(v: Boolean) = edit { it[K.onboarded] = v }
 
+    /** Once (1.7): Home layouts saved before "Made for you" and "New releases" existed get them, after Quick picks. */
+    fun addNewHomeSections() = edit { p ->
+        val flag = booleanPreferencesKey("home_sections_1_7")
+        if (p[flag] == true) return@edit
+        p[K.homeLayout]?.let { stored ->
+            runCatching { json.decodeFromString<List<HomeSectionConfig>>(stored) }.getOrNull()?.let { layout ->
+                p[K.homeLayout] = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(HomeSectionConfig.serializer()), HomeSections.withNewSections(layout))
+            }
+        }
+        p[flag] = true
+    }
+
     suspend fun saveAccount(cookie: String, visitorData: String, dataSyncId: String) = editNow {
         it[K.cookie] = cookie
         it[K.visitorData] = visitorData
@@ -816,6 +852,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setSingOnCellular(v: Boolean) = edit { it[K.singOnCellular] = v }
     fun setSingCacheMb(v: Int) = edit { it[K.singCacheMb] = v }
     fun setDjFlow(v: com.prism.music.playback.DjFlow) = edit { it[K.djFlow] = v.name }
+    fun setReleaseNotifications(v: Boolean) = edit { it[K.releaseNotifications] = v }
     fun setLyricsScale(v: Float) = edit { it[K.lyricsScale] = v }
     fun setCarLyrics(v: Boolean) = edit { it[K.carLyrics] = v }
     fun setCarLyricsStyle(v: CarLyricsStyle) = edit { it[K.carLyricsStyle] = v.name }

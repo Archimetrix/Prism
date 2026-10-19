@@ -501,6 +501,14 @@ fun SongActionsSheet(song: Song, extra: List<SheetItem> = emptyList(), onDismiss
         if (song.isEpisode || local) null else videoDownloadAction(song, videos[song.id]),
         if (song.isEpisode) null else if (song.id in disliked) ActionItem(PrismIcons.ThumbDownFilled, "Not for me", active = true, keepOpen = true) { c.library.setDisliked(song, false) }
         else ActionItem(PrismIcons.ThumbDown, "Not for me") { c.library.setDisliked(song, true); toast("Got it — Prism will steer clear of this song") },
+        // Plays as usual, but its plays don't shape recommendations (a song played for someone else).
+        if (song.isEpisode || local) null else {
+            val out = c.exclusions.isSongExcluded(song.id)
+            ActionItem(PrismIcons.Block, if (out) "Back in my taste" else "Leave out of my taste") {
+                c.exclusions.setSong(com.prism.music.data.foryou.Excluded(song.id, "${song.title} · ${song.artistText}", song.thumbnail), !out)
+                toast(if (out) "It counts towards your recommendations again" else "Its plays won't shape your recommendations")
+            }
+        },
     )
 
     ActionSheet(song.thumbnail, onDismiss) { close ->

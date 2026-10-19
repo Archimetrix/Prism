@@ -162,12 +162,16 @@ object SettingsIndex {
         SettingEntry(H, "Home", "Customize button at the top"),
         SettingEntry(H, "Home", "Customize button at the bottom"),
         SettingEntry(H, "Region", "Content country", "region location gl"),
+        SettingEntry(H, "Made for you", "Your artists", "onboarding pick artists favourites starred recommendations"),
+        SettingEntry(H, "Made for you", "New release notifications", "release radar new music alerts"),
+        SettingEntry(H, "Made for you", "Make my mixes again", "daily mix refresh recommendations"),
         // Library & Replay
         SettingEntry(R, "Library", "Albums, artists & playlists as", "grid list view"),
         SettingEntry(R, "Library", "Open Library on", "start tab"),
         SettingEntry(R, "Library", "Full-width playlist pictures"),
         SettingEntry(R, "Replay", "Show time in hours", "stats minutes"),
         SettingEntry(R, "Replay", "Use theme colours", "colors stats"),
+        SettingEntry(R, "Recommendations", "Exclusions", "taste profile exclude artist playlist don't play block"),
         // About
         SettingEntry(B, "Backup", "Back up", "backup export save move new phone"),
         SettingEntry(B, "Backup", "Restore from a backup", "import move new phone"),
