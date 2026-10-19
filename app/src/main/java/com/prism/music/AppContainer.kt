@@ -263,6 +263,7 @@ class AppContainer(val app: Application) {
     val forYou by lazy { com.prism.music.data.foryou.ForYou(this) }
     val releaseRadar by lazy { com.prism.music.data.foryou.ReleaseRadar(this) }
     val blends by lazy { com.prism.music.data.blend.Blends(this) }
+    val recognizer by lazy { com.prism.music.data.recognize.Recognizer(this) }
 
     /** Headphone correction (AutoEq profiles per headphones). */
     val headphoneEq by lazy { com.prism.music.data.HeadphoneEq(app, http, scope, player.preferredOutput) }

@@ -299,6 +299,12 @@ object PrismIcons {
         }
     }.or { Cupertino.Shuffle }
 
+    /** Song recognition: sound waves in a ring (what's playing around you). */
+    val Recognize = icon("Recognize") {
+        line { moveTo(12f, 3f); arcTo(9f, 9f, 0f, true, true, 11.99f, 3f) }
+        line { moveTo(8f, 10f); lineTo(8f, 14f); moveTo(10.7f, 8f); lineTo(10.7f, 16f); moveTo(13.3f, 9.5f); lineTo(13.3f, 14.5f); moveTo(16f, 11f); lineTo(16f, 13f) }
+    }
+
     /** A camera (scanning a Blend code). */
     val Camera = icon("Camera") {
         line {

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Prism</string>
+    <string name="tile_recognize">Recognize song</string>
     <string name="downloads">Downloads</string>
     <string name="playback">Playback</string>
     <!-- In other apps' share sheets, for YouTube and YouTube Music links. -->

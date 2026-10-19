@@ -16,6 +16,9 @@
     <!-- Blend: scanning a friend's code (asked for only then). Phones without a camera can still paste one. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Song recognition: listens only while its screen is open (asked for on first use). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Installing Prism's own updates from GitHub (the listener confirms each in Android's installer). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -224,6 +227,18 @@
             <intent-filter>
                 <action android:name="androidx.media3.exoplayer.downloadService.action.RESTART" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
+        <!-- Quick Settings: "Recognize song" opens Prism already listening. -->
+        <service
+            android:name=".data.recognize.RecognizeTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_recognize"
+            android:label="@string/tile_recognize"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
     </application>

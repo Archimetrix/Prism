@@ -160,6 +160,10 @@ Prism doesn't ship artwork, fonts or code copied from other apps, but several id
 - **Animated covers** come from Apple Music, Tidal and the ViVi Music canvas list.
 - **Playlist import** hands off to [TuneMyMusic](https://www.tunemymusic.com), the transfer service YouTube Music's own app uses. It's a separate service; Prism shares nothing with it.
 - **Signed-in streams:** [yt-dlp's EJS solver](https://github.com/yt-dlp/ejs) (Unlicense, bundling [meriyah](https://github.com/meriyah/meriyah) and [astring](https://github.com/davidbonnet/astring)) deciphers them, running on WebView's JavaScript engine through androidx.javascriptengine.
+- **Song recognition** uses Shazam's service, with the audio fingerprint ported from [SongRec](https://github.com/marin-m/SongRec) (GPL-3.0). Only the fingerprint is sent, never the sound.
+- **Sing** separates voices with Deezer's [Spleeter](https://github.com/deezer/spleeter) model (MIT), as converted to ONNX by [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), on [ONNX Runtime](https://github.com/microsoft/onnxruntime).
+- **Headphone correction** profiles come from [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT); **release dates** for Release Radar from Deezer's public API.
+- **Spotify** inspired Daily Mixes, Release Radar, Smart Shuffle, Blend and the DJ-style mixing ideas.
 - **Libraries:** [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor), [Haze](https://github.com/chrisbanes/haze), [Coil](https://coil-kt.github.io/coil/), Media3 ExoPlayer and the rest of the stack below.
 - Music and metadata are streamed from YouTube Music. All trademarks belong to their owners.
 

@@ -46,6 +46,7 @@ private val libraries = listOf(
     Library("Kuromoji (Japanese readings for romanized lyrics)", "Atilika", "Apache 2.0", "apache-2.0", "https://github.com/atilika/kuromoji"),
     Library("IPADIC (downloaded with Japanese reading data)", "Nara Institute of Science and Technology", "IPADIC license", "ipadic", "https://github.com/atilika/kuromoji"),
     Library("Material 3 adaptive, AndroidX Window", "The Android Open Source Project", "Apache 2.0", "apache-2.0", "https://developer.android.com/jetpack/androidx"),
+    Library("SongRec (song recognition's audio fingerprint, ported to Kotlin)", "Marin M.", "GPL 3.0", "gpl-3.0", "https://github.com/marin-m/SongRec"),
     Library("ZXing core (Blend's QR codes)", "ZXing authors", "Apache 2.0", "apache-2.0", "https://github.com/zxing/zxing"),
     Library("CameraX (scanning a Blend code)", "The Android Open Source Project", "Apache 2.0", "apache-2.0", "https://developer.android.com/jetpack/androidx/releases/camera"),
     Library("ONNX Runtime (Sing's engine, downloaded with it)", "Microsoft", "MIT", "onnxruntime", "https://github.com/microsoft/onnxruntime"),

@@ -169,6 +169,27 @@ data class BlendEntity(
     val updatedAt: Long,
 )
 
+/**
+ * A song recognized by listening (or waiting to be: [status] "pending" keeps its [signature] to send once online).
+ * Only the fingerprint is ever kept or sent, never the sound.
+ */
+@Entity(tableName = "recognitions")
+data class RecognitionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val at: Long,
+    /** "found", "pending" (offline: asked again when there's a network) or "none" (no match). */
+    val status: String,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val cover: String? = null,
+    val shazamKey: String? = null,
+    /** The song on YouTube Music it was matched to (null when none was found). */
+    val videoId: String? = null,
+    /** The fingerprint (Base64), while pending. */
+    val signature: String? = null,
+)
+
 data class SongPlays(
     val songId: String,
     val plays: Int,
@@ -348,6 +369,27 @@ interface ReleaseDao {
 }
 
 @Dao
+interface RecognitionDao {
+    @Query("SELECT * FROM recognitions WHERE status != 'none' ORDER BY at DESC")
+    fun historyFlow(): Flow<List<RecognitionEntity>>
+
+    @Query("SELECT * FROM recognitions WHERE status = 'pending' ORDER BY at")
+    suspend fun pending(): List<RecognitionEntity>
+
+    @Insert
+    suspend fun insert(r: RecognitionEntity): Long
+
+    @Upsert
+    suspend fun put(r: RecognitionEntity)
+
+    @Query("DELETE FROM recognitions WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM recognitions")
+    suspend fun clear()
+}
+
+@Dao
 interface BlendDao {
     @Query("SELECT * FROM blends ORDER BY updatedAt DESC")
     fun allFlow(): Flow<List<BlendEntity>>
@@ -438,8 +480,8 @@ interface RomanizedDao {
 
 @Database(
     entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class,
-        RomanizedEntity::class, ReleaseEntity::class, MixEntity::class, BlendEntity::class],
-    version = 6,
+        RomanizedEntity::class, ReleaseEntity::class, MixEntity::class, BlendEntity::class, RecognitionEntity::class],
+    version = 7,
     exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
@@ -452,6 +494,7 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun releases(): ReleaseDao
     abstract fun mixes(): MixDao
     abstract fun blends(): BlendDao
+    abstract fun recognitions(): RecognitionDao
 
     companion object {
         /**
@@ -485,6 +528,11 @@ abstract class PrismDatabase : RoomDatabase() {
             object : Migration(5, 6) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("CREATE TABLE IF NOT EXISTS `blends` (`friendWho` TEXT NOT NULL, `friendName` TEXT NOT NULL, `friendCode` TEXT NOT NULL, `myCode` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`friendWho`))")
+                }
+            },
+            object : Migration(6, 7) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `recognitions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `status` TEXT NOT NULL, `title` TEXT, `artist` TEXT, `album` TEXT, `cover` TEXT, `shazamKey` TEXT, `videoId` TEXT, `signature` TEXT)")
                 }
             },
         )

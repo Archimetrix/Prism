@@ -50,6 +50,9 @@ object Routes {
     const val BLENDS = "blends"
     const val BLEND_SCAN = "blend_scan"
     fun blend(who: String) = "blend/${Uri.encode(who)}"
+    /** Song recognition: listening, and what it found. */
+    const val RECOGNIZE = "recognize"
+    const val RECOGNIZED = "recognized"
     /** One of Prism's own mixes (Daily Mix 1, the time-of-day mix, Release Radar). */
     fun mix(id: String) = "mix/${Uri.encode(id)}"
     fun podcast(id: String) = "podcast/${Uri.encode(id)}"

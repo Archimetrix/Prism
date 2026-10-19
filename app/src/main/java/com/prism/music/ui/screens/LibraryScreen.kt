@@ -230,6 +230,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                         if (!settings.homePodcastsButton) item { ShortcutTile("Podcasts", "Shows and episodes", PrismIcons.Podcasts, asList) { nav.go(Routes.PODCASTS) } }
                         item { ShortcutTile("Listen together", "With friends on the same Wi-Fi", PrismIcons.Groups, asList) { nav.go(Routes.TOGETHER) } }
                         item { ShortcutTile("Blend", "A playlist of two tastes", PrismIcons.Blend, asList) { nav.go(Routes.BLENDS) } }
+                        item { ShortcutTile("Recognized", "Songs found by listening", PrismIcons.Recognize, asList) { nav.go(Routes.RECOGNIZED) } }
                         if (settings.isLoggedIn) item { ShortcutTile("New playlist", "Make one on YouTube Music", PrismIcons.Add, asList) { creating = true } }
                         if (settings.isLoggedIn) item { ShortcutTile("Import playlists", "From Spotify, Apple Music…", PrismIcons.PlaylistAdd, asList) { nav.go(Routes.IMPORT) } }
                         if (!settings.isLoggedIn) item(span = { GridItemSpan(maxLineSpan) }) {

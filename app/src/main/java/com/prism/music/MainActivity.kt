@@ -436,6 +436,13 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         }
                         composable(Routes.NEW_RELEASES) { ScreenBackdrop(BackdropScreen.HOME) { com.prism.music.ui.screens.NewReleasesScreen(bottomPadding) } }
                         composable(Routes.EXCLUSIONS) { ScreenBackdrop(BackdropScreen.SETTINGS) { com.prism.music.ui.screens.ExclusionsScreen(bottomPadding) } }
+                        composable(
+                            Routes.RECOGNIZE + "?start={start}",
+                            listOf(navArgument("start") { type = NavType.BoolType; defaultValue = false }),
+                        ) {
+                            ScreenBackdrop(BackdropScreen.SEARCH) { com.prism.music.ui.screens.RecognizeScreen(it.arguments?.getBoolean("start") == true, bottomPadding) }
+                        }
+                        composable(Routes.RECOGNIZED) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.RecognizedScreen(bottomPadding) } }
                         composable(Routes.BLENDS) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.BlendsScreen(bottomPadding) } }
                         composable(Routes.BLEND_SCAN) {
                             com.prism.music.ui.screens.BlendScanScreen { code ->
@@ -757,6 +764,9 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
         // Release Radar's notification.
         uri.scheme == "prism" && uri.host == "releases" -> nav.go(Routes.NEW_RELEASES)
         uri.scheme == "prism" && uri.host == "blends" -> nav.go(Routes.BLENDS)
+        // The Quick Settings tile: straight to listening.
+        uri.scheme == "prism" && uri.host == "recognize" -> nav.go(Routes.RECOGNIZE + "?start=true")
+        uri.scheme == "prism" && uri.host == "recognized" -> nav.go(Routes.RECOGNIZED)
         uri.scheme == "prism" && uri.host == "mix" && path.isNotEmpty() -> nav.go(Routes.mix(path[0]))
         v != null -> {
             nav.openPlayer()

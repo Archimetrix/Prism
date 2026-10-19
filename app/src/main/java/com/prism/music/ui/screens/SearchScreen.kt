@@ -206,6 +206,9 @@ fun SearchScreen(bottomPadding: Dp) {
                 }
                 if (query.isNotEmpty()) IconButton(onClick = { query = ""; live = ""; top = null; list = null; focusRequester.requestFocus() }) {
                     Icon(PrismIcons.Close, "Clear")
+                } else IconButton(onClick = { nav.go(com.prism.music.ui.Routes.RECOGNIZE) }) {
+                    // What's playing around you (song recognition).
+                    Icon(PrismIcons.Recognize, "Recognize a song", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
