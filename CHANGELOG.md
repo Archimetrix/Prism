@@ -28,6 +28,12 @@ What changed in each release. Older releases are described on the [Releases page
 - **Playback diagnostics** (Settings → About): if music stutters, switch this on and Prism keeps a log on your phone of what the audio does: the output being set up, moments it ran dry, Bluetooth and other devices coming and going, how long Prism's own sound processing takes, and the background work running beside the music. Tap **Mark a stutter** in the player's ⋯ menu when you hear one, then **Share diagnostics** to send the log (with your phone's model and Prism's audio settings) to whoever is helping. Nothing is sent unless you share it.
 - **Pick artists you like**: after the welcome screen (and any time from Settings → Home screen → Your artists), choose from YouTube Music's genres or search. They're starred on your phone (nothing is followed on YouTube), so your mixes and Release Radar have something to go on from the first day.
 
+### Fixed
+- **YouTube Music's own mixes all showed the same cover** (My Supermix's). Prism keeps covers on the phone so they show offline, and it filed every mix's cover under one name, since their addresses differ only after the "?". Each mix now keeps its own, and the shared one is cleared on the first start.
+- **Replay, Rewind, Blend and the mixes counted a song's whole credit as one artist** ("The Kid LAROI, Justin Bieber" as an artist of its own). A song now counts for its main artist. Songs are also stored with their exact artists, so a name with a comma in it ("Tyler, The Creator") stays whole.
+- **Music files without an artist tag counted as an artist called "Unknown artist"**, with a photo of whoever YouTube has by that name, and their genre was guessed from the title alone (so a few test tones became "Dance & electronic"). They still play and show in Replay's songs, but no longer count as an artist or a genre. Wrong guesses already made are cleared on the first start.
+- **Daily Mixes could skip a number** ("Daily Mix 1", "Daily Mix 3") when a group of artists didn't have enough songs for a mix.
+
 ## 1.6.9.2
 
 ### Fixed

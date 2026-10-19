@@ -355,6 +355,9 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
     suspend fun genreFor(song: Song): String? = withContext(Dispatchers.IO) {
         val k = "song2:${song.id}"
         dao.genre(k)?.let { cached -> categoryOf(cached.genre)?.let { return@withContext it } }
+        // A song without an artist (an untagged file) isn't guessed from its title alone: a search for "Track 01" or
+        // a test tone finds some other song's genre.
+        if (song.primaryArtist.isBlank()) return@withContext null
         val g = artistGenre(song.primaryArtist) ?: runCatching { categoryOf(deezerTrackGenre(song)) }.getOrNull()
         if (g != null) dao.putGenre(GenreEntity(k, g, System.currentTimeMillis()))
         g

@@ -1,6 +1,7 @@
 package com.prism.music.data
 
 import com.prism.music.AppContainer
+import com.prism.music.data.db.mainArtist
 import com.prism.music.data.innertube.SearchRank
 import com.prism.music.data.meta.Genres
 import com.prism.music.data.model.MoodItem
@@ -73,12 +74,13 @@ class TasteRepository(private val c: AppContainer) {
             artistPlays[key] = (p + n) to (i ?: id)
         }
         val thumbs = c.library.artistThumbs.value
-        // "Artist, Featured" is stored joined; the first name is the one with the id.
-        plays.tasteTopArtists(since, now, 300).forEach { a ->
-            a.artistName.split(", ").forEachIndexed { i, n -> add(n, a.plays.toDouble() * if (i == 0) 1.0 else 0.4, if (i == 0) a.artistId else null) }
+        // Plays count for each song's main artist (the one with the id), and a little for the artists featured on it.
+        plays.tasteTopArtists(since, now, 300).forEach { a -> add(a.artistName, a.plays.toDouble(), a.artistId) }
+        plays.tasteTopSongs(since, now, 300).forEach { s ->
+            s.artistName.removePrefix(s.mainArtist).removePrefix(", ").split(", ").forEach { n -> add(n, s.plays * 0.4, null) }
         }
-        c.db.songs().liked().forEach { s ->
-            s.artistName.split(", ").forEachIndexed { i, n -> add(n, if (i == 0) 2.0 else 0.8, if (i == 0) s.artistId else null) }
+        c.db.songs().liked().forEach { e ->
+            e.toSong().artists.forEachIndexed { i, a -> add(a.name, if (i == 0) 2.0 else 0.8, if (i == 0) e.artistId else null) }
         }
         val artists = artistPlays.map { (name, v) ->
             val (n, id) = v

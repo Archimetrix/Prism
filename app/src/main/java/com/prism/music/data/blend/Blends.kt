@@ -3,6 +3,7 @@ package com.prism.music.data.blend
 import android.content.Context
 import com.prism.music.AppContainer
 import com.prism.music.data.db.BlendEntity
+import com.prism.music.data.db.mainArtist
 import com.prism.music.data.model.ArtistRef
 import com.prism.music.data.model.Song
 import kotlinx.coroutines.flow.Flow
@@ -45,7 +46,7 @@ class Blends(private val c: AppContainer) {
         val plays = c.db.plays()
         val excluded = c.exclusions
         val artists = plays.tasteTopArtists(since, now, 60)
-            .map { it.artistName.split(", ").first() to it }
+            .map { it.artistName to it }
             .filter { (name, a) -> name.isNotBlank() && !excluded.isArtistExcluded(a.artistId, name) }
             .distinctBy { it.first.lowercase() }
             .take(30)
@@ -57,8 +58,8 @@ class Blends(private val c: AppContainer) {
         val maxSong = top.maxOfOrNull { it.plays }?.toDouble() ?: 1.0
         for (s in top) {
             if (s.songId.length != 11 || excluded.isSongExcluded(s.songId)) continue
-            val artist = s.artistName.split(", ").first()
-            if (excluded.isArtistExcluded(s.artistId, artist)) continue
+            val artist = s.mainArtist
+            if (artist.isBlank() || excluded.isArtistExcluded(s.artistId, artist)) continue
             songs += CodeSong(s.songId, s.title, artist, s.artistId, weight(s.plays.toDouble(), maxSong))
             if (songs.size >= 50) break
         }
@@ -66,8 +67,8 @@ class Blends(private val c: AppContainer) {
         if (songs.size < 50) for (l in c.db.songs().liked()) {
             if (songs.size >= 50) break
             if (l.id.length != 11 || songs.any { it.id == l.id } || excluded.isSongExcluded(l.id)) continue
-            val artist = l.artistName.split(", ").first()
-            if (excluded.isArtistExcluded(l.artistId, artist)) continue
+            val artist = l.toSong().primaryArtist
+            if (artist.isBlank() || excluded.isArtistExcluded(l.artistId, artist)) continue
             songs += CodeSong(l.id, l.title, artist, l.artistId, 5)
         }
         val genres = runCatching { c.taste.profile() }.getOrDefault(emptyMap())

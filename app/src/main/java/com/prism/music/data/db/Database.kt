@@ -18,6 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.prism.music.data.model.AlbumRef
 import com.prism.music.data.model.ArtistRef
 import com.prism.music.data.model.Song
+import com.prism.music.data.model.UNKNOWN_ARTIST
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "songs")
@@ -35,22 +36,42 @@ data class SongEntity(
     val likedAt: Long = 0,
     val lastPlayed: Long = 0,
     val smartDownload: Boolean = false,
+    /**
+     * The song's main artist, which Replay, Rewind, Blend and the mixes count it under ("The Kid LAROI" for "The Kid
+     * LAROI, Justin Bieber"). "" when it has none (a file without an artist tag): never counted as an artist.
+     */
+    @ColumnInfo(defaultValue = "") val primaryArtist: String = "",
+    /** Every credited artist as JSON, so a name with a comma in it ("Tyler, The Creator") stays whole. Null on rows from before v8. */
+    val artistsJson: String? = null,
 ) {
     fun toSong() = Song(
         id = id,
         title = title,
-        artists = artistName.split(", ").filter { it.isNotBlank() }.mapIndexed { i, n -> ArtistRef(n, if (i == 0) artistId else null) },
+        artists = storedArtists(artistsJson) ?: legacyArtists(),
         album = albumTitle?.let { AlbumRef(it, albumId) },
         durationSec = durationSec,
         thumbnail = thumbnail,
         isVideo = isVideo,
     )
+
+    /** A row from before v8: the display text split up again ("Unknown artist" on its own is no artist). */
+    private fun legacyArtists(): List<ArtistRef> =
+        if (artistName == UNKNOWN_ARTIST && (artistId == null || id.startsWith(Song.LOCAL_PREFIX))) emptyList()
+        else artistName.split(", ").filter { it.isNotBlank() }.mapIndexed { i, n -> ArtistRef(n, if (i == 0) artistId else null) }
 }
+
+private val artistsJsonFormat = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+private val artistListSerializer = kotlinx.serialization.builtins.ListSerializer(ArtistRef.serializer())
+
+private fun storedArtists(json: String?): List<ArtistRef>? =
+    json?.let { runCatching { artistsJsonFormat.decodeFromString(artistListSerializer, it) }.getOrNull() }
 
 fun Song.toEntity(base: SongEntity? = null) = SongEntity(
     id = id,
     title = title,
     artistName = artistText,
+    primaryArtist = primaryArtist,
+    artistsJson = artistsJsonFormat.encodeToString(artistListSerializer, artists),
     artistId = artists.firstOrNull()?.id,
     albumTitle = album?.title,
     albumId = album?.id,
@@ -201,7 +222,13 @@ data class SongPlays(
     val albumTitle: String?,
     val durationSec: Int,
     val artistId: String?,
+    /** The song's main artist ("" for none); empty in Rewind snapshots saved before v8, so read [mainArtist]. */
+    val primaryArtist: String = "",
 )
+
+/** The artist a played song counts under: its main artist (older snapshots: the first name of its credit). */
+val SongPlays.mainArtist: String
+    get() = primaryArtist.ifBlank { if (artistName == UNKNOWN_ARTIST) "" else artistName.substringBefore(", ") }
 
 @kotlinx.serialization.Serializable
 data class ArtistPlays(val artistName: String, val plays: Int, val ms: Long, val thumbnail: String?, val artistId: String?)
@@ -276,19 +303,23 @@ interface PlayEventDao {
     @Query(
         """SELECT e.songId AS songId, COUNT(*) AS plays, SUM(e.playedMs) AS ms, s.title AS title,
            s.artistName AS artistName, s.thumbnail AS thumbnail, s.albumTitle AS albumTitle,
-           s.durationSec AS durationSec, s.artistId AS artistId
+           s.durationSec AS durationSec, s.artistId AS artistId, s.primaryArtist AS primaryArtist
            FROM play_events e JOIN songs s ON s.id = e.songId
            WHERE e.timestamp BETWEEN :from AND :to
            GROUP BY e.songId ORDER BY ms DESC, plays DESC LIMIT :limit"""
     )
     suspend fun topSongs(from: Long, to: Long, limit: Int): List<SongPlays>
 
+    /**
+     * Artists by listening, each counted under a song's main artist (a joint credit isn't an artist of its own), and
+     * songs without an artist (untagged files) left out.
+     */
     @Query(
-        """SELECT s.artistName AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
+        """SELECT MAX(s.primaryArtist) AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
            MAX(s.thumbnail) AS thumbnail, MAX(s.artistId) AS artistId
            FROM play_events e JOIN songs s ON s.id = e.songId
-           WHERE e.timestamp BETWEEN :from AND :to
-           GROUP BY s.artistName ORDER BY ms DESC LIMIT :limit"""
+           WHERE e.timestamp BETWEEN :from AND :to AND s.primaryArtist != ''
+           GROUP BY s.primaryArtist ORDER BY ms DESC LIMIT :limit"""
     )
     suspend fun topArtists(from: Long, to: Long, limit: Int): List<ArtistPlays>
 
@@ -310,18 +341,18 @@ interface PlayEventDao {
     @Query("SELECT COUNT(DISTINCT songId) FROM play_events WHERE timestamp BETWEEN :from AND :to")
     suspend fun songCount(from: Long, to: Long): Int
 
-    @Query("SELECT COUNT(DISTINCT s.artistName) FROM play_events e JOIN songs s ON s.id = e.songId WHERE e.timestamp BETWEEN :from AND :to")
+    @Query("SELECT COUNT(DISTINCT s.primaryArtist) FROM play_events e JOIN songs s ON s.id = e.songId WHERE e.timestamp BETWEEN :from AND :to AND s.primaryArtist != ''")
     suspend fun artistCount(from: Long, to: Long): Int
 
     /** Artists first heard between [from] and [to], with their listening in that time, most listened first. */
     @Query(
-        """SELECT s.artistName AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
+        """SELECT MAX(s.primaryArtist) AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
            MAX(s.thumbnail) AS thumbnail, MAX(s.artistId) AS artistId
            FROM play_events e JOIN songs s ON s.id = e.songId
-           WHERE e.timestamp BETWEEN :from AND :to AND s.artistName IN (
-               SELECT s2.artistName FROM play_events e2 JOIN songs s2 ON s2.id = e2.songId
-               GROUP BY s2.artistName HAVING MIN(e2.timestamp) BETWEEN :from AND :to)
-           GROUP BY s.artistName ORDER BY ms DESC"""
+           WHERE e.timestamp BETWEEN :from AND :to AND s.primaryArtist != '' AND s.primaryArtist IN (
+               SELECT s2.primaryArtist FROM play_events e2 JOIN songs s2 ON s2.id = e2.songId
+               GROUP BY s2.primaryArtist HAVING MIN(e2.timestamp) BETWEEN :from AND :to)
+           GROUP BY s.primaryArtist ORDER BY ms DESC"""
     )
     suspend fun newArtists(from: Long, to: Long): List<ArtistPlays>
 
@@ -330,11 +361,11 @@ interface PlayEventDao {
 
     /** Rewind: most-listened albums (songs with an album only). */
     @Query(
-        """SELECT s.albumTitle AS albumTitle, s.artistName AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
-           COUNT(DISTINCT e.songId) AS songs, MAX(s.thumbnail) AS thumbnail
+        """SELECT s.albumTitle AS albumTitle, COALESCE(NULLIF(MAX(s.primaryArtist), ''), MAX(s.artistName)) AS artistName,
+           COUNT(*) AS plays, SUM(e.playedMs) AS ms, COUNT(DISTINCT e.songId) AS songs, MAX(s.thumbnail) AS thumbnail
            FROM play_events e JOIN songs s ON s.id = e.songId
            WHERE e.timestamp BETWEEN :from AND :to AND s.albumTitle IS NOT NULL AND s.albumTitle != ''
-           GROUP BY s.albumTitle, s.artistName ORDER BY ms DESC LIMIT :limit"""
+           GROUP BY s.albumTitle, s.primaryArtist ORDER BY ms DESC LIMIT :limit"""
     )
     suspend fun topAlbums(from: Long, to: Long, limit: Int): List<AlbumPlays>
 
@@ -363,7 +394,7 @@ interface PlayEventDao {
     @Query(
         """SELECT e.songId AS songId, COUNT(*) AS plays, SUM(e.playedMs) AS ms, s.title AS title,
            s.artistName AS artistName, s.thumbnail AS thumbnail, s.albumTitle AS albumTitle,
-           s.durationSec AS durationSec, s.artistId AS artistId
+           s.durationSec AS durationSec, s.artistId AS artistId, s.primaryArtist AS primaryArtist
            FROM play_events e JOIN songs s ON s.id = e.songId
            WHERE e.timestamp BETWEEN :from AND :to AND e.excluded = 0
            GROUP BY e.songId ORDER BY ms DESC, plays DESC LIMIT :limit"""
@@ -372,11 +403,11 @@ interface PlayEventDao {
 
     /** [topArtists] for taste: plays the listener left out of it don't count. */
     @Query(
-        """SELECT s.artistName AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
+        """SELECT MAX(s.primaryArtist) AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
            MAX(s.thumbnail) AS thumbnail, MAX(s.artistId) AS artistId
            FROM play_events e JOIN songs s ON s.id = e.songId
-           WHERE e.timestamp BETWEEN :from AND :to AND e.excluded = 0
-           GROUP BY s.artistName ORDER BY ms DESC LIMIT :limit"""
+           WHERE e.timestamp BETWEEN :from AND :to AND e.excluded = 0 AND s.primaryArtist != ''
+           GROUP BY s.primaryArtist ORDER BY ms DESC LIMIT :limit"""
     )
     suspend fun tasteTopArtists(from: Long, to: Long, limit: Int): List<ArtistPlays>
 
@@ -523,7 +554,7 @@ interface RomanizedDao {
 @Database(
     entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class,
         RomanizedEntity::class, ReleaseEntity::class, MixEntity::class, BlendEntity::class, RecognitionEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
@@ -575,6 +606,24 @@ abstract class PrismDatabase : RoomDatabase() {
             object : Migration(6, 7) {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("CREATE TABLE IF NOT EXISTS `recognitions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `at` INTEGER NOT NULL, `status` TEXT NOT NULL, `title` TEXT, `artist` TEXT, `album` TEXT, `cover` TEXT, `shazamKey` TEXT, `videoId` TEXT, `signature` TEXT)")
+                }
+            },
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN primaryArtist TEXT NOT NULL DEFAULT ''")
+                    db.execSQL("ALTER TABLE songs ADD COLUMN artistsJson TEXT")
+                    // The main artist from what's there: the first name of the credit. A song without an artist was
+                    // stored as "Unknown artist" (what it shows) and counted as one: it gets none. Each song is stored
+                    // again with its exact artists the next time Prism saves it.
+                    db.execSQL(
+                        """UPDATE songs SET primaryArtist = CASE
+                           WHEN artistName = '$UNKNOWN_ARTIST' AND (artistId IS NULL OR id LIKE '${Song.LOCAL_PREFIX}%') THEN ''
+                           WHEN instr(artistName, ', ') > 0 THEN substr(artistName, 1, instr(artistName, ', ') - 1)
+                           ELSE artistName END"""
+                    )
+                    // Genres guessed for files without an artist (from a track search on their title alone), and the
+                    // genre of a catalogued artist really called "Unknown artist", go: they'd be asked again properly.
+                    db.execSQL("DELETE FROM genres WHERE key LIKE 'song2:${Song.LOCAL_PREFIX}%' OR key = 'artist2:unknownartist' OR key = 'artist2:unknown artist'")
                 }
             },
         )

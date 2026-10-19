@@ -121,7 +121,7 @@ class ReleaseRadar(private val c: AppContainer) {
         c.library.artists.value.forEach { out.putIfAbsent(it.id, FavoriteRef(it.id, it.title)) }
         val now = System.currentTimeMillis()
         c.db.plays().tasteTopArtists(now - 90L * 86_400_000, now, 60).filter { it.artistId != null }.take(30)
-            .forEach { out.putIfAbsent(it.artistId!!, FavoriteRef(it.artistId, it.artistName.split(", ").first())) }
+            .forEach { out.putIfAbsent(it.artistId!!, FavoriteRef(it.artistId, it.artistName)) }
         return out.values.filter { !c.exclusions.isArtistExcluded(it.id, it.name) }.take(MAX_ARTISTS)
     }
 

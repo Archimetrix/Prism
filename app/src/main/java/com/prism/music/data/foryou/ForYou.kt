@@ -126,8 +126,9 @@ class ForYou(private val c: AppContainer) {
         val genres = artistGenres(MadeForYou.topArtists(plays.filter { it.artist.isNotBlank() }, data.now), data)
         val clusters = MadeForYou.clusters(plays.filter { it.artist.isNotBlank() }, genres, data.now)
         val made = ArrayList<String>()
-        for ((i, cl) in clusters.withIndex()) {
-            val n = i + 1
+        for (cl in clusters) {
+            // Numbered by the mixes actually made: a group without enough songs is skipped without leaving a gap.
+            val n = made.size + 1
             val members = cl.artists.map { it.lowercase() }.toSet()
             val known = data.songs.values.filter { it.primaryArtist.lowercase() in members && ok(it, data) && !it.isVideo }
                 .sortedByDescending { data.model.score(it) * jitter(it.id, day) }
@@ -135,7 +136,7 @@ class ForYou(private val c: AppContainer) {
             val fresh = discover(own.take(3), data, members, day, exclude = own.map { it.id }.toSet())
             val songs = MadeForYou.interleave(own, fresh, 50) { it.primaryArtist.lowercase() }
             if (songs.size < 10) continue
-            saveMix(MadeForYou.daily(n), "Daily Mix $n", MadeForYou.namesLine(cl.artists), cl.artists.take(4), COLORS[i % COLORS.size], songs)
+            saveMix(MadeForYou.daily(n), "Daily Mix $n", MadeForYou.namesLine(cl.artists), cl.artists.take(4), COLORS[(n - 1) % COLORS.size], songs)
             made += MadeForYou.daily(n)
         }
         // Mixes from a day with more groups than today's go.

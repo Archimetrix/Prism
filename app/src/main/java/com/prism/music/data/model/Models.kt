@@ -2,6 +2,9 @@ package com.prism.music.data.model
 
 import kotlinx.serialization.Serializable
 
+/** What a song without an artist (a file with no artist tag) shows. Shown only: never counted as an artist. */
+const val UNKNOWN_ARTIST = "Unknown artist"
+
 @Serializable
 data class ArtistRef(val name: String, val id: String? = null)
 
@@ -25,7 +28,7 @@ data class Song(
     /** An episode's show (its browse id, "MPSP…"), for "Go to podcast". */
     val podcastId: String? = null,
 ) {
-    val artistText: String get() = artists.joinToString(", ") { it.name }.ifBlank { "Unknown artist" }
+    val artistText: String get() = artists.joinToString(", ") { it.name }.ifBlank { UNKNOWN_ARTIST }
     val primaryArtist: String get() = artists.firstOrNull()?.name ?: ""
     /** A music file on the phone (Library → Local music), not a YouTube Music song: it plays from the file. */
     val isLocal: Boolean get() = id.startsWith(LOCAL_PREFIX)

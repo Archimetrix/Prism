@@ -100,6 +100,7 @@ import com.prism.music.data.Personality
 import com.prism.music.data.ReplayStats
 import com.prism.music.data.db.ArtistPlays
 import com.prism.music.data.db.SongPlays
+import com.prism.music.data.db.mainArtist
 import com.prism.music.data.model.Song
 import com.prism.music.data.model.hiRes
 import com.prism.music.playback.PrismMediaSourceFactory
@@ -278,7 +279,7 @@ private fun palette(vararg hex: Long) = hex.map { Color(it) }
 /** The story's slides ([com.prism.music.data.StoryParts.pick] says which), each with its colours and the song under it. */
 private fun slidesFor(s: ReplayStory): List<Slide> {
     val songs = s.songs
-    fun byArtist(name: String?) = songs.firstOrNull { it.artistName == name }
+    fun byArtist(name: String?) = songs.firstOrNull { it.mainArtist == name }
     fun byTitle(title: String?) = songs.firstOrNull { it.title == title }
     return com.prism.music.data.StoryParts.pick(s.facts()).map { part ->
         when (part) {
@@ -705,7 +706,7 @@ private fun TopArtist(s: ReplayStory, modifier: Modifier) {
             Row(Modifier.reveal(1_200), horizontalArrangement = Arrangement.spacedBy(26.dp)) {
                 listenTotal(a.ms).let { t -> Stat(t.text(t.value), t.unit.ifEmpty { "listened" }) }
                 Stat(fmt(a.plays.toLong()), "plays")
-                Stat("${s.songs.count { it.artistName == a.artistName }}", "songs")
+                Stat("${s.songs.count { it.mainArtist == a.artistName }}", "songs")
             }
             val share = (a.ms * 100.0 / s.totalMs.coerceAtLeast(1)).toInt()
             Text("$share% of everything you played was them.", style = body, modifier = Modifier.reveal(1_800).padding(top = 16.dp))

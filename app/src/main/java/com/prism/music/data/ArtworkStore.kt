@@ -30,6 +30,8 @@ class ArtworkStore(
 ) {
     private val dir = File(context.filesDir, "artwork").apply { mkdirs() }
     private val saved: MutableSet<String> = ConcurrentHashMap.newKeySet<String>().apply {
+        // A cover saved under a key many covers used to share (every YouTube Music mix's) is dropped; they're saved again.
+        SHARED_OLD_KEYS.forEach { File(dir, "$it.jpg").delete() }
         dir.list()?.filter { it.endsWith(".jpg") }?.forEach { add(it.removeSuffix(".jpg")) }
     }
     private val gate = Semaphore(3)
@@ -106,7 +108,9 @@ class ArtworkStore(
     companion object {
         /**
          * A cover's identity, whatever size it's asked for: Google's image addresses carry the size after "=", and
-         * YouTube's thumbnails come in several names per video. Null for what's on the phone already.
+         * YouTube's thumbnails come in several names per video. Anything else is the whole address, query included:
+         * YouTube Music's own mixes all have the same path (`music.youtube.com/image/mixart`) and differ only in
+         * their `?r=…`, so leaving that out gave every mix one cover (My Supermix's). Null for what's on the phone.
          */
         fun keyOf(url: String?): String? {
             if (url.isNullOrBlank() || !url.startsWith("http")) return null
@@ -114,11 +118,18 @@ class ArtworkStore(
             val base = when {
                 bare.contains("googleusercontent.com") || bare.contains("ggpht.com") -> bare.substringBefore('=')
                 bare.contains("ytimg.com/vi") -> "ytimg:" + bare.substringAfter("/vi").substringAfter('/').substringBefore('/')
-                else -> bare.substringBefore('?')
+                else -> bare
             }
-            val digest = MessageDigest.getInstance("SHA-1").digest(base.toByteArray())
-            return digest.joinToString("") { "%02x".format(it) }
+            return sha1(base)
         }
+
+        private fun sha1(s: String) = MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }
+
+        /**
+         * Keys the old [keyOf] gave many different covers at once (every mix's): their files are one of those covers
+         * shown for all of them, so they go. No cover gets one of these keys any more.
+         */
+        internal val SHARED_OLD_KEYS = listOf("music.youtube.com/image/mixart", "www.youtube.com/image/mixart").map(::sha1)
     }
 }
 

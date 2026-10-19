@@ -57,6 +57,47 @@ class MigrationTest {
         }
     }
 
+    /**
+     * v8: songs get their main artist. A joint credit counts for its first artist (not as an artist of its own), a
+     * file without an artist ("Unknown artist") counts for none, and genres guessed for such files go.
+     */
+    @Test
+    fun v8CountsSongsUnderTheirMainArtist() {
+        val context = RuntimeEnvironment.getApplication()
+        val name = "migrate-v8-artists.db"
+        context.deleteDatabase(name)
+        val file = context.getDatabasePath(name)
+        createAt(file, 7)
+        SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+            fun song(id: String, artist: String, artistId: String?) = db.insert("songs", null, ContentValues().apply {
+                put("id", id); put("title", "T $id"); put("artistName", artist); put("artistId", artistId)
+                put("durationSec", 200); put("isVideo", 0); put("liked", 0); put("likedAt", 0L); put("lastPlayed", 0L); put("smartDownload", 0)
+            })
+            fun play(id: String, ms: Long) = db.insert("play_events", null, ContentValues().apply {
+                put("songId", id); put("timestamp", 3_000L); put("playedMs", ms)
+            })
+            song("joint", "The Kid LAROI, Justin Bieber", "UCkid"); play("joint", 150_000)
+            song("solo", "The Kid LAROI", "UCkid"); play("solo", 100_000)
+            song("local:7", "Unknown artist", null); play("local:7", 500_000)
+            db.insert("genres", null, ContentValues().apply { put("key", "song2:local:7"); put("genre", "Dance & electronic"); put("fetchedAt", 1L) })
+            db.insert("genres", null, ContentValues().apply { put("key", "song2:joint"); put("genre", "Pop"); put("fetchedAt", 1L) })
+        }
+        val db = Room.databaseBuilder(context, PrismDatabase::class.java, name)
+            .addMigrations(*PrismDatabase.MIGRATIONS).allowMainThreadQueries().build()
+        runBlocking {
+            val artists = db.plays().topArtists(0, Long.MAX_VALUE, 10)
+            assertEquals("joint credit counts for its main artist", listOf("The Kid LAROI", "Artist"), artists.map { it.artistName })
+            assertEquals(250_000L, artists.first().ms)
+            assertEquals("no 'Unknown artist'", 2, db.plays().artistCount(0, Long.MAX_VALUE))
+            assertTrue("a file without an artist has none", db.songs().get("local:7")!!.toSong().artists.isEmpty())
+            assertEquals("Unknown artist", db.songs().get("local:7")!!.toSong().artistText)
+            assertEquals(listOf("The Kid LAROI", "Justin Bieber"), db.songs().get("joint")!!.toSong().artists.map { it.name })
+            assertEquals("the guessed genre went", null, db.meta().genre("song2:local:7"))
+            assertEquals("real genres stay", "Pop", db.meta().genre("song2:joint")?.genre)
+        }
+        db.close()
+    }
+
     @Test
     fun currentSchemaIsExported() {
         // A version bump without its exported schema would leave the next migration untestable.
