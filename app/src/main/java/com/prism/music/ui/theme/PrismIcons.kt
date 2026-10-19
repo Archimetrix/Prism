@@ -299,6 +299,23 @@ object PrismIcons {
         }
     }.or { Cupertino.Shuffle }
 
+    /** A camera (scanning a Blend code). */
+    val Camera = icon("Camera") {
+        line {
+            moveTo(4f, 8.5f); quadTo(4f, 7f, 5.5f, 7f); lineTo(8f, 7f); lineTo(9.5f, 5f); lineTo(14.5f, 5f); lineTo(16f, 7f); lineTo(18.5f, 7f)
+            quadTo(20f, 7f, 20f, 8.5f); lineTo(20f, 17.5f); quadTo(20f, 19f, 18.5f, 19f); lineTo(5.5f, 19f); quadTo(4f, 19f, 4f, 17.5f); close()
+        }
+        line { moveTo(12f, 9.5f); arcTo(3.5f, 3.5f, 0f, true, true, 11.99f, 9.5f) }
+    }
+
+    /** Blend: two circles overlapping (two tastes in one). */
+    val Blend = icon("Blend") {
+        line {
+            moveTo(9f, 6f); arcTo(6f, 6f, 0f, true, true, 8.99f, 6f)
+            moveTo(15f, 6f); arcTo(6f, 6f, 0f, true, true, 14.99f, 6f)
+        }
+    }
+
     /** Left out: a circle struck through (exclusions). */
     val Block = icon("Block") {
         line {

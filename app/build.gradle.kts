@@ -156,6 +156,12 @@ dependencies {
     // Sing's vocal separation (Spleeter) runs on ONNX Runtime (MIT). Its native libraries (13+ MB per CPU type) aren't
     // packed into the APK (see packaging below): they're downloaded with Sing's model on first use (ModelStore).
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.0")
+    // Blend: QR codes made and read (ZXing core, Apache-2.0), the camera for scanning one (CameraX, Apache-2.0).
+    implementation("com.google.zxing:core:3.5.3")
+    val camerax = "1.4.2"
+    implementation("androidx.camera:camera-camera2:$camerax")
+    implementation("androidx.camera:camera-lifecycle:$camerax")
+    implementation("androidx.camera:camera-view:$camerax")
     // On the PC, tests run the same models with ONNX Runtime's desktop build.
     testImplementation("com.microsoft.onnxruntime:onnxruntime:1.31.0")
 

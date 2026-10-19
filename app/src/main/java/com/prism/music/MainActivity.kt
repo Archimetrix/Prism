@@ -213,7 +213,17 @@ open class MainActivity : ComponentActivity() {
     }
 
     /** A music.youtube.com link opened in Prism, or a YouTube / YouTube Music link shared to it. */
-    private fun linkIn(intent: Intent?): Uri? = when (intent?.action) {
+    private fun linkIn(intent: Intent?): Uri? {
+        // A friend's Blend code, shared to Prism from a chat: Blend asks whether to make it.
+        val blendCode = if (intent?.action == Intent.ACTION_SEND) com.prism.music.data.blend.BlendCode.findIn(intent.getStringExtra(Intent.EXTRA_TEXT)) else null
+        if (blendCode != null) {
+            container.blends.pending.value = blendCode
+            return Uri.parse("prism://blends")
+        }
+        return linkOf(intent)
+    }
+
+    private fun linkOf(intent: Intent?): Uri? = when (intent?.action) {
         Intent.ACTION_SEND -> com.prism.music.data.ShareLinks.findIn(intent.getStringExtra(Intent.EXTRA_TEXT))?.let(Uri::parse).also {
             if (it == null) Toast.makeText(this, "That isn't a YouTube or YouTube Music link", Toast.LENGTH_SHORT).show()
         }
@@ -426,6 +436,16 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         }
                         composable(Routes.NEW_RELEASES) { ScreenBackdrop(BackdropScreen.HOME) { com.prism.music.ui.screens.NewReleasesScreen(bottomPadding) } }
                         composable(Routes.EXCLUSIONS) { ScreenBackdrop(BackdropScreen.SETTINGS) { com.prism.music.ui.screens.ExclusionsScreen(bottomPadding) } }
+                        composable(Routes.BLENDS) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.BlendsScreen(bottomPadding) } }
+                        composable(Routes.BLEND_SCAN) {
+                            com.prism.music.ui.screens.BlendScanScreen { code ->
+                                navController.popBackStack()
+                                c.blends.pending.value = code
+                            }
+                        }
+                        composable("blend/{who}", listOf(navArgument("who") { type = NavType.StringType })) {
+                            ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.BlendScreen(it.arguments?.getString("who")!!, bottomPadding) }
+                        }
                         composable("mix/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
                             Beside { CollectionScreen(CollectionType.MIX, it.arguments?.getString("id")!!, null, bottomPadding) }
                         }
@@ -736,6 +756,7 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
         uri.scheme == "prism" && uri.host == "player" -> nav.openPlayer()
         // Release Radar's notification.
         uri.scheme == "prism" && uri.host == "releases" -> nav.go(Routes.NEW_RELEASES)
+        uri.scheme == "prism" && uri.host == "blends" -> nav.go(Routes.BLENDS)
         uri.scheme == "prism" && uri.host == "mix" && path.isNotEmpty() -> nav.go(Routes.mix(path[0]))
         v != null -> {
             nav.openPlayer()

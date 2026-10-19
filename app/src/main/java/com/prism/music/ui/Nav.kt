@@ -46,6 +46,10 @@ object Routes {
     /** "Pick artists you like" (after the welcome screen, or Settings → Home screen → Your artists). */
     const val PICK_ARTISTS = "pick_artists"
     const val EXCLUSIONS = "exclusions"
+    /** Blend: your code, scanning a friend's, and your Blends. */
+    const val BLENDS = "blends"
+    const val BLEND_SCAN = "blend_scan"
+    fun blend(who: String) = "blend/${Uri.encode(who)}"
     /** One of Prism's own mixes (Daily Mix 1, the time-of-day mix, Release Radar). */
     fun mix(id: String) = "mix/${Uri.encode(id)}"
     fun podcast(id: String) = "podcast/${Uri.encode(id)}"

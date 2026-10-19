@@ -155,6 +155,20 @@ data class MixEntity(
     val songsJson: String,
 )
 
+/**
+ * A Blend with a friend: their taste code as they sent it, and ours as it was then (what "Send yours back" sends, so
+ * both phones work the Blend out from the same two codes). Keyed by the friend's random Blend id.
+ */
+@Entity(tableName = "blends")
+data class BlendEntity(
+    @PrimaryKey val friendWho: String,
+    val friendName: String,
+    val friendCode: String,
+    val myCode: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
 data class SongPlays(
     val songId: String,
     val plays: Int,
@@ -334,6 +348,21 @@ interface ReleaseDao {
 }
 
 @Dao
+interface BlendDao {
+    @Query("SELECT * FROM blends ORDER BY updatedAt DESC")
+    fun allFlow(): Flow<List<BlendEntity>>
+
+    @Query("SELECT * FROM blends WHERE friendWho = :who")
+    suspend fun get(who: String): BlendEntity?
+
+    @Upsert
+    suspend fun put(b: BlendEntity)
+
+    @Query("DELETE FROM blends WHERE friendWho = :who")
+    suspend fun delete(who: String)
+}
+
+@Dao
 interface MixDao {
     @Query("SELECT * FROM mixes ORDER BY id")
     fun allFlow(): Flow<List<MixEntity>>
@@ -409,8 +438,8 @@ interface RomanizedDao {
 
 @Database(
     entities = [SongEntity::class, PlayEventEntity::class, LyricsEntity::class, GenreEntity::class, MotionArtEntity::class, HeatmapEntity::class,
-        RomanizedEntity::class, ReleaseEntity::class, MixEntity::class],
-    version = 5,
+        RomanizedEntity::class, ReleaseEntity::class, MixEntity::class, BlendEntity::class],
+    version = 6,
     exportSchema = true,
 )
 abstract class PrismDatabase : RoomDatabase() {
@@ -422,6 +451,7 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun romanized(): RomanizedDao
     abstract fun releases(): ReleaseDao
     abstract fun mixes(): MixDao
+    abstract fun blends(): BlendDao
 
     companion object {
         /**
@@ -450,6 +480,11 @@ abstract class PrismDatabase : RoomDatabase() {
                     db.execSQL("CREATE TABLE IF NOT EXISTS `releases` (`id` TEXT NOT NULL, `artistId` TEXT NOT NULL, `artistName` TEXT NOT NULL, `title` TEXT NOT NULL, `kind` TEXT NOT NULL, `year` INTEGER NOT NULL, `releaseDate` TEXT, `thumbnail` TEXT, `playlistId` TEXT, `firstSeenAt` INTEGER NOT NULL, `baseline` INTEGER NOT NULL, `notifiedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))")
                     db.execSQL("CREATE INDEX IF NOT EXISTS `index_releases_artistId` ON `releases` (`artistId`)")
                     db.execSQL("CREATE TABLE IF NOT EXISTS `mixes` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `subtitle` TEXT NOT NULL, `seedArtists` TEXT NOT NULL, `color` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `songsJson` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                }
+            },
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `blends` (`friendWho` TEXT NOT NULL, `friendName` TEXT NOT NULL, `friendCode` TEXT NOT NULL, `myCode` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`friendWho`))")
                 }
             },
         )
