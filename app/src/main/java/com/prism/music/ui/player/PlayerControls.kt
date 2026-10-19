@@ -202,14 +202,8 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
     // The song's length or the time left (#82): tapping the time switches, and it stays that way.
     val showLength = LocalAppSettings.current.showTrackLength
     val c = LocalContainer.current
-    // YouTube's "Most replayed" curve, a faint hill along the top of the bar (not over a music video's own timeline).
-    val best by c.bestParts.current.collectAsState()
-    val videoMode by pc.videoMode.collectAsState()
-    val heat = best?.takeIf { it.songId == current?.id && LocalAppSettings.current.showMostReplayed && !videoMode }?.heat
-    val idle = when (style) { ScrubberStyle.HAIRLINE -> 7.dp; ScrubberStyle.BOLD -> 11.dp; ScrubberStyle.THUMB -> 4.dp }
     Column(Modifier.fillMaxWidth()) {
         ThinSlider(
-            modifier = if (heat == null) Modifier else Modifier.drawBehind { drawHeatHill(heat, duration, idle.toPx()) },
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
@@ -234,40 +228,9 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
 }
 
 /**
- * The heat curve as a soft hill sitting on the bar: each stretch of the song as high as it's replayed. [trackPx] is
- * the bar's resting thickness (the hill starts at its top edge).
- */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawHeatHill(heat: com.prism.music.data.Heatmap, durationMs: Long, trackPx: Float) {
-    val values = heat.intensity
-    if (values.size < 2 || durationMs <= 0) return
-    val base = size.height / 2 - trackPx / 2 - 1.dp.toPx()
-    val top = 13.dp.toPx()
-    // Drawn over the curve's own range (most curves sit in a narrow band, which drew as a flat slab), with the
-    // opening's spike (everyone starts there) left out of it: it just reaches the top.
-    val lo = values.min()
-    val hi = values.drop(2).maxOrNull()?.takeIf { it - lo > 0.02f } ?: values.max()
-    val span = (hi - lo).coerceAtLeast(0.02f)
-    fun x(i: Int) = ((i * heat.segmentMs + heat.segmentMs / 2).toFloat() / durationMs * size.width).coerceIn(0f, size.width)
-    fun y(i: Int) = base - top * (0.12f + 0.88f * ((values[i] - lo) / span).coerceIn(0f, 1f))
-    val path = androidx.compose.ui.graphics.Path().apply {
-        moveTo(0f, base)
-        lineTo(x(0), y(0))
-        for (i in 1 until values.size) {
-            // Smooth: through the midpoints, with each sample as the control point.
-            val mx = (x(i - 1) + x(i)) / 2
-            val my = (y(i - 1) + y(i)) / 2
-            quadraticTo(x(i - 1), y(i - 1), mx, my)
-        }
-        lineTo(x(values.lastIndex), y(values.lastIndex))
-        lineTo(x(values.lastIndex), base)
-        close()
-    }
-    drawPath(path, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.06f)), startY = base - top, endY = base))
-}
-
-/**
- * "Best part ›" in the middle under the bar while a song's best part is still ahead, in its first 30 s. Returns
- * false (draws nothing) otherwise, so the stream-quality label can take the place.
+ * "Best part" in the middle under the bar while a song's best part is still ahead (at least 3 s away): in the song's
+ * first 30 s, or for 15 s from when its best part became known if that took longer (up to 45 s in). Returns false
+ * (draws nothing) otherwise, so the stream-quality label can take the place.
  */
 @Composable
 fun BoxScope.BestPartChip(): Boolean {
@@ -276,9 +239,14 @@ fun BoxScope.BestPartChip(): Boolean {
     val settings = LocalAppSettings.current
     val song by pc.currentSong.collectAsState()
     val best by c.bestParts.current.collectAsState()
-    val start = best?.takeIf { it.songId == song?.id }?.startMs ?: return false
-    val at = pc.lyricPosition
-    if (!settings.bestPartButton || at > 30_000 || at > start - 3_000) return false
+    val now = best?.takeIf { it.songId == song?.id }
+    val start = now?.startMs ?: return false
+    // Past its window (or turned off): no clock of its own for the rest of the song.
+    if (!settings.bestPartButton || pc.lyricPosition >= start || pc.lyricPosition >= BestPartButton.LATEST_MS) return false
+    // A clock this reads (recomposed as the song plays), in the lyrics' timeline the best part is given in.
+    val shift by pc.lyricShift.collectAsState()
+    val at = rememberPosition(fast = false) + shift
+    if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
     val haptics = rememberHaptics()
     Row(
         Modifier.align(Alignment.Center).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
@@ -291,6 +259,20 @@ fun BoxScope.BestPartChip(): Boolean {
         Text("Best part", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
     }
     return true
+}
+
+/** When the player's "Best part" button is up. */
+object BestPartButton {
+    /** At [atMs] into the song, with its best part at [startMs], known since [knownAtMs] into it. */
+    fun shows(atMs: Long, startMs: Long, knownAtMs: Long): Boolean {
+        val until = maxOf(FIRST_MS, knownAtMs + AFTER_KNOWN_MS).coerceAtMost(LATEST_MS)
+        return atMs < until && atMs < startMs - AHEAD_MS
+    }
+
+    private const val FIRST_MS = 30_000L
+    private const val AFTER_KNOWN_MS = 15_000L
+    const val LATEST_MS = 45_000L
+    private const val AHEAD_MS = 3_000L
 }
 
 /** Previous, play/pause, next — oversized glyphs, no circles. */

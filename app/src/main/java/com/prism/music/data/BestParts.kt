@@ -6,6 +6,7 @@ import com.prism.music.data.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
@@ -15,8 +16,11 @@ import java.util.concurrent.ConcurrentHashMap
  * views), and the playing song's, for the player's scrubber and its "Best part" button.
  */
 class BestParts(private val c: AppContainer) {
-    /** The playing song's: its heat curve (if YouTube has one) and where its best part starts (if it has one). */
-    data class Current(val songId: String, val heat: Heatmap?, val startMs: Long?)
+    /**
+     * The playing song's: its heat curve (if YouTube has one), where its best part starts (if it has one), and how far
+     * into the song that became known ([knownAtMs]: the player's button stays up a while from then).
+     */
+    data class Current(val songId: String, val heat: Heatmap?, val startMs: Long?, val knownAtMs: Long = 0)
 
     private val _current = MutableStateFlow<Current?>(null)
     val current: StateFlow<Current?> = _current
@@ -67,21 +71,24 @@ class BestParts(private val c: AppContainer) {
 
     /**
      * The player moved to [song]: its curve and best part are looked up. Usually the curve was fetched while the song
-     * before it played ([prefetch]); if not, it's asked for once the song has got going (it's a big answer, ~0.5 MB).
+     * before it played ([prefetch]). If not (the first song of a queue, a skip, a song tapped in a list), it's asked for
+     * as soon as the song is playing: it used to wait for the song's first 20 s, and the button only shows in the
+     * first seconds, so for those songs it hardly ever appeared. One request (~0.5 MB), beside a song loading whole.
      */
     suspend fun onSongStarted(song: Song) {
         _current.value = Current(song.id, memory[song.id], null)
         val heat = if (hasHeat(song)) {
             heatmap(song.id, fetch = false) ?: if (c.dataSaving()) null else {
-                c.quietNetwork()
+                // Its own start first: the moment sound comes out (or 3 s, whichever's sooner).
+                withTimeoutOrNull(3_000) { c.player.isPlaying.first { it } }
                 withTimeoutOrNull(10_000) { heatmap(song.id) }
             }
         } else null
         if (_current.value?.songId != song.id) return
-        _current.value = Current(song.id, heat, startFor(song, heat))
+        _current.value = Current(song.id, heat, startFor(song, heat), knownAtMs = c.player.position)
     }
 
-    /** The next song's curve, fetched while this one plays (not with data saver on mobile data). */
+    /** A coming song's curve, fetched while this one plays (not with data saver on mobile data). */
     suspend fun prefetch(song: Song) {
         if (!hasHeat(song) || c.dataSaving() || memory.containsKey(song.id)) return
         c.quietNetwork()

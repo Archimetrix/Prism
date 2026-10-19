@@ -904,8 +904,9 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             }
         }
         if (next.startsWith(Song.LOCAL_PREFIX)) return
-        // Its "Most replayed" curve (for the best part), ready before it plays.
-        player.getMediaItemAt(i).toSong()?.let { s -> scope.launch { c.bestParts.prefetch(s) } }
+        // Its "Most replayed" curve (for the best part), ready before it plays, and the one after's (a double skip).
+        val coming = listOfNotNull(player.getMediaItemAt(i).toSong(), upcoming(2).getOrNull(1)?.toSong())
+        scope.launch { coming.forEach { s -> c.bestParts.prefetch(s) } }
         if (c.downloads.isDownloaded(next)) { armNextVideo(); return }
         // The song after it is resolved too (no audio fetched): skipping twice used to land on one that wasn't, which
         // took ~2 s to start. Each song is resolved once either way, only earlier.
