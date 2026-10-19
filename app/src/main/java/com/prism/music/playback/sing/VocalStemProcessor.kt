@@ -162,6 +162,18 @@ class VocalStemProcessor(private val sing: Source) : BaseAudioProcessor() {
 
     private fun processRun(input: ByteBuffer, out: ByteBuffer, frames: Int) {
         val id = songId
+        // Sing is off and nothing is being taken out (or gliding out): the audio goes straight through, untouched, and
+        // only the place in the song is kept. It used to go through the whole sample loop for nothing.
+        if (!sing.onNow && gain < 1e-5f && fade < 1e-4f) {
+            gain = 0f; fade = 0f
+            val bytes = frames * (if (float) 4 else 2) * channels
+            val limit = input.limit()
+            input.limit(input.position() + bytes)
+            out.put(input)
+            input.limit(limit)
+            position += frames
+            return
+        }
         val on = sing.onNow && id != null
         // The vocals may not exist yet when the song starts (Sing was just switched on), or be started afresh in a new
         // file: while they're missing or short of where the song is, they're looked for again every quarter second.
@@ -188,7 +200,9 @@ class VocalStemProcessor(private val sing: Source) : BaseAudioProcessor() {
         val level = sing.levelNow
         val glide = 1f - exp(-1f / (0.03f * rate))
         val record = on && r != null
-        val mono = if (record) FloatArray(frames) else null
+        // One buffer kept and reused (a new array for every buffer of audio was garbage for the collector to chase).
+        if (record && monoBuf.size < frames) monoBuf = FloatArray(frames)
+        val mono = if (record) monoBuf else null
         for (f in 0 until frames) {
             fade += (target - fade) * glide
             gain += ((1f - level) * fade - gain) * glide
@@ -213,18 +227,20 @@ class VocalStemProcessor(private val sing: Source) : BaseAudioProcessor() {
             if (matched) Log.d(TAG, "last 10 s: ${"%.1f".format(10 * kotlin.math.log10(outEnergy / inEnergy.coerceAtLeast(1e-12)))} dB with the vocals taken out (gain ${"%.2f".format(gain)})")
             inEnergy = 0.0; outEnergy = 0.0; energyFrames = 0
         }
-        if (mono != null) remember(id!!, mono, position)
+        if (mono != null) remember(id!!, mono, frames, position)
         position += frames
     }
 
-    /** Keeps [mono] (song frames from [start]) for the alignment thread; a jump or another song starts afresh. */
-    private fun remember(id: String, mono: FloatArray, start: Long) = synchronized(ringLock) {
+    private var monoBuf = FloatArray(0)
+
+    /** Keeps the first [count] of [mono] (song frames from [start]) for the alignment thread; a jump or another song starts afresh. */
+    private fun remember(id: String, mono: FloatArray, count: Int, start: Long) = synchronized(ringLock) {
         if (ring.isEmpty() || start < 0) return@synchronized
         if (ringSong != id || ringEnd != start) ringFilled = 0
         ringSong = id
-        for (i in mono.indices) ring[((start + i) % ring.size).toInt()] = mono[i]
-        ringEnd = start + mono.size
-        ringFilled = minOf(ring.size, ringFilled + mono.size)
+        for (i in 0 until count) ring[((start + i) % ring.size).toInt()] = mono[i]
+        ringEnd = start + count
+        ringFilled = minOf(ring.size, ringFilled + count)
     }
 
     // ------------------------------------------------------------------ Alignment

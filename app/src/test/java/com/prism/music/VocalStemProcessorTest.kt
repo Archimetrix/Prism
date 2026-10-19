@@ -35,6 +35,31 @@ class VocalStemProcessorTest {
 
     private fun left0(out: FloatArray, backing: FloatArray) = FloatArray(out.size) { out[it] - backing[it] }
 
+    /** With Sing off, the music goes through untouched, sample for sample (16-bit, so any rounding would show). */
+    @Test
+    fun singOffPassesTheMusicStraightThrough() {
+        val source = object : VocalStemProcessor.Source {
+            override val onNow = false
+            override val levelNow = 1f
+            override val store = StemStore(kotlin.io.path.createTempDirectory("sing").toFile())
+        }
+        val p = VocalStemProcessor(source)
+        p.configure(AudioProcessor.AudioFormat(rate, 2, C.ENCODING_PCM_16BIT))
+        p.flush(AudioProcessor.StreamMetadata.Builder().setTimeline(OneSong("song1", 10_000_000L)).setPeriodUid("song1").setPositionOffsetUs(0).build())
+        val rnd = Random(7)
+        repeat(20) {
+            val samples = ShortArray(2048) { rnd.nextInt(-32768, 32768).toShort() }
+            val buf = ByteBuffer.allocateDirect(samples.size * 2).order(ByteOrder.nativeOrder())
+            samples.forEach { buf.putShort(it) }
+            buf.flip()
+            p.queueInput(buf)
+            val o = p.output.order(ByteOrder.nativeOrder()).asShortBuffer()
+            val back = ShortArray(o.remaining()).also { o.get(it) }
+            assertTrue("same length", back.size == samples.size)
+            assertTrue("bit for bit", back.contentEquals(samples))
+        }
+    }
+
     @Test
     fun linesUpThenTakesTheVocalsOut() {
         val seconds = 14

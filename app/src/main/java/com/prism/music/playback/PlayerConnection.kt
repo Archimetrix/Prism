@@ -26,6 +26,15 @@ import kotlinx.coroutines.launch
 
 data class QueueEntry(val index: Int, val song: Song, val uid: String)
 
+/** Outputs that take over when they connect (not microphones, call channels or the phone's own parts). */
+private val NEW_OUTPUTS = setOf(
+    AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_LINE_ANALOG,
+    AudioDeviceInfo.TYPE_LINE_DIGITAL, AudioDeviceInfo.TYPE_AUX_LINE, AudioDeviceInfo.TYPE_DOCK,
+    AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_ACCESSORY,
+    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HEARING_AID,
+    AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER,
+)
+
 sealed interface VideoSyncState {
     data object Off : VideoSyncState
     data object Measuring : VideoSyncState
@@ -87,9 +96,15 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
             private var primed = false
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
                 if (primed) AudioDiagnostics.log("device", "added: ${addedDevices.joinToString { AudioDiagnostics.describe(it) }}")
-                // The callback reports existing devices once on registration; after that, a new
-                // device (headphones plugged in, earbuds connected) takes over like it would elsewhere.
-                if (primed) setOutput(null, "a device was added")
+                // The callback reports existing devices once on registration; after that, a new output (headphones
+                // plugged in, earbuds connected) takes over like it would elsewhere, which following the system does by
+                // itself. So only an output the listener picked is let go, and only for a real new output: earbuds also
+                // add their microphone and call channels, and AirPods add and drop entries with ear detection and the
+                // case. Each of those used to re-point the player at "follow the system" (when it already was), and on
+                // Bluetooth every such re-route is a moment's gap.
+                if (primed && _output.value != null && addedDevices.any { it.isSink && it.type in NEW_OUTPUTS }) {
+                    setOutput(null, "a new output was connected")
+                }
                 primed = true
             }
 
@@ -184,6 +199,8 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
     fun setOutput(device: AudioDeviceInfo?, reason: String = "picked in the device sheet") {
         // Picking one of the phone's own outputs while casting brings the music back here, playing on.
         if (device != null && c.cast.casting) c.cast.disconnect(keepPlaying = true)
+        // Already there: nothing to re-route (a re-route is a gap on Bluetooth).
+        if (device?.id == _output.value?.id) return
         AudioDiagnostics.log("route", "player pointed at ${AudioDiagnostics.describe(device)} ($reason; was ${AudioDiagnostics.describe(_output.value)})")
         _output.value = device
         player?.setPreferredAudioDevice(device)

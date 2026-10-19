@@ -293,6 +293,8 @@ class MixTempo(
     private val streams: StreamResolver,
     /** Where the song's audio is on the phone, if it is (may copy it to the file it's given), else null. */
     private val local: (id: String, scratch: File) -> android.net.Uri? = { _, _ -> null },
+    /** Blocks while the playing song is still loading (a scan starting then competed with it); off the main thread. */
+    private val yieldToPlaying: () -> Unit = {},
 ) {
     private val prefs = context.getSharedPreferences("mix_tempo", Context.MODE_PRIVATE)
     /** Song id -> integrated loudness (LUFS; NaN when it couldn't be measured). Also marks a song as scanned. */
@@ -354,6 +356,7 @@ class MixTempo(
                 val started = System.nanoTime()
                 val before = android.os.Process.getThreadPriority(android.os.Process.myTid())
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                runCatching { yieldToPlaying() }
                 AudioDiagnostics.log("background", "DJ quick scan of $id started")
                 try {
                     val (r, bytes) = quickRead(id, network) ?: return@withContext QuickResult.NEEDS_NETWORK
@@ -425,6 +428,7 @@ class MixTempo(
                 // Decoding a whole song is heavy: at background priority, so the playing song's own loading comes first.
                 val before = android.os.Process.getThreadPriority(android.os.Process.myTid())
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                runCatching { yieldToPlaying() }
                 AudioDiagnostics.log("background", "song scan of $id started (Normalize/Crossfade/DJ)")
                 val r = try {
                     runCatching { scan(id, network) }.onFailure { Log.w(TAG, "scan of $id failed: $it") }

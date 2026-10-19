@@ -52,6 +52,9 @@ class HeadphoneEq(
     /** Device key → the profile picked for it. */
     val bindings: StateFlow<Map<String, Binding>> = _bindings
 
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val redetect = Runnable { _output.value = detect() }
+
     /** The last output [detect] found (diagnostics log a change). */
     @Volatile private var lastDetected: Output? = null
     private val _output = MutableStateFlow(detect())
@@ -62,9 +65,11 @@ class HeadphoneEq(
         .stateIn(scope, SharingStarted.Eagerly, _output.value?.key?.let { _bindings.value[it] })
 
     init {
+        // Looked at again once devices have settled for a second: earbuds add and drop entries (their microphone, ear
+        // detection, the case), and the output seen mid-change could switch the correction off and on within a song.
         context.getSystemService(AudioManager::class.java)?.registerAudioDeviceCallback(object : AudioDeviceCallback() {
-            override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>?) { _output.value = detect() }
-            override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>?) { _output.value = detect() }
+            override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>?) = detectSoon()
+            override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>?) = detectSoon()
         }, null)
         scope.launchCollect(preferred) { _output.value = detect() }
     }
@@ -83,6 +88,11 @@ class HeadphoneEq(
     }
 
     fun refreshOutput() { _output.value = detect() }
+
+    private fun detectSoon() {
+        main.removeCallbacks(redetect)
+        main.postDelayed(redetect, SETTLE_MS)
+    }
 
     // ------------------------------------------------------------------ Picking
 
@@ -159,6 +169,8 @@ class HeadphoneEq(
     companion object {
         private const val RAW = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master"
         private const val MONTH_MS = 30L * 24 * 3600 * 1000
+        /** Devices settle this long before the output is looked at again. */
+        private const val SETTLE_MS = 1_000L
         /** AutoEq's own recommendation order for measurement sources. */
         private val SOURCE_RANK = listOf("oratory1990", "crinacle", "Rtings", "Innerfidelity", "Headphone.com Legacy")
         private val LINE = Regex("""^- \[(.+?)]\(\./(.+?)\) by (.+?)(?: on (.+))?\s*$""")
