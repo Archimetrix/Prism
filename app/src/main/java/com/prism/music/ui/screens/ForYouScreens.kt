@@ -235,7 +235,7 @@ fun NewReleasesScreen(bottomPadding: Dp) {
         return ChronoUnit.DAYS.between(d, today)
     }
     SubPage(
-        "New releases", bottomPadding, subtitle = "New albums, singles and EPs from artists you listen to",
+        com.prism.music.data.prefs.HomeSections.NEW_RELEASES_TITLE, bottomPadding, subtitle = "New albums, singles and EPs from artists you listen to",
         actions = { RoundAction(PrismIcons.Refresh, "Look now", glass = true, enabled = !running) { scope.launch { c.releaseRadar.refresh() } } },
     ) {
         if (running) item("running") {

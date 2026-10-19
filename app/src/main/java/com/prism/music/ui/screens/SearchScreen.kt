@@ -54,6 +54,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -201,7 +204,14 @@ fun SearchScreen(bottomPadding: Dp) {
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { submit(query) }),
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onFocusChanged { focused = it.isFocused },
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onFocusChanged { focused = it.isFocused }
+                            // A hardware keyboard's Enter (a tablet's, a Chromebook's) searches as the on-screen key does;
+                            // it used to leave the suggestions over the results and the keyboard up.
+                            .onPreviewKeyEvent { e ->
+                                val enter = e.key == androidx.compose.ui.input.key.Key.Enter || e.key == androidx.compose.ui.input.key.Key.NumPadEnter
+                                if (enter && e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) submit(query)
+                                enter
+                            },
                     )
                 }
                 if (query.isNotEmpty()) IconButton(onClick = { query = ""; live = ""; top = null; list = null; focusRequester.requestFocus() }) {
@@ -371,9 +381,15 @@ private fun Browse(
         }
         val ranked = (moods.state as? Load.Ok)?.value
         if (ranked != null) {
-            // "For you" is our own ranking (blended with YouTube's personal picks when signed in).
-            val groups = listOf("For you" to ranked.picks.take(8)) +
-                ranked.sections.filterNot { it.first.contains("for you", true) }.map { it.first to it.second.take(6) }
+            // "For you" is our own ranking (blended with YouTube's personal picks when signed in). The sections after it
+            // leave out what it already shows: with little listening yet, its picks were YouTube's first moods, and
+            // "Moods & moments" under it repeated the same tiles.
+            val shown = HashSet<String>()
+            val forYou = ranked.picks.take(8).onEach { shown += it.id + "|" + it.params }
+            val groups = listOf("For you" to forYou) +
+                ranked.sections.filterNot { it.first.contains("for you", true) }.map { (title, tiles) ->
+                    title to tiles.filter { shown.add(it.id + "|" + it.params) }.take(6)
+                }
             groups.forEach { (title, m) ->
                 if (m.isEmpty()) return@forEach
                 item(span = { GridItemSpan(maxLineSpan) }) {
@@ -433,13 +449,18 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
         else -> item.subtitle.split(" • ").drop(1).joinToString(" · ").ifBlank { item.subtitle }
     }
     val ui = com.prism.music.ui.theme.LocalUi.current
+    // Long-pressed, the same menu as the rows under it: a song's actions, or an album's / playlist's / artist's play menu.
+    val playMenu = rememberPlayMenu()
+    var songMenu by remember { mutableStateOf(false) }
+    if (songMenu && item is SongItem) com.prism.music.ui.components.SongActionsSheet(item.song) { songMenu = false }
+    val longPress: (() -> Unit)? = if (item is SongItem) ({ songMenu = true }) else item.playable()?.let { p -> { playMenu(p) } }
     Row(
         Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
             .then(
                 if (com.prism.music.ui.components.LocalFrosted.current) Modifier.pane(ui.card)
                 else Modifier.clip(ui.card).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(scheme.surfaceContainerHigh, scheme.primaryContainer.copy(alpha = 0.55f))))
             )
-            .clickable(onClick = onClick).padding(16.dp),
+            .combinedClickable(onClick = onClick, onLongClick = longPress).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Artwork(

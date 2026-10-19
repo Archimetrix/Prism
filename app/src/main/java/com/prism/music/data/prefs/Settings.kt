@@ -157,12 +157,14 @@ object HomeSections {
     const val YT_PREFIX = "yt:shelf:"
     /** GREETING's key predates the rename: the section is only the shortcut tiles. */
     const val TILES_TITLE = "Shortcut tiles"
+    /** Release Radar's section: not "New releases", which is YouTube's own shelf on Home too. */
+    const val NEW_RELEASES_TITLE = "New from your artists"
 
     val defaults = listOf(
         HomeSectionConfig(GREETING, TILES_TITLE, style = SectionStyle.HERO),
         HomeSectionConfig(QUICK_PICKS, "Quick picks", style = SectionStyle.LIST),
         HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
-        HomeSectionConfig(NEW_RELEASES, "New releases"),
+        HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE),
         HomeSectionConfig(RECENT, "Recently played"),
         HomeSectionConfig(REPLAY, "Replay teaser", style = SectionStyle.HERO),
         HomeSectionConfig(GENRES, "Your top genres", style = SectionStyle.GRID),
@@ -178,7 +180,7 @@ object HomeSections {
         HomeSectionConfig(GREETING, TILES_TITLE, style = SectionStyle.HERO),
         HomeSectionConfig(QUICK_PICKS, "Quick picks", style = SectionStyle.LIST),
         HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
-        HomeSectionConfig(NEW_RELEASES, "New releases"),
+        HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE),
         HomeSectionConfig("${YT_PREFIX}mixed for you", "Mixed for you"),
     )
 
@@ -187,7 +189,7 @@ object HomeSections {
      * who customized Home before still get them; removing them afterwards sticks.
      */
     fun withNewSections(layout: List<HomeSectionConfig>): List<HomeSectionConfig> {
-        val add = listOf(HomeSectionConfig(MADE_FOR_YOU, "Made for you"), HomeSectionConfig(NEW_RELEASES, "New releases"))
+        val add = listOf(HomeSectionConfig(MADE_FOR_YOU, "Made for you"), HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE))
             .filter { n -> layout.none { it.key == n.key } }
         if (add.isEmpty()) return layout
         val at = layout.indexOfFirst { it.key == QUICK_PICKS }.let { if (it < 0) minOf(1, layout.size) else it + 1 }
@@ -716,6 +718,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 runCatching { json.decodeFromString<List<HomeSectionConfig>>(it) }.getOrNull()
                     // The tiles section was once called "Greeting & shortcuts"; the greeting is the top bar's.
                     ?.map { s -> if (s.key == HomeSections.GREETING) s.copy(title = HomeSections.TILES_TITLE) else s }
+                    // Release Radar's section was "New releases", the same name as YouTube's own shelf beside it.
+                    ?.map { s -> if (s.key == HomeSections.NEW_RELEASES && s.title == "New releases") s.copy(title = HomeSections.NEW_RELEASES_TITLE) else s }
             } ?: d.homeLayout,
             autoAddSections = p[K.autoAddSections] ?: d.autoAddSections,
             replayHours = p[K.replayHours] ?: d.replayHours,

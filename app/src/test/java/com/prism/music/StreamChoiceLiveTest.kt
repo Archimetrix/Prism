@@ -126,6 +126,24 @@ class StreamChoiceLiveTest {
         println("[vlater] after 70 s: video ${code(video, 2_000_000)} audio ${code(audio, 2_000_000)}")
     }
 
+    /** What an album's "Other versions" cards carry (three "After Hours (Deluxe)" looked the same). */
+    @Test
+    fun otherVersionsDetails() = runBlocking {
+        val album = ytm.search("after hours the weeknd", SearchFilter.ALBUMS).items.filterIsInstance<com.prism.music.data.model.AlbumItem>().first()
+        val res = innerTube.post("browse", kotlinx.serialization.json.buildJsonObject { put("browseId", kotlinx.serialization.json.JsonPrimitive(album.id)) })
+        val text = res.toString()
+        val at = text.indexOf("Other versions")
+        println("[versions] album ${album.title} ${album.id}, 'Other versions' at $at")
+        Regex("\"musicTwoRowItemRenderer\":(\\{.{0,2500})").findAll(text.substring(maxOf(0, at))).take(4).forEach { m ->
+            val s = m.groupValues[1]
+            val title = Regex("\"title\":\\{\"runs\":\\[\\{\"text\":\"([^\"]+)").find(s)?.groupValues?.get(1)
+            val subtitle = Regex("\"subtitle\":\\{\"runs\":(\\[.*?\\])").find(s)?.groupValues?.get(1)?.let { r -> Regex("\"text\":\"([^\"]+)").findAll(r).joinToString("") { it.groupValues[1] } }
+            val badges = Regex("\"(subtitleBadges|badges)\":(\\[.{0,300})").find(s)?.groupValues?.get(2)?.let { b -> Regex("\"label\":\"([^\"]+)|\"iconType\":\"([^\"]+)").findAll(b).joinToString { it.value } }
+            val id = Regex("\"browseId\":\"(MPRE[^\"]+)").find(s)?.groupValues?.get(1)
+            println("[versions] $title | $subtitle | badges $badges | $id")
+        }
+    }
+
     /** What YouTube links as "Linger"'s video, and what a video search finds; then what Prism picks. */
     @Test
     fun lingerHasItsVideo() = runBlocking {

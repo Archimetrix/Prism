@@ -51,6 +51,10 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -579,7 +583,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 if (type == CollectionType.ALBUM) {
                     if (live.page.otherVersions.isNotEmpty()) item("versions") {
                         SectionHeader("Other versions")
-                        ItemCarousel(live.page.otherVersions, { nav.open(it) { s -> c.player.playSingle(s.song) } })
+                        ItemCarousel(rememberTellApart(live.page.otherVersions), { nav.open(it) { s -> c.player.playSingle(s.song) } })
                     }
                     live.page.artists.firstOrNull { it.id != null }?.let { a -> item("moreby") { MoreBy(a.name, a.id!!, page.id) } }
                 }
@@ -694,6 +698,36 @@ private fun durationText(sec: Int): String {
     return when {
         h > 0 -> "${h} hr ${m} min"
         else -> "$m min"
+    }
+}
+
+/**
+ * An album's "Other versions" with the editions that share a name told apart: YouTube lists them all as "After Hours
+ * (Deluxe) · Album • The Weeknd", so those are looked up (a few at most) and show their song count, year and whether
+ * they're explicit instead.
+ */
+@Composable
+private fun rememberTellApart(items: List<com.prism.music.data.model.BrowseItem>): List<com.prism.music.data.model.BrowseItem> {
+    val c = LocalContainer.current
+    val repeated = remember(items) {
+        items.filterIsInstance<com.prism.music.data.model.AlbumItem>().groupBy { it.title.lowercase() }.values.filter { it.size > 1 }.flatten().take(6)
+    }
+    val details by produceState(emptyMap<String, String>(), repeated) {
+        if (repeated.isEmpty()) return@produceState
+        value = kotlinx.coroutines.coroutineScope {
+            repeated.map { a ->
+                async {
+                    runCatching { withContext(Dispatchers.IO) { c.ytm.album(a.id) } }.getOrNull()?.let { p ->
+                        a.id to listOfNotNull(
+                            com.prism.music.data.model.songCount(p.songs.size), p.year?.toString(), if (p.explicit) "Explicit" else null,
+                        ).joinToString(" • ")
+                    }
+                }
+            }.awaitAll().filterNotNull().toMap()
+        }
+    }
+    return remember(items, details) {
+        items.map { item -> details[item.id]?.let { d -> (item as? com.prism.music.data.model.AlbumItem)?.copy(subtitle = d) } ?: item }
     }
 }
 

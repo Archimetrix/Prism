@@ -783,6 +783,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.releaseGrid(
         ReleaseSort.OLDEST -> Releases.oldestFirst(shelf.items)
         ReleaseSort.TITLE -> shelf.items.sortedBy { it.title.lowercase() }
     }
+    // An artist's own discography leaves their name out; a grid of many artists' releases (YouTube's "New releases")
+    // needs it, or every card just said "Album".
+    val showArtist = shelf.items.mapNotNull { releaseArtist(it) }.distinct().size > 1
     item(key = "sort:" + shelf.title) {
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
@@ -799,12 +802,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.releaseGrid(
     items.chunked(2).forEachIndexed { r, pair ->
         item(key = "g:${shelf.title}:${sort.name}:$r") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                pair.forEach { ReleaseCard(it, Modifier.weight(1f), open) }
+                pair.forEach { ReleaseCard(it, Modifier.weight(1f), open, showArtist) }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
 }
+
+/** The artist part of a release's subtitle ("Album • KATSEYE" → "KATSEYE"); null when it only gives kind and year. */
+private fun releaseArtist(item: BrowseItem): String? =
+    item.subtitle.split(" • ").map { it.trim() }
+        .firstOrNull { it.isNotBlank() && it !in setOf("Album", "Single", "EP") && !(it.length == 4 && it.all(Char::isDigit)) }
 
 /** Playlists, mixes or artists as a vertical grid of large covers, two to a row. */
 private fun androidx.compose.foundation.lazy.LazyListScope.cardGrid(shelf: Shelf, showTitle: Boolean, open: (BrowseItem) -> Unit) {
@@ -820,7 +828,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.cardGrid(shelf: Shelf
 }
 
 @Composable
-private fun ReleaseCard(item: BrowseItem, modifier: Modifier, open: (BrowseItem) -> Unit) {
+private fun ReleaseCard(item: BrowseItem, modifier: Modifier, open: (BrowseItem) -> Unit, showArtist: Boolean = false) {
     val ui = LocalUi.current
     val menu = rememberPlayMenu()
     Column(
@@ -840,7 +848,7 @@ private fun ReleaseCard(item: BrowseItem, modifier: Modifier, open: (BrowseItem)
         val kind = item.subtitle.split(" • ").firstOrNull { it in setOf("Album", "Single", "EP") }
         val year = yearOf(item).takeIf { it > 0 }?.toString()
         Text(
-            listOfNotNull(year, kind).joinToString(" · ").ifBlank { item.subtitle },
+            (if (showArtist) listOfNotNull(kind, releaseArtist(item), year) else listOfNotNull(year, kind)).joinToString(" · ").ifBlank { item.subtitle },
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 4.dp),
         )
