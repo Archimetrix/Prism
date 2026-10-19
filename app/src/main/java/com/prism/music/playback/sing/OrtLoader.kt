@@ -22,7 +22,13 @@ object OrtLoader {
         require(engine.isFile) { "Sing's engine isn't downloaded" }
         try {
             System.load(engine.absolutePath)
-            return OrtEnvironment.getEnvironment().also { env = it }
+            return OrtEnvironment.getEnvironment().also {
+                // ONNX Runtime has its own telemetry (Microsoft's 1DS), which Prism doesn't want: no telemetry, ever.
+                // On Android it can't start (no 1DS HTTP client, so nothing was ever sent), but it's switched off
+                // outright rather than left to that.
+                runCatching { it.setTelemetry(false) }.onFailure { e -> Log.w("PrismSing", "Couldn't switch ONNX Runtime's telemetry off: $e") }
+                env = it
+            }
         } catch (t: Throwable) {
             Log.w("PrismSing", "ONNX Runtime didn't start: $t")
             throw IllegalStateException("Sing's engine didn't start on this phone", t)
