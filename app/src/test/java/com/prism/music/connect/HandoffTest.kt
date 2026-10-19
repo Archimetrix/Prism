@@ -30,7 +30,9 @@ class HandoffTest {
         override fun forget(device: String) { secrets.remove(device) }
         override fun showCode(code: String?, from: String) { if (code != null) this.code = code }
         override fun snapshot() = playing
-        override fun takeOver(s: HandoffSnapshot, from: String): Boolean { took += s to from; playing = s; return true }
+        /** Why it can't play now (Prism closed there, so Android won't let it start), or null. */
+        @Volatile var cantPlay: String? = null
+        override fun takeOver(s: HandoffSnapshot, from: String): String? { cantPlay?.let { return it }; took += s to from; playing = s; return null }
         override fun stepAside() { steppedAside++ }
     }
 
@@ -115,6 +117,23 @@ class HandoffTest {
         // A made-up key gets nowhere either.
         phone.secrets["tablet-1"] = HandoffKeys.newSecret()
         assertEquals(HandoffResult.Unpaired, session(tablet) { link -> HandoffPeer(phone).call(link, HandoffCommand.PULL) { null } })
+    }
+
+    @Test
+    fun aDeviceThatCantPlaySaysSoAndTheMusicStaysPut() {
+        val phone = Device("Phone", "phone-1").apply { playing = queue() }
+        val tablet = Device("Tablet", "tablet-1").apply { cantPlay = "Open Prism on Tablet first" }
+        val r = session(tablet) { link -> HandoffPeer(phone).call(link, HandoffCommand.MOVE) { tablet.code } }
+        assertEquals(HandoffResult.Failed("Open Prism on Tablet first"), r)
+        // Still paired (that part went through), but the phone never stepped aside.
+        assertNotNull(phone.secrets["tablet-1"])
+        assertEquals(0, phone.steppedAside)
+        // Pulling into a device that can't play: the other one keeps playing too.
+        phone.cantPlay = "Can't here"
+        val tabletNow = Device("Tablet", "tablet-1").apply { playing = queue(); secrets.putAll(tablet.secrets) }
+        val pull = session(tabletNow) { link -> HandoffPeer(phone).call(link, HandoffCommand.PULL) { null } }
+        assertEquals(HandoffResult.Failed("Can't here"), pull)
+        assertEquals(0, tabletNow.steppedAside)
     }
 
     @Test

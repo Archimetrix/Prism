@@ -459,7 +459,7 @@ class AppContainer(val app: Application) {
         val http = OkHttpDataSource.Factory(streamHttp)
         // A link YouTube turns away (it ran out mid-download) is forgotten, so the download's next try gets a fresh one
         // (#55): it used to try the same dead link until the download failed.
-        val upstream = DataSource.Factory { ForgetOnForbidden(http.createDataSource()) { key -> streams.invalidate(key.removePrefix("video:")) } }
+        val upstream = DataSource.Factory { ForgetOnForbidden(http.createDataSource()) { key, code -> streams.invalidate(key.removePrefix("video:"), refused = code == 403) } }
         return ResolvingDataSource.Factory(upstream) { spec ->
             val id = spec.uri.lastPathSegment
             if (spec.uri.scheme == "prism" && spec.uri.authority == "video" && id != null) {
@@ -489,13 +489,13 @@ class AppContainer(val app: Application) {
     }
 }
 
-/** Tells [onForbidden] the stream's key when YouTube refuses its link (403 / 410), then fails as usual. */
+/** Tells [onForbidden] the stream's key (and the code) when YouTube refuses its link (403 / 410), then fails as usual. */
 @OptIn(UnstableApi::class)
-private class ForgetOnForbidden(private val inner: DataSource, private val onForbidden: (String) -> Unit) : DataSource by inner {
+private class ForgetOnForbidden(private val inner: DataSource, private val onForbidden: (String, Int) -> Unit) : DataSource by inner {
     override fun open(dataSpec: DataSpec): Long = try {
         inner.open(dataSpec)
     } catch (e: androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
-        if (e.responseCode == 403 || e.responseCode == 410) dataSpec.key?.let(onForbidden)
+        if (e.responseCode == 403 || e.responseCode == 410) dataSpec.key?.let { onForbidden(it, e.responseCode) }
         throw e
     }
 }

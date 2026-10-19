@@ -609,7 +609,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
         ) {
             retries[id] = attempts + 1
-            c.streams.invalidate(id)
+            c.streams.invalidate(id, refused = httpCode == 403)
             val pos = player.currentPosition
             player.prepare()
             player.seekTo(pos)

@@ -11,8 +11,8 @@ interface HandoffLocal {
     fun showCode(code: String?, from: String)
     /** What's playing here, or null. */
     fun snapshot(): HandoffSnapshot?
-    /** Plays [s] here; false if it couldn't start. [from] is the other device's name. */
-    fun takeOver(s: HandoffSnapshot, from: String): Boolean
+    /** Plays [s] here; null once it has, else why it couldn't (said to the other device). [from] is the other device's name. */
+    fun takeOver(s: HandoffSnapshot, from: String): String?
     /** The other device has it now: fade out and pause. */
     fun stepAside()
 }
@@ -88,11 +88,8 @@ class HandoffPeer(private val local: HandoffLocal, private val clock: () -> Long
         when (val cmd = link.read()) {
             is HMsg.Move -> {
                 val s = cmd.snapshot.cleaned()
-                when {
-                    s == null -> link.send(HMsg.Denied("What's playing on $them is only on $them"))
-                    local.takeOver(s, them) -> link.send(HMsg.Moved)
-                    else -> link.send(HMsg.Denied("${local.name} couldn't start playing"))
-                }
+                if (s == null) link.send(HMsg.Denied("What's playing on $them is only on $them"))
+                else link.send(local.takeOver(s, them)?.let { HMsg.Denied(it) } ?: HMsg.Moved)
             }
             HMsg.Pull -> {
                 val s = local.snapshot()
@@ -165,7 +162,7 @@ class HandoffPeer(private val local: HandoffLocal, private val clock: () -> Long
                 when (val r = link.read()) {
                     is HMsg.Snap -> {
                         val clean = r.snapshot.cleaned() ?: return HandoffResult.Failed("What's playing on $them is only on $them")
-                        if (!local.takeOver(clean, them)) return HandoffResult.Failed("Couldn't start playing here")
+                        local.takeOver(clean, them)?.let { return HandoffResult.Failed(it) }
                         link.send(HMsg.Moved)
                         HandoffResult.Done(r.snapshot.leftOut(clean).takeIf { it > 0 }?.let { "$it ${if (it == 1) "song" else "songs"} stayed on $them" })
                     }

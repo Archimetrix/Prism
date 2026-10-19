@@ -348,9 +348,18 @@ class StreamResolver(
         else -> settings.current.audioQuality
     }
 
-    fun invalidate(videoId: String) {
+    /**
+     * Forgets [videoId]'s stream, to be looked up again. [refused]: its server turned the stream away (403), so the next
+     * lookup doesn't take the direct answer again (on the phone, "Beat It" `kOn-HdEg6AQ` signed in got 403s on every
+     * direct link, so it failed twice and was skipped); it goes through NewPipe, as before the direct lookup.
+     */
+    fun invalidate(videoId: String, refused: Boolean = false) {
         cache.remove(videoId)
+        if (refused) directRefused += videoId
     }
+
+    /** Songs whose direct ([directFormats]) links were turned away: looked up through NewPipe from then on. */
+    private val directRefused = ConcurrentHashMap.newKeySet<String>()
 
     /** Resolves a song ahead of time (e.g. the next one in the queue) so it starts straight away. */
     fun prefetch(videoId: String) {
@@ -395,7 +404,7 @@ class StreamResolver(
         if (signedIn && System.currentTimeMillis() < newPipeBlockedUntil) {
             runCatching { signedInFormats(videoId) }.getOrNull()?.let { return it }
         }
-        directFormats(videoId, signedIn)?.let { return it }
+        if (videoId !in directRefused) directFormats(videoId, signedIn)?.let { return it }
         return try {
             anonymousFormats(videoId).also { if (it.audio.isEmpty() && it.hlsUrl == null) throw StreamException("No playable audio stream was found") }
         } catch (e: Exception) {

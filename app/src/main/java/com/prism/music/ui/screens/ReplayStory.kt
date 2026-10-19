@@ -1003,7 +1003,7 @@ private fun PrismYearSlide(s: ReplayStory, modifier: Modifier) {
         p.smartPicks.takeIf { it > 0 }?.let { "Smart Shuffle finds played" to fmt(it.toLong()) },
         p.recognized.takeIf { it > 0 }?.let { "Songs recognized" to fmt(it.toLong()) },
         p.blends.takeIf { it > 0 }?.let { (if (p.blends == 1) "Blend made" else "Blends made") to fmt(it.toLong()) },
-        p.radarFinds.takeIf { it > 0 }?.let { "New releases Release Radar found" to fmt(it.toLong()) },
+        p.radarFinds.takeIf { it > 0 }?.let { "Release Radar finds" to fmt(it.toLong()) },
     )
     Column(modifier, verticalArrangement = Arrangement.Center) {
         Text("YOUR YEAR IN PRISM", style = kicker(), modifier = Modifier.reveal(100))

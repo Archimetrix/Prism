@@ -144,10 +144,33 @@ class Handoff(private val app: Application, private val c: AppContainer) : Hando
         )
     }
 
-    override fun takeOver(s: HandoffSnapshot, from: String): Boolean = runBlocking(Dispatchers.Main) {
-        c.player.takeOver(s.songs, s.index, s.positionMs, s.playing, s.order.takeIf { s.shuffle }, s.repeat, s.title.ifBlank { "From $from" })
+    /**
+     * Android (15 and later) won't let an app in the background start playing: its request for the speaker is ignored.
+     * So music only moves here while Prism is open here, or already playing (it has the speaker then); otherwise the
+     * other device is told so and keeps playing, rather than going quiet with nothing playing here either.
+     */
+    override fun takeOver(s: HandoffSnapshot, from: String): String? {
+        val canPlay = runBlocking(Dispatchers.Main) { onScreen() || c.player.isPlaying.value }
+        if (s.playing && !canPlay) {
+            Log.i(TAG, "turned down a move from $from: not on screen or playing here")
+            return "Open Prism on $name first: Android only lets it start playing there while it's open (or already playing)"
+        }
+        runBlocking(Dispatchers.Main) {
+            c.player.takeOver(s.songs, s.index, s.positionMs, s.playing, s.order.takeIf { s.shuffle }, s.repeat, s.title.ifBlank { "From $from" })
+        }
+        if (s.playing) {
+            // Started for real (the speaker can still be refused): only then does the other device stop.
+            val started = runBlocking { withTimeoutOrNull(START_WAIT_MS) { while (!c.player.isPlaying.value) delay(100); true } } == true
+            if (!started) return "$name couldn't start playing. Open Prism there and try again"
+        }
         _events.tryEmit("Playing here from $from")
-        true
+        return null
+    }
+
+    private fun onScreen(): Boolean {
+        val info = android.app.ActivityManager.RunningAppProcessInfo()
+        android.app.ActivityManager.getMyMemoryState(info)
+        return info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
     override fun stepAside() {
@@ -332,5 +355,7 @@ class Handoff(private val app: Application, private val c: AppContainer) : Hando
         private const val SERVICE = "$SERVICE_LABEL._tcp"
         private const val NAME_PREFIX = "Prism · "
         private const val NOTIFY_ID = 4701
+        /** How long a song gets to start here (it may still be loading) before the move counts as failed. */
+        private const val START_WAIT_MS = 12_000L
     }
 }
