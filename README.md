@@ -13,7 +13,7 @@
 
 **[⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)** · [Release notes](../../releases/latest) · [▶ Watch the showcase (1:55)](promo/prism-showcase.mp4)
 
-**New in [1.6.8](../../releases/tag/v1.6.8):** Speed dial on Home, Quick picks radios, searching your own music, an offline library with covers, data saver, new widgets, lyrics source choice and saving lyrics into your files, plus fixes for stuck downloads, headphone volume lag and music videos.
+**New in [1.7](../../releases/tag/v1.7.0):** Sing (karaoke with the song's own music), Made for you (Daily Mixes, Release Radar, Smart Shuffle), DJ mode, Blend, song recognition, Prism Connect (speakers and TVs, a browser remote, handoff), Rewind every year, headphone correction, romanized lyrics, jump to the best part, and tablet and landscape layouts.
 
 <img src="docs/screenshots/home-dark.jpg" width="22%" alt="Home">
 <img src="docs/screenshots/player.jpg" width="22%" alt="Now playing">
@@ -39,7 +39,10 @@ Updating works the same way: install the new APK over the old one, and your down
 |---|---|
 | 🎤 **Word-by-word lyrics** | Ten lyric sources, karaoke timing first, then line-synced, then plain. Switch source per song and nudge the timing. |
 | 🎨 **Make it yours** | Font, text size, corners, spacing, nav bar, mini player, player background and controls, lyrics alignment, Replay colours and eleven screen backgrounds. |
-| 📊 **Replay** | A private, on-device recap of your listening, with a full-screen story. |
+| 📊 **Replay and Rewind** | A private, on-device recap of your listening, with a full-screen story, and a Rewind for every year. |
+| 🎙️ **Sing** | Karaoke with the song's own music: the voice is taken out on your phone, the key moves to suit you. |
+| ✨ **Made for you** | Daily Mixes, a time-of-day mix, Release Radar, Smart Shuffle and Blend, worked out on your phone. |
+| 📺 **Prism Connect** | Play on speakers, TVs and receivers (DLNA), control Prism from a browser, move the music to another device. |
 | 🎬 **Music videos** | Switch any song to its music video in one tap, with lyrics in sync and full-screen landscape. |
 | 🎧 **Listen together** | Phones on the same Wi-Fi play in step, or friends add songs to your queue. No account, no server. |
 | 🔗 **Share anything** | Story cards and links for songs, albums, playlists and artists, plus "Play in Prism" for YouTube links. |
@@ -49,6 +52,20 @@ Updating works the same way: install the new APK over the old one, and your down
 | 🚗 **Android Auto** | Shuffle play, extra player buttons and lyrics on the car screen. |
 
 ## Features
+
+### New in 1.7
+- **Sing.** The microphone button by the lyrics takes the singer's voice out of the song as it plays, worked out on your phone (Deezer's Spleeter, a one-time ~50 MB download). Leave a little of the lead voice in, and move the key up or down.
+- **Made for you.** Up to six Daily Mixes grouped by what goes together, a time-of-day mix, and Release Radar (new albums, singles and EPs from your artists, with their release dates), on Home and in Android Auto. Pick artists you like to start them off.
+- **Smart Shuffle** slips recommendations into a playlist or album as it plays; **exclusions** keep an artist out, or keep a playlist out of your taste.
+- **DJ mode.** Prism finds each song's key and orders the queue so each song blends into the next, beat-matched, with a Steady, Build up or Wind down energy.
+- **Blend.** A playlist of two tastes, by QR code or a shared message, worked out the same on both phones. No server.
+- **Song recognition.** Tap the button in Search (or the Quick Settings tile) and Prism tells you what's playing around you. Only an audio fingerprint is sent.
+- **Prism Connect.** Play on speakers, TVs and AV receivers on your Wi-Fi (DLNA / UPnP), with the queue, lyrics and volume keys still on the phone. Control Prism from any browser on the Wi-Fi after pairing it with a code. Move what's playing to another phone or tablet with Prism, or bring it over.
+- **Rewind** for every year you've listened, opening on December 1: your year season by season, your top album, your year in Prism and more, each slide shareable.
+- **Headphone correction** from AutoEq's measurements of almost 9,000 headphones, switching on with each pair.
+- **Romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian, Greek and more, word by word in karaoke lyrics.
+- **Jump to the best part**: YouTube's "Most replayed" curve on the progress bar, and a button to skip to it.
+- **Tablets, foldables and landscape**: a side rail, the player beside its lyrics or queue, and the half-open foldable layout.
 
 ### Listening
 - **Lyrics, word by word.** Better Lyrics (Apple Music's timed lyrics), QQ Music, NetEase, KuGou, LyricsPlus, Bini, LRCLIB, Unison, Genius and YouTube Music. Starred-out swear words ("f**k") are filled back in from Genius's full text, keeping the word-by-word timing. Lyrics in another language can show a translation under each line.
@@ -70,7 +87,7 @@ Updating works the same way: install the new APK over the old one, and your down
 ### Your library
 - **Home your way.** Custom greeting, shortcut tiles and pinned playlists.
 - **Downloads** work like a playlist, with counts, size, saved lyrics, sorting and bulk delete. Smart Downloads is one space for music on the phone: the songs you stream, plus the ones you're likely to play next, downloaded ahead (on Wi-Fi, or mobile data if you allow it). Library → Local files plays the music files already on your phone, by song, artist or album, with Favourites, Recently added, Recently played and your downloads alongside (sections you choose and order), and can be a tab of its own in the bottom bar.
-- **Replay.** Minutes, top songs, artists and genres. Play or shuffle your top 250.
+- **Replay.** Minutes, top songs, artists and genres for this month, the last 30 days, any year or all time. Play or shuffle your top 250. Each year's story is its **Rewind**.
 - **Custom playlist pictures** and **backgrounds** for Home, Search, Library, Replay and Settings.
 - **Make it yours:** your own font file (and a separate one for lyrics), thin, regular or bold icons, and six app icons to pick from.
 - Signed in, likes, playlists, albums and artists sync both ways. **Add albums and playlists to your library**, **star your favourite artists** (they lead Library → Artists and are subscribed on YouTube Music), **make new playlists**, and add songs to them from a searchable sheet.
@@ -154,7 +171,8 @@ Prism doesn't ship artwork, fonts or code copied from other apps, but several id
 - **Spotify Jam** inspired Listen Together (built here to work without any server), and Spotify and Apple Music's share cards inspired the story cards.
 - **Signatures** use fonts already on the phone, such as Android's own Dancing Script for the Autograph style.
 - **BitChord** (itself modelled on Apple Music) inspired the Now Playing screen.
-- **Spotify Wrapped** inspired the Replay story, including its "what's playing" card.
+- **Spotify Wrapped** inspired the Replay story and Rewind, including the story's "what's playing" card.
+- **Spotify Connect** and Apple's Handoff inspired Prism Connect's handoff and browser remote; speakers and TVs are reached with the open UPnP / DLNA standards (no Google Cast).
 - **Spotify's Crossfade and Mix** inspired Crossfade and its beat-matched blends between songs.
 - **Lyrics:** [Better Lyrics](https://betterlyrics.org) (Apple Music TTML and QQ Music "Portato"), NetEase, KuGou, LyricsPlus, Bini, [LRCLIB](https://lrclib.net), Unison, Genius and YouTube Music. Lyrics belong to their rights holders.
 - **Animated covers** come from Apple Music, Tidal and the ViVi Music canvas list.
