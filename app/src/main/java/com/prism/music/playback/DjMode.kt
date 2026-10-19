@@ -15,13 +15,17 @@ class DjMode {
     @Volatile var onNow = false
         private set
 
-    /** Songs looked at so far of those ahead (null while off). */
-    private val _progress = MutableStateFlow<Pair<Int, Int>?>(null)
-    val progress: StateFlow<Pair<Int, Int>?> = _progress
+    /** How the songs ahead are getting on (null while off). */
+    private val _progress = MutableStateFlow<DjProgress?>(null)
+    val progress: StateFlow<DjProgress?> = _progress
 
     /** Bumped as songs' keys and tempos come in (the queue's badges show them). */
     private val _revision = MutableStateFlow(0)
     val revision: StateFlow<Int> = _revision
+
+    /** Bumped to look at the songs ahead again (after mobile data was allowed for it). */
+    private val _rescan = MutableStateFlow(0)
+    val rescan: StateFlow<Int> = _rescan
 
     fun setOn(v: Boolean) {
         onNow = v
@@ -29,6 +33,43 @@ class DjMode {
         if (!v) _progress.value = null
     }
 
-    internal fun setProgress(p: Pair<Int, Int>?) { _progress.value = p }
+    /**
+     * Mobile data allowed for its scans from the queue's "Use mobile data" (the setting is saved too, but a moment later:
+     * the look that follows mustn't read the old value).
+     */
+    @Volatile var dataAllowed = false
+        private set
+
+    /** Looks at the songs ahead again; [allowData]: mobile data was just allowed for it. */
+    fun rescan(allowData: Boolean = false) {
+        if (allowData) dataAllowed = true
+        _rescan.update { it + 1 }
+    }
+
+    internal fun setProgress(p: DjProgress?) { _progress.value = p }
     internal fun bump() = _revision.update { it + 1 }
+}
+
+/**
+ * The songs DJ mode is looking at: [looked] of [all] done, [keyed] with a key and tempo read, [needNetwork] left
+ * because they'd have to be downloaded and that isn't allowed now (mobile data).
+ */
+data class DjProgress(val looked: Int, val all: Int, val keyed: Int, val needNetwork: Int = 0)
+
+/** What the queue says about DJ mode, honestly: it only claims an order it has. */
+object DjStatus {
+    /** The line, and whether to offer "Use mobile data" beside it. */
+    fun of(p: DjProgress?): Pair<String, Boolean> = when {
+        p == null || p.all == 0 -> "DJ mode" to false
+        p.looked < p.all -> "DJ mode: reading keys and tempos… ${p.looked} of ${p.all}" to false
+        p.needNetwork > 0 && p.keyed < MIN_ORDERED ->
+            "DJ mode: keys are read on Wi-Fi (${p.needNetwork} ${if (p.needNetwork == 1) "song" else "songs"} waiting)" to true
+        p.keyed < MIN_ORDERED -> "DJ mode: no clear keys to order these by" to false
+        p.keyed < p.all ->
+            "DJ mode: ${p.keyed} of ${p.all} songs in key order" + (if (p.needNetwork > 0) ", the rest wait for Wi-Fi" else ", the rest stay put") to (p.needNetwork > 0)
+        else -> "DJ mode: in key order, beat-matched" to false
+    }
+
+    /** The next song plus two to order after it. */
+    private const val MIN_ORDERED = 3
 }

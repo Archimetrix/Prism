@@ -242,6 +242,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch { c.queue.smartShuffle.drop(1).collect { on -> if (on) smartAhead() else dropSmartPicks() } }
         // DJ mode: the set is worked out when it's turned on, and again when its energy curve changes.
         scope.launch { c.dj.on.collect { on -> if (on) djAhead() else { djJob?.cancel(); djSoon?.cancel() } } }
+        scope.launch { c.dj.rescan.drop(1).collect { if (c.dj.onNow) djAhead() } }
         scope.launch { c.settings.flow.map { it.djFlow }.distinctUntilChanged().drop(1).collect { resequence() } }
         scope.launch {
             c.settings.flow.map { Triple(it.carLyrics, it.carLyricsStyle, it.carLyricsOnPhone) }.distinctUntilChanged().collect {
@@ -1236,9 +1237,10 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     private var djMoving = false
 
     /**
-     * DJ mode: the songs ahead scanned (key, tempo, loudness; the playing one and the next first) and put in DJ order
-     * ([resequence]) as each scan comes in. Scans follow the song scan's own rules (from the phone, else a download
-     * on Wi-Fi unless "Measure songs on mobile data" is on).
+     * DJ mode: the songs ahead get a quick scan each (key, tempo, loudness from three stretches of the song,
+     * [MixTempo.quickScan]), a few at once, the next ones first, and are put in DJ order ([resequence]) as the scans come
+     * in. A song not on the phone is fetched (only the stretches) on Wi-Fi, or on mobile data when "Measure songs on
+     * mobile data" is on; the queue says when songs are waiting for Wi-Fi, and offers mobile data.
      */
     private fun djAhead() {
         djJob?.cancel()
@@ -1246,23 +1248,34 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (player.shuffleModeEnabled) player.shuffleModeEnabled = false
         djJob = scope.launch {
             val s = c.settings.current
-            val network = s.mixTempoOnCellular || getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered == false
+            val network = c.dj.dataAllowed || s.mixTempoOnCellular ||
+                getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered == false
             resequence()
             val cur = player.currentMediaItemIndex
-            val ids = (cur until minOf(player.mediaItemCount, cur + 2 + DJ_WINDOW))
-                .map { player.getMediaItemAt(it) }.filter { djTrack(it) != null }.map { it.mediaId }.distinct()
-            var looked = ids.count { c.mixTempo.keyed(it) }
-            c.dj.setProgress(looked to ids.size)
-            // The playing song's own start comes first (a scan downloads and decodes a whole song).
-            player.currentMediaItem?.mediaId?.let { if (!c.mixTempo.keyed(it)) untilUnderWay(it, UNDER_WAY_MS) }
-            for (id in ids) {
-                if (c.mixTempo.keyed(id)) continue
-                c.mixTempo.measure(id, network, edges = true, key = true)
-                looked++
-                c.dj.setProgress(looked to ids.size)
-                c.dj.bump()
-                resequence()
+            // The songs after the playing one, in queue order (the next ones matter first); the playing one last.
+            val ahead = (cur + 1 until minOf(player.mediaItemCount, cur + 2 + DJ_WINDOW))
+                .map { player.getMediaItemAt(it) }.filter { djTrack(it) != null }.map { it.mediaId }
+            val ids = (ahead + listOfNotNull(player.currentMediaItem?.takeIf { djTrack(it) != null }?.mediaId)).distinct()
+            var looked = 0; var keyed = 0; var needNetwork = 0
+            fun publish() = c.dj.setProgress(DjProgress(looked, ids.size, keyed, needNetwork))
+            for (id in ids) if (c.mixTempo.keyed(id)) { looked++; keyed++ }
+            publish()
+            val started = SystemClock.elapsedRealtime()
+            kotlinx.coroutines.coroutineScope {
+                for (id in ids.filter { !c.mixTempo.keyed(it) }) launch {
+                    val r = c.mixTempo.quickScan(id, network)
+                    looked++
+                    when (r) {
+                        MixTempo.QuickResult.KEYED -> keyed++
+                        MixTempo.QuickResult.NEEDS_NETWORK -> needNetwork++
+                        MixTempo.QuickResult.FAILED -> {}
+                    }
+                    publish()
+                    c.dj.bump()
+                    if (r == MixTempo.QuickResult.KEYED) resequence()
+                }
             }
+            android.util.Log.i("PrismDj", "looked at ${ids.size} songs in ${SystemClock.elapsedRealtime() - started} ms: $keyed keyed, $needNetwork waiting for Wi-Fi")
         }
     }
 
@@ -1270,8 +1283,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     private fun djTrack(item: MediaItem, id: String = item.mediaId): DjTrack? {
         val song = item.toSong() ?: return null
         if (song.isLive || song.isEpisode || item.videoModeId != null) return null
-        val t = c.mixTempo.cached(song.id)
-        return DjTrack(id, c.mixTempo.key(song.id), t?.takeIf { it.steady }?.bpm, c.mixTempo.loudness(song.id), song.artists.firstOrNull()?.name)
+        return DjTrack(id, c.mixTempo.key(song.id), c.mixTempo.djBpm(song.id), c.mixTempo.djLoudness(song.id), song.artists.firstOrNull()?.name)
     }
 
     /**
@@ -1784,7 +1796,7 @@ private const val TARGET_LUFS = -14f
 private const val SETTLE_MS = 2_000L
 /** Queued songs are got ready once the playing one has played this long (not as it starts: that slowed its loading). */
 private const val UNDER_WAY_MS = 5_000L
-/** How many songs ahead DJ mode scans and orders (each scan is a whole song decoded, ~15 s on a phone). */
+/** How many songs ahead DJ mode scans and orders (a quick scan each: three stretches of the song, a few at once). */
 private const val DJ_WINDOW = 40
 /** How many songs ahead (in play order) Smart Shuffle places its picks among. */
 private const val SMART_LOOK_AHEAD = 12

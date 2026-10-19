@@ -84,6 +84,8 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         runCatching { com.prism.music.data.foryou.ReleaseRadar.schedule(this) }
         // Rewind: the 1 December notification, and last year kept once it's over (after start-up has settled).
         runCatching { com.prism.music.data.Rewinds.schedule(this) }
+        // DJ mode: the songs played most and liked get their key read once a day, on Wi-Fi while charging.
+        runCatching { com.prism.music.playback.DjPrescanWorker.schedule(this) }
         container.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             kotlinx.coroutines.delay(45_000)
             container.quietNetwork()

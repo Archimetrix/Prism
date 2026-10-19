@@ -2,6 +2,8 @@ package com.prism.music
 
 import com.prism.music.playback.KeyDetector
 import com.prism.music.playback.MusicKey
+import com.prism.music.playback.QuickScan
+import com.prism.music.playback.Tempo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -135,5 +137,62 @@ class KeyDetectorTest {
         println("KEY accuracy: exact $exact/$total, within a Camelot step $near/$total")
         assumeTrue(total > 0)
         assertTrue("only $near of $total within a Camelot step", near >= total * 0.75)
+    }
+
+    /**
+     * DJ mode's quick scan ([QuickScan]: three 25 s stretches) on the same songs: its key should be about as right as
+     * the whole song's, and its tempo the same.
+     */
+    @Test
+    fun realSongsQuick() {
+        val dir = System.getenv("KEY_DUMPS")?.let(::File)
+        assumeTrue("KEY_DUMPS not set", dir != null && dir.isDirectory)
+        var near = 0; var exact = 0; var total = 0; var sameTempo = 0; var tempos = 0
+        for (file in dir!!.listFiles { f -> f.name.endsWith(".f32") }!!.sortedBy { it.name }) {
+            val id = file.name.removePrefix("mix_").substringBeforeLast('_')
+            val want = EXPECTED[id] ?: continue
+            val sr = file.name.removeSuffix(".f32").substringAfterLast('_').toInt()
+            val bytes = ByteBuffer.wrap(file.readBytes()).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            val pcm = FloatArray(bytes.remaining()).also { bytes.get(it) }
+            val pieces = QuickScan.windows(pcm.size * 1000L / sr).map { (start, len) ->
+                val from = (start * sr / 1000).toInt().coerceIn(0, pcm.size)
+                pcm.copyOfRange(from, (from + (len * sr / 1000).toInt()).coerceAtMost(pcm.size))
+            }
+            val started = System.nanoTime()
+            val quick = QuickScan.analyse(pieces, sr)
+            val quickMs = (System.nanoTime() - started) / 1_000_000
+            val whole = Tempo.analyze(com.prism.music.playback.VideoSync.bandFeatures(pcm, sr), (sr / 100) * 1000.0 / sr)
+            val wantKey = MusicKey((0 until 24).first { MusicKey(it % 12, it >= 12).name == want } % 12, want.endsWith("minor"))
+            val key = quick.key
+            total++
+            when {
+                key == null -> {}
+                key.name == want -> { exact++; near++ }
+                key.camelotNumber == wantKey.camelotNumber || MusicKey.clash(key, wantKey) <= 0.25 -> near++
+            }
+            if (whole != null && quick.tempo != null) {
+                tempos++
+                // Octave-free: 85 and 170 are the same tempo to a DJ.
+                val ratio = quick.tempo!!.bpm / whole.bpm
+                if (listOf(0.5, 1.0, 2.0).any { kotlin.math.abs(ratio - it) < 0.03 * it }) sameTempo++
+            }
+            println("QUICK $id want $want got ${key?.name}  tempo quick %.1f whole %.1f  (%d ms)".format(quick.tempo?.bpm ?: 0.0, whole?.bpm ?: 0.0, quickMs))
+        }
+        println("QUICK accuracy: exact $exact/$total, within a Camelot step $near/$total; tempo same as whole song $sameTempo/$tempos")
+        assumeTrue(total > 0)
+        assertTrue("only $near of $total within a Camelot step", near >= total * 0.75)
+        assertTrue("tempo agreed on only $sameTempo of $tempos", sameTempo >= tempos * 0.8)
+    }
+
+    private companion object {
+        val EXPECTED = mapOf(
+            "x9Qv47HpEqw" to "C minor", "UQ8cXH7qbVU" to "A major", "yjo_aXygRDI" to "F minor", "xTvyyoF_LZY" to "C♯ minor",
+            "ORrFJ63nlcA" to "A♭ major", "ZD6rXLXZOEI" to "G minor", "b72gdhV_rXM" to "E minor", "7CTJcHjkq0E" to "F♯ minor",
+            "FXovf5dsRTw" to "B minor", "Kx7B-XvmFtE" to "B♭ minor", "sQtnhwU2R9Y" to "A♭ major", "GnUW4AF1LZo" to "F major",
+            "7TDeBi34OtE" to "F minor", "HzdD8kbDzZA" to "A major", "BciS5krYL80" to "B minor", "pRIZohFFOMo" to "D♭ major",
+            "mM3Vmn4pdog" to "E major", "hpSrLjc5SMs" to "F♯ minor", "9RfVp-GhKfs" to "G major", "b-D5yAAXYng" to "A major",
+            "8jjbhrR15Y8" to "A minor", "jg51kFe7CWU" to "D minor", "S-LO6dctBms" to "C minor", "nXMPx4DDVWM" to "A minor",
+            "2NiyrtYegso" to "B minor", "tYvFa2ARD24" to "D minor", "dJqxQzxLbHM" to "F minor", "J7p4bzqLvCw" to "F minor",
+        )
     }
 }

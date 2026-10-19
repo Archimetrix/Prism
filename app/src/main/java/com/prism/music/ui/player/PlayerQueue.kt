@@ -91,7 +91,7 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
     val badge: (Song) -> String? = remember(dj, djRevision, smartPicks) {
         { song ->
             when {
-                dj -> if (!c.mixTempo.keyed(song.id)) "…" else djBadge(c.mixTempo.key(song.id), c.mixTempo.cached(song.id))
+                dj -> if (!c.mixTempo.keyed(song.id)) "…" else djBadge(c.mixTempo.key(song.id), c.mixTempo.djBpm(song.id))
                 song.id in smartPicks -> "✦ Pick"
                 else -> null
             }
@@ -132,11 +132,15 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text(
-                djProgress?.let { (done, all) -> if (done < all) "DJ mode: reading keys and tempos… $done of $all" else "DJ mode: in key order, beat-matched" }
-                    ?: "DJ mode: in key order, beat-matched",
-                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f),
-            )
+            // Only an order it has: how far the scans are, songs waiting for Wi-Fi (with mobile data offered), or how many are in order.
+            val (status, offerData) = com.prism.music.playback.DjStatus.of(djProgress)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(status, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.weight(1f, fill = false))
+                if (offerData) {
+                    Spacer(Modifier.width(8.dp))
+                    QueueChip("Use mobile data") { c.settings.setMixTempoOnCellular(true); c.dj.rescan(allowData = true) }
+                }
+            }
         }
         Spacer(Modifier.height(4.dp))
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().nestedScroll(controlsOnScroll), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -213,9 +217,9 @@ private fun QueueChip(label: String, selected: Boolean = false, onClick: () -> U
 }
 
 /** A scanned song's key on the Camelot wheel and its tempo ("8A · 124"), as DJ mode sees them (what's clear of them). */
-private fun djBadge(key: com.prism.music.playback.MusicKey?, tempo: com.prism.music.playback.Tempo?): String? {
+private fun djBadge(key: com.prism.music.playback.MusicKey?, bpmValue: Double?): String? {
     val k = key?.takeIf { it.sure }?.camelot
-    val bpm = tempo?.takeIf { it.steady }?.bpm?.roundToInt()?.toString()
+    val bpm = bpmValue?.roundToInt()?.toString()
     return listOfNotNull(k, bpm).joinToString(" · ").ifEmpty { null }
 }
 
