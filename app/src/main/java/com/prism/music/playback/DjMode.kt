@@ -61,7 +61,11 @@ object DjStatus {
     /** The line, and whether to offer "Use mobile data" beside it. */
     fun of(p: DjProgress?): Pair<String, Boolean> = when {
         p == null || p.all == 0 -> "DJ mode" to false
-        p.looked < p.all -> "DJ mode: reading keys and tempos… ${p.looked} of ${p.all}" to false
+        // Songs waiting for Wi-Fi aren't being read: they're said apart (with the chip at once), not counted as done.
+        p.looked < p.all -> {
+            val reading = "DJ mode: reading keys and tempos… ${p.looked - p.needNetwork} of ${p.all - p.needNetwork}"
+            if (p.needNetwork > 0) "$reading, ${p.needNetwork} wait for Wi-Fi" to true else reading to false
+        }
         p.needNetwork > 0 && p.keyed < MIN_ORDERED ->
             "DJ mode: keys are read on Wi-Fi (${p.needNetwork} ${if (p.needNetwork == 1) "song" else "songs"} waiting)" to true
         p.keyed < MIN_ORDERED -> "DJ mode: no clear keys to order these by" to false

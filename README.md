@@ -64,7 +64,7 @@ Updating works the same way: install the new APK over the old one, and your down
 - **Rewind** for every year you've listened, opening on December 1: your year season by season, your top album, your year in Prism and more, each slide shareable.
 - **Headphone correction** from AutoEq's measurements of almost 9,000 headphones, switching on with each pair.
 - **Romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian, Greek and more, word by word in karaoke lyrics.
-- **Jump to the best part**: YouTube's "Most replayed" curve on the progress bar, and a button to skip to it.
+- **Jump to the best part**: a button to skip to the stretch listeners replay most (YouTube's "Most replayed" data), or the chorus when there's none.
 - **Tablets, foldables and landscape**: a side rail, the player beside its lyrics or queue, and the half-open foldable layout.
 
 ### Listening

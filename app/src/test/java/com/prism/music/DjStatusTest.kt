@@ -17,6 +17,14 @@ class DjStatusTest {
     }
 
     @Test
+    fun songsWaitingForWifiAreNotCountedAsRead() {
+        // Seen on the emulator (mobile data): 41 songs skipped at once, the playing one still being read.
+        val (line, chip) = DjStatus.of(DjProgress(41, 42, 0, needNetwork = 41))
+        assertEquals("DJ mode: reading keys and tempos… 0 of 1, 41 wait for Wi-Fi", line)
+        assertEquals(true, chip)
+    }
+
+    @Test
     fun onMobileDataItSaysSoAndOffersData() {
         // The bug: every song skipped for lack of Wi-Fi, and it still said "in key order".
         val (line, offer) = DjStatus.of(DjProgress(24, 24, keyed = 1, needNetwork = 23))
