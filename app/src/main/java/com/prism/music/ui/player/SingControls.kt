@@ -97,7 +97,7 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                 runtime == null -> Text("Sing doesn't run on this phone's kind of processor.", style = MaterialTheme.typography.bodyMedium)
                 !ready -> {
                     Text(
-                        "Sing separates each song's voice from its music on your phone, with no server. It needs a one-time download of about ${((ModelStore.Model.SING_MODEL.bytes + runtime.bytes) / 1_000_000)} MB.",
+                        "Sing separates each song's voice from its music on your phone, with no server. It needs a one-time download: ${ModelStore.Model.sizeText(ModelStore.Model.SING_MODEL, runtime)}.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(Modifier.height(10.dp))

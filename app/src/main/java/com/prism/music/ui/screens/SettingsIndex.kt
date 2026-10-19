@@ -8,16 +8,39 @@ import com.prism.music.data.innertube.SearchRank
  * so a new setting needs a line here.
  */
 data class SettingEntry(
-    /** The page it's on; null for the Settings hub itself (Discord, the account). */
+    /** The page it's on; null for the Settings hub itself (the account). */
     val section: SettingsSection?,
     val group: String,
     val title: String,
     val keywords: String = "",
     /** How a result reads when the title alone wouldn't say what it is ("Everywhere"). */
     val shown: String = title,
+    /** The switch it only shows under (Crossfade's Length needs Crossfade on); the result says to turn that on first. */
+    val needs: Needs? = null,
 )
 
+/** A setting that only shows while [on] holds; [hint] says what to change first ("Turn on Crossfade songs first"). */
+class Needs(val hint: String, val on: (com.prism.music.data.prefs.AppSettings) -> Boolean)
+
 object SettingsIndex {
+    private fun turnOn(name: String, on: (com.prism.music.data.prefs.AppSettings) -> Boolean) = Needs("Turn on $name first", on)
+    private val immersive = turnOn("Immersive mode") { it.immersivePlayer }
+    private val canvas = turnOn("Animated covers") { it.canvasEnabled }
+    private val canvasSave = turnOn("Animated covers and Save with downloads") { it.canvasEnabled && it.canvasWithDownloads }
+    private val holdSeek = turnOn("Hold previous / next to seek") { it.holdSeekSeconds > 0 }
+    private val songsOnly = turnOn("Songs, not videos") { it.radioSongsOnly }
+    private val crossfade = turnOn("Crossfade songs") { it.mix }
+    private val manualLength = Needs("Turn on Crossfade songs and turn off Automatic length first") { it.mix && !it.mixAuto }
+    private val lossless = turnOn("Lossless playback") { it.lossless }
+    private val notLossless = Needs("Lossless playback always plays the best audio; turn it off to pick a quality") { !it.lossless }
+    private val saver = turnOn("Lossless playback and Data saver") { it.lossless && it.dataSaver }
+    private val measuring = turnOn("Normalize volume or Crossfade songs") { it.normalize || it.mix }
+    private val translate = turnOn("Translate lyrics") { it.lyricsTranslate }
+    private val romanize = Needs("Pick a Romanize lyrics option first") { it.romanize != com.prism.music.data.prefs.RomanizeMode.OFF }
+    private val carLyrics = turnOn("Lyrics in the car") { it.carLyrics }
+    private val smart = turnOn("Smart Downloads") { it.smartDownloads }
+    private val webRemote = turnOn("Control from a browser") { it.webRemote }
+
     private val A = SettingsSection.APPEARANCE
     private val L = SettingsSection.INTERFACE
     private val P = SettingsSection.PLAYER
@@ -28,13 +51,14 @@ object SettingsIndex {
     private val R = SettingsSection.LIBRARY
     private val B = SettingsSection.ABOUT
     private val C = SettingsSection.CONNECT
+    private val DC = SettingsSection.DISCORD
 
     val entries: List<SettingEntry> = listOf(
         // The hub
         SettingEntry(null, "Account", "Account", "google youtube sign in sign out switch account add account"),
-        SettingEntry(null, "Discord", "Show what you're playing", "discord rich presence status listening"),
-        SettingEntry(null, "Discord", "Sign out of Discord"),
-        SettingEntry(null, "Discord", "About this", "discord terms risk"),
+        SettingEntry(DC, "Discord", "Show what you're playing", "discord rich presence status listening"),
+        SettingEntry(DC, "Discord", "Sign out of Discord"),
+        SettingEntry(DC, "Discord", "About this", "discord terms risk"),
         // Appearance
         SettingEntry(A, "Theme", "Theme", "dark light system mode night"),
         SettingEntry(A, "Theme", "Pure black", "amoled oled"),
@@ -80,15 +104,15 @@ object SettingsIndex {
         SettingEntry(P, "Artwork", "Full-bleed artwork", "edge to edge"),
         SettingEntry(P, "Artwork", "Shrink when paused"),
         SettingEntry(P, "Immersive mode", "Immersive mode", "lyric video full screen"),
-        SettingEntry(P, "Immersive mode", "Artwork"),
-        SettingEntry(P, "Immersive mode", "Lyrics"),
+        SettingEntry(P, "Immersive mode", "Artwork", needs = immersive),
+        SettingEntry(P, "Immersive mode", "Lyrics", needs = immersive),
         SettingEntry(P, "Animated covers", "Animated covers", "canvas motion video cover"),
-        SettingEntry(P, "Animated covers", "Play on mobile data", "canvas cellular"),
-        SettingEntry(P, "Animated covers", "Save with downloads", "canvas offline"),
-        SettingEntry(P, "Animated covers", "Save on mobile data too", "canvas cellular"),
-        SettingEntry(P, "Animated covers", "Saved animated covers", "canvas storage"),
-        SettingEntry(P, "Animated covers", "Recently played covers", "canvas storage cache"),
-        SettingEntry(P, "On the player", "\"Playing from\"", "album caption"),
+        SettingEntry(P, "Animated covers", "Play on mobile data", "canvas cellular", needs = canvas),
+        SettingEntry(P, "Animated covers", "Save with downloads", "canvas offline", needs = canvas),
+        SettingEntry(P, "Animated covers", "Save on mobile data too", "canvas cellular", needs = canvasSave),
+        SettingEntry(P, "Animated covers", "Saved animated covers", "canvas storage", needs = canvas),
+        SettingEntry(P, "Animated covers", "Recently played covers", "canvas storage cache", needs = canvas),
+        SettingEntry(P, "On the player", "\"From the album\"", "album caption playing from"),
         SettingEntry(P, "On the player", "Current lyric", "lyrics line"),
         SettingEntry(P, "On the player", "Stream quality", "codec bitrate nerd stats"),
         SettingEntry(P, "On the player", "Best part button", "skip chorus hook highlight most replayed jump"),
@@ -98,40 +122,40 @@ object SettingsIndex {
         SettingEntry(P, "On the player", "Song / Video switch", "music video audio only"),
         SettingEntry(P, "On the player", "Output device", "bluetooth speaker headphones"),
         SettingEntry(P, "Seeking", "Hold previous / next to seek", "fast forward rewind"),
-        SettingEntry(P, "Seeking", "Each step"),
+        SettingEntry(P, "Seeking", "Each step", needs = holdSeek),
         SettingEntry(P, "Seeking", "Double-tap the cover to seek", "fast forward rewind skip seconds"),
         SettingEntry(P, "Feel", "Haptics", "vibration vibrate"),
         // Playback & sound
         SettingEntry(S, "Playback", "Autoplay", "radio continue similar"),
         SettingEntry(S, "Playback", "Songs, not videos", "music videos audio"),
-        SettingEntry(S, "Playback", "Everywhere", "songs not videos music videos audio", shown = "Songs, not videos: everywhere"),
+        SettingEntry(S, "Playback", "Everywhere", "songs not videos music videos audio", shown = "Songs, not videos: everywhere", needs = songsOnly),
         SettingEntry(S, "Playback", "Keep playing videos", "music video"),
         SettingEntry(S, "Playback", "Skip silence"),
         SettingEntry(S, "Playback", "Stop when swiped away", "recents background"),
         SettingEntry(S, "Playback", "Load ahead", "preload buffer"),
         SettingEntry(S, "Playback", "Load ahead on mobile data", "preload cellular"),
         SettingEntry(S, "Crossfade", "Crossfade songs", "mix blend transition fade"),
-        SettingEntry(S, "Crossfade", "Automatic length"),
-        SettingEntry(S, "Crossfade", "Length"),
-        SettingEntry(S, "Crossfade", "Match tempo and beats (DJ-style)", "bpm beatmatch"),
+        SettingEntry(S, "Crossfade", "Automatic length", needs = crossfade),
+        SettingEntry(S, "Crossfade", "Length", needs = manualLength),
+        SettingEntry(S, "Crossfade", "Match tempo and beats (DJ-style)", "bpm beatmatch", needs = crossfade),
         SettingEntry(S, "Quality", "Lossless playback", "flac hi-res"),
-        SettingEntry(S, "Quality", "Allow access to lossless files", "flac permission"),
-        SettingEntry(S, "Quality", "Scan for lossless files again", "flac"),
-        SettingEntry(S, "Quality", "Streaming quality on Wi-Fi", "bitrate audio quality"),
-        SettingEntry(S, "Quality", "Streaming quality on mobile data", "bitrate audio quality cellular"),
-        SettingEntry(S, "Quality", "Streaming quality on mobile data (data saver)", "bitrate cellular"),
+        SettingEntry(S, "Quality", "Allow access to lossless files", "flac permission", needs = lossless),
+        SettingEntry(S, "Quality", "Scan for lossless files again", "flac", needs = lossless),
+        SettingEntry(S, "Quality", "Streaming quality on Wi-Fi", "bitrate audio quality", needs = notLossless),
+        SettingEntry(S, "Quality", "Streaming quality on mobile data", "bitrate audio quality cellular", needs = notLossless),
+        SettingEntry(S, "Quality", "Streaming quality on mobile data (data saver)", "bitrate cellular", needs = saver),
         SettingEntry(S, "Quality", "Music video quality", "resolution 1080p 720p"),
         SettingEntry(S, "Mobile data", "Data saver", "cellular low data"),
         SettingEntry(S, "Sound", "Normalize volume", "loudness lufs level"),
-        SettingEntry(S, "Sound", "Measure songs on mobile data", "cellular"),
+        SettingEntry(S, "Sound", "Measure songs on mobile data", "cellular", needs = measuring),
         SettingEntry(S, "Sound", "Prism Spatial", "spatial audio 3d surround atmos"),
         SettingEntry(S, "Sound", "Equalizer", "eq bass boost treble loudness headphone correction autoeq harman target"),
         // Lyrics
         SettingEntry(Y, "Display", "Focus blur"),
         SettingEntry(Y, "Display", "Translate lyrics", "translation language"),
-        SettingEntry(Y, "Display", "Translate into", "translation language"),
+        SettingEntry(Y, "Display", "Translate into", "translation language", needs = translate),
         SettingEntry(Y, "Display", "Romanize lyrics", "romanization romaji pinyin latin letters transliteration korean japanese chinese hindi arabic"),
-        SettingEntry(Y, "Display", "Romanize my own language too", "romanization native script"),
+        SettingEntry(Y, "Display", "Romanize my own language too", "romanization native script", needs = romanize),
         SettingEntry(Y, "Display", "Japanese reading data", "romaji kanji dictionary download kuromoji"),
         SettingEntry(Y, "Sing", "Sing's voice separation", "karaoke vocals remove instrumental download model"),
         SettingEntry(Y, "Sing", "Get songs ready on mobile data", "karaoke cellular"),
@@ -144,16 +168,16 @@ object SettingsIndex {
         SettingEntry(Y, "Sources", "Order", "lyrics providers sources priority"),
         SettingEntry(Y, "Your music files", "Save lyrics into your music files", "flac mp3 tags embed"),
         SettingEntry(Y, "Android Auto", "Lyrics in the car", "android auto"),
-        SettingEntry(Y, "Android Auto", "Style", "android auto car"),
-        SettingEntry(Y, "Android Auto", "Keep the song title", "android auto car"),
-        SettingEntry(Y, "Android Auto", "On this phone too", "lock screen notification"),
+        SettingEntry(Y, "Android Auto", "Style", "android auto car", needs = carLyrics),
+        SettingEntry(Y, "Android Auto", "Keep the song title", "android auto car", needs = carLyrics),
+        SettingEntry(Y, "Android Auto", "On this phone too", "lock screen notification", needs = carLyrics),
         // Downloads & storage
         SettingEntry(D, "Downloads", "Manage downloads", "offline delete"),
         SettingEntry(D, "Downloads", "Download on Wi-Fi only", "cellular mobile data"),
         SettingEntry(D, "Downloads", "Download liked songs automatically", "offline likes"),
         SettingEntry(D, "Smart Downloads", "Smart Downloads", "offline cache storage space"),
         SettingEntry(D, "Smart Downloads", "Space to use", "storage cache size gb"),
-        SettingEntry(D, "Smart Downloads", "Smart Downloads on mobile data", "cellular"),
+        SettingEntry(D, "Smart Downloads", "Smart Downloads on mobile data", "cellular", needs = smart),
         SettingEntry(D, "Smart Downloads", "Clear Smart Downloads", "cache delete free space"),
         // Home screen
         SettingEntry(H, "Home", "Customize Home", "sections order shortcuts quick picks speed dial"),
@@ -165,9 +189,9 @@ object SettingsIndex {
         // Prism Connect
         SettingEntry(C, "Speakers & TVs", "Speakers & TVs", "cast casting dlna upnp tv television speaker receiver avr sonos chromecast play on output"),
         SettingEntry(C, "Control from a browser", "Control from a browser", "web remote computer laptop tablet browser control prism connect"),
-        SettingEntry(C, "Control from a browser", "Address", "web remote url link ip"),
-        SettingEntry(C, "Control from a browser", "Pairing code", "web remote pair code browser", shown = "Browser pairing code"),
-        SettingEntry(C, "Control from a browser", "Unpair all browsers", "web remote forget browsers"),
+        SettingEntry(C, "Control from a browser", "Address", "web remote url link ip", needs = webRemote),
+        SettingEntry(C, "Control from a browser", "Pairing code", "web remote pair code browser", shown = "Browser pairing code", needs = webRemote),
+        SettingEntry(C, "Control from a browser", "Unpair all browsers", "web remote forget browsers", needs = webRemote),
         SettingEntry(C, "Handoff", "Available for handoff", "move playback another device tablet phone continue transfer handoff"),
         SettingEntry(C, "Handoff", "Pairing code", "handoff pair code", shown = "Handoff pairing code"),
         SettingEntry(H, "Made for you", "Your artists", "onboarding pick artists favourites starred recommendations"),

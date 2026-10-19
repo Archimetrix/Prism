@@ -926,19 +926,35 @@ fun PlayerMarquee(text: String, style: TextStyle, color: Color, enabled: Boolean
     )
 }
 
+/**
+ * The quality badge's words: "Opus 160 kbps" for a stream; for lossless audio the file's format and resolution
+ * ("WAV · 16-bit · 44.1 kHz", "FLAC · 96 kHz"), since a bitrate says little there (a WAV read "AUDIO/RAW 705 kbps").
+ */
+fun qualityText(stats: com.prism.music.playback.NerdStats): String {
+    val codec = stats.codec.takeIf { it.isNotBlank() }?.let(::codecName).orEmpty()
+    val lossless = stats.source.startsWith("Lossless") ||
+        listOf("flac", "alac", "wav", "pcm", "aiff", "raw").any { stats.codec.contains(it, true) }
+    return when {
+        stats.source == "Downloaded" -> "Downloaded"
+        lossless -> {
+            // The file's own format when Prism knows it ("On this phone · WAV", "Lossless · FLAC on this phone").
+            val named = Regex("\\b(WAV|AIFF|FLAC|ALAC)\\b").find(stats.source)?.value
+            listOfNotNull(
+                named ?: codec.takeIf { it != "PCM" && it.isNotBlank() } ?: "Lossless",
+                stats.bitDepth.takeIf { it > 0 }?.let { "$it-bit" },
+                stats.sampleRate.takeIf { it > 0 }?.let(::sampleRateText),
+            ).joinToString(" · ")
+        }
+        stats.streamBitrateKbps > 0 -> "$codec ${stats.streamBitrateKbps} kbps".trim()
+        else -> codec
+    }
+}
+
 /** Quality badge between the timestamps; tap for the full stats panel. */
 @Composable
 fun QualityLabel(modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
     val stats by LocalContainer.current.nerdStats.collectAsState()
-    val codec = stats.codec.takeIf { it.isNotBlank() }?.let(::codecName).orEmpty()
-    val lossless = stats.source.startsWith("Lossless") ||
-        listOf("flac", "alac", "wav", "pcm", "aiff").any { stats.codec.contains(it, true) }
-    val text = when {
-        stats.source == "Downloaded" -> "Downloaded"
-        lossless -> "Lossless"
-        stats.streamBitrateKbps > 0 -> "$codec ${stats.streamBitrateKbps} kbps".trim()
-        else -> codec
-    }
+    val text = qualityText(stats)
     if (text.isBlank()) return
     Text(
         text,

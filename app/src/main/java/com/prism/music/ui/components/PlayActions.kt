@@ -45,6 +45,19 @@ sealed interface Playable {
     data class Of(val item: BrowseItem) : Playable
     data object Liked : Playable
     data object Downloads : Playable
+
+    /**
+     * An album or playlist page's own ⋯: the songs it already has ([load]) rather than a fresh lookup, and its own
+     * share sheet ([share]).
+     */
+    class Page(
+        val title: String,
+        val subtitle: String,
+        val art: String?,
+        val album: Boolean,
+        val share: ShareTarget,
+        val load: suspend () -> Pair<List<Song>, QueueSource>,
+    ) : Playable
 }
 
 /** Moods and genres are pages of shelves, not something to play. */
@@ -61,9 +74,12 @@ fun rememberPlayMenu(): (Playable) -> Unit {
     return remember { { target = it } }
 }
 
-/** Play or shuffle a whole album, playlist or list; for an artist, shuffle their songs or start their mix. [extra] adds rows (e.g. delete). */
+/**
+ * Play or shuffle a whole album, playlist or list; for an artist, shuffle their songs or start their mix. [extra] adds
+ * rows (e.g. delete), in a group of their own under [extraTitle] when it's given.
+ */
 @Composable
-fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onDismiss: () -> Unit) {
+fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), extraTitle: String? = null, onDismiss: () -> Unit) {
     val item = (target as? Playable.Of)?.item
     if (item is SongItem) { SongActionsSheet(item.song, extra, onDismiss = onDismiss); return }
     val c = LocalContainer.current
@@ -75,6 +91,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
     val (title, subtitle) = when (target) {
         Playable.Liked -> "Liked songs" to com.prism.music.data.model.songCount(liked.size)
         Playable.Downloads -> "Downloads" to com.prism.music.data.model.songCount(c.downloads.completedSongs().size)
+        is Playable.Page -> target.title to target.subtitle
         is Playable.Of -> target.item.title to target.item.subtitle.ifBlank {
             when (target.item) { is AlbumItem -> "Album"; is ArtistItem -> "Artist"; else -> "Playlist" }
         }
@@ -82,6 +99,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
     val art = when (target) {
         Playable.Liked -> c.covers.custom("liked")
         Playable.Downloads -> c.covers.custom("downloads")
+        is Playable.Page -> target.art
         is Playable.Of -> c.covers.art(target.item)
     }
     fun play(shuffle: Boolean, mix: Boolean = false) = c.scope.launch(Dispatchers.Main) {
@@ -122,7 +140,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
                 target == Playable.Liked -> PrismIcons.HeartFilled
                 target == Playable.Downloads -> PrismIcons.DownloadDone
                 item is ArtistItem -> PrismIcons.Person
-                item is AlbumItem -> PrismIcons.Album
+                item is AlbumItem || (target as? Playable.Page)?.album == true -> PrismIcons.Album
                 else -> PrismIcons.QueueMusic
             },
         ) {
@@ -130,6 +148,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
                 sharing = when (target) {
                     Playable.Liked -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(liked.size), "Playlist", art, null, songs = liked)
                     Playable.Downloads -> c.downloads.completedSongs().let { ShareTarget("Downloads", com.prism.music.data.model.songCount(it.size), "Playlist", art, null, songs = it) }
+                    is Playable.Page -> target.share
                     is Playable.Of -> target.item.shareTarget(art)
                 }
             }
@@ -155,7 +174,10 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
                 c.player.playDjSet(loaded.first, loaded.second)
             }
         })
-        ActionGroup(null, djSet + extra.map { it.toAction() } + remove) { runAction(it, close) }
+        if (extraTitle != null) {
+            ActionGroup(null, djSet + remove) { runAction(it, close) }
+            ActionGroup(extraTitle, extra.map { it.toAction() }) { runAction(it, close) }
+        } else ActionGroup(null, djSet + extra.map { it.toAction() } + remove) { runAction(it, close) }
     }
 }
 
@@ -163,6 +185,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
 private suspend fun songsFor(c: AppContainer, target: Playable, shuffle: Boolean, mix: Boolean): Pair<List<Song>, QueueSource> = when (target) {
     Playable.Liked -> c.library.liked.value to QueueSource(QueueKind.PLAYLIST, "Liked songs")
     Playable.Downloads -> c.downloads.completedSongs() to QueueSource(QueueKind.PLAYLIST, "Downloads")
+    is Playable.Page -> target.load()
     is Playable.Of -> when (val item = target.item) {
         is AlbumItem -> c.ytm.album(item.id).songs to QueueSource(QueueKind.ALBUM, item.title)
         is PlaylistItem ->

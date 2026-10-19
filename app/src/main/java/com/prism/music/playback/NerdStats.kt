@@ -10,6 +10,8 @@ data class NerdStats(
     val decoder: String = "",
     val streamBitrateKbps: Int = 0,
     val sampleRate: Int = 0,
+    /** Bits per sample of uncompressed (PCM) input such as WAV; 0 when it's compressed or not known. */
+    val bitDepth: Int = 0,
     val channels: Int = 0,
     val contentLength: Long = 0,
     val client: String = "",
@@ -31,3 +33,17 @@ data class NerdStats(
     val droppedFrames: Int = 0,
     val underruns: Int = 0,
 )
+
+/** A music file's format by its MIME type, as people know it: "audio/x-wav" → "WAV", "audio/mpeg" → "MP3". */
+fun fileFormatName(mime: String): String {
+    val sub = mime.substringAfter('/').removePrefix("x-").lowercase()
+    return when {
+        sub == "wav" || sub == "wave" || sub == "vnd.wave" -> "WAV"
+        sub.startsWith("aif") -> "AIFF"
+        sub == "mpeg" || sub == "mp3" -> "MP3"
+        sub == "mp4" || sub == "m4a" || sub == "aac" -> "AAC"
+        sub == "ogg" || sub == "vorbis" -> "Ogg"
+        sub == "matroska" || sub == "mka" -> "MKA"
+        else -> sub.uppercase()
+    }
+}

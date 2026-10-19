@@ -419,6 +419,14 @@ private fun DownloadsSummary() {
     val done = dls.values.filter { it.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }
     val active = dls.values.filter { it.state != androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }
     val waiting by c.downloads.waitingForNetwork.collectAsState()
+    // Only what's actually moving: ones waiting for Wi-Fi, paused or failed are counted under the card, with what to do.
+    val running = active.count {
+        when (it.state) {
+            androidx.media3.exoplayer.offline.Download.STATE_DOWNLOADING, androidx.media3.exoplayer.offline.Download.STATE_RESTARTING -> true
+            androidx.media3.exoplayer.offline.Download.STATE_QUEUED -> !waiting
+            else -> false
+        }
+    }
     val ink = featureInk()
     Column(Modifier.padding(8.dp)) {
         Box(
@@ -428,7 +436,7 @@ private fun DownloadsSummary() {
             Column {
                 Text("${com.prism.music.data.model.songCount(done.size)} offline", style = MaterialTheme.typography.titleLarge, color = ink)
                 Text(
-                    "%.1f MB used".format(done.sumOf { it.bytes } / 1_048_576.0) + if (active.isNotEmpty()) " · ${active.size} in progress" else "",
+                    "%.1f MB used".format(done.sumOf { it.bytes } / 1_048_576.0) + if (running > 0) " · $running in progress" else "",
                     style = MaterialTheme.typography.bodyMedium, color = ink.copy(alpha = 0.8f),
                 )
                 Text("Open downloads →", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))

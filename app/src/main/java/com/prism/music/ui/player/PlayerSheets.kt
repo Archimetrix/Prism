@@ -48,6 +48,9 @@ fun codecName(codec: String): String = when {
     codec.contains("mp4a", true) || codec.contains("aac", true) -> "AAC"
     codec.contains("vorbis", true) -> "Vorbis"
     codec.contains("flac", true) -> "FLAC"
+    codec.contains("alac", true) -> "ALAC"
+    // Uncompressed audio (WAV, AIFF) reaches the player as "audio/raw".
+    codec.contains("raw", true) || codec.contains("pcm", true) || codec.contains("wav", true) -> "PCM"
     codec.contains("mp3", true) || codec.contains("mpeg", true) -> "MP3"
     codec.isBlank() -> "—"
     else -> codec.substringBefore('.').uppercase()

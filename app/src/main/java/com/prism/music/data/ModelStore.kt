@@ -21,33 +21,37 @@ import java.util.zip.ZipInputStream
  * in `filesDir/models` (left out of backups; it can always be downloaded again).
  */
 class ModelStore(private val context: Context, private val http: OkHttpClient) {
-    enum class Model(val id: String, val file: String, val sha256: String, val bytes: Long, val title: String) {
+    enum class Model(val id: String, val file: String, val sha256: String, val bytes: Long, val title: String, /** Its size unpacked on the phone. */ val unpacked: Long) {
         /** Kuromoji's IPADIC dictionary (Apache-2.0 / IPADIC licence): readings for Japanese lyrics' kanji. */
         JAPANESE(
             "ja-ipadic", "ja-ipadic-0.9.0.zip",
-            "286c372433219548c20fed47f813a84b334a68a7eb694787369789d8008f0b2a", 13_331_021, "Japanese reading data",
+            "286c372433219548c20fed47f813a84b334a68a7eb694787369789d8008f0b2a", 13_331_021, "Japanese reading data", 33_443_143,
         ),
         /** Deezer's Spleeter, 2 stems, as sherpa-onnx exported it (fp16): Sing's vocal separation. */
         SING_MODEL(
             "sing-spleeter", "sing-spleeter-2stems-fp16.zip",
-            "58d3320c8161d28d70e28b0cb10d05ff5c15a5c806a3581fb720a52c41cfccb1", 36_366_462, "Sing's voice separation",
+            "58d3320c8161d28d70e28b0cb10d05ff5c15a5c806a3581fb720a52c41cfccb1", 36_366_462, "Sing's voice separation", 39_362_285,
         ),
         /** ONNX Runtime's native libraries (Microsoft, MIT), which Sing runs Spleeter on, one per kind of processor. */
         SING_RUNTIME_ARM64(
             "onnxruntime-arm64-v8a", "onnxruntime-1.31.0-arm64-v8a.zip",
-            "4e18871c3336a30adae8f6e7aad85b144337654c859b9e62bce2c449bcfb9995", 12_888_058, "Sing's engine",
+            "4e18871c3336a30adae8f6e7aad85b144337654c859b9e62bce2c449bcfb9995", 12_888_058, "Sing's engine", 34_208_828,
         ),
         SING_RUNTIME_ARMV7(
             "onnxruntime-armeabi-v7a", "onnxruntime-1.31.0-armeabi-v7a.zip",
-            "009139aff7b881ead3dd67127e2655791424c18c0e7d7f14775d8621adb05369", 11_640_311, "Sing's engine",
+            "009139aff7b881ead3dd67127e2655791424c18c0e7d7f14775d8621adb05369", 11_640_311, "Sing's engine", 24_182_160,
         ),
         SING_RUNTIME_X86_64(
             "onnxruntime-x86_64", "onnxruntime-1.31.0-x86_64.zip",
-            "3627836c2fdc6837d4f6e5d32abfbbc2b0c3ee565ab249f8bb2c3aaa7b788bfa", 14_993_395, "Sing's engine",
+            "3627836c2fdc6837d4f6e5d32abfbbc2b0c3ee565ab249f8bb2c3aaa7b788bfa", 14_993_395, "Sing's engine", 40_828_092,
         ),
         ;
 
         companion object {
+            /** "49 MB download, 74 MB on the phone": the same words wherever the size of [models] is told. */
+            fun sizeText(vararg models: Model): String =
+                "${models.sumOf { it.bytes } / 1_000_000} MB download, ${models.sumOf { it.unpacked } / 1_000_000} MB on the phone"
+
             /** The engine build for this phone's processor (null on one Sing can't run on). */
             fun singRuntime(): Model? {
                 val abis = if (android.os.Process.is64Bit()) android.os.Build.SUPPORTED_64_BIT_ABIS else android.os.Build.SUPPORTED_32_BIT_ABIS

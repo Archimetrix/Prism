@@ -270,8 +270,9 @@ fun LocalMusicScreen(bottomPadding: Dp) {
     }
 
     Column(Modifier.fillMaxSize()) {
+        // Back and the buttons on a bar at the top, the title under them, as on Prism's other pages.
         Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 14.dp, top = 10.dp, bottom = 4.dp),
+            Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // As a tab of its own (Settings → Layout & navigation) the top level has nothing to go back to.
@@ -286,20 +287,8 @@ fun LocalMusicScreen(bottomPadding: Dp) {
                         else -> nav.back()
                     }
                 }
-                Spacer(Modifier.width(14.dp))
-            } else Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(album?.title ?: artist?.name ?: (if (openRecent) "Recently played" else "Local files"), style = pageTitleStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                // The count sits under the title (#29), where "Music files on this phone" was.
-                val sub = when {
-                    album != null -> listOfNotNull(album.artist.ifBlank { null }, album.year.takeIf { it > 0 }?.toString(), songCount(album.tracks.size)).joinToString(" · ")
-                    artist != null -> listOf(songCount(artist.tracks.size), if (artist.albums.size == 1) "1 album" else "${artist.albums.size} albums").joinToString(" · ")
-                    openRecent -> songCount(recent.size)
-                    allowed && tracks.isNotEmpty() -> listOf(songCount(tracks.size), if (albums.size == 1) "1 album" else "${albums.size} albums").joinToString(" · ")
-                    else -> null
-                }
-                if (sub != null) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Spacer(Modifier.weight(1f))
             // Recently played, Shuffle and Play at the top (#29), for whatever the page is showing.
             if (allowed && tracks.isNotEmpty()) {
                 if (!inside) {
@@ -316,6 +305,18 @@ fun LocalMusicScreen(bottomPadding: Dp) {
                     if (list.isNotEmpty()) c.player.playQueue(list, 0, source(title))
                 }
             }
+        }
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 10.dp)) {
+            Text(album?.title ?: artist?.name ?: (if (openRecent) "Recently played" else "Local files"), style = pageTitleStyle(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // The count sits under the title (#29), where "Music files on this phone" was.
+            val sub = when {
+                album != null -> listOfNotNull(album.artist.ifBlank { null }, album.year.takeIf { it > 0 }?.toString(), songCount(album.tracks.size)).joinToString(" · ")
+                artist != null -> listOf(songCount(artist.tracks.size), if (artist.albums.size == 1) "1 album" else "${artist.albums.size} albums").joinToString(" · ")
+                openRecent -> songCount(recent.size)
+                allowed && tracks.isNotEmpty() -> listOf(songCount(tracks.size), if (albums.size == 1) "1 album" else "${albums.size} albums").joinToString(" · ")
+                else -> null
+            }
+            if (sub != null) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
 
         when {

@@ -115,6 +115,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     CONNECT("connect", "Prism Connect", PrismIcons.Cast),
     HOME("home", "Home screen", PrismIcons.Home),
     LIBRARY("library", "Library & Replay", PrismIcons.Library),
+    DISCORD("discord", "Discord", PrismIcons.Groups),
     ABOUT("about", "About", PrismIcons.Info),
     /** Not on the hub: opened from About. */
     LICENSES("licenses", "Open-source licenses", PrismIcons.Info);
@@ -129,6 +130,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         CONNECT -> listOfNotNull("Speakers & TVs", if (s.webRemote) "Browser remote on" else null, if (s.handoffAvailable) "Available for handoff" else null).joinToString(" · ")
         HOME -> "Sections, order and styles" + if (s.contentCountry.isNotBlank()) " · ${countryName(s.contentCountry)}" else ""
         LIBRARY -> "${s.libraryView.label} view · ${if (s.replayHours) "hours" else "minutes"}"
+        DISCORD -> if (s.discordPresence) "Showing what you play on your profile" else "Show what you're playing on your profile"
         ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates"
         LICENSES -> "GPL-3.0-or-later"
     }
@@ -139,7 +141,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
 private val hubGroups = listOf(
     "Look & feel" to listOf(SettingsSection.APPEARANCE, SettingsSection.INTERFACE, SettingsSection.PLAYER),
     "Listening" to listOf(SettingsSection.SOUND, SettingsSection.LYRICS, SettingsSection.DOWNLOADS, SettingsSection.CONNECT),
-    "Your Prism" to listOf(SettingsSection.HOME, SettingsSection.LIBRARY),
+    "Your Prism" to listOf(SettingsSection.HOME, SettingsSection.LIBRARY, SettingsSection.DISCORD),
     "" to listOf(SettingsSection.ABOUT),
 )
 
@@ -185,7 +187,7 @@ private fun SettingsPage(
     val nav = LocalNavigator.current
     // As a tab, the hub is a root page and has nothing to go back to.
     val isTab = (section == null && NavTab.SETTINGS in s.navTabs) || !showBack
-    // Search (#73), on the hub: matching settings in place of the categories. A result on the hub itself (Discord)
+    // Search (#73), on the hub: matching settings in place of the categories. A result on the hub itself (the account)
     // is found here; one on a page opens that page at its group.
     var query by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var foundHere by remember { mutableStateOf<String?>(null) }
@@ -212,9 +214,12 @@ private fun SettingsPage(
                             modifier = Modifier.padding(horizontal = 8.dp),
                         ) else Group("") {
                             results.take(30).forEach { e ->
+                                // Hidden until another switch is on: the result says so, and opens at that switch's group.
+                                val hidden = e.needs?.takeIf { !it.on(s) }
                                 NavRow(
                                     e.section?.icon ?: PrismIcons.Settings, e.shown,
                                     listOf(e.section?.title ?: "Settings", e.group).filter { it != e.title }.joinToString(" › "),
+                                    hint = hidden?.hint,
                                 ) {
                                     if (e.section == null) { query = ""; foundHere = e.group }
                                     else if (onOpen != null) onOpen(e.section, e.group)
@@ -226,7 +231,6 @@ private fun SettingsPage(
                     return@SubPage
                 }
                 item { AccountCard() }
-                item { DiscordGroup() }
                 hubGroups.forEach { (title, sections) ->
                     item {
                         Group(title) {
@@ -271,6 +275,7 @@ private fun SettingsPage(
                 }
             }
             SettingsSection.LIBRARY -> item { LibraryReplaySettings() }
+            SettingsSection.DISCORD -> item { DiscordGroup() }
             SettingsSection.ABOUT -> item {
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
                 BackupGroup()
@@ -963,7 +968,7 @@ private fun PlayerSettings() {
             Toggle("Shrink when paused", "The cover eases back a little while the music is paused", s.artShrinkOnPause) { prefs.setArtShrinkOnPause(it) }
         }
         Group("Immersive mode") {
-            Toggle("Immersive mode", "The cover fills the screen and the lyrics play over it, like a lyric video. Tap the screen for its settings; hold the settings button to leave. Also in the player's ⋯ menu", s.immersivePlayer) { prefs.setImmersivePlayer(it) }
+            Toggle("Immersive mode", "The cover fills the screen and the lyrics play over it, like a lyric video. Tap the screen for its settings; press Back (or hold the settings button) to leave. Also in the player's ⋯ menu", s.immersivePlayer) { prefs.setImmersivePlayer(it) }
             if (s.immersivePlayer) {
                 Label("Artwork")
                 Chips(com.prism.music.data.prefs.ImmersiveArt.entries, s.immersiveArt, { it.label }) { prefs.setImmersiveArt(it) }
@@ -987,7 +992,7 @@ private fun PlayerSettings() {
         }
         // Top to bottom, as they sit on the player.
         Group("On the player") {
-            Toggle("\"Playing from\"", "The song's album above the artwork; tap it to open the album", s.showPlayingFrom) { prefs.setShowPlayingFrom(it) }
+            Toggle("\"From the album\"", "The song's album above the artwork; tap it to open the album", s.showPlayingFrom) { prefs.setShowPlayingFrom(it) }
             Toggle("Current lyric", "The line being sung, just above the progress bar; tap it to open the lyrics", s.lyricsOnPlayer) { prefs.setLyricsOnPlayer(it) }
             Toggle("Stream quality", "The codec and bitrate (or \"Downloaded\") under the progress bar; tap it for the full stats", s.showQuality) { prefs.setShowQuality(it) }
             Toggle("Best part button", "In a song's first seconds, a button under the progress bar skips to the part people replay most (or its chorus)", s.bestPartButton) { prefs.setBestPartButton(it) }
@@ -1218,7 +1223,7 @@ private fun JapaneseReadingData() {
         com.prism.music.data.ModelStore.State.Ready -> "On this phone (${formatMb(c.models.sizeOnPhone(m))}). Tap to remove it"
         is com.prism.music.data.ModelStore.State.Downloading -> "Downloading… ${(state.fraction * 100).toInt()}%"
         is com.prism.music.data.ModelStore.State.Failed -> "Couldn't download it (${state.message}). Tap to try again"
-        else -> "Readings for kanji, for proper romaji (\"kimi no na wa\"). 13 MB, downloaded once. Without it, Google spells kanji out"
+        else -> "Readings for kanji, for proper romaji (\"kimi no na wa\"). ${com.prism.music.data.ModelStore.Model.sizeText(m)}, downloaded once. Without it, Google spells kanji out"
     }
     Item("Japanese reading data", subtitle, onClick = {
         when (state) {
@@ -1229,7 +1234,8 @@ private fun JapaneseReadingData() {
     })
 }
 
-private fun formatMb(bytes: Long) = "%.0f MB".format(bytes / 1_048_576.0)
+// In the same (decimal) megabytes as the download sizes, so "74 MB on the phone" and the installed size agree.
+private fun formatMb(bytes: Long) = "${bytes / 1_000_000} MB"
 
 /** Settings → Lyrics → Sing: its download, mobile data, and the room its songs' separated vocals take. */
 @Composable
@@ -1253,7 +1259,7 @@ private fun SingSettings() {
             when {
                 ready -> "On this phone (${formatMb(c.models.sizeOnPhone(runtime) + c.models.sizeOnPhone(model))}). Tap to remove it"
                 downloading != null -> "Downloading… ${(downloading.fraction * 100).toInt()}%"
-                else -> "Separates songs' voices on your phone, for karaoke. ${(runtime.bytes + model.bytes) / 1_000_000} MB, downloaded once"
+                else -> "Separates songs' voices on your phone, for karaoke. ${com.prism.music.data.ModelStore.Model.sizeText(runtime, model)}, downloaded once"
             },
             onClick = {
                 if (ready) { c.sing.setOn(false); c.models.delete(runtime); c.models.delete(model) }

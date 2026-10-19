@@ -407,7 +407,7 @@ private fun HoldToLeaveButton(onTap: () -> Unit, onPressing: (Boolean) -> Unit, 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         AnimatedVisibility(held, enter = fadeIn(tween(200)), exit = fadeOut(tween(200))) {
             Text(
-                "Keep holding to leave immersive mode", color = Color.White,
+                "Keep holding to leave immersive mode (or press Back)", color = Color.White,
                 style = MaterialTheme.typography.labelLarge.copy(shadow = lineShadow),
                 modifier = Modifier.padding(bottom = 10.dp),
             )

@@ -349,6 +349,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
     // ------------------------------------------------ Immersive mode (⋯ menu): the cover fills the screen, lyrics over it
     if (settings.immersivePlayer && !videoMode) {
+        // Back leaves immersive mode for the normal player, as it leaves a full-screen video; Back again closes it.
+        BackHandler { c.settings.setImmersivePlayer(false) }
         ImmersivePlayer(
             song, canvas, canvasSaved, isPlaying, lyricsState, covered,
             onExit = { c.settings.setImmersivePlayer(false) },
@@ -510,7 +512,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         .background(Color.White.copy(alpha = 0.70f)),
                 )
                 if (collapse.value < 0.999f && settings.showPlayingFrom && originAlbum != null) PlaybackOriginCaption(
-                    "Playing from ${originAlbum.title}",
+                    // The song's own album, which needn't be what's playing (a playlist, a radio): not "Playing from".
+                    "From the album ${originAlbum.title}",
                     Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = 1f - p() },
                 ) {
                     onCollapse(); nav.go(Routes.album(originAlbum.id!!))

@@ -431,6 +431,17 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     var deleting by remember { mutableStateOf(false) }
     var title by remember(page.id) { mutableStateOf(page.title) }
     var description by remember(page.id) { mutableStateOf(page.description) }
+    var pageMenu by remember { mutableStateOf(false) }
+    fun shareTarget(): ShareTarget = when (type) {
+        CollectionType.ALBUM -> ShareTarget(title, page.artists.joinToString(", ") { it.name }.ifBlank { page.subtitle }, page.releaseKind ?: "Album", art, ShareLinks.album(page.id))
+        CollectionType.PLAYLIST -> ShareTarget(
+            title, page.subtitle.removePrefix("Playlist • "), "Playlist", art, ShareLinks.playlist(page.id),
+            playlistId = page.id.takeIf { live.page.owned }, privacy = privacy.takeIf { live.page.owned },
+        )
+        CollectionType.LIKED -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
+        CollectionType.DOWNLOADS -> ShareTarget("Downloads", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
+        CollectionType.MIX -> ShareTarget(title, page.subtitle, "Mix", art, null, songs = songs)
+    }
 
     // A wide landscape window (a tablet on its side) keeps the cover and its details beside the songs, as Apple Music
     // does on an iPad, instead of a header the width of the screen above them.
@@ -603,45 +614,51 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 downloading = downloadingCount > 0,
                 onDownload = toggleDownloads,
                 onShare = { sharing = true },
-            ) { close ->
-                if (radioId != null) DropdownMenuItem({ Text("Start radio") }, { close(); startRadio() }, leadingIcon = { Icon(PrismIcons.Radio, null) })
-                if (savableId != null && saved != null) DropdownMenuItem(
-                    { Text(if (saved == true) "Remove from library" else "Add to library") }, { close(); toggleSaved() },
-                    leadingIcon = { Icon(if (saved == true) PrismIcons.LibraryAdded else PrismIcons.LibraryAdd, null) },
+                onMore = { pageMenu = true },
+            )
+        }
+
+        // The page's ⋯ is the same sheet as a long press on its card (play, shuffle, play next, queue, DJ set), with
+        // what only the page can do (radio, library, downloads, picture, edit…) in a group of its own.
+        if (pageMenu) {
+            val excludedLists by c.exclusions.playlists.collectAsState()
+            val downloadsItems = if (type == CollectionType.DOWNLOADS) downloadsSheetItems { text, action -> confirm = text to action } else emptyList()
+            val items = buildList {
+                if (radioId != null) add(SheetItem(PrismIcons.Radio, "Start radio") { startRadio() })
+                if (savableId != null && saved != null) add(
+                    SheetItem(if (saved == true) PrismIcons.LibraryAdded else PrismIcons.LibraryAdd, if (saved == true) "Remove from library" else "Add to library") { toggleSaved() },
                 )
-                if (type != CollectionType.DOWNLOADS) DropdownMenuItem(
-                    { Text(if (allDownloaded) "Remove downloads" else "Download all") }, { close(); toggleDownloads() },
-                    leadingIcon = { Icon(if (allDownloaded) PrismIcons.Delete else PrismIcons.Download, null) },
+                if (type != CollectionType.DOWNLOADS) add(
+                    SheetItem(if (allDownloaded) PrismIcons.Delete else PrismIcons.Download, if (allDownloaded) "Remove downloads" else "Download all") { toggleDownloads() },
                 )
-                live.page.artists.firstOrNull { it.id != null }?.let { a ->
-                    DropdownMenuItem({ Text("Go to ${a.name}") }, { close(); nav.go(Routes.artist(a.id!!)) }, leadingIcon = { Icon(PrismIcons.Person, null) })
-                }
-                if (type == CollectionType.LIKED) DropdownMenuItem(
-                    { Text(if (likedPlaylistId != null) "Playlist · kept up to date" else "Make it a playlist") }, { close(); likedPlaylistSheet = true },
-                    leadingIcon = { Icon(PrismIcons.PlaylistAdd, null) },
+                live.page.artists.firstOrNull { it.id != null }?.let { a -> add(SheetItem(PrismIcons.Person, "Go to ${a.name}") { nav.go(Routes.artist(a.id!!)) }) }
+                if (type == CollectionType.LIKED) add(
+                    SheetItem(PrismIcons.PlaylistAdd, if (likedPlaylistId != null) "Playlist · kept up to date" else "Make it a playlist") { likedPlaylistSheet = true },
                 )
-                if (coverKey != null) DropdownMenuItem({ Text("Change picture") }, { close(); coverSheet = true }, leadingIcon = { Icon(PrismIcons.Photo, null) })
-                if (type == CollectionType.PLAYLIST && live.page.owned) {
-                    DropdownMenuItem({ Text("Edit details") }, { close(); editing = true }, leadingIcon = { Icon(PrismIcons.Edit, null) })
-                    DropdownMenuItem({ Text("Delete playlist") }, { close(); deleting = true }, leadingIcon = { Icon(PrismIcons.Delete, null) })
-                }
-                if (type == CollectionType.DOWNLOADS) DownloadsMenuItems(close) { text, action -> confirm = text to action }
+                if (coverKey != null) add(SheetItem(PrismIcons.Photo, "Change picture") { coverSheet = true })
+                if (type == CollectionType.PLAYLIST && live.page.owned) add(SheetItem(PrismIcons.Edit, "Edit details") { editing = true })
                 // A sleep or kids' playlist: plays as usual, but doesn't shape recommendations.
                 if (type == CollectionType.PLAYLIST) {
-                    val excludedLists by c.exclusions.playlists.collectAsState()
                     val listId = page.playlistId ?: page.id.removePrefix("VL")
                     val out = excludedLists.any { it.id == listId }
-                    DropdownMenuItem(
-                        { Text(if (out) "Back in my taste" else "Leave out of my taste") },
-                        {
-                            close()
-                            c.exclusions.setPlaylist(com.prism.music.data.foryou.Excluded(listId, title, art), !out)
-                            Toast.makeText(context, if (out) "Its plays count towards your recommendations again" else "Its plays won't shape your recommendations", Toast.LENGTH_SHORT).show()
-                        },
-                        leadingIcon = { Icon(PrismIcons.Block, null) },
-                    )
+                    add(SheetItem(PrismIcons.Block, if (out) "Back in my taste" else "Leave out of my taste") {
+                        c.exclusions.setPlaylist(com.prism.music.data.foryou.Excluded(listId, title, art), !out)
+                        Toast.makeText(context, if (out) "Its plays count towards your recommendations again" else "Its plays won't shape your recommendations", Toast.LENGTH_SHORT).show()
+                    })
                 }
+                addAll(downloadsItems)
+                if (type == CollectionType.PLAYLIST && live.page.owned) add(SheetItem(PrismIcons.Delete, "Delete playlist", danger = true) { deleting = true })
             }
+            // The songs as the page shows them (filtered, sorted; offline only those on the phone).
+            val queue = playable
+            val target = com.prism.music.ui.components.Playable.Page(
+                title, live.page.subtitle.ifBlank { com.prism.music.data.model.songCount(songs.size) }, art ?: songs.firstOrNull()?.thumbnail,
+                album = type == CollectionType.ALBUM, share = shareTarget(),
+            ) { queue to source }
+            com.prism.music.ui.components.PlayActionsSheet(
+                target, items,
+                extraTitle = when (type) { CollectionType.ALBUM -> "This album"; CollectionType.DOWNLOADS -> "Downloads"; else -> "This playlist" },
+            ) { pageMenu = false }
         }
 
         if (editing) EditPlaylistDialog(title, description.orEmpty(), privacy ?: "PRIVATE", onDismiss = { editing = false }) { t, d, p ->
@@ -678,18 +695,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
         },
         dismissButton = { TextButton(onClick = { deleting = false }) { Text("Cancel") } },
     )
-    if (sharing) ShareSheet(
-        when (type) {
-            CollectionType.ALBUM -> ShareTarget(title, page.artists.joinToString(", ") { it.name }.ifBlank { page.subtitle }, page.releaseKind ?: "Album", art, ShareLinks.album(page.id))
-            CollectionType.PLAYLIST -> ShareTarget(
-                title, page.subtitle.removePrefix("Playlist • "), "Playlist", art, ShareLinks.playlist(page.id),
-                playlistId = page.id.takeIf { live.page.owned }, privacy = privacy.takeIf { live.page.owned },
-            )
-            CollectionType.LIKED -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
-            CollectionType.DOWNLOADS -> ShareTarget("Downloads", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
-            CollectionType.MIX -> ShareTarget(title, page.subtitle, "Mix", art, null, songs = songs)
-        },
-    ) { sharing = false }
+    if (sharing) ShareSheet(shareTarget()) { sharing = false }
 }
 
 private fun durationText(sec: Int): String {
@@ -765,10 +771,9 @@ private fun CollectionTopBar(
     downloading: Boolean,
     onDownload: () -> Unit,
     onShare: () -> Unit,
-    menuItems: @Composable (close: () -> Unit) -> Unit,
+    onMore: () -> Unit,
 ) {
     val nav = LocalNavigator.current
-    var menu by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             com.prism.music.ui.components.RoundAction(PrismIcons.ArrowBack, "Back", glass = true) { nav.back() }
@@ -785,10 +790,7 @@ private fun CollectionTopBar(
                     } else com.prism.music.ui.components.RoundAction(downloadIcon, if (downloadIcon == PrismIcons.DownloadDone) "Downloaded" else "Download all", glass = true, onClick = onDownload)
                 }
                 com.prism.music.ui.components.RoundAction(PrismIcons.Share, "Share", glass = true, onClick = onShare)
-                Box {
-                    com.prism.music.ui.components.RoundAction(PrismIcons.More, "More", glass = true) { menu = true }
-                    DropdownMenu(menu, { menu = false }) { menuItems { menu = false } }
-                }
+                com.prism.music.ui.components.RoundAction(PrismIcons.More, "More", glass = true, onClick = onMore)
             }
         }
     }
@@ -1169,7 +1171,7 @@ fun DownloadQueueStatus(unfinished: Collection<com.prism.music.download.Download
 
 /** Downloads' ⋯ menu entries: lyrics and bulk deletes. */
 @Composable
-private fun DownloadsMenuItems(close: () -> Unit, ask: (String, () -> Unit) -> Unit) {
+private fun downloadsSheetItems(ask: (String, () -> Unit) -> Unit): List<SheetItem> {
     val c = LocalContainer.current
     val all by c.downloads.downloads.collectAsState()
     var smartIds by remember { mutableStateOf(emptySet<String>()) }
@@ -1177,22 +1179,21 @@ private fun DownloadsMenuItems(close: () -> Unit, ask: (String, () -> Unit) -> U
         smartIds = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.db.songs().smartDownloads().map { it.id }.toSet() }
     }
     val smart = all.filter { it.value.state == Download.STATE_COMPLETED && it.key in smartIds }.keys
-    DropdownMenuItem({ Text("Get missing lyrics") }, { close(); c.downloads.backfillLyrics(force = true) }, leadingIcon = { Icon(PrismIcons.Lyrics, null) })
-    if (smart.isNotEmpty()) DropdownMenuItem({ Text("Delete smart downloads (${smart.size})") }, {
-        close()
-        ask("Delete the ${com.prism.music.data.model.songCount(smart.size)} smart downloads added? They may come back later if smart downloads stays on.") { c.downloads.removeMany(smart) }
-    }, leadingIcon = { Icon(PrismIcons.Delete, null) })
     val videos by c.downloads.videos.collectAsState()
-    if (videos.isNotEmpty()) DropdownMenuItem({ Text("Delete music videos (${sizeText(videos.values.sumOf { it.bytes })})") }, {
-        close()
-        ask("Delete the ${videos.size} saved music videos? The songs stay downloaded.") { videos.keys.forEach(c.downloads::removeVideo) }
-    }, leadingIcon = { Icon(PrismIcons.Delete, null) })
-    DropdownMenuItem({ Text("Delete all downloads") }, {
-        close()
-        val lossless = all.count { it.value.lossless }
-        ask(
-            "Delete all ${all.size} downloads (${sizeText(c.downloads.totalBytes)})? This frees the space straight away." +
-                if (lossless > 0) " Your $lossless lossless files stay on the phone; they just leave Downloads." else ""
-        ) { c.downloads.removeAll() }
-    }, leadingIcon = { Icon(PrismIcons.Delete, null) })
+    return buildList {
+        add(SheetItem(PrismIcons.Lyrics, "Get missing lyrics") { c.downloads.backfillLyrics(force = true) })
+        if (smart.isNotEmpty()) add(SheetItem(PrismIcons.Delete, "Delete smart downloads (${smart.size})", danger = true) {
+            ask("Delete the ${com.prism.music.data.model.songCount(smart.size)} smart downloads added? They may come back later if smart downloads stays on.") { c.downloads.removeMany(smart) }
+        })
+        if (videos.isNotEmpty()) add(SheetItem(PrismIcons.Delete, "Delete music videos (${sizeText(videos.values.sumOf { it.bytes })})", danger = true) {
+            ask("Delete the ${videos.size} saved music videos? The songs stay downloaded.") { videos.keys.forEach(c.downloads::removeVideo) }
+        })
+        add(SheetItem(PrismIcons.Delete, "Delete all downloads", danger = true) {
+            val lossless = all.count { it.value.lossless }
+            ask(
+                "Delete all ${all.size} downloads (${sizeText(c.downloads.totalBytes)})? This frees the space straight away." +
+                    if (lossless > 0) " Your $lossless lossless files stay on the phone; they just leave Downloads." else ""
+            ) { c.downloads.removeAll() }
+        })
+    }
 }

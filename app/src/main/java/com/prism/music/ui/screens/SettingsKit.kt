@@ -129,7 +129,7 @@ fun Item(title: String, subtitle: String?, onClick: () -> Unit, icon: ImageVecto
 
 /** A row that opens another page: a plain line icon, title, summary, chevron. */
 @Composable
-fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolean = false, onClick: () -> Unit) {
+fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolean = false, hint: String? = null, onClick: () -> Unit) {
     val ui = LocalUi.current
     Row(
         Modifier.fillMaxWidth()
@@ -143,6 +143,8 @@ fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolea
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
             if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            // What to do first (a search result hidden behind another switch).
+            if (!hint.isNullOrBlank()) Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
         Icon(PrismIcons.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
     }

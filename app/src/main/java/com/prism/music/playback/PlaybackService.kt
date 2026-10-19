@@ -1431,7 +1431,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         // Local music always plays from its file.
         if (item.mediaId.startsWith(Song.LOCAL_PREFIX)) {
             val uri = c.localMusic.uriFor(item.mediaId) ?: return null
-            val format = c.localMusic.track(item.mediaId)?.mime?.substringAfter('/')?.removePrefix("x-")?.uppercase()
+            val format = c.localMusic.track(item.mediaId)?.mime?.let(::fileFormatName)
             c.streamDetails[item.mediaId] = "On this phone" + (format?.let { " · $it" } ?: "") to null
             scope.launch { applyStreamStats(item.mediaId) }
             return uri
@@ -1677,6 +1677,13 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             copy(
                 codec = format.codecs ?: format.sampleMimeType ?: codec,
                 sampleRate = format.sampleRate.takeIf { it > 0 } ?: sampleRate,
+                bitDepth = when (format.pcmEncoding) {
+                    C.ENCODING_PCM_8BIT -> 8
+                    C.ENCODING_PCM_16BIT, C.ENCODING_PCM_16BIT_BIG_ENDIAN -> 16
+                    C.ENCODING_PCM_24BIT, C.ENCODING_PCM_24BIT_BIG_ENDIAN -> 24
+                    C.ENCODING_PCM_32BIT, C.ENCODING_PCM_32BIT_BIG_ENDIAN, C.ENCODING_PCM_FLOAT -> 32
+                    else -> 0
+                },
                 channels = format.channelCount.takeIf { it > 0 } ?: channels,
                 container = format.containerMimeType ?: container,
                 streamBitrateKbps = streamBitrateKbps.takeIf { it > 0 }

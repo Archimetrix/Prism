@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -430,8 +431,9 @@ fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
             }
             drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color(0xFF07060C)), startY = size.height * 0.35f))
         }
+        // A phone's width in the middle on a tablet, rather than buttons stretched across the screen.
         Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(28.dp),
+            Modifier.align(Alignment.TopCenter).widthIn(max = 480.dp).fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(28.dp),
             verticalArrangement = Arrangement.Bottom,
         ) {
             Text("Prism", color = Color.White, style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Black)
