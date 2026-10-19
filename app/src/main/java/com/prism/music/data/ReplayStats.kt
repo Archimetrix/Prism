@@ -24,6 +24,7 @@ class Habits(
     val morningShare: Double get() = ((5..8).sumOf { byHour[it] }).toDouble() / total
 }
 
+@kotlinx.serialization.Serializable
 data class Personality(val name: String, val line: String)
 
 object ReplayStats {

@@ -273,6 +273,8 @@ data class AppSettings(
     val djFlow: com.prism.music.playback.DjFlow = com.prism.music.playback.DjFlow.STEADY,
     /** A notification when an artist the listener starred puts something out (Release Radar). */
     val releaseNotifications: Boolean = true,
+    /** A notification on 1 December when the year's Rewind is ready. */
+    val rewindNotification: Boolean = true,
     /** Prism Connect: control Prism from a browser on the same Wi-Fi (off until switched on; paired browsers only). */
     val webRemote: Boolean = false,
     /** Prism Connect: other Prism devices on the Wi-Fi can find this one and move what they're playing here. */
@@ -495,6 +497,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val singCacheMb = intPreferencesKey("sing_cache_mb")
         val djFlow = stringPreferencesKey("dj_flow")
         val releaseNotifications = booleanPreferencesKey("release_notifications")
+        val rewindNotification = booleanPreferencesKey("rewind_notification")
         val webRemote = booleanPreferencesKey("web_remote")
         val handoffAvailable = booleanPreferencesKey("handoff_available")
         val lyricsScale = floatPreferencesKey("lyrics_scale")
@@ -659,6 +662,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             singCacheMb = p[K.singCacheMb] ?: d.singCacheMb,
             djFlow = p.enum(K.djFlow, d.djFlow),
             releaseNotifications = p[K.releaseNotifications] ?: d.releaseNotifications,
+            rewindNotification = p[K.rewindNotification] ?: d.rewindNotification,
             webRemote = p[K.webRemote] ?: d.webRemote,
             handoffAvailable = p[K.handoffAvailable] ?: d.handoffAvailable,
             lyricsScale = p[K.lyricsScale] ?: d.lyricsScale,
@@ -861,6 +865,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setSingCacheMb(v: Int) = edit { it[K.singCacheMb] = v }
     fun setDjFlow(v: com.prism.music.playback.DjFlow) = edit { it[K.djFlow] = v.name }
     fun setReleaseNotifications(v: Boolean) = edit { it[K.releaseNotifications] = v }
+    fun setRewindNotification(v: Boolean) = edit { it[K.rewindNotification] = v }
     fun setWebRemote(v: Boolean) = edit { it[K.webRemote] = v }
     fun setHandoffAvailable(v: Boolean) = edit { it[K.handoffAvailable] = v }
     fun setLyricsScale(v: Float) = edit { it[K.lyricsScale] = v }

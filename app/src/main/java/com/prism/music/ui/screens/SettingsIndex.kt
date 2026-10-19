@@ -180,6 +180,7 @@ object SettingsIndex {
         SettingEntry(R, "Library", "Full-width playlist pictures"),
         SettingEntry(R, "Replay", "Show time in hours", "stats minutes"),
         SettingEntry(R, "Replay", "Use theme colours", "colors stats"),
+        SettingEntry(R, "Replay", "Rewind notification", "rewind wrapped year in review december notification"),
         SettingEntry(R, "Recommendations", "Exclusions", "taste profile exclude artist playlist don't play block"),
         // About
         SettingEntry(B, "Backup", "Back up", "backup export save move new phone"),

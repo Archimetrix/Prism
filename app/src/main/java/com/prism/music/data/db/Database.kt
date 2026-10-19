@@ -190,6 +190,7 @@ data class RecognitionEntity(
     val signature: String? = null,
 )
 
+@kotlinx.serialization.Serializable
 data class SongPlays(
     val songId: String,
     val plays: Int,
@@ -202,8 +203,18 @@ data class SongPlays(
     val artistId: String?,
 )
 
+@kotlinx.serialization.Serializable
 data class ArtistPlays(val artistName: String, val plays: Int, val ms: Long, val thumbnail: String?, val artistId: String?)
+@kotlinx.serialization.Serializable
 data class MonthTotal(val month: String, val ms: Long)
+/** An album's listening (by its title and the songs' main artist); [songs] is how many of its songs were played. */
+@kotlinx.serialization.Serializable
+data class AlbumPlays(val albumTitle: String, val artistName: String, val plays: Int, val ms: Long, val songs: Int, val thumbnail: String?)
+/** The first song played in a stretch of time, and when. */
+@kotlinx.serialization.Serializable
+data class FirstPlay(val songId: String, val title: String, val artistName: String, val thumbnail: String?, val timestamp: Long)
+/** Plays by what they played as part of ([PlayEventEntity.source]). */
+data class SourcePlays(val source: String?, val plays: Int, val ms: Long)
 
 @Dao
 interface SongDao {
@@ -316,6 +327,37 @@ interface PlayEventDao {
 
     @Query("SELECT songId FROM play_events WHERE timestamp > :since GROUP BY songId ORDER BY COUNT(*) DESC LIMIT :limit")
     suspend fun mostPlayedIds(since: Long, limit: Int): List<String>
+
+    /** Rewind: most-listened albums (songs with an album only). */
+    @Query(
+        """SELECT s.albumTitle AS albumTitle, s.artistName AS artistName, COUNT(*) AS plays, SUM(e.playedMs) AS ms,
+           COUNT(DISTINCT e.songId) AS songs, MAX(s.thumbnail) AS thumbnail
+           FROM play_events e JOIN songs s ON s.id = e.songId
+           WHERE e.timestamp BETWEEN :from AND :to AND s.albumTitle IS NOT NULL AND s.albumTitle != ''
+           GROUP BY s.albumTitle, s.artistName ORDER BY ms DESC LIMIT :limit"""
+    )
+    suspend fun topAlbums(from: Long, to: Long, limit: Int): List<AlbumPlays>
+
+    /** Rewind: the first song played in the stretch. */
+    @Query(
+        """SELECT e.songId AS songId, s.title AS title, s.artistName AS artistName, s.thumbnail AS thumbnail, e.timestamp AS timestamp
+           FROM play_events e JOIN songs s ON s.id = e.songId
+           WHERE e.timestamp BETWEEN :from AND :to ORDER BY e.timestamp LIMIT 1"""
+    )
+    suspend fun firstPlay(from: Long, to: Long): FirstPlay?
+
+    /** Rewind: plays by what they were part of (Sing, DJ mode, Smart Shuffle…). */
+    @Query("SELECT source AS source, COUNT(*) AS plays, SUM(playedMs) AS ms FROM play_events WHERE timestamp BETWEEN :from AND :to GROUP BY source")
+    suspend fun bySource(from: Long, to: Long): List<SourcePlays>
+
+    @Query("SELECT COUNT(*) FROM recognitions WHERE status = 'found' AND at BETWEEN :from AND :to")
+    suspend fun recognizedIn(from: Long, to: Long): Int
+
+    @Query("SELECT COUNT(*) FROM blends WHERE createdAt BETWEEN :from AND :to")
+    suspend fun blendsIn(from: Long, to: Long): Int
+
+    @Query("SELECT COUNT(*) FROM releases WHERE baseline = 0 AND firstSeenAt BETWEEN :from AND :to")
+    suspend fun releasesFoundIn(from: Long, to: Long): Int
 
     /** [topSongs] for taste: plays the listener left out of it don't count. */
     @Query(

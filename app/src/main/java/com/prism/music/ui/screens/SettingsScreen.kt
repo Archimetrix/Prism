@@ -1411,6 +1411,7 @@ private fun LibraryReplaySettings() {
         Group("Replay") {
             Toggle("Show time in hours", if (s.replayHours) "Listening time reads like \"20h 4m\"" else "Listening time reads like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
             Toggle("Use theme colours", "Replay's cards follow your accent instead of Prism's own gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }
+            Toggle("Rewind notification", "On December 1, when your year in music is ready (each year's Rewind is in Replay)", s.rewindNotification) { prefs.setRewindNotification(it) }
         }
         Group("Recommendations") {
             val nav = LocalNavigator.current

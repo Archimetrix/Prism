@@ -149,9 +149,59 @@ internal class ReplayStory(
     val personality: Personality,
     val topArtistImage: String?,
     val topArtistType: ArtistType,
+    /** A year's story: its Rewind, with the parts only a year has. */
+    val rewind: Boolean = false,
+    val months: List<com.prism.music.data.db.MonthTotal> = emptyList(),
+    val topAlbum: com.prism.music.data.db.AlbumPlays? = null,
+    val firstSong: com.prism.music.data.db.FirstPlay? = null,
+    val seasons: List<com.prism.music.data.SeasonGenre> = emptyList(),
+    val prism: com.prism.music.data.PrismYear = com.prism.music.data.PrismYear(),
+    val topLyric: String? = null,
+    val previousTopArtist: String? = null,
+    val previousSongCount: Int? = null,
+) {
+    /** "PRISM REWIND" for a year, "PRISM REPLAY" otherwise. */
+    val brand: String get() = if (rewind) "PRISM REWIND" else "PRISM REPLAY"
+}
+
+/** The facts [StoryParts.pick] chooses this story's slides by. */
+internal fun ReplayStory.facts() = com.prism.music.data.StoryFacts(
+    rewind = rewind, totalMs = totalMs, plays = plays, activeDays = activeDays, songs = songs.size, artists = artists.size,
+    genres = genres.size, seasonsWithGenre = seasons.count { it.genre != null }, album = topAlbum,
+    monthsWithListening = months.count { it.ms > 0 }, firstSong = firstSong != null, newArtists = newArtists?.size ?: 0,
+    prism = prism.any, previous = previousMs != null,
 )
 
-internal suspend fun loadReplayStory(c: AppContainer, period: Period, year: Int): ReplayStory = withContext(Dispatchers.IO) {
+/** A year's Rewind as its story: kept (or just worked out) by [com.prism.music.data.Rewinds], plus the top artist's type. */
+private suspend fun loadRewindStory(c: AppContainer, year: Int): ReplayStory = withContext(Dispatchers.IO) {
+    val s = c.rewind.snapshot(year)
+    val lead = s.artists.firstOrNull()
+    val leadPage = lead?.artistId?.let { id -> withTimeoutOrNull(5_000) { runCatching { c.ytm.artist(id) }.getOrNull() } }
+    val leadGenre = lead?.let { withTimeoutOrNull(3_000) { runCatching { c.meta.artistGenre(it.artistName) }.getOrNull() } }
+    val leadType = if (lead?.artistId != null) ArtistTypography.forArtist(lead.artistId, leadGenre, ArtistTypography.parseAudience(leadPage?.subscribers)) else ArtistTypography.standard
+    val photos = c.scope.launch {
+        c.library.fetchArtistPhotos((s.artists.take(5) + (s.newArtists ?: emptyList()).take(6)).map { it.artistId to it.artistName })
+    }
+    withTimeoutOrNull(6_000) { photos.join() }
+    val genreSongs = s.genreSongs.mapNotNull { (g, id) -> s.songs.firstOrNull { it.songId == id }?.let { g to it } }.toMap()
+    ReplayStory(
+        period = Period.year(year), title = "$year",
+        totalMs = s.totalMs, previousMs = s.previousMs, previousLabel = if (s.previousMs != null) "${year - 1}" else null,
+        plays = s.plays, activeDays = s.activeDays, songCount = s.songCount, artistCount = s.artistCount,
+        songs = s.songs, artists = s.artists, genres = s.genres.map { it.genre to it.ms }, genreSongs = genreSongs,
+        habits = s.habits(), newArtists = s.newArtists, personality = s.personality,
+        topArtistImage = s.topArtistImage ?: leadPage?.thumbnail, topArtistType = leadType,
+        rewind = true, months = s.months, topAlbum = s.topAlbum, firstSong = s.firstSong, seasons = s.seasons, prism = s.prism,
+        topLyric = s.topLyric, previousTopArtist = s.previousTopArtist, previousSongCount = s.previousSongCount,
+    )
+}
+
+internal suspend fun loadReplayStory(c: AppContainer, period: Period): ReplayStory {
+    if (period.isYear) return loadRewindStory(c, period.year)
+    return loadPeriodStory(c, period)
+}
+
+private suspend fun loadPeriodStory(c: AppContainer, period: Period): ReplayStory = withContext(Dispatchers.IO) {
     val (from, to) = range(period)
     val dao = c.db.plays()
     val songs = dao.topSongs(from, to, 100)
@@ -165,12 +215,10 @@ internal suspend fun loadReplayStory(c: AppContainer, period: Period, year: Int)
     // The same stretch of time one step back, for "up 24% on last year".
     val (prevFrom, prevTo, prevLabel) = Calendar.getInstance().let {
         fun shift(t: Long, field: Int, by: Int) = Calendar.getInstance().apply { timeInMillis = t; add(field, by) }.timeInMillis
-        when (period) {
-            Period.YEAR -> Triple(shift(from, Calendar.YEAR, -1), shift(to, Calendar.YEAR, -1), "this time last year")
-            Period.LAST_YEAR -> Triple(shift(from, Calendar.YEAR, -1), shift(to, Calendar.YEAR, -1), "${year - 2}")
-            Period.MONTH -> Triple(shift(from, Calendar.MONTH, -1), shift(to, Calendar.MONTH, -1), "the same time last month")
-            Period.DAYS30 -> Triple(from - 30L * 86_400_000, from - 1, "the 30 days before")
-            Period.ALL -> Triple(0L, -1L, null)
+        when (period.kind) {
+            Period.Kind.MONTH -> Triple(shift(from, Calendar.MONTH, -1), shift(to, Calendar.MONTH, -1), "the same time last month")
+            Period.Kind.DAYS30 -> Triple(from - 30L * 86_400_000, from - 1, "the 30 days before")
+            Period.Kind.YEAR, Period.Kind.ALL -> Triple(0L, -1L, null)
         }
     }
     val previousMs = if (prevLabel != null) dao.totalMs(prevFrom, prevTo).takeIf { it > 60_000 } else null
@@ -178,6 +226,7 @@ internal suspend fun loadReplayStory(c: AppContainer, period: Period, year: Int)
     val habits = ReplayStats.habits(dao.events(from, to))
     val artistCount = dao.artistCount(from, to)
     val newArtists = if (period == Period.ALL || dao.firstEvent()?.let { it >= from } == true) null else dao.newArtists(from, to)
+    val months = if (period == Period.ALL) emptyList() else dao.monthly(from, to)
     val activeDays = dao.activeDays(from, to)
     val plays = dao.count(from, to)
     val songCount = dao.songCount(from, to)
@@ -197,12 +246,11 @@ internal suspend fun loadReplayStory(c: AppContainer, period: Period, year: Int)
 
     ReplayStory(
         period = period,
-        title = when (period) {
-            Period.YEAR -> "$year"
-            Period.LAST_YEAR -> "${year - 1}"
-            Period.MONTH -> Calendar.getInstance().getDisplayName(Calendar.MONTH, Calendar.LONG, java.util.Locale.getDefault()) ?: "This month"
-            Period.DAYS30 -> "Last 30 days"
-            Period.ALL -> "All time"
+        title = when (period.kind) {
+            Period.Kind.YEAR -> "${period.year}"
+            Period.Kind.MONTH -> Calendar.getInstance().getDisplayName(Calendar.MONTH, Calendar.LONG, java.util.Locale.getDefault()) ?: "This month"
+            Period.Kind.DAYS30 -> "Last 30 days"
+            Period.Kind.ALL -> "All time"
         },
         totalMs = totalMs, previousMs = previousMs, previousLabel = prevLabel,
         plays = plays, activeDays = activeDays, songCount = songCount, artistCount = artistCount,
@@ -215,34 +263,43 @@ internal suspend fun loadReplayStory(c: AppContainer, period: Period, year: Int)
         ),
         topArtistImage = leadPage?.thumbnail,
         topArtistType = leadType,
+        months = months,
     )
 }
 
 // ---------------------------------------------------------------- Slides
 
-private enum class Kind(val seconds: Int) {
-    INTRO(6), MINUTES(9), GENRES(8), TOP_ARTIST(9), TOP_ARTISTS(8), TOP_SONG(9), TOP_SONGS(8), HABITS(9), DISCOVERY(8), PERSONALITY(9), SUMMARY(0)
-}
+private typealias Kind = com.prism.music.data.StoryPart
 
 private class Slide(val kind: Kind, val song: SongPlays?, val colors: List<Color>)
 
 private fun palette(vararg hex: Long) = hex.map { Color(it) }
 
+/** The story's slides ([com.prism.music.data.StoryParts.pick] says which), each with its colours and the song under it. */
 private fun slidesFor(s: ReplayStory): List<Slide> {
     val songs = s.songs
     fun byArtist(name: String?) = songs.firstOrNull { it.artistName == name }
-    return buildList {
-        add(Slide(Kind.INTRO, songs.getOrNull(2) ?: songs.firstOrNull(), palette(0xFF14092E, 0xFF7C5CFF, 0xFFFF3B5C, 0xFFFFB13B)))
-        add(Slide(Kind.MINUTES, songs.getOrNull(3) ?: songs.firstOrNull(), palette(0xFF04241A, 0xFF1ED38A, 0xFFB8FF3B, 0xFF00B8FF)))
-        if (s.genres.isNotEmpty()) add(Slide(Kind.GENRES, s.genreSongs[s.genres.first().first], palette(0xFF2A0820, 0xFFFF4FD8, 0xFFFF8A3D, 0xFF7C5CFF)))
-        if (s.artists.isNotEmpty()) add(Slide(Kind.TOP_ARTIST, byArtist(s.artists.first().artistName), palette(0xFF0B0B12, 0xFF7C5CFF, 0xFF00C2FF, 0xFFFF3B5C)))
-        if (s.artists.size >= 3) add(Slide(Kind.TOP_ARTISTS, byArtist(s.artists[1].artistName), palette(0xFF0A1838, 0xFF3D7BFF, 0xFF00E5FF, 0xFFB44DFF)))
-        if (songs.isNotEmpty()) add(Slide(Kind.TOP_SONG, songs.first(), palette(0xFF120A0A, 0xFFFF3B30, 0xFFFF9500, 0xFFFF2D87)))
-        if (songs.size >= 3) add(Slide(Kind.TOP_SONGS, songs.first(), palette(0xFF3B0A0A, 0xFFFF3B30, 0xFFFF9500, 0xFFFFD60A)))
-        add(Slide(Kind.HABITS, songs.getOrNull(4) ?: songs.firstOrNull(), palette(0xFF050E26, 0xFF5B6CFF, 0xFF00D1FF, 0xFFFFC857)))
-        if (!s.newArtists.isNullOrEmpty()) add(Slide(Kind.DISCOVERY, byArtist(s.newArtists.first().artistName), palette(0xFF04201F, 0xFF00E0B8, 0xFF9BFF5B, 0xFF00A3FF)))
-        add(Slide(Kind.PERSONALITY, songs.getOrNull(1) ?: songs.firstOrNull(), palette(0xFF240C4A, 0xFFD53369, 0xFFDAAE51, 0xFF7C5CFF)))
-        add(Slide(Kind.SUMMARY, songs.firstOrNull(), palette(0xFF0C0C14, 0xFF7C5CFF, 0xFFFF3B5C, 0xFF00C2FF)))
+    fun byTitle(title: String?) = songs.firstOrNull { it.title == title }
+    return com.prism.music.data.StoryParts.pick(s.facts()).map { part ->
+        when (part) {
+            Kind.INTRO -> Slide(part, songs.getOrNull(2) ?: songs.firstOrNull(), palette(0xFF14092E, 0xFF7C5CFF, 0xFFFF3B5C, 0xFFFFB13B))
+            Kind.MINUTES -> Slide(part, songs.getOrNull(3) ?: songs.firstOrNull(), palette(0xFF04241A, 0xFF1ED38A, 0xFFB8FF3B, 0xFF00B8FF))
+            Kind.SEASONS -> Slide(part, byTitle(s.seasons.lastOrNull { it.genre != null }?.topSong) ?: songs.getOrNull(5) ?: songs.firstOrNull(), palette(0xFF1A1205, 0xFFFFB13B, 0xFF5BD6FF, 0xFF8BE36B))
+            Kind.GENRES -> Slide(part, s.genreSongs[s.genres.first().first], palette(0xFF2A0820, 0xFFFF4FD8, 0xFFFF8A3D, 0xFF7C5CFF))
+            Kind.TOP_ARTIST -> Slide(part, byArtist(s.artists.first().artistName), palette(0xFF0B0B12, 0xFF7C5CFF, 0xFF00C2FF, 0xFFFF3B5C))
+            Kind.TOP_ARTISTS -> Slide(part, byArtist(s.artists[1].artistName), palette(0xFF0A1838, 0xFF3D7BFF, 0xFF00E5FF, 0xFFB44DFF))
+            Kind.TOP_SONG -> Slide(part, songs.first(), palette(0xFF120A0A, 0xFFFF3B30, 0xFFFF9500, 0xFFFF2D87))
+            Kind.TOP_SONGS -> Slide(part, songs.first(), palette(0xFF3B0A0A, 0xFFFF3B30, 0xFFFF9500, 0xFFFFD60A))
+            Kind.TOP_ALBUM -> Slide(part, songs.firstOrNull { it.albumTitle == s.topAlbum?.albumTitle } ?: songs.firstOrNull(), palette(0xFF0E1A12, 0xFF2EC27E, 0xFFFFD60A, 0xFF00B4D8))
+            Kind.MONTHS -> Slide(part, songs.getOrNull(6) ?: songs.firstOrNull(), palette(0xFF0B1030, 0xFF3A86FF, 0xFFE056FD, 0xFF00E5FF))
+            Kind.FIRST_SONG -> Slide(part, songs.firstOrNull { it.songId == s.firstSong?.songId } ?: songs.getOrNull(7) ?: songs.firstOrNull(), palette(0xFF201033, 0xFFB18CFF, 0xFFFF7A9C, 0xFFFFD36B))
+            Kind.HABITS -> Slide(part, songs.getOrNull(4) ?: songs.firstOrNull(), palette(0xFF050E26, 0xFF5B6CFF, 0xFF00D1FF, 0xFFFFC857))
+            Kind.DISCOVERY -> Slide(part, byArtist(s.newArtists!!.first().artistName), palette(0xFF04201F, 0xFF00E0B8, 0xFF9BFF5B, 0xFF00A3FF))
+            Kind.PRISM_YEAR -> Slide(part, songs.getOrNull(8) ?: songs.firstOrNull(), palette(0xFF100A24, 0xFFFF7A9C, 0xFF6BE3FF, 0xFFB18CFF))
+            Kind.YEAR_COMPARE -> Slide(part, songs.getOrNull(9) ?: songs.firstOrNull(), palette(0xFF07161F, 0xFF00C2FF, 0xFF7C5CFF, 0xFF1ED38A))
+            Kind.PERSONALITY -> Slide(part, songs.getOrNull(1) ?: songs.firstOrNull(), palette(0xFF240C4A, 0xFFD53369, 0xFFDAAE51, 0xFF7C5CFF))
+            Kind.SUMMARY -> Slide(part, songs.firstOrNull(), palette(0xFF0C0C14, 0xFF7C5CFF, 0xFFFF3B5C, 0xFF00C2FF))
+        }
     }
 }
 
@@ -254,6 +311,7 @@ private fun slidesFor(s: ReplayStory): List<Slide> {
  */
 @OptIn(UnstableApi::class)
 private class StoryAudio(context: Context, c: AppContainer) {
+    private val bestParts = c.bestParts
     private val player = ExoPlayer.Builder(context)
         .setMediaSourceFactory(PrismMediaSourceFactory(c.playbackDataSourceFactory(), c.videoDataSourceFactory()))
         .build().apply { volume = 0f; repeatMode = Player.REPEAT_MODE_ONE }
@@ -269,8 +327,9 @@ private class StoryAudio(context: Context, c: AppContainer) {
         job?.cancel()
         job = scope.launch {
             ramp(0f, 300)
-            // Roughly where the chorus lands in most songs.
-            val start = if (song.durationSec > 90) (song.durationSec * 0.33).toLong().coerceIn(30, 80) * 1000 else 0L
+            // Its best part (the most replayed stretch, or the chorus in the lyrics); else roughly where most choruses land.
+            val best = withTimeoutOrNull(2_500) { runCatching { bestParts.startMs(song) }.getOrNull() }
+            val start = best ?: if (song.durationSec > 90) (song.durationSec * 0.33).toLong().coerceIn(30, 80) * 1000 else 0L
             player.setMediaItem(song.toMediaItem(), start)
             player.prepare()
             player.play()
@@ -320,6 +379,7 @@ private fun StoryContent(story: ReplayStory, onDismiss: () -> Unit) {
     var drag by remember { mutableFloatStateOf(0f) }
     val audio = remember { StoryAudio(context, c) }
     val handedOff = remember { booleanArrayOf(false) }
+    val slideLayer = rememberGraphicsLayer()
 
     // Like the big streaming apps: your music pauses for the story and picks up again after it.
     DisposableEffect(Unit) {
@@ -367,6 +427,8 @@ private fun StoryContent(story: ReplayStory, onDismiss: () -> Unit) {
             .clip(RoundedCornerShape(if (drag > 0) 28.dp else 0.dp))
             .background(base),
     ) {
+        // The slide (backdrop and all, not the controls over it) is also recorded, for sharing it as a picture.
+        Box(Modifier.fillMaxSize().recordInto(slideLayer).background(base)) {
         Backdrop(base, c1, c2, c3)
         Box(
             Modifier.fillMaxSize()
@@ -390,10 +452,11 @@ private fun StoryContent(story: ReplayStory, onDismiss: () -> Unit) {
             ) { i ->
                 SlideView(slides[i], story, onReplay = { go(0) }, onPlayAll = {
                     handedOff[0] = true
-                    c.player.playQueue(story.songs.map { it.toSong() }, 0, QueueSource(QueueKind.REPLAY, "Replay · ${story.title}"))
+                    c.player.playQueue(story.songs.map { it.toSong() }, 0, QueueSource(QueueKind.REPLAY, (if (story.rewind) "Rewind · " else "Replay · ") + story.title))
                     onDismiss()
                 })
             }
+        }
         }
 
         // Progress, title, mute and close.
@@ -408,9 +471,22 @@ private fun StoryContent(story: ReplayStory, onDismiss: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "PRISM REPLAY · ${story.title.uppercase()}", Modifier.weight(1f).padding(start = 4.dp),
+                    "${story.brand} · ${story.title.uppercase()}", Modifier.weight(1f).padding(start = 4.dp),
                     style = kicker(12.sp), color = Color.White.copy(alpha = 0.85f), maxLines = 1,
                 )
+                // Any slide as a picture (the summary has its own card too).
+                IconButton(onClick = {
+                    paused = true
+                    scope.launch {
+                        val name = if (story.rewind) "Rewind" else "Replay"
+                        if (!shareLayer(context, slideLayer, "prism-${name.lowercase()}-${index + 1}.png", "My Prism $name · ${story.title}", "Share this slide")) {
+                            Toast.makeText(context, "Couldn't share this slide", Toast.LENGTH_SHORT).show()
+                        }
+                        paused = false
+                    }
+                }) {
+                    Icon(PrismIcons.Share, "Share this slide", tint = Color.White)
+                }
                 IconButton(onClick = { muted = !muted }) {
                     Icon(if (muted) PrismIcons.VolumeOff else PrismIcons.VolumeUp, if (muted) "Unmute" else "Mute", tint = Color.White)
                 }
@@ -488,13 +564,19 @@ private fun SlideView(slide: Slide, s: ReplayStory, onReplay: () -> Unit, onPlay
         when (slide.kind) {
             Kind.INTRO -> Intro(s, pad)
             Kind.MINUTES -> Minutes(s, pad)
+            Kind.SEASONS -> Seasons(s, pad)
             Kind.GENRES -> Genres(s, pad)
             Kind.TOP_ARTIST -> TopArtist(s, pad)
             Kind.TOP_ARTISTS -> TopArtists(s, pad)
             Kind.TOP_SONG -> TopSong(s, pad)
             Kind.TOP_SONGS -> TopSongs(s, pad)
+            Kind.TOP_ALBUM -> TopAlbum(s, pad)
+            Kind.MONTHS -> Months(s, pad)
+            Kind.FIRST_SONG -> FirstSong(s, pad)
             Kind.HABITS -> HabitsSlide(s.habits, pad)
             Kind.DISCOVERY -> Discovery(s, pad)
+            Kind.PRISM_YEAR -> PrismYearSlide(s, pad)
+            Kind.YEAR_COMPARE -> YearCompare(s, pad)
             Kind.PERSONALITY -> PersonalitySlide(s.personality, pad)
             Kind.SUMMARY -> Summary(s, pad, onReplay, onPlayAll)
         }
@@ -517,14 +599,14 @@ private fun Intro(s: ReplayStory, modifier: Modifier) {
             }
         }
         Spacer(Modifier.height(36.dp))
-        Text("PRISM REPLAY", style = kicker(), modifier = Modifier.reveal(350))
+        Text(s.brand, style = kicker(), modifier = Modifier.reveal(350))
         Text(s.title.uppercase(), style = display(if (s.title.length > 6) 76.sp else 120.sp), modifier = Modifier.reveal(550))
         Text(
-            when (s.period) {
-                Period.YEAR, Period.LAST_YEAR -> "Your year in music."
-                Period.MONTH -> "Your month in music."
-                Period.DAYS30 -> "Your last 30 days in music."
-                Period.ALL -> "Everything you've played, in one story."
+            when (s.period.kind) {
+                Period.Kind.YEAR -> "Your year in music."
+                Period.Kind.MONTH -> "Your month in music."
+                Period.Kind.DAYS30 -> "Your last 30 days in music."
+                Period.Kind.ALL -> "Everything you've played, in one story."
             },
             style = body.copy(fontSize = 24.sp), modifier = Modifier.reveal(800).padding(top = 8.dp),
         )
@@ -679,6 +761,13 @@ private fun TopSong(s: ReplayStory, modifier: Modifier) {
                 "You played it ${song.plays} ${if (song.plays == 1) "time" else "times"}, for ${listenTime(song.ms)}.",
                 style = body, textAlign = TextAlign.Center, modifier = Modifier.reveal(1_500),
             )
+            // The line it's playing from (its best part).
+            s.topLyric?.let { line ->
+                Text(
+                    "“$line”", style = body.copy(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                    textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.reveal(2_400).padding(top = 18.dp),
+                )
+            }
         }
     }
 }
@@ -801,6 +890,153 @@ private fun PersonalitySlide(p: Personality, modifier: Modifier) {
     }
 }
 
+/** The year's sound, season by season (by months, as hemispheres disagree on the names). */
+@Composable
+private fun Seasons(s: ReplayStory, modifier: Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.Center) {
+        Text("YOUR YEAR, SEASON BY SEASON", style = kicker(), modifier = Modifier.reveal(100))
+        Spacer(Modifier.height(22.dp))
+        s.seasons.forEachIndexed { i, q ->
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp).reveal(300 + i * 260)
+                    .clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 18.dp, vertical = 14.dp),
+            ) {
+                Text(q.label.uppercase(), style = kicker(11.sp).copy(color = Color.White.copy(alpha = 0.75f)))
+                Text(q.genre ?: "A bit of everything", style = display(34.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                q.topSong?.let { Text("On repeat: $it", style = body.copy(fontSize = 15.sp, color = Color.White.copy(alpha = 0.8f)), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopAlbum(s: ReplayStory, modifier: Modifier) {
+    val a = s.topAlbum ?: return
+    val turn by rememberInfiniteTransition(label = "disc").animateFloat(0f, 360f, infiniteRepeatable(tween(12_000, easing = LinearEasing)), label = "d")
+    Column(modifier, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("YOUR TOP ALBUM", style = kicker(), modifier = Modifier.reveal(100).fillMaxWidth())
+        Spacer(Modifier.height(26.dp))
+        // The cover, with its record sliding out from behind it.
+        Box(Modifier.reveal(250).size(width = 300.dp, height = 240.dp)) {
+            Box(Modifier.align(Alignment.CenterEnd).size(220.dp).rotate(turn).clip(CircleShape).background(Color(0xFF111111))) {
+                Box(Modifier.align(Alignment.Center).size(80.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.85f)))
+                AsyncImage(hiRes(a.thumbnail, 300), null, Modifier.align(Alignment.Center).size(70.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+            }
+            AsyncImage(
+                hiRes(a.thumbnail, 900), null, contentScale = ContentScale.Crop,
+                modifier = Modifier.align(Alignment.CenterStart).size(230.dp).shadow(30.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)),
+            )
+        }
+        Spacer(Modifier.height(26.dp))
+        Text(a.albumTitle.uppercase(), style = display(44.sp), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.reveal(700))
+        Text(a.artistName, style = body.copy(fontSize = 20.sp), modifier = Modifier.reveal(900).padding(top = 6.dp))
+        Text(
+            "${a.songs} of its songs, ${a.plays} plays, ${listenTime(a.ms)}.",
+            style = body, textAlign = TextAlign.Center, modifier = Modifier.reveal(1_400).padding(top = 16.dp),
+        )
+    }
+}
+
+/** Month by month, the busiest one picked out. */
+@Composable
+private fun Months(s: ReplayStory, modifier: Modifier) {
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { delay(300); grow.animateTo(1f, tween(1_400)) }
+    val byMonth = LongArray(12)
+    s.months.forEach { m -> m.month.substringAfter('-').toIntOrNull()?.let { if (it in 1..12) byMonth[it - 1] += m.ms } }
+    val peak = byMonth.indices.maxByOrNull { byMonth[it] } ?: 0
+    val names = java.text.DateFormatSymbols.getInstance().months
+    val letters = listOf("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D")
+    Column(modifier, verticalArrangement = Arrangement.Center) {
+        Text("YOUR BIGGEST MONTH", style = kicker(), modifier = Modifier.reveal(100))
+        Text(names.getOrElse(peak) { "" }.uppercase(), style = display(72.sp), maxLines = 1, modifier = Modifier.reveal(300))
+        Text("${listenTime(byMonth[peak])} that month.", style = body, modifier = Modifier.reveal(600).padding(top = 6.dp))
+        Spacer(Modifier.height(30.dp))
+        Canvas(Modifier.fillMaxWidth().height(200.dp).reveal(400)) {
+            val max = byMonth.max().coerceAtLeast(1)
+            val gap = 6.dp.toPx()
+            val w = (size.width - gap * 11) / 12
+            for (i in 0 until 12) {
+                val h = (size.height * byMonth[i] / max.toFloat() * grow.value).coerceAtLeast(3.dp.toPx())
+                drawRoundRect(
+                    if (i == peak) Color.White else Color.White.copy(alpha = 0.38f),
+                    topLeft = Offset(i * (w + gap), size.height - h), size = androidx.compose.ui.geometry.Size(w, h),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(5.dp.toPx()),
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            letters.forEach { Text(it, Modifier.weight(1f), style = body.copy(fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f)), textAlign = TextAlign.Center) }
+        }
+    }
+}
+
+@Composable
+private fun FirstSong(s: ReplayStory, modifier: Modifier) {
+    val f = s.firstSong ?: return
+    val at = java.time.Instant.ofEpochMilli(f.timestamp).atZone(java.time.ZoneId.systemDefault())
+    Column(modifier, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("WHERE IT STARTED", style = kicker(), modifier = Modifier.reveal(100).fillMaxWidth())
+        Spacer(Modifier.height(24.dp))
+        AsyncImage(
+            hiRes(f.thumbnail, 900), null, contentScale = ContentScale.Crop,
+            modifier = Modifier.reveal(250).size(240.dp).shadow(30.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)),
+        )
+        Spacer(Modifier.height(24.dp))
+        Text("Your first song of ${s.title}:", style = body, modifier = Modifier.reveal(600))
+        Text(f.title.uppercase(), style = display(44.sp), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.reveal(800).padding(top = 6.dp))
+        Text(f.artistName, style = body.copy(fontSize = 20.sp), modifier = Modifier.reveal(1_000).padding(top = 4.dp))
+        Text(
+            at.format(DateTimeFormatter.ofPattern("MMMM d")) + " at " + at.format(DateTimeFormatter.ofPattern("h:mm a")),
+            style = body.copy(fontSize = 15.sp, color = Color.White.copy(alpha = 0.75f)), modifier = Modifier.reveal(1_400).padding(top = 12.dp),
+        )
+    }
+}
+
+/** What Prism's own features did this year. */
+@Composable
+private fun PrismYearSlide(s: ReplayStory, modifier: Modifier) {
+    val p = s.prism
+    val rows = listOfNotNull(
+        p.sung.takeIf { it > 0 }?.let { "Songs you sang" to fmt(it.toLong()) },
+        p.djSongs.takeIf { it > 0 }?.let { "Songs in DJ sets" to fmt(it.toLong()) },
+        p.smartPicks.takeIf { it > 0 }?.let { "Smart Shuffle finds played" to fmt(it.toLong()) },
+        p.recognized.takeIf { it > 0 }?.let { "Songs recognized" to fmt(it.toLong()) },
+        p.blends.takeIf { it > 0 }?.let { (if (p.blends == 1) "Blend made" else "Blends made") to fmt(it.toLong()) },
+        p.radarFinds.takeIf { it > 0 }?.let { "New releases Release Radar found" to fmt(it.toLong()) },
+    )
+    Column(modifier, verticalArrangement = Arrangement.Center) {
+        Text("YOUR YEAR IN PRISM", style = kicker(), modifier = Modifier.reveal(100))
+        Text("MORE THAN\nLISTENING", style = display(56.sp), modifier = Modifier.reveal(300).padding(top = 6.dp))
+        Spacer(Modifier.height(24.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            rows.forEachIndexed { i, (label, value) -> Fact(label, value, 700 + i * 220) }
+        }
+    }
+}
+
+/** This year against last. */
+@Composable
+private fun YearCompare(s: ReplayStory, modifier: Modifier) {
+    val prev = s.previousMs ?: return
+    val year = s.title.toIntOrNull()
+    val change = ((s.totalMs - prev) * 100.0 / prev).toInt()
+    Column(modifier, verticalArrangement = Arrangement.Center) {
+        Text("${year?.minus(1) ?: "LAST YEAR"} → ${s.title}", style = kicker(), modifier = Modifier.reveal(100))
+        Text(if (change >= 0) "+$change%" else "$change%", style = display(130.sp), maxLines = 1, modifier = Modifier.reveal(300))
+        Text(if (change >= 0) "MORE MUSIC" else "LESS MUSIC", style = display(44.sp, ArtistTypography.extended), modifier = Modifier.reveal(500))
+        Spacer(Modifier.height(26.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Fact("Listening", "${listenTime(prev)} → ${listenTime(s.totalMs)}", 900)
+            s.previousSongCount?.let { Fact("Different songs", "${fmt(it.toLong())} → ${fmt(s.songCount.toLong())}", 1_150) }
+            val now = s.artists.firstOrNull()?.artistName
+            if (s.previousTopArtist != null && now != null) {
+                Fact("Top artist", if (s.previousTopArtist == now) "$now, again" else "${s.previousTopArtist} → $now", 1_400)
+            }
+        }
+    }
+}
+
 @Composable
 private fun Summary(s: ReplayStory, modifier: Modifier, onReplay: () -> Unit, onPlayAll: () -> Unit) {
     val c = LocalContainer.current
@@ -825,7 +1061,7 @@ private fun Summary(s: ReplayStory, modifier: Modifier, onReplay: () -> Unit, on
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text("PRISM REPLAY", style = kicker(12.sp))
+                    Text(s.brand, style = kicker(12.sp))
                     Text(s.title.uppercase(), style = display(if (s.title.length > 6) 34.sp else 52.sp), maxLines = 1)
                 }
             }
@@ -856,8 +1092,9 @@ private fun Summary(s: ReplayStory, modifier: Modifier, onReplay: () -> Unit, on
         Row(Modifier.reveal(500), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Pill("Share", PrismIcons.Share, primary = true) {
                 scope.launch {
-                    if (!shareLayer(context, card, "prism-replay.png", "My Prism Replay · ${s.title}", "Share your Replay")) {
-                        Toast.makeText(context, "Couldn't share your Replay", Toast.LENGTH_SHORT).show()
+                    val name = if (s.rewind) "Rewind" else "Replay"
+                    if (!shareLayer(context, card, "prism-${name.lowercase()}.png", "My Prism $name · ${s.title}", "Share your $name")) {
+                        Toast.makeText(context, "Couldn't share your $name", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -865,10 +1102,10 @@ private fun Summary(s: ReplayStory, modifier: Modifier, onReplay: () -> Unit, on
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.reveal(700), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (c.settings.current.isLoggedIn) Pill("Save playlist", PrismIcons.PlaylistAdd) {
+            if (c.settings.current.isLoggedIn) Pill(if (s.rewind) "Save Top 100" else "Save playlist", PrismIcons.PlaylistAdd) {
                 scope.launch {
-                    val name = "Replay ${s.title}"
-                    val id = runCatching { c.ytm.createPlaylist(name, s.songs.take(100).map { it.songId }, "Made with Prism Replay") }.getOrNull()
+                    val name = if (s.rewind) "Top 100 of ${s.title}" else "Replay ${s.title}"
+                    val id = runCatching { c.ytm.createPlaylist(name, s.songs.take(100).map { it.songId }, if (s.rewind) "Made with Prism Rewind" else "Made with Prism Replay") }.getOrNull()
                     Toast.makeText(context, if (id != null) "Saved \"$name\" to YouTube Music" else "Couldn't create playlist", Toast.LENGTH_SHORT).show()
                 }
             }

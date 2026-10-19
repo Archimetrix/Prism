@@ -635,19 +635,28 @@ private fun ReplayTeaser() {
     if (ms < 60_000) return
     val total = listenTotal(ms)
     val year = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    // Through December (once this year's Rewind has opened), the teaser is the Rewind's own card and opens its story.
+    val rewind = remember { Calendar.getInstance().get(Calendar.MONTH) == Calendar.DECEMBER && c.rewind.isOpen(year) }
     val ui = com.prism.music.ui.theme.LocalUi.current
     Box(
         Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)).fillMaxWidth().height(150.dp).clip(ui.shape(26.dp))
             .background(Brush.linearGradient(replayGradient()))
-            .clickable { nav.go(Routes.REPLAY) }
+            .clickable {
+                if (rewind) c.rewindRequest.value = year
+                nav.go(Routes.REPLAY)
+            }
             .padding(22.dp),
     ) {
         Column(Modifier.align(Alignment.BottomStart)) {
-            Text("REPLAY $year", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black)
-            Text(total.full,Modifier.toggleListenUnit(), color = Color.White, style = MaterialTheme.typography.displaySmall)
-            Text("See your top songs, artists and genres", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium)
+            Text(if (rewind) "REWIND $year" else "REPLAY $year", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black)
+            if (rewind) Text("Your year in music", color = Color.White, style = MaterialTheme.typography.displaySmall, maxLines = 1)
+            else Text(total.full, Modifier.toggleListenUnit(), color = Color.White, style = MaterialTheme.typography.displaySmall)
+            Text(
+                if (rewind) "${total.full}. Your top songs and artists, your year in Prism, and more" else "See your top songs, artists and genres",
+                color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium, maxLines = 2,
+            )
         }
-        Icon(PrismIcons.ReplayFilled, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd))
+        Icon(if (rewind) PrismIcons.Play else PrismIcons.ReplayFilled, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd))
     }
 }
 

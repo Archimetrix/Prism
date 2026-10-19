@@ -792,6 +792,11 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
         // The Quick Settings tile: straight to listening.
         uri.scheme == "prism" && uri.host == "recognize" -> nav.go(Routes.RECOGNIZE + "?start=true")
         uri.scheme == "prism" && uri.host == "recognized" -> nav.go(Routes.RECOGNIZED)
+        // The 1 December notification: that year's Rewind.
+        uri.scheme == "prism" && uri.host == "rewind" -> {
+            path.firstOrNull()?.toIntOrNull()?.let { c.rewindRequest.value = it }
+            nav.go(Routes.REPLAY)
+        }
         // A handoff pairing code's notification: Prism Connect's settings, where the code shows.
         uri.scheme == "prism" && uri.host == "connect" -> nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.CONNECT.key))
         uri.scheme == "prism" && uri.host == "mix" && path.isNotEmpty() -> nav.go(Routes.mix(path[0]))

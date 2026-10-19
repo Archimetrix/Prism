@@ -82,6 +82,13 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         // For you (1.7): Home gets its sections once, and Release Radar looks round every few days.
         container.settings.addNewHomeSections()
         runCatching { com.prism.music.data.foryou.ReleaseRadar.schedule(this) }
+        // Rewind: the 1 December notification, and last year kept once it's over (after start-up has settled).
+        runCatching { com.prism.music.data.Rewinds.schedule(this) }
+        container.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.delay(45_000)
+            container.quietNetwork()
+            runCatching { container.rewind.freezeLastYear() }
+        }
         runCatching { container.backup.resumeDownloads() }
         // A lyrics save into a music file that Prism closing cut short is put right (#16).
         if (java.io.File(filesDir, "lyrics-tags").list()?.isNotEmpty() == true) {
@@ -291,6 +298,11 @@ class AppContainer(val app: Application) {
     private val webRemoteMade = lazy { com.prism.music.connect.WebRemote(app, this) }
     /** Prism Connect: Prism played from a browser on the same Wi-Fi (Settings → Prism Connect). */
     val webRemote by webRemoteMade
+    /** Rewind: each year in music (Replay → a year). */
+    val rewind by lazy { com.prism.music.data.Rewinds(this) }
+    /** A year's Rewind to open (Home's Rewind card, the 1 December notification): Replay shows it and clears this. */
+    val rewindRequest = MutableStateFlow<Int?>(null)
+
     /** Prism Connect: playback moving between Prism devices on the same Wi-Fi. */
     val handoff by lazy { com.prism.music.connect.Handoff(app, this) }
     init {
