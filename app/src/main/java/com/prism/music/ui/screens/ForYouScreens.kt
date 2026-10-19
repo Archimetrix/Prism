@@ -68,6 +68,7 @@ import com.prism.music.data.innertube.SearchFilter
 import com.prism.music.data.model.AlbumItem
 import com.prism.music.data.model.ArtistItem
 import com.prism.music.data.model.MoodItem
+import com.prism.music.data.model.PlaylistItem
 import com.prism.music.data.model.SongItem
 import com.prism.music.data.model.hiRes
 import com.prism.music.data.prefs.HomeSectionConfig
@@ -83,7 +84,10 @@ import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.LocalUi
 import com.prism.music.ui.theme.PrismIcons
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -279,18 +283,37 @@ fun NewReleasesScreen(bottomPadding: Dp) {
 /** An artist on the picker: YouTube id, name, and a picture once one's found. */
 private data class Pickable(val id: String, val name: String, val thumbnail: String?)
 
-/** Artist photos for the picker (a genre page only names its artists), found by an artist search and kept for the session. */
+/**
+ * Artist photos for the picker (a genre page only names its artists), found by an artist search and kept for the
+ * session. A few searches at a time: a grid of 36 asked all at once, and the ones YouTube turned away were kept as
+ * "no photo" (Drake and YoungBoy Never Broke Again showed blank). A failed search isn't remembered, only a real miss.
+ */
 private object ArtistPhotos {
     private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val gate = kotlinx.coroutines.sync.Semaphore(4)
     suspend fun of(c: com.prism.music.AppContainer, a: Pickable): String? {
         a.thumbnail?.let { return it }
         cache[a.id]?.let { return it.ifEmpty { null } }
         c.library.artistThumbs.value[a.id]?.let { return it }
-        val found = runCatching {
-            withContext(Dispatchers.IO) { c.ytm.search(a.name, SearchFilter.ARTISTS).items.filterIsInstance<ArtistItem>() }
-        }.getOrNull()?.let { list -> (list.firstOrNull { it.id == a.id } ?: list.firstOrNull { it.title.equals(a.name, true) })?.thumbnail }
+        val list = gate.withPermit {
+            runCatching { withContext(Dispatchers.IO) { c.ytm.search(a.name, SearchFilter.ARTISTS).items.filterIsInstance<ArtistItem>() } }
+        }.getOrElse { return null }
+        val want = com.prism.music.data.innertube.SearchRank.norm(a.name)
+        val found = (list.firstOrNull { it.id == a.id } ?: list.firstOrNull { com.prism.music.data.innertube.SearchRank.norm(it.title) == want })?.thumbnail
         cache[a.id] = found ?: ""
         return found
+    }
+
+    /** An artist named on a genre page without a link: their page and photo, by an exact name match. */
+    suspend fun byName(c: com.prism.music.AppContainer, name: String): Pickable? {
+        val want = com.prism.music.data.innertube.SearchRank.norm(name)
+        if (want.isBlank()) return null
+        val list = gate.withPermit {
+            runCatching { withContext(Dispatchers.IO) { c.ytm.search(name, SearchFilter.ARTISTS).items.filterIsInstance<ArtistItem>() } }
+        }.getOrNull() ?: return null
+        val a = list.firstOrNull { com.prism.music.data.innertube.SearchRank.norm(it.title) == want } ?: return null
+        a.thumbnail?.let { cache[a.id] = it }
+        return Pickable(a.id, a.title, a.thumbnail)
     }
 }
 
@@ -326,8 +349,12 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
             val g = genres ?: return@produceState
             // Before a genre is picked: the most popular ones to start from.
             val chosen = picked.toList().ifEmpty { g.filter { it.title.lowercase() in DEFAULT_GENRES } }
+            // Keyed by id and params: every YouTube genre has the same browse id (they differ only in params), so keying by
+            // the id alone gave every chip the first genre's artists.
             val lists = chosen.map { genre ->
-                forGenres[genre.id] ?: runCatching { withContext(Dispatchers.IO) { genreArtists(c, genre) } }.getOrDefault(emptyList()).also { forGenres[genre.id] = it }
+                val key = genre.id + "|" + genre.params
+                forGenres[key] ?: runCatching { withContext(Dispatchers.IO) { genreArtists(c, genre) } }.getOrDefault(emptyList())
+                    .also { if (it.isNotEmpty()) forGenres[key] = it }
             }
             // Taken in turn from each genre, so one doesn't crowd out the rest.
             val out = LinkedHashMap<String, Pickable>()
@@ -406,19 +433,35 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
     }
 }
 
-/** A genre's artists, from its YouTube Music page: the songs' and albums' main artists, most frequent first. */
+/**
+ * A genre's artists, from its YouTube Music page: the songs' main artists, most frequent first. Many genre pages (rock,
+ * pop) list only albums and playlists, which name their artists without a link ("Album • Led Zeppelin", "Led Zeppelin,
+ * AC/DC, Queen…"): those are looked up by name, so those genres aren't empty.
+ */
 private suspend fun genreArtists(c: com.prism.music.AppContainer, genre: MoodItem): List<Pickable> {
     val shelves = c.ytm.browseShelves(genre.id, genre.params)
     val counts = LinkedHashMap<String, Pair<String, Int>>()
-    for (s in shelves) for (item in s.items) {
-        val ref = when (item) {
-            is SongItem -> item.song.artists.firstOrNull()
-            else -> null
-        } ?: continue
-        val id = ref.id ?: continue
-        counts[id] = ref.name to ((counts[id]?.second ?: 0) + 1)
+    val named = LinkedHashMap<String, Int>()
+    for (s in shelves) for (item in s.items) when (item) {
+        is SongItem -> item.song.artists.firstOrNull()?.let { ref ->
+            val id = ref.id
+            if (id != null) counts[id] = ref.name to ((counts[id]?.second ?: 0) + 1) else named.merge(ref.name, 1, Int::plus)
+        }
+        // "Album • Artist" / "Single • Artist" / "EP • Artist, Other".
+        is AlbumItem -> item.subtitle.split(" • ").getOrNull(1)?.split(", ", " & ")?.firstOrNull()?.trim()
+            ?.takeIf { it.isNotBlank() && !it.first().isDigit() }?.let { named.merge(it, 1, Int::plus) }
+        // "Led Zeppelin, Creedence Clearwater Revival, Fleetwood Mac…": the first few.
+        is PlaylistItem -> item.subtitle.split(" • ").first().split(", ").take(3).map { it.trim().removeSuffix("…").trim() }
+            .filter { it.isNotBlank() && it.length < 40 && !it.contains("views", true) }.forEach { named.merge(it, 1, Int::plus) }
+        else -> {}
     }
-    return counts.entries.sortedByDescending { it.value.second }.take(36).map { Pickable(it.key, it.value.first, null) }
+    val linked = counts.entries.sortedByDescending { it.value.second }.take(36).map { Pickable(it.key, it.value.first, null) }
+    if (linked.size >= 24) return linked
+    val known = linked.map { com.prism.music.data.innertube.SearchRank.norm(it.name) }.toSet()
+    val more = named.entries.sortedByDescending { it.value }.map { it.key }
+        .filter { com.prism.music.data.innertube.SearchRank.norm(it) !in known }.take(36 - linked.size)
+    val found = kotlinx.coroutines.coroutineScope { more.map { n -> async { ArtistPhotos.byName(c, n) } }.awaitAll() }.filterNotNull()
+    return (linked + found).distinctBy { it.id }
 }
 
 private val DEFAULT_GENRES = setOf("pop", "hip-hop", "rock")

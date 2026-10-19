@@ -338,7 +338,10 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
         val haze = rememberHazeState()
         val backStack by navController.currentBackStackEntryAsState()
         val route = backStack?.destination?.route
-        val showChrome = route != Routes.LOGIN && route != Routes.LOGIN_ADD && route != Routes.DISCORD_LOGIN && route != Routes.WELCOME
+        // The artist picker right after the welcome screen is part of setting up too: no tab bar or rail over it (its
+        // Done button sat under the tab bar on phones, which it measures itself against when it's opened from Settings).
+        val onboardingPicker = route?.startsWith(Routes.PICK_ARTISTS) == true && backStack?.arguments?.getBoolean("onboarding") == true
+        val showChrome = route != Routes.LOGIN && route != Routes.LOGIN_ADD && route != Routes.DISCORD_LOGIN && route != Routes.WELCOME && !onboardingPicker
         val tabs = settings.navTabs.map { it.tab() }
 
         val together by c.together.state.collectAsState()
