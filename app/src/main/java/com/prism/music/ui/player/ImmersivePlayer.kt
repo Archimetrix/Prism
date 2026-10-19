@@ -48,6 +48,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -169,6 +177,18 @@ fun ImmersivePlayer(
             .fillMaxSize()
             .background(Color.Black)
             .graphicsLayer { translationY = drag.coerceAtLeast(0f) }
+            // For TalkBack the gestures are actions: a double tap opens the settings (the button only shows for a few
+            // seconds), and the swipes and the hold have their own entries in its actions menu.
+            .semantics {
+                contentDescription = "Immersive player, ${song.title} by ${song.artistText}"
+                onClick("Open immersive mode settings") { menu = true; true }
+                customActions = listOf(
+                    CustomAccessibilityAction("Next song") { c.player.next(); true },
+                    CustomAccessibilityAction("Previous song") { c.player.previous(); true },
+                    CustomAccessibilityAction("Leave immersive mode") { onExit(); true },
+                    CustomAccessibilityAction("Close the player") { onCollapse(); true },
+                )
+            }
             .pointerInput(Unit) { detectTapGestures(onTap = { button = !button }) }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -415,6 +435,13 @@ private fun HoldToLeaveButton(onTap: () -> Unit, onPressing: (Boolean) -> Unit, 
         Box(
             Modifier
                 .size(54.dp)
+                // The hold can't be done with TalkBack, so it's an action of the button's own.
+                .clearAndSetSemantics {
+                    role = Role.Button
+                    contentDescription = "Immersive mode settings"
+                    onClick { onTap(); true }
+                    customActions = listOf(CustomAccessibilityAction("Leave immersive mode") { onHeld(); true })
+                }
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         awaitFirstDown().consume()

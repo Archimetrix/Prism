@@ -72,6 +72,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -431,8 +433,12 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
             LocalHazeState provides haze,
             com.prism.music.ui.theme.LocalChromeStart provides railInset,
         ) {
+            // While the full player is open it covers everything else, so TalkBack shouldn't reach the screen, tabs and
+            // mini player under it (they're only drawn, not hidden, to keep the player's slide smooth).
+            val covered = playerOpen && song != null
+            val underPlayer = if (covered) Modifier.semantics { hideFromAccessibility() } else Modifier
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                Box(Modifier.fillMaxSize().nestedScroll(barScroll).hazeSource(haze)) {
+                Box(Modifier.fillMaxSize().then(underPlayer).nestedScroll(barScroll).hazeSource(haze)) {
                     // The same cross-fade both ways, and for the back gesture too: left to its default,
                     // a predictive back (swipe from the edge) shrinks the page like a card instead.
                     NavHost(
@@ -564,10 +570,10 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                 if (useRail) {
                     NavRail(
                         tabs, route, settings, selectTab,
-                        Modifier.align(Alignment.CenterStart).padding(start = cutoutStart + RAIL_MARGIN),
+                        Modifier.align(Alignment.CenterStart).then(underPlayer).padding(start = cutoutStart + RAIL_MARGIN),
                     )
                     Column(
-                        Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        Modifier.align(Alignment.BottomCenter).fillMaxWidth().then(underPlayer)
                             .padding(start = railInset).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
@@ -583,7 +589,7 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                 if (showChrome && !useRail) {
                     val docked = settings.navStyle == NavBarStyle.DOCKED
                     Column(
-                        Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        Modifier.align(Alignment.BottomCenter).fillMaxWidth().then(underPlayer)
                             .then(if (docked) Modifier else Modifier.navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)),
                     ) {
                         AnimatedVisibility(inSession && !playerOpen && route != Routes.TOGETHER, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
