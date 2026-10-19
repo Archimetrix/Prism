@@ -158,25 +158,25 @@ fun RecognizeScreen(autoStart: Boolean, bottomPadding: Dp) {
     }
 }
 
-/** The round button: still when idle, rippling with the sound while listening. */
+/** The round button: still when idle, rippling with the sound while listening. [size] is the ripples' reach. */
 @Composable
-private fun ListenButton(listening: Boolean, level: Float, onClick: () -> Unit) {
+internal fun ListenButton(listening: Boolean, level: Float, size: Dp = 260.dp, onClick: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     val ripple = rememberInfiniteTransition(label = "ripple")
     val phase by ripple.animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "phase")
     val loud by animateFloatAsState(level, tween(120), label = "level")
-    Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         if (listening) Canvas(Modifier.fillMaxSize()) {
             for (k in 0 until 3) {
                 val p = (phase + k / 3f) % 1f
-                drawCircle(primary.copy(alpha = (1 - p) * 0.35f), radius = size.minDimension / 2 * (0.55f + 0.45f * p + 0.1f * loud))
+                drawCircle(primary.copy(alpha = (1 - p) * 0.35f), radius = this.size.minDimension / 2 * (0.55f + 0.45f * p + 0.1f * loud))
             }
         }
         Box(
-            Modifier.size(150.dp).clip(CircleShape).background(primary).clickable(onClick = onClick),
+            Modifier.size(size * 0.58f).clip(CircleShape).background(primary).clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(if (listening) PrismIcons.Close else PrismIcons.Recognize, if (listening) "Stop listening" else "Listen", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(64.dp))
+            Icon(if (listening) PrismIcons.Close else PrismIcons.Recognize, if (listening) "Stop listening" else "Listen", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(size * 0.25f))
         }
     }
 }
@@ -222,10 +222,35 @@ fun RecognizedScreen(bottomPadding: Dp) {
     val nav = LocalNavigator.current
     val scope = rememberCoroutineScope()
     val history by c.recognizer.history.collectAsState(initial = emptyList())
+    // The Recognize widget, offered here (the launcher pins it after asking) until one is on the home screen.
+    val context = LocalContext.current
+    val widgets = remember { android.appwidget.AppWidgetManager.getInstance(context) }
+    val provider = remember { android.content.ComponentName(context, com.prism.music.widget.RecognizeWidget::class.java) }
+    var placed by remember { mutableStateOf(widgets?.getAppWidgetIds(provider)?.isNotEmpty() == true) }
     SubPage(
         "Recognized", bottomPadding, subtitle = "Songs Prism found by listening",
         actions = { RoundAction(PrismIcons.Recognize, "Recognize a song", glass = true) { nav.go(Routes.RECOGNIZE) } },
     ) {
+        if (widgets?.isRequestPinAppWidgetSupported == true && !placed) item("widget") {
+            Row(
+                Modifier.fillMaxWidth().clickable {
+                    placed = widgets.requestPinAppWidget(provider, null, null)
+                }.padding(horizontal = 20.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                    Icon(PrismIcons.Recognize, null, tint = MaterialTheme.colorScheme.onPrimary)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Add the widget", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Recognize songs from your home screen", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
         if (history.isEmpty()) item("empty") {
             Text(
                 "Songs you recognize show up here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -248,7 +273,12 @@ fun RecognizedScreen(bottomPadding: Dp) {
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    androidx.compose.material3.IconButton({ scope.launch { c.db.recognitions().delete(r.id) } }) {
+                    androidx.compose.material3.IconButton({
+                        scope.launch {
+                            c.db.recognitions().delete(r.id)
+                            com.prism.music.widget.RecognizeWidgets.refresh(c.app)
+                        }
+                    }) {
                         Icon(PrismIcons.Close, "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

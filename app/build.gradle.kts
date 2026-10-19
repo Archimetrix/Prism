@@ -85,6 +85,8 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric tests can read the app's own resources (strings, the widgets' layouts).
+        unitTests.isIncludeAndroidResources = true
     }
 
     packaging {

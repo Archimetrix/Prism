@@ -449,6 +449,10 @@ interface RecognitionDao {
     @Query("SELECT * FROM recognitions WHERE status = 'pending' ORDER BY at")
     suspend fun pending(): List<RecognitionEntity>
 
+    /** The newest song found (or still waiting for a network), for the Recognize widget. */
+    @Query("SELECT * FROM recognitions WHERE status != 'none' ORDER BY at DESC LIMIT 1")
+    suspend fun latest(): RecognitionEntity?
+
     @Insert
     suspend fun insert(r: RecognitionEntity): Long
 

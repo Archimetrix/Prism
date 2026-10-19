@@ -59,7 +59,7 @@ Updating works the same way: install the new APK over the old one, and your down
 - **Smart Shuffle** slips recommendations into a playlist or album as it plays; **exclusions** keep an artist out, or keep a playlist out of your taste.
 - **DJ mode.** Prism finds each song's key and orders the queue so each song blends into the next, beat-matched, with a Steady, Build up or Wind down energy.
 - **Blend.** A playlist of two tastes, by QR code or a shared message, worked out the same on both phones. No server.
-- **Song recognition.** Tap the button in Search (or the Quick Settings tile) and Prism tells you what's playing around you. Only an audio fingerprint is sent.
+- **Song recognition.** Tap the button in Search, the Recognize widget or the Quick Settings tile and Prism tells you what's playing around you (the widget and tile open a small card over whatever's on screen; made wider, the widget shows the last song found, with Play). Only an audio fingerprint is sent.
 - **Prism Connect.** Play on speakers, TVs and AV receivers on your Wi-Fi (DLNA / UPnP), with the queue, lyrics and volume keys still on the phone. Control Prism from any browser on the Wi-Fi after pairing it with a code. Move what's playing to another phone or tablet with Prism, or bring it over.
 - **Rewind** for every year you've listened, opening on December 1: your year season by season, your top album, your year in Prism and more, each slide shareable.
 - **Headphone correction** from AutoEq's measurements of almost 9,000 headphones, switching on with each pair.

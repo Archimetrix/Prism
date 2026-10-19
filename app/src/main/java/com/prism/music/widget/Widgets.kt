@@ -77,6 +77,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
             Widgets.ACTION_PLAY -> c.player.togglePlay()
             Widgets.ACTION_NEXT -> c.player.next()
             Widgets.ACTION_PREVIOUS -> c.player.previous()
+            RecognizeWidgets.ACTION_PLAY -> RecognizeWidgets.songFrom(intent)?.let(c.player::playSingle)
             Widgets.ACTION_LIKE -> (c.player.currentSong.value ?: Widgets.lastSong(context))?.let { song ->
                 c.library.toggleLike(song)
                 // The heart shows the change at once; the service confirms it when the like lands.
@@ -216,6 +217,13 @@ object Widgets {
             frost = frost(square),
             color = card or 0xFF000000.toInt(),
         )
+    }.getOrNull()
+
+    /** A cover as a small rounded square ([corner] of its side), for the Recognize widget. */
+    suspend fun squareCover(context: Context, url: String, px: Int, corner: Float): Bitmap? = runCatching {
+        val req = ImageRequest.Builder(context).data(hiRes(url, 544)).size(px * 2).allowHardware(false).build()
+        val bmp = (SingletonImageLoader.get(context).execute(req) as? SuccessResult)?.image?.toBitmap() ?: return null
+        rounded(centerSquare(bmp, px), corner)
     }.getOrNull()
 
     private fun centerSquare(src: Bitmap, size: Int): Bitmap {

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recognize (1×1 / 2×1): a round button that opens the listening card. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rw_listen"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:contentDescription="@string/widget_recognize_listen">
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:background="@drawable/widget_circle"
+        android:backgroundTint="#FF7C5CFF"
+        android:importantForAccessibility="no"
+        android:padding="15dp"
+        android:src="@drawable/ic_tile_recognize" />
+</FrameLayout>

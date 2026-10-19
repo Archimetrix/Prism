@@ -21,6 +21,15 @@
     <string name="widget_disc_desc">The cover as a round disc, in a ring that fills as the song plays</string>
     <string name="widget_strip_name">Prism · Strip</string>
     <string name="widget_strip_desc">A slim bar in the cover\'s colour, with previous, play and next</string>
+    <string name="widget_recognize_name">Prism · Recognize</string>
+    <string name="widget_recognize_desc">Find out what\'s playing around you. Make it wider to see the last song found</string>
+    <string name="widget_recognize_label">RECOGNIZED</string>
+    <string name="widget_recognize_empty">Recognize a song</string>
+    <string name="widget_recognize_empty_hint">Tap the button to find out what\'s playing</string>
+    <string name="widget_recognize_waiting">Saved, will check when you\'re online</string>
+    <string name="widget_recognize_listen">Recognize a song</string>
+    <string name="widget_recognize_open">Recognized songs</string>
+    <string name="widget_recognize_play">Play the song recognized</string>
     <string name="widget_prism_label">PRISM</string>
     <string name="widget_now_playing">Now playing</string>
     <string name="widget_nothing">Nothing playing</string>

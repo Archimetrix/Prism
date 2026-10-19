@@ -134,6 +134,7 @@ class Recognizer(private val c: AppContainer) {
                 val sig = ShazamSignature.of(to16k(all, have, rate))
                 c.db.recognitions().insert(RecognitionEntity(at = System.currentTimeMillis(), status = "pending", signature = Base64.getEncoder().encodeToString(sig.encode())))
                 RecognitionWorker.schedule(c.app)
+                com.prism.music.widget.RecognizeWidgets.refresh(c.app)
                 State.Saved
             }
             else -> State.NotFound
@@ -147,6 +148,7 @@ class Recognizer(private val c: AppContainer) {
             cover = m.cover, shazamKey = m.key, videoId = song?.id,
         )
         val id = c.db.recognitions().insert(row)
+        com.prism.music.widget.RecognizeWidgets.refresh(c.app)
         return State.Found(row.copy(id = id), song)
     }
 
@@ -219,6 +221,7 @@ class RecognitionWorker(context: Context, params: WorkerParameters) : CoroutineW
                 ShazamResult.NoMatch -> c.db.recognitions().put(p.copy(status = "none", signature = null))
                 ShazamResult.RateLimited -> return Result.retry()
             }
+            com.prism.music.widget.RecognizeWidgets.refresh(applicationContext)
             delay(2_000)
         }
         return Result.success()
