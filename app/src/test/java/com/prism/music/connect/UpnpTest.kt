@@ -57,7 +57,7 @@ class UpnpTest {
         r!!
         assertEquals("uuid:renderer-1", r.id)
         assertEquals("Living Room TV", r.name)
-        assertEquals("http://192.168.1.50:9197/upnp/control/AVTransport1", r.avTransport.controlUrl)
+        assertEquals("http://192.168.1.50:9197/upnp/control/AVTransport1", r.avTransport!!.controlUrl)
         assertEquals("http://192.168.1.50:9197/RenderingControl/control", r.rendering?.controlUrl)
         assertEquals("http://192.168.1.50:9197/cm", r.connection?.controlUrl)
         assertEquals("192.168.1.50", r.host)
@@ -67,7 +67,7 @@ class UpnpTest {
     @Test
     fun urlBaseAndBareBases() {
         val withBase = nested.replace("<specVersion>", "<URLBase>http://10.0.0.9:8080/base/</URLBase><specVersion>")
-        assertEquals("http://10.0.0.9:8080/upnp/control/AVTransport1", Description.parse(withBase, "http://192.168.1.50:9197/dmr")!!.avTransport.controlUrl)
+        assertEquals("http://10.0.0.9:8080/upnp/control/AVTransport1", Description.parse(withBase, "http://192.168.1.50:9197/dmr")!!.avTransport!!.controlUrl)
         assertEquals("http://10.0.0.9:8080/base/RenderingControl/control", Description.parse(withBase, "http://192.168.1.50:9197/dmr")!!.rendering!!.controlUrl)
         // java.net.URI on its own would make "http://h:1ctl" of these.
         assertEquals("http://192.168.1.5:1400/ctl", Description.resolve("http://192.168.1.5:1400", "ctl"))

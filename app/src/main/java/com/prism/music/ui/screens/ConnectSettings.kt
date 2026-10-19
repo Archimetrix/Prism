@@ -33,8 +33,9 @@ fun ConnectSettings() {
         Group("Speakers & TVs") {
             Note(
                 "Tap the line under the player's controls (where it says which device is playing) and pick a speaker, TV or " +
-                    "receiver under Speakers & TVs. It has to be on this Wi-Fi with DLNA / UPnP on (sometimes called media " +
-                    "sharing, or a media renderer). Your queue, lyrics and controls stay on the phone; the phone's volume keys " +
+                    "receiver under Speakers & TVs. It has to be on this Wi-Fi, with Google Cast (Chromecast, Google TV, " +
+                    "speakers with Cast built in) or DLNA / UPnP on (sometimes called media sharing, or a media renderer). " +
+                    "Your queue, lyrics and controls stay on the phone; the phone's volume keys " +
                     "set its volume. The equalizer, Crossfade, Sing and videos are the phone's own, so they're off while casting."
             )
         }

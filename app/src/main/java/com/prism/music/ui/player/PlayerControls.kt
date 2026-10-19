@@ -821,7 +821,7 @@ private fun PrismDevices() {
 
 private val speakerWords = listOf("speaker", "sonos", "receiver", "avr", "denon", "marantz", "yamaha", "onkyo", "pioneer", "bose", "amp", "audio", "soundbar", "wiim", "bluesound", "heos")
 
-/** Prism Connect in the output picker: speakers, TVs and receivers on this Wi-Fi (UPnP / DLNA), looked for while it's open. */
+/** Prism Connect in the output picker: speakers, TVs and receivers on this Wi-Fi (Google Cast, UPnP / DLNA), looked for while it's open. */
 @Composable
 private fun SpeakersAndTvs(castState: com.prism.music.connect.CastState, castingTo: String?) {
     val cast = LocalContainer.current.cast
@@ -890,8 +890,8 @@ private fun SpeakersAndTvs(castState: com.prism.music.connect.CastState, casting
             Spacer(Modifier.width(14.dp))
             Text("Looking on this Wi-Fi…", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
         } else Text(
-            "None found. Speakers, TVs and receivers show here when they're on, on the same Wi-Fi, and have DLNA / UPnP " +
-                "(often called media sharing or \"media renderer\") switched on.",
+            "None found. Speakers, TVs and receivers show here when they're on and on the same Wi-Fi, with Google Cast " +
+                "(Chromecast, Google TV) or DLNA / UPnP (often called media sharing or \"media renderer\").",
             style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f),
         )
     }

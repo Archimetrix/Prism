@@ -114,6 +114,12 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
 
     /** A renderer by its description's address (one SSDP can't reach, e.g. through adb on a test PC). Debug builds. */
     fun addByLocation(location: String) {
+        GoogleCastDevices.byLocation(location)?.let { r ->
+            if (location !in manual) manual += location
+            found[r.id] = r to SystemClock.elapsedRealtime()
+            publishFound()
+            return
+        }
         if (location !in manual) manual += location
         scope.launch(Dispatchers.IO) { describe(location, force = true) }
     }
@@ -122,6 +128,7 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
         val wifi = app.applicationContext.getSystemService(WifiManager::class.java)
         val lock = runCatching { wifi?.createMulticastLock("prism-connect")?.apply { setReferenceCounted(false); acquire() } }.getOrNull()
         val notify = scope.launch(Dispatchers.IO) { listenForNotify() }
+        val google = withContext(Dispatchers.Main) { startCastDiscovery() }
         try {
             manual.forEach { describe(it, force = true) }
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -134,7 +141,62 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
             }
         } finally {
             notify.cancel()
+            google?.let { l -> runCatching { nsd?.stopServiceDiscovery(l) } }
+            castListed.clear()
             runCatching { lock?.release() }
+        }
+    }
+
+    // Google Cast devices (Chromecast, Google TV, speakers with Cast) announce themselves with mDNS as _googlecast._tcp.
+    private val nsd: android.net.nsd.NsdManager? by lazy { app.getSystemService(android.net.nsd.NsdManager::class.java) }
+    /** Cast devices listed by the network right now (service name → renderer id): kept while they're there. */
+    private val castListed = ConcurrentHashMap<String, String>()
+    private val resolveLock = Mutex()
+
+    private fun startCastDiscovery(): android.net.nsd.NsdManager.DiscoveryListener? {
+        val manager = nsd ?: return null
+        val listener = object : android.net.nsd.NsdManager.DiscoveryListener {
+            override fun onServiceFound(info: android.net.nsd.NsdServiceInfo) {
+                if (info.serviceType.contains("googlecast", ignoreCase = true)) resolveCast(info)
+            }
+            override fun onServiceLost(info: android.net.nsd.NsdServiceInfo) {
+                castListed.remove(info.serviceName)?.let { id ->
+                    if (id != (state.value as? CastState.Casting)?.renderer?.id && found.remove(id) != null) publishFound()
+                }
+            }
+            override fun onDiscoveryStarted(type: String) = Unit
+            override fun onDiscoveryStopped(type: String) = Unit
+            override fun onStartDiscoveryFailed(type: String, error: Int) { Log.w(TAG, "Google Cast discovery didn't start ($error)") }
+            override fun onStopDiscoveryFailed(type: String, error: Int) = Unit
+        }
+        return runCatching { manager.discoverServices(GoogleCastDevices.SERVICE, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, listener); listener }.getOrNull()
+    }
+
+    private fun resolveCast(info: android.net.nsd.NsdServiceInfo) {
+        val manager = nsd ?: return
+        scope.launch(Dispatchers.IO) {
+            // One resolve at a time: older Androids refuse a second while one is going.
+            resolveLock.withLock {
+                val r = withTimeoutOrNull(6_000) {
+                    kotlinx.coroutines.suspendCancellableCoroutine<android.net.nsd.NsdServiceInfo?> { cont ->
+                        runCatching {
+                            @Suppress("DEPRECATION")
+                            manager.resolveService(info, object : android.net.nsd.NsdManager.ResolveListener {
+                                override fun onResolveFailed(i: android.net.nsd.NsdServiceInfo, error: Int) { if (cont.isActive) cont.resumeWith(Result.success(null)) }
+                                override fun onServiceResolved(i: android.net.nsd.NsdServiceInfo) { if (cont.isActive) cont.resumeWith(Result.success(i)) }
+                            })
+                        }.onFailure { if (cont.isActive) cont.resumeWith(Result.success(null)) }
+                    }
+                } ?: return@withLock
+                @Suppress("DEPRECATION")
+                val all = if (android.os.Build.VERSION.SDK_INT >= 34) r.hostAddresses else listOfNotNull(r.host)
+                val host = (all.firstOrNull { it is java.net.Inet4Address } ?: all.firstOrNull())?.hostAddress ?: return@withLock
+                val txt = r.attributes.mapValues { (_, v) -> v?.toString(Charsets.UTF_8).orEmpty() }
+                val device = GoogleCastDevices.renderer(r.serviceName, host, r.port, txt) ?: return@withLock
+                castListed[r.serviceName] = device.id
+                found[device.id] = device to SystemClock.elapsedRealtime()
+                publishFound()
+            }
         }
     }
 
@@ -194,7 +256,9 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
     private fun prune() {
         val cutoff = SystemClock.elapsedRealtime() - FORGET_MS
         val castingTo = (state.value as? CastState.Casting)?.renderer?.id
-        if (found.entries.removeIf { it.value.second < cutoff && it.key != castingTo && it.value.first.location !in manual }) publishFound()
+        // Cast devices still listed by mDNS stay (they don't answer SSDP searches, so their time never moves on).
+        val listed = castListed.values.toSet()
+        if (found.entries.removeIf { it.value.second < cutoff && it.key != castingTo && it.key !in listed && it.value.first.location !in manual }) publishFound()
     }
 
     private fun publishFound() {
@@ -229,7 +293,7 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
     // ------------------------------------------------------------ Casting
 
     private class Loaded(
-        val song: Song, val key: String, val url: String, val meta: String, val format: CastFormat, val durationMs: Long,
+        val song: Song, val key: String, val url: String, val meta: String, val media: CastMedia, val format: CastFormat, val durationMs: Long,
     ) {
         var loadedAt = SystemClock.elapsedRealtime()
         var started = false
@@ -241,7 +305,7 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
     /** A song the phone moved on to while the renderer finishes the last one; sent at [at] at the latest. */
     private class Waiting(val song: Song, val at: Long)
 
-    private class Session(val renderer: Renderer, val ctl: RendererControl, val host: String, val sink: Set<String>) {
+    private class Session(val renderer: Renderer, val ctl: RendererLink, val host: String, val sink: Set<String>) {
         var current: Loaded? = null
         var next: Loaded? = null
         var nextSupported = true
@@ -289,18 +353,24 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
         if (session != null) disconnect(null, keepPlaying = true)
         _state.value = CastState.Connecting(r)
         scope.launch {
-            val ctl = RendererControl(c.http, r)
+            val ctl: RendererLink = if (r.kind == RendererKind.GOOGLE_CAST) GoogleCastLink(r) else RendererControl(c.http, r)
             val host = withContext(Dispatchers.IO) { r.host?.let { RendererControl.localAddressFor(it) } }
-            val reachable = host != null && runCatching { withTimeoutOrNull(8_000) { ctl.transport() } }.getOrNull() != null
+            // A Cast device opens its player first, which takes a few seconds (longer for a TV that was asleep).
+            val wait = if (r.kind == RendererKind.GOOGLE_CAST) 25_000L else 8_000L
+            val reachable = host != null && runCatching { withTimeoutOrNull(wait) { ctl.transport() } }
+                .onFailure { Log.w(TAG, "couldn't reach ${r.name}", it) }.getOrNull() != null
             if (!reachable || !withContext(Dispatchers.IO) { server.start() }) {
+                c.scope.launch(NonCancellable) { runCatching { ctl.close() } }
                 if (state.value == CastState.Connecting(r)) _state.value = CastState.Idle
                 _events.tryEmit("Couldn't reach ${r.name}. Make sure it's on and on the same Wi-Fi.")
                 return@launch
             }
-            if (state.value != CastState.Connecting(r)) return@launch
+            if (state.value != CastState.Connecting(r)) { c.scope.launch(NonCancellable) { runCatching { ctl.close() } }; return@launch }
             val sink = ctl.sinkMimes()
             server.newSession()
             val s = Session(r, ctl, host!!, sink)
+            // Cast devices get each song as it comes (no "next" to line up), so it isn't got ready twice.
+            s.nextSupported = r.kind != RendererKind.GOOGLE_CAST
             s.volume = runCatching { ctl.volume() }.getOrNull()
             session = s
             casting = true
@@ -341,7 +411,10 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
         casting = false
         pollJob?.cancel(); loadJob?.cancel(); nextJob?.cancel(); seekJob?.cancel(); volumeJob?.cancel(); singJob?.cancel()
         loadGen++
-        c.scope.launch(NonCancellable) { runCatching { withTimeoutOrNull(4_000) { s.ctl.stop() } } }
+        c.scope.launch(NonCancellable) {
+            runCatching { withTimeoutOrNull(4_000) { s.ctl.stop() } }
+            runCatching { withTimeoutOrNull(4_000) { s.ctl.close() } }
+        }
         val p = player
         if (p != null && !keepPlaying && p.playWhenReady) p.pause()
         liveLocal = false
@@ -447,12 +520,14 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
         val url = server.publish(key, body, s.host)
         val art = runCatching { artFor(song) }.getOrNull()?.let { server.publish("art_" + key.substringBeforeLast('.') + ".jpg", it, s.host) }
         val length = ((body as? PcmBody)?.let { it.frames * 1000 / it.rate }) ?: durationMs
+        val artist = song.artistText.takeUnless { song.artists.isEmpty() }.orEmpty()
         val meta = Didl.song(
-            id = song.id, title = song.title, artist = song.artistText.takeUnless { song.artists.isEmpty() }.orEmpty(),
+            id = song.id, title = song.title, artist = artist,
             album = song.album?.title, artUrl = art, url = url, protocolInfo = ProtocolInfo.of(body.mime, body.converted),
             durationMs = length, sizeBytes = body.length,
         )
-        return Loaded(song, key, url, meta, format, length)
+        val media = CastMedia(song.title, artist, song.album?.title, art, body.mime, length)
+        return Loaded(song, key, url, meta, media, format, length)
     }
 
     private fun pcmFormat(s: Session, wavRefused: Boolean): CastFormat {
@@ -512,7 +587,7 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
             val sent = runCatching {
                 onWire {
                     if (gen != loadGen) return@onWire false
-                    s.ctl.setUri(loaded.url, loaded.meta)
+                    s.ctl.load(loaded.url, loaded.meta, loaded.media)
                     if (play) s.ctl.play()
                     true
                 }
@@ -566,7 +641,7 @@ class Cast(private val app: Application, private val c: AppContainer) : Player.L
             delay(1_500)
             val next = runCatching { withContext(Dispatchers.IO) { prepare(s, song) } }.getOrNull() ?: return@launch
             if (session !== s || gen != loadGen) return@launch
-            runCatching { onWire { s.ctl.setNextUri(next.url, next.meta) } }
+            runCatching { onWire { s.ctl.loadNext(next.url, next.meta, next.media) } }
                 .onSuccess { s.next = next; Log.i(TAG, "next lined up: ${song.id}") }
                 .onFailure { e -> s.nextSupported = false; Log.i(TAG, "${s.renderer.name} has no gapless next (${e.message})") }
         }

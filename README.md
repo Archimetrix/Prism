@@ -42,7 +42,7 @@ Updating works the same way: install the new APK over the old one, and your down
 | 📊 **Replay and Rewind** | A private, on-device recap of your listening, with a full-screen story, and a Rewind for every year. |
 | 🎙️ **Sing** | Karaoke with the song's own music: the voice is taken out on your phone, the key moves to suit you. |
 | ✨ **Made for you** | Daily Mixes, a time-of-day mix, Release Radar, Smart Shuffle and Blend, worked out on your phone. |
-| 📺 **Prism Connect** | Play on speakers, TVs and receivers (DLNA), control Prism from a browser, move the music to another device. |
+| 📺 **Prism Connect** | Play on Chromecast, Google TV and other Google Cast devices, or on DLNA speakers, TVs and receivers; control Prism from a browser; move the music to another device. |
 | 🎬 **Music videos** | Switch any song to its music video in one tap, with lyrics in sync and full-screen landscape. |
 | 🎧 **Listen together** | Phones on the same Wi-Fi play in step, or friends add songs to your queue. No account, no server. |
 | 🔗 **Share anything** | Story cards and links for songs, albums, playlists and artists, plus "Play in Prism" for YouTube links. |
@@ -60,7 +60,7 @@ Updating works the same way: install the new APK over the old one, and your down
 - **DJ mode.** Prism finds each song's key and orders the queue so each song blends into the next, beat-matched, with a Steady, Build up or Wind down energy.
 - **Blend.** A playlist of two tastes, by QR code or a shared message, worked out the same on both phones. No server.
 - **Song recognition.** Tap the button in Search, the Recognize widget or the Quick Settings tile and Prism tells you what's playing around you (the widget and tile open a small card over whatever's on screen; made wider, the widget shows the last song found, with Play). Only an audio fingerprint is sent.
-- **Prism Connect.** Play on speakers, TVs and AV receivers on your Wi-Fi (DLNA / UPnP), with the queue, lyrics and volume keys still on the phone. Control Prism from any browser on the Wi-Fi after pairing it with a code. Move what's playing to another phone or tablet with Prism, or bring it over.
+- **Prism Connect.** Play on Google Cast devices (Chromecast, Google TV, speakers with Cast built in) and on speakers, TVs and AV receivers with DLNA / UPnP on your Wi-Fi, with the queue, lyrics and volume keys still on the phone. Control Prism from any browser on the Wi-Fi after pairing it with a code. Move what's playing to another phone or tablet with Prism, or bring it over.
 - **Rewind** for every year you've listened, opening on December 1: your year season by season, your top album, your year in Prism and more, each slide shareable.
 - **Headphone correction** from AutoEq's measurements of almost 9,000 headphones, switching on with each pair.
 - **Romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian, Greek and more, word by word in karaoke lyrics.
@@ -172,7 +172,7 @@ Prism doesn't ship artwork, fonts or code copied from other apps, but several id
 - **Signatures** use fonts already on the phone, such as Android's own Dancing Script for the Autograph style.
 - **BitChord** (itself modelled on Apple Music) inspired the Now Playing screen.
 - **Spotify Wrapped** inspired the Replay story and Rewind, including the story's "what's playing" card.
-- **Spotify Connect** and Apple's Handoff inspired Prism Connect's handoff and browser remote; speakers and TVs are reached with the open UPnP / DLNA standards (no Google Cast).
+- **Spotify Connect** and Apple's Handoff inspired Prism Connect's handoff and browser remote; speakers and TVs are reached with the open UPnP / DLNA standards, and Google Cast devices with the Cast protocol as open-source projects such as [pychromecast](https://github.com/home-assistant-libs/pychromecast) and [node-castv2](https://github.com/thibauts/node-castv2) document it (no Google SDK in Prism).
 - **Spotify's Crossfade and Mix** inspired Crossfade and its beat-matched blends between songs.
 - **Lyrics:** [Better Lyrics](https://betterlyrics.org) (Apple Music TTML and QQ Music "Portato"), NetEase, KuGou, LyricsPlus, Bini, [LRCLIB](https://lrclib.net), Unison, Genius and YouTube Music. Lyrics belong to their rights holders.
 - **Animated covers** come from Apple Music, Tidal and the ViVi Music canvas list.

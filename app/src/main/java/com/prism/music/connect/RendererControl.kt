@@ -28,7 +28,7 @@ data class TransportInfo(val state: String, val status: String) {
 data class PositionInfo(val trackUri: String?, val relMs: Long?, val durationMs: Long?)
 
 /** Sends a renderer its UPnP actions (SOAP over HTTP) and reads their answers. */
-class RendererControl(http: OkHttpClient, val renderer: Renderer) {
+class RendererControl(http: OkHttpClient, val renderer: Renderer) : RendererLink {
     private val client = http.newBuilder()
         .connectTimeout(4, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
@@ -36,7 +36,7 @@ class RendererControl(http: OkHttpClient, val renderer: Renderer) {
         .retryOnConnectionFailure(false)
         .build()
 
-    private val av = renderer.avTransport
+    private val av = renderer.avTransport ?: throw IllegalArgumentException("${renderer.name} isn't a UPnP renderer")
 
     suspend fun call(service: UpnpService, action: String, args: List<Pair<String, String>>): Map<String, String> = withContext(Dispatchers.IO) {
         val body = Soap.envelope(service.type, action, args).toRequestBody("text/xml; charset=\"utf-8\"".toMediaType())
@@ -65,14 +65,17 @@ class RendererControl(http: OkHttpClient, val renderer: Renderer) {
     suspend fun setNextUri(url: String, metadata: String) =
         call(av, "SetNextAVTransportURI", listOf(instance, "NextURI" to url, "NextURIMetaData" to metadata))
 
-    suspend fun play() = call(av, "Play", listOf(instance, "Speed" to "1"))
-    suspend fun pause() = call(av, "Pause", listOf(instance))
-    suspend fun stop() = call(av, "Stop", listOf(instance))
+    override suspend fun load(url: String, didl: String, media: CastMedia) { setUri(url, didl) }
+    override suspend fun loadNext(url: String, didl: String, media: CastMedia) { setNextUri(url, didl) }
+
+    override suspend fun play() { call(av, "Play", listOf(instance, "Speed" to "1")) }
+    override suspend fun pause() { call(av, "Pause", listOf(instance)) }
+    override suspend fun stop() { call(av, "Stop", listOf(instance)) }
     /** Whether seeks may carry milliseconds; turned off for a renderer that refuses them (it then gets the nearest second). */
     @Volatile var preciseSeeks = true
         private set
 
-    suspend fun seek(ms: Long) {
+    override suspend fun seek(ms: Long) {
         if (preciseSeeks) {
             try {
                 call(av, "Seek", listOf(instance, "Unit" to "REL_TIME", "Target" to UpnpTime.format(ms, fraction = true)))
@@ -86,27 +89,27 @@ class RendererControl(http: OkHttpClient, val renderer: Renderer) {
         call(av, "Seek", listOf(instance, "Unit" to "REL_TIME", "Target" to UpnpTime.format(ms + 500)))
     }
 
-    suspend fun transport(): TransportInfo = call(av, "GetTransportInfo", listOf(instance)).let {
+    override suspend fun transport(): TransportInfo = call(av, "GetTransportInfo", listOf(instance)).let {
         TransportInfo(it["CurrentTransportState"].orEmpty().trim(), it["CurrentTransportStatus"].orEmpty().trim())
     }
 
-    suspend fun position(): PositionInfo = call(av, "GetPositionInfo", listOf(instance)).let {
+    override suspend fun position(): PositionInfo = call(av, "GetPositionInfo", listOf(instance)).let {
         PositionInfo(it["TrackURI"]?.trim()?.takeIf { u -> u.isNotEmpty() && u != "NOT_IMPLEMENTED" }, UpnpTime.parse(it["RelTime"]), UpnpTime.parse(it["TrackDuration"]))
     }
 
     /** 0–100 (most renderers' range), or null without RenderingControl. */
-    suspend fun volume(): Int? {
+    override suspend fun volume(): Int? {
         val rc = renderer.rendering ?: return null
         return call(rc, "GetVolume", listOf(instance, "Channel" to "Master"))["CurrentVolume"]?.trim()?.toIntOrNull()
     }
 
-    suspend fun setVolume(v: Int) {
+    override suspend fun setVolume(v: Int) {
         val rc = renderer.rendering ?: return
         call(rc, "SetVolume", listOf(instance, "Channel" to "Master", "DesiredVolume" to v.coerceIn(0, 100).toString()))
     }
 
     /** The MIME types it says it plays; empty when it won't say (then WAV, which nearly all of them take). */
-    suspend fun sinkMimes(): Set<String> {
+    override suspend fun sinkMimes(): Set<String> {
         val cm = renderer.connection ?: return emptySet()
         return runCatching { ProtocolInfo.sinkMimes(call(cm, "GetProtocolInfo", emptyList())["Sink"]) }.getOrDefault(emptySet())
     }

@@ -11,9 +11,14 @@ import javax.xml.parsers.DocumentBuilderFactory
 /** One of a renderer's UPnP services: its type and the URLs its actions go to. */
 data class UpnpService(val type: String, val controlUrl: String, val eventUrl: String? = null, val scpdUrl: String? = null)
 
+/** How a device is spoken to: UPnP / DLNA, or Google Cast (Chromecast, Google TV, speakers with Cast built in). */
+enum class RendererKind { UPNP, GOOGLE_CAST }
+
 /**
- * A speaker, TV or receiver on the local network that plays what it's sent: a UPnP / DLNA MediaRenderer. [id] is its
- * UDN (stable across restarts), [location] the description it was found at.
+ * A speaker, TV or receiver on the local network that plays what it's sent. For UPnP / DLNA [id] is its UDN (stable
+ * across restarts) and [location] the description it was found at; for Google Cast [id] is "cast:" and its device id,
+ * and [location] "googlecast://host:port". Only UPnP renderers have the [avTransport] / [rendering] / [connection]
+ * services.
  */
 data class Renderer(
     val id: String,
@@ -21,16 +26,23 @@ data class Renderer(
     val manufacturer: String,
     val model: String,
     val location: String,
-    val avTransport: UpnpService,
+    val avTransport: UpnpService?,
     val rendering: UpnpService? = null,
     val connection: UpnpService? = null,
+    val kind: RendererKind = RendererKind.UPNP,
 ) {
     /** What a row shows under the name: the maker and model, when they say something the name doesn't. */
     val detail: String
-        get() = listOf(manufacturer, model).filter { it.isNotBlank() && !name.contains(it, ignoreCase = true) }
-            .joinToString(" ").ifBlank { "Speaker or TV" }
+        get() {
+            val about = listOf(manufacturer, model).filter { it.isNotBlank() && !name.contains(it, ignoreCase = true) }.joinToString(" ")
+            return if (kind == RendererKind.GOOGLE_CAST) listOf(about, "Google Cast").filter { it.isNotBlank() }.joinToString(" · ")
+            else about.ifBlank { "Speaker or TV" }
+        }
 
     val host: String? get() = runCatching { URI(location).host }.getOrNull()
+
+    /** The port a Google Cast device listens on (8009 for most; speaker groups have their own). */
+    val port: Int get() = runCatching { URI(location).port }.getOrDefault(-1)
 }
 
 /** XML as UPnP devices write it, read with the platform's DOM parser (the same on the phone and in tests). */

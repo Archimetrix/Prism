@@ -108,9 +108,10 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
             }
         }
         // Debug builds: renderers by description address, one per line in …/files/connect_renderer.txt, for casting to a
-        // pretend one on a PC through adb (SSDP doesn't cross it); see SimulatedRendererTest.castFromThePhone.
+        // pretend one on a PC through adb (SSDP doesn't cross it); see SimulatedRendererTest.castFromThePhone. A
+        // "googlecast://host:port" line adds a Google Cast device the same way (GoogleCastTest.castFromThePhone).
         if (BuildConfig.DEBUG) getExternalFilesDir(null)?.let { java.io.File(it, "connect_renderer.txt") }?.takeIf { it.isFile }?.let { f ->
-            f.readLines().map { it.trim() }.filter { it.startsWith("http://") }.forEach { container.cast.addByLocation(it) }
+            f.readLines().map { it.trim() }.filter { it.startsWith("http://") || it.startsWith("googlecast://") }.forEach { container.cast.addByLocation(it) }
         }
     }
 }
