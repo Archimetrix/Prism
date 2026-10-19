@@ -296,6 +296,8 @@ class MixTempo(
     private val prefs = context.getSharedPreferences("mix_tempo", Context.MODE_PRIVATE)
     /** Song id -> integrated loudness (LUFS; NaN when it couldn't be measured). Also marks a song as scanned. */
     private val loudPrefs = context.getSharedPreferences("song_loudness", Context.MODE_PRIVATE)
+    /** Song id -> its key ([MusicKey.encode], or "none" when it has no clear one); DJ mode's harmonic ordering. */
+    private val keyPrefs = context.getSharedPreferences("song_key", Context.MODE_PRIVATE)
     private val failed = ConcurrentHashMap.newKeySet<String>()
     /** One song at a time: decoding a whole song is the heaviest thing Prism does in the background. */
     private val lock = Mutex()
@@ -305,22 +307,30 @@ class MixTempo(
     /** The song's measured loudness (integrated LUFS), once it's been scanned. */
     fun loudness(id: String): Float? = loudPrefs.getFloat(id, Float.NaN).takeIf { !it.isNaN() }
 
+    /** The song's key once it's been scanned for one (null for none clear, or not scanned yet). */
+    fun key(id: String): MusicKey? = keyPrefs.getString(id, null)?.let(MusicKey::decode)
+
+    /** Scanned for its key by the current [KeyDetector] (with or without a clear answer). */
+    fun keyed(id: String) = keyPrefs.getString(id, null)?.let { it.startsWith("${MusicKey.VERSION}|") || it == "none:${MusicKey.VERSION}" } == true
+
     private fun scanned(id: String) = loudPrefs.contains(id)
 
     /** Scanned before the song's fade-out and intro were measured (for Mix's Auto length): scanned again once. */
     private fun old(id: String) = prefs.getString(id, null)?.let(Tempo::isOld) == true
 
-    private class Scan(val tempo: Tempo?, val lufs: Float?)
+    private class Scan(val tempo: Tempo?, val lufs: Float?, val key: MusicKey?)
 
     /**
      * Scans the song now if it hasn't been ([network]: whether its audio may be downloaded when it isn't on the phone),
      * and returns its tempo; null when it has none that's clear, or it can't be scanned yet. [edges]: a song scanned
-     * before its fade-out and intro were measured is scanned again (only Crossfade's automatic length needs them).
+     * before its fade-out and intro were measured is scanned again (only Crossfade's automatic length needs them), and
+     * with [key], one scanned before its key was (DJ mode).
      */
-    suspend fun measure(id: String, network: Boolean = true, edges: Boolean = true): Tempo? {
-        if ((scanned(id) && !(edges && old(id))) || id in failed) return cached(id)
+    suspend fun measure(id: String, network: Boolean = true, edges: Boolean = true, key: Boolean = false): Tempo? {
+        fun done() = scanned(id) && !(edges && old(id)) && !(key && !keyed(id))
+        if (done() || id in failed) return cached(id)
         return lock.withLock {
-            if (scanned(id) && !(edges && old(id))) return@withLock cached(id)
+            if (done()) return@withLock cached(id)
             withContext(Dispatchers.IO) {
                 val started = System.nanoTime()
                 // Decoding a whole song is heavy: at background priority, so the playing song's own loading comes first.
@@ -338,11 +348,13 @@ class MixTempo(
                     else -> {
                         prefs.edit().putString(id, s.tempo?.encode() ?: "none").apply()
                         loudPrefs.edit().putFloat(id, s.lufs ?: Float.NaN).apply()
+                        keyPrefs.edit().putString(id, s.key?.encode() ?: "none:${MusicKey.VERSION}").apply()
                         val ms = (System.nanoTime() - started) / 1_000_000
                         val t = s.tempo
                         Log.i(TAG, "scanned $id in $ms ms: loudness ${s.lufs?.let { "%.1f LUFS".format(it) } ?: "unknown"}, " +
                             (if (t == null) "no clear music" else "%.1f BPM (confidence %.1f), music %d–%d ms, first beat %d ms"
-                                .format(t.bpm, t.confidence, t.firstSoundMs, t.lastSoundMs, t.firstBeatMs)))
+                                .format(t.bpm, t.confidence, t.firstSoundMs, t.lastSoundMs, t.firstBeatMs)) +
+                            ", key ${s.key?.let { "${it.name} (${it.camelot}, confidence %.3f)".format(it.confidence) } ?: "unclear"}")
                         t
                     }
                 }
@@ -378,7 +390,8 @@ class MixTempo(
             }
             val bands = VideoSync.bandFeatures(pcm, rate)
             val frameMs = (rate / 100) * 1000.0 / rate
-            return Scan(Tempo.analyze(bands, frameMs, offsetMs = VideoSync.WINDOW / 2 * 1000.0 / rate), lufs)
+            val key = runCatching { KeyDetector.detect(pcm, rate) }.getOrNull()
+            return Scan(Tempo.analyze(bands, frameMs, offsetMs = VideoSync.WINDOW / 2 * 1000.0 / rate), lufs, key)
         } finally {
             file.delete()
         }

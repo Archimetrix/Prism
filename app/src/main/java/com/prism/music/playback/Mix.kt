@@ -48,6 +48,11 @@ class MixEngine(
     /** The length is worked out for each pair of songs ([autoLengthMs]) instead of [mixMs]'s. */
     private val auto: () -> Boolean,
     private val beatMatch: () -> Boolean,
+    /**
+     * DJ mode: how much two songs' keys clash (0 the same key … 1 a clash, [MusicKey.clash]), or null when that's not
+     * in play. Keys that sit together get a long blend; clashing ones a short one, so they're heard together briefly.
+     */
+    private val harmonic: (from: String, to: String) -> Double? = { _, _ -> null },
     /** Whether this transition may blend at all (video, live, Listen Together, an album's next track…). */
     private val allowed: (from: MediaItem, to: MediaItem) -> Boolean,
     /** Scans a song from what's on the phone (no network), if it hasn't been ([MixTempo.measure]). */
@@ -190,7 +195,15 @@ class MixEngine(
         val a = tempo.cached(item.mediaId)
         val b = tempo.cached(next.mediaId)
         val nextDur = (next.mediaMetadata.durationMs ?: 0L).takeIf { it > 0 } ?: Long.MAX_VALUE
-        val len = minOf(if (auto()) autoLengthMs(a, b) else length, dur / 3, nextDur / 3)
+        var chosen = if (auto()) autoLengthMs(a, b) else length
+        harmonic(item.mediaId, next.mediaId)?.let { clash ->
+            chosen = when {
+                clash <= 0.25 -> maxOf(chosen, HARMONIC_LONG_MS)
+                clash >= 1.0 -> minOf(chosen, HARMONIC_SHORT_MS)
+                else -> chosen
+            }
+        }
+        val len = minOf(chosen, dur / 3, nextDur / 3)
         if (len < 1000 || dur < 30_000) return null
         val end = (a?.lastSoundMs?.takeIf { it in dur / 2..dur } ?: dur)
         var start = end - len
@@ -460,6 +473,10 @@ class MixEngine(
 
         /** Auto's longest crossfade, as Spotify's slider's. */
         const val AUTO_MAX_MS = 12_000L
+        /** DJ mode: songs in keys that sit together blend at least this long (within [AUTO_MAX_MS], which DJ mode plans by). */
+        private const val HARMONIC_LONG_MS = 10_000L
+        /** DJ mode: songs in clashing keys blend no longer than this. */
+        private const val HARMONIC_SHORT_MS = 3_000L
         /** Auto's shortest: two hard edges barely overlap. */
         private const val AUTO_SHORT_MS = 1_500L
         /** The most of an abrupt ending that's faded over a quiet intro (more would cut off the song's last bars). */

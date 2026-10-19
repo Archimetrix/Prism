@@ -249,6 +249,8 @@ data class AppSettings(
     val singOnCellular: Boolean = false,
     /** How much room Sing's separated vocals may take, in MB. */
     val singCacheMb: Int = 1024,
+    /** DJ mode's energy curve (picked in the queue, where DJ mode is switched on for the queue playing). */
+    val djFlow: com.prism.music.playback.DjFlow = com.prism.music.playback.DjFlow.STEADY,
     val lyricsScale: Float = 1f,
     /** Lyrics on Android Auto's player (the car's Lyrics button flips this too). */
     val carLyrics: Boolean = true,
@@ -465,6 +467,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val romanizeAll = booleanPreferencesKey("romanize_all")
         val singOnCellular = booleanPreferencesKey("sing_cellular")
         val singCacheMb = intPreferencesKey("sing_cache_mb")
+        val djFlow = stringPreferencesKey("dj_flow")
         val lyricsScale = floatPreferencesKey("lyrics_scale")
         val carLyrics = booleanPreferencesKey("car_lyrics")
         val carLyricsStyle = stringPreferencesKey("car_lyrics_style")
@@ -625,6 +628,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             romanizeAll = p[K.romanizeAll] ?: d.romanizeAll,
             singOnCellular = p[K.singOnCellular] ?: d.singOnCellular,
             singCacheMb = p[K.singCacheMb] ?: d.singCacheMb,
+            djFlow = p.enum(K.djFlow, d.djFlow),
             lyricsScale = p[K.lyricsScale] ?: d.lyricsScale,
             carLyrics = p[K.carLyrics] ?: d.carLyrics,
             carLyricsStyle = p.enum(K.carLyricsStyle, d.carLyricsStyle),
@@ -811,6 +815,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setRomanizeAll(v: Boolean) = edit { it[K.romanizeAll] = v }
     fun setSingOnCellular(v: Boolean) = edit { it[K.singOnCellular] = v }
     fun setSingCacheMb(v: Int) = edit { it[K.singCacheMb] = v }
+    fun setDjFlow(v: com.prism.music.playback.DjFlow) = edit { it[K.djFlow] = v.name }
     fun setLyricsScale(v: Float) = edit { it[K.lyricsScale] = v }
     fun setCarLyrics(v: Boolean) = edit { it[K.carLyrics] = v }
     fun setCarLyricsStyle(v: CarLyricsStyle) = edit { it[K.carLyricsStyle] = v.name }

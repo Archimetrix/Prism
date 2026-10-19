@@ -273,6 +273,10 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         }?.also { videoSongs[video.id] = it })?.also { c.queue.counterparts[it.id] = video.id }
 
     private fun startQueue(songs: List<Song>, startIndex: Int, source: QueueSource, shuffle: Boolean, startVideo: String?, startMs: Long = 0) {
+        // DJ mode is for the queue it was turned on in; "Play as a DJ set" turns it on for the new one.
+        val dj = djNext && !shuffle
+        djNext = false
+        c.dj.setOn(false)
         c.queue.source.value = source
         c.queue.autoplayContinuation = null
         c.queue.autoplayStart.value = -1
@@ -286,7 +290,22 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
             p.prepare()
             p.play()
             service?.maybeAutoplay()
+            if (dj) c.dj.setOn(true)
         }
+    }
+
+    private var djNext = false
+
+    /** Plays [songs] as a DJ set (DJ mode on): from the first, then in the order that blends best (album/playlist menus). */
+    fun playDjSet(songs: List<Song>, source: QueueSource) {
+        djNext = true
+        playQueue(songs, 0, source)
+    }
+
+    /** DJ mode on or off for the queue playing (the queue's switch). */
+    fun setDjMode(on: Boolean) = withPlayer { p ->
+        if (on && p.shuffleModeEnabled) p.shuffleModeEnabled = false
+        c.dj.setOn(on)
     }
 
     /** Plays a lone song; autoplay then continues with similar music. */

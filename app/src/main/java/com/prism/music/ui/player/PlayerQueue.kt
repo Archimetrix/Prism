@@ -82,6 +82,14 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
 
     val controlsOnScroll = remember { ControlsOnScroll(onHide = onHidePlayer, onReveal = onRevealPlayer) }
 
+    // DJ mode: its switch, energy curve and how far the scans have got; each song's key and tempo as badges.
+    val dj by c.dj.on.collectAsState()
+    val djProgress by c.dj.progress.collectAsState()
+    val djRevision by c.dj.revision.collectAsState()
+    val badge: (Song) -> String? = remember(dj, djRevision) {
+        { song -> if (!dj) null else if (!c.mixTempo.keyed(song.id)) "…" else djBadge(c.mixTempo.key(song.id), c.mixTempo.cached(song.id)) }
+    }
+
     var saving by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     if (saving) com.prism.music.ui.components.NewPlaylistDialog(onDismiss = { saving = false }) { name, privacy ->
@@ -97,11 +105,30 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Queue", style = MaterialTheme.typography.titleLarge, color = Color.White, modifier = Modifier.weight(1f))
+            if (order.size > 1) {
+                QueueChip("DJ", selected = dj) { pc.setDjMode(!dj) }
+                Spacer(Modifier.width(8.dp))
+            }
             if (settings.isLoggedIn && queue.size > 1) QueueChip("Save") { saving = true }
             if (order.isNotEmpty()) {
                 Spacer(Modifier.width(8.dp))
                 QueueChip("Clear") { pc.clearUpcoming() }
             }
+        }
+        if (dj) {
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                for (flow in com.prism.music.playback.DjFlow.entries) {
+                    QueueChip(flow.label, selected = settings.djFlow == flow) { c.settings.setDjFlow(flow) }
+                    Spacer(Modifier.width(8.dp))
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                djProgress?.let { (done, all) -> if (done < all) "DJ mode: reading keys and tempos… $done of $all" else "DJ mode: in key order, beat-matched" }
+                    ?: "DJ mode: in key order, beat-matched",
+                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f),
+            )
         }
         Spacer(Modifier.height(4.dp))
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().nestedScroll(controlsOnScroll), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -116,19 +143,19 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
             }
             if (now != null) {
                 item(key = "h-now") { Heading("Now Playing", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
-                item(key = "now-" + now.uid) { QueueRow(now.song, isCurrent = true, onClick = {}, onRemove = null) }
+                item(key = "now-" + now.uid) { QueueRow(now.song, isCurrent = true, onClick = {}, onRemove = null, badge = badge(now.song)) }
             }
             if (queued.isNotEmpty()) {
                 item(key = "h-queued") { Heading("Next in queue", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(queued, reorder = !shuffled) { from, to -> pc.move(from, to) }
+                queueSection(queued, reorder = !shuffled, badge = badge) { from, to -> pc.move(from, to) }
             }
             if (upcoming.isNotEmpty()) {
                 item(key = "h-next") { Heading("Next from: ${source.title.ifBlank { now?.song?.album?.title ?: "Queue" }}", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(upcoming, reorder = !shuffled) { from, to -> pc.move(from, to) }
+                queueSection(upcoming, reorder = !shuffled, badge = badge) { from, to -> pc.move(from, to) }
             }
             if (settings.autoplay || autoplay.isNotEmpty()) {
                 item(key = "h-auto") { AutoplayHeading(autoplay.isNotEmpty()) }
-                queueSection(autoplay, reorder = !shuffled) { from, to -> pc.move(from, to) }
+                queueSection(autoplay, reorder = !shuffled, badge = badge) { from, to -> pc.move(from, to) }
             }
         }
     }
@@ -138,7 +165,7 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
 private const val MAX_PLAYED = 100
 
 /** [reorder] is off while shuffled: dragging moves songs in the list, not in the shuffled order. */
-private fun LazyListScope.queueSection(rows: List<QueueEntry>, reorder: Boolean = true, onMove: (Int, Int) -> Unit) {
+private fun LazyListScope.queueSection(rows: List<QueueEntry>, reorder: Boolean = true, badge: (Song) -> String? = { null }, onMove: (Int, Int) -> Unit) {
     items(rows, key = { it.uid }) { entry ->
         val pc = LocalContainer.current.player
         val rowPx = with(LocalDensity.current) { 56.dp.toPx() }
@@ -149,6 +176,7 @@ private fun LazyListScope.queueSection(rows: List<QueueEntry>, reorder: Boolean 
             isCurrent = false,
             onClick = { pc.skipTo(entry.index) },
             onRemove = { pc.removeAt(entry.index) },
+            badge = badge(entry.song),
             modifier = Modifier.offset { IntOffset(0, drag.roundToInt()) },
             dragHandle = if (!reorder) Modifier else Modifier.pointerInput(entry.uid) {
                 detectDragGestures(
@@ -166,14 +194,21 @@ private fun LazyListScope.queueSection(rows: List<QueueEntry>, reorder: Boolean 
     }
 }
 
-/** A small action at the top of the queue ("Save", "Clear"). */
+/** A small action at the top of the queue ("Save", "Clear"; [selected] for a switch like "DJ"). */
 @Composable
-private fun QueueChip(label: String, onClick: () -> Unit) {
+private fun QueueChip(label: String, selected: Boolean = false, onClick: () -> Unit) {
     Text(
-        label, style = MaterialTheme.typography.labelLarge, color = Color.White,
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+        label, style = MaterialTheme.typography.labelLarge, color = if (selected) Color.Black else Color.White,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (selected) Color.White else Color.White.copy(alpha = 0.12f))
+            .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 7.dp),
     )
+}
+
+/** A scanned song's key on the Camelot wheel and its tempo ("8A · 124"), as DJ mode sees them (what's clear of them). */
+private fun djBadge(key: com.prism.music.playback.MusicKey?, tempo: com.prism.music.playback.Tempo?): String? {
+    val k = key?.takeIf { it.sure }?.camelot
+    val bpm = tempo?.takeIf { it.steady }?.bpm?.roundToInt()?.toString()
+    return listOfNotNull(k, bpm).joinToString(" · ").ifEmpty { null }
 }
 
 @Composable
@@ -204,6 +239,7 @@ private fun QueueRow(
     onRemove: (() -> Unit)?,
     modifier: Modifier = Modifier,
     dragHandle: Modifier? = null,
+    badge: String? = null,
 ) {
     Row(
         modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
@@ -218,6 +254,13 @@ private fun QueueRow(
         Column(Modifier.weight(1f)) {
             Text(song.title, style = MaterialTheme.typography.titleMedium, color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artistText, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (badge != null) {
+            Text(
+                badge, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1,
+                modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.1f)).padding(horizontal = 7.dp, vertical = 3.dp),
+            )
+            Spacer(Modifier.width(8.dp))
         }
         if (isCurrent) {
             Icon(PrismIcons.Equalizer, "Now playing", tint = Color.White, modifier = Modifier.size(18.dp))

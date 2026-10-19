@@ -82,6 +82,17 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         if (java.io.File(filesDir, "lyrics-tags").list()?.isNotEmpty() == true) {
             container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { container.lyricsToFiles.recover() } }
         }
+        // Debug builds: song ids pushed to …/files/scan_list.txt are scanned (tempo, loudness, key) and logged under
+        // PrismMix, for tuning the analysis on real songs (with mix_dump there too, their decoded audio is kept).
+        if (BuildConfig.DEBUG) getExternalFilesDir(null)?.let { java.io.File(it, "scan_list.txt") }?.takeIf { it.isFile }?.let { list ->
+            container.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                for (id in list.readLines().map { it.trim() }.filter { it.isNotEmpty() }) {
+                    runCatching { container.mixTempo.measure(id, network = true, edges = true, key = true) }
+                }
+                android.util.Log.i("PrismMix", "scan list done")
+                list.delete()
+            }
+        }
     }
 }
 
@@ -244,6 +255,7 @@ class AppContainer(val app: Application) {
 
     /** Sing: karaoke with the song's own backing (vocals separated on the phone). */
     val sing by lazy { com.prism.music.playback.sing.Sing(this) }
+    val dj = com.prism.music.playback.DjMode()
 
     /** Headphone correction (AutoEq profiles per headphones). */
     val headphoneEq by lazy { com.prism.music.data.HeadphoneEq(app, http, scope, player.preferredOutput) }

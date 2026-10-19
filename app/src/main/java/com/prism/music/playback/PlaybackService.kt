@@ -219,6 +219,9 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 if (on) singAhead()
             }
         }
+        // DJ mode: the set is worked out when it's turned on, and again when its energy curve changes.
+        scope.launch { c.dj.on.collect { on -> if (on) djAhead() else { djJob?.cancel(); djSoon?.cancel() } } }
+        scope.launch { c.settings.flow.map { it.djFlow }.distinctUntilChanged().drop(1).collect { resequence() } }
         scope.launch {
             c.settings.flow.map { Triple(it.carLyrics, it.carLyricsStyle, it.carLyricsOnPhone) }.distinctUntilChanged().collect {
                 carLyrics.refresh(); updateButtons()
@@ -246,9 +249,16 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             main = player,
             scope = scope,
             tempo = c.mixTempo,
-            mixMs = { c.settings.current.let { s -> if (s.mix) s.mixSeconds * 1000L else null } },
-            auto = { c.settings.current.mixAuto },
-            beatMatch = { c.settings.current.mixBeatMatch },
+            // DJ mode blends every song into the next, beat-matched, at Crossfade's automatic length.
+            mixMs = { c.settings.current.let { s -> if (s.mix || c.dj.onNow) s.mixSeconds * 1000L else null } },
+            auto = { c.settings.current.mixAuto || c.dj.onNow },
+            beatMatch = { c.settings.current.mixBeatMatch || c.dj.onNow },
+            harmonic = { from, to ->
+                if (!c.dj.onNow) null else {
+                    val a = c.mixTempo.key(from); val b = c.mixTempo.key(to)
+                    if (a?.sure == true && b?.sure == true) MusicKey.clash(a, b) else null
+                }
+            },
             allowed = ::mayBlend,
             scanFromPhone = { id -> scope.launch { c.mixTempo.measure(id, network = false) } },
             buildTail = ::buildTailPlayer,
@@ -274,8 +284,9 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (c.sing.onNow) return false
         if (c.queue.followingHost || c.together.state.value !is com.prism.music.playback.together.TogetherState.Idle) return false
         // Only while an album plays through (a radio or playlist that puts two of an album's songs side by side blends).
+        // An album played as a DJ set is a set: it blends.
         val album = a.album?.id
-        return !(album != null && album == b.album?.id && c.queue.source.value.kind == QueueKind.ALBUM)
+        return c.dj.onNow || !(album != null && album == b.album?.id && c.queue.source.value.kind == QueueKind.ALBUM)
     }
 
     /**
@@ -425,6 +436,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch(Dispatchers.IO) { c.library.recordPlayed(song) }
         scope.launch { c.bestParts.onSongStarted(song) }
         singAhead()
+        djAhead()
         loadExtras(song)
         // Audio only (the Song / Video switch is off): nothing plays as its video, whatever lined it up (#48).
         // Posted: swapping the item from inside this callback would report its transition after the swap was over.
@@ -494,6 +506,11 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         val i = player.nextMediaItemIndex
         val next = if (i == C.INDEX_UNSET) null else player.getMediaItemAt(i).mediaId
         if (next != null && next != warmedNext && player.currentMediaItem != null) prefetchNext()
+        // Songs added while DJ mode is on (autoplay's, queued ones) join the set; DJ mode's own moves don't count.
+        if (c.dj.onNow && !djMoving) {
+            djSoon?.cancel()
+            djSoon = scope.launch { delay(1_500); djAhead() }
+        }
     }
 
     /** When playback stalled waiting for data (logged with how long, tag PrismStream). */
@@ -510,6 +527,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         vocals.shuffle = shuffleModeEnabled
+        // Shuffle and DJ mode both decide the order: the listener's shuffle wins.
+        if (shuffleModeEnabled && c.dj.onNow) c.dj.setOn(false)
         updateButtons()
         // Shuffling picks a different next song.
         prefetchNext()
@@ -1040,8 +1059,100 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     /** What a play of [item] is counted as (play_events.source): the kind of queue it's in. */
-    private fun sourceOf(@Suppress("UNUSED_PARAMETER") item: MediaItem): String =
-        if (c.sing.onNow) "sing" else c.queue.source.value.kind.name.lowercase()
+    private fun sourceOf(@Suppress("UNUSED_PARAMETER") item: MediaItem): String = when {
+        c.sing.onNow -> "sing"
+        c.dj.onNow -> "dj"
+        else -> c.queue.source.value.kind.name.lowercase()
+    }
+
+    // ------------------------------------------------------------------ DJ mode
+
+    private var djJob: kotlinx.coroutines.Job? = null
+    private var djSoon: kotlinx.coroutines.Job? = null
+    /** DJ mode is moving songs itself (the timeline changes that causes aren't new songs). */
+    private var djMoving = false
+
+    /**
+     * DJ mode: the songs ahead scanned (key, tempo, loudness; the playing one and the next first) and put in DJ order
+     * ([resequence]) as each scan comes in. Scans follow the song scan's own rules (from the phone, else a download
+     * on Wi-Fi unless "Measure songs on mobile data" is on).
+     */
+    private fun djAhead() {
+        djJob?.cancel()
+        if (!c.dj.onNow) return
+        if (player.shuffleModeEnabled) player.shuffleModeEnabled = false
+        djJob = scope.launch {
+            val s = c.settings.current
+            val network = s.mixTempoOnCellular || getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered == false
+            resequence()
+            val cur = player.currentMediaItemIndex
+            val ids = (cur until minOf(player.mediaItemCount, cur + 2 + DJ_WINDOW))
+                .map { player.getMediaItemAt(it) }.filter { djTrack(it) != null }.map { it.mediaId }.distinct()
+            var looked = ids.count { c.mixTempo.keyed(it) }
+            c.dj.setProgress(looked to ids.size)
+            // The playing song's own start comes first (a scan downloads and decodes a whole song).
+            player.currentMediaItem?.mediaId?.let { if (!c.mixTempo.keyed(it)) untilUnderWay(it, UNDER_WAY_MS) }
+            for (id in ids) {
+                if (c.mixTempo.keyed(id)) continue
+                c.mixTempo.measure(id, network, edges = true, key = true)
+                looked++
+                c.dj.setProgress(looked to ids.size)
+                c.dj.bump()
+                resequence()
+            }
+        }
+    }
+
+    /** A queue item as DJ mode sees it (null for what it leaves where it is: live streams, podcasts, videos). */
+    private fun djTrack(item: MediaItem, id: String = item.mediaId): DjTrack? {
+        val song = item.toSong() ?: return null
+        if (song.isLive || song.isEpisode || item.videoModeId != null) return null
+        val t = c.mixTempo.cached(song.id)
+        return DjTrack(id, c.mixTempo.key(song.id), t?.takeIf { it.steady }?.bpm, c.mixTempo.loudness(song.id), song.artists.firstOrNull()?.name)
+    }
+
+    /**
+     * Puts the songs ahead in DJ order: the playing song and the next stay (the next is already being got ready, and
+     * may be blending in), as do songs the listener queued themselves; up to [DJ_WINDOW] after those are ordered to
+     * follow on from the next song. Songs not scanned yet keep their places after the scanned ones, and join the
+     * order as their scans land. Only moves songs (nothing reloads).
+     */
+    private fun resequence() {
+        if (!c.dj.onNow || player.shuffleModeEnabled) return
+        val cur = player.currentMediaItemIndex
+        if (cur == C.INDEX_UNSET || cur + 1 >= player.mediaItemCount) return
+        val queued = c.queue.userQueued.value
+        var base = cur + 2
+        while (base < player.mediaItemCount && player.getMediaItemAt(base).mediaId in queued) base++
+        // Within the queue's own songs, or within autoplay's, so neither list in the queue gets the other's songs.
+        val autoplay = c.queue.autoplayStart.value.takeIf { it > 0 } ?: Int.MAX_VALUE
+        val limit = if (base < autoplay) minOf(autoplay, player.mediaItemCount) else player.mediaItemCount
+        val end = minOf(limit, base + DJ_WINDOW)
+        if (end - base < 2) return
+        val anchor = djTrack(player.getMediaItemAt(cur + 1)) ?: return
+        val items = (base until end).map { player.getMediaItemAt(it) }
+        val tracks = items.mapIndexed { i, item -> if (c.mixTempo.keyed(item.mediaId)) djTrack(item, id = i.toString()) else null }
+        val known = tracks.filterNotNull()
+        if (known.size < 2) return
+        val set = DjSequencer.order(anchor, known, c.settings.current.djFlow)
+        android.util.Log.d("PrismDj", "set after ${anchor.id}: " + (listOf(anchor) + set).joinToString(" → ") { t ->
+            (t.key?.takeIf { it.sure }?.camelot ?: "?") + "/" + (t.bpm?.toInt() ?: "?")
+        } + " (+${items.size - known.size} not scanned)")
+        val ordered = set.map { it.id.toInt() }
+        val desired = ordered + items.indices.filter { tracks[it] == null }
+        val arrangement = items.indices.toMutableList()
+        djMoving = true
+        try {
+            for ((j, want) in desired.withIndex()) {
+                val at = arrangement.indexOf(want)
+                if (at == j) continue
+                player.moveMediaItem(base + at, base + j)
+                arrangement.add(j, arrangement.removeAt(at))
+            }
+        } finally {
+            djMoving = false
+        }
+    }
 
     /**
      * Buttons beside play/pause/skip. The phone's media controls show the first two (like, shuffle);
@@ -1460,6 +1571,8 @@ private const val TARGET_LUFS = -14f
 private const val SETTLE_MS = 2_000L
 /** Queued songs are got ready once the playing one has played this long (not as it starts: that slowed its loading). */
 private const val UNDER_WAY_MS = 5_000L
+/** How many songs ahead DJ mode scans and orders (each scan is a whole song decoded, ~15 s on a phone). */
+private const val DJ_WINDOW = 40
 /** How many queued songs ahead are got ready (their loudness and edges). */
 private const val QUEUE_AHEAD = 3
 /** How far ahead the player loads: a whole song (and the start of the next, near its end). */

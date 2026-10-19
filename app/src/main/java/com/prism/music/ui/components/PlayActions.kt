@@ -144,7 +144,18 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), onD
                 Toast.makeText(context, if (ok) "Removed from your library" else "Couldn't update your library", Toast.LENGTH_SHORT).show()
             }
         }) else emptyList()
-        ActionGroup(null, extra.map { it.toAction() } + remove) { runAction(it, close) }
+        // Played in the order that blends best, mixed and beat-matched (DJ mode).
+        val djSet = if (item is ArtistItem) emptyList() else listOf(ActionItem(PrismIcons.Album, "Play as a DJ set") {
+            c.scope.launch(Dispatchers.Main) {
+                val loaded = runCatching { withContext(Dispatchers.IO) { songsFor(c, target, shuffle = false, mix = false) } }.getOrNull()
+                if (loaded == null || loaded.first.size < 2) {
+                    Toast.makeText(context, if (loaded == null) "Couldn't load \"$title\"" else "A DJ set needs more than one song", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                c.player.playDjSet(loaded.first, loaded.second)
+            }
+        })
+        ActionGroup(null, djSet + extra.map { it.toAction() } + remove) { runAction(it, close) }
     }
 }
 
