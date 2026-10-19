@@ -10,7 +10,7 @@ import java.io.File
  * be there, so a new setting without a line in the index fails here.
  */
 class SettingsIndexTest {
-    private val sources = listOf("SettingsScreen.kt", "SoundSettings.kt", "BackupUi.kt")
+    private val sources = listOf("SettingsScreen.kt", "SoundSettings.kt", "BackupUi.kt", "ConnectSettings.kt")
         .map { File("src/main/java/com/prism/music/ui/screens/$it").readText() }
 
     private fun literals(pattern: String) = sources.flatMap { src ->

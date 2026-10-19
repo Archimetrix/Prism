@@ -27,6 +27,7 @@ object SettingsIndex {
     private val H = SettingsSection.HOME
     private val R = SettingsSection.LIBRARY
     private val B = SettingsSection.ABOUT
+    private val C = SettingsSection.CONNECT
 
     val entries: List<SettingEntry> = listOf(
         // The hub
@@ -162,6 +163,14 @@ object SettingsIndex {
         SettingEntry(H, "Home", "Customize button at the top"),
         SettingEntry(H, "Home", "Customize button at the bottom"),
         SettingEntry(H, "Region", "Content country", "region location gl"),
+        // Prism Connect
+        SettingEntry(C, "Speakers & TVs", "Speakers & TVs", "cast casting dlna upnp tv television speaker receiver avr sonos chromecast play on output"),
+        SettingEntry(C, "Control from a browser", "Control from a browser", "web remote computer laptop tablet browser control prism connect"),
+        SettingEntry(C, "Control from a browser", "Address", "web remote url link ip"),
+        SettingEntry(C, "Control from a browser", "Pairing code", "web remote pair code browser", shown = "Browser pairing code"),
+        SettingEntry(C, "Control from a browser", "Unpair all browsers", "web remote forget browsers"),
+        SettingEntry(C, "Handoff", "Available for handoff", "move playback another device tablet phone continue transfer handoff"),
+        SettingEntry(C, "Handoff", "Pairing code", "handoff pair code", shown = "Handoff pairing code"),
         SettingEntry(H, "Made for you", "Your artists", "onboarding pick artists favourites starred recommendations"),
         SettingEntry(H, "Made for you", "New release notifications", "release radar new music alerts"),
         SettingEntry(H, "Made for you", "Make my mixes again", "daily mix refresh recommendations"),

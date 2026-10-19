@@ -22,6 +22,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -52,6 +54,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -433,7 +436,7 @@ private const val HOLD_TO_SEEK_MS = 400L
 private const val HOLD_SEEK_REPEAT_MS = 450L
 
 /** System media volume, mirrored into a value the bar can drag. */
-class PlayerVolume(context: Context) {
+class PlayerVolume(context: Context, private val cast: com.prism.music.connect.Cast? = null) {
     private val am = context.getSystemService(AudioManager::class.java)
     /** Read each time: some phones give Bluetooth headphones a different number of steps than the speaker. */
     private val max get() = am?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)?.coerceAtLeast(1) ?: 1
@@ -442,7 +445,10 @@ class PlayerVolume(context: Context) {
     /** The step last asked of Android, so a drag only sends the steps it crosses. */
     private var sent = -1
 
-    fun read(): Float = (am?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0).toFloat() / max
+    /** While casting it's the speaker's or TV's own volume (when it has one). */
+    private val remote: Int? get() = cast?.takeIf { it.casting }?.volume
+
+    fun read(): Float = remote?.let { it / 100f } ?: ((am?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0).toFloat() / max)
 
     /**
      * Only a change of step reaches Android (#52). Every drag event used to set the volume, dozens a second: with
@@ -452,6 +458,7 @@ class PlayerVolume(context: Context) {
     fun drag(v: Float) {
         dragging = true
         level = v
+        if (remote != null) { cast?.setVolume(kotlin.math.round(v * 100).toInt()); return }
         val step = kotlin.math.round(v * max).toInt()
         if (step != sent) {
             sent = step
@@ -470,7 +477,8 @@ class PlayerVolume(context: Context) {
 @Composable
 fun rememberPlayerVolume(): PlayerVolume {
     val context = LocalContext.current
-    val v = remember { PlayerVolume(context) }
+    val cast = LocalContainer.current.cast
+    val v = remember { PlayerVolume(context, cast) }
     LaunchedEffect(Unit) {
         while (isActive) {
             if (!v.dragging) v.level = v.read()
@@ -639,8 +647,14 @@ fun OutputCaption() {
         while (isActive) { current = currentOutput(context, preferred); delay(1500) }
     }
     var picking by remember { mutableStateOf(false) }
+    val castState by c.cast.state.collectAsState()
+    val castLabel = when (val cs = castState) {
+        is com.prism.music.connect.CastState.Casting -> "Playing on ${cs.renderer.name}"
+        is com.prism.music.connect.CastState.Connecting -> "Connecting to ${cs.renderer.name}…"
+        else -> null
+    }
     Text(
-        current?.let { outputLabel(it, phoneName) } ?: phoneName,
+        castLabel ?: current?.let { outputLabel(it, phoneName) } ?: phoneName,
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
         color = Color.White.copy(alpha = 0.55f),
         maxLines = 1,
@@ -720,11 +734,15 @@ fun OutputPickerSheet(phoneName: String, onDismiss: () -> Unit) {
             delay(1000)
         }
     }
+    val cast = LocalContainer.current.cast
+    val castState by cast.state.collectAsState()
+    val castingTo = (castState as? com.prism.music.connect.CastState.Casting)?.renderer?.id
+        ?: (castState as? com.prism.music.connect.CastState.Connecting)?.renderer?.id
     com.prism.music.ui.components.PrismSheet(onDismiss, containerColor = Color(0xFF1C1C1E), contentColor = Color.White) {
         Text("Play on", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        Column(Modifier.padding(bottom = 28.dp)) {
+        Column(Modifier.padding(bottom = 28.dp).verticalScroll(rememberScrollState())) {
             options.forEach { d ->
-                val selected = current?.id == d.id
+                val selected = castingTo == null && current?.id == d.id
                 Row(
                     Modifier.fillMaxWidth()
                         .clickable { pc.setOutput(d) }
@@ -763,10 +781,137 @@ fun OutputPickerSheet(phoneName: String, onDismiss: () -> Unit) {
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Other devices", style = MaterialTheme.typography.bodyLarge)
-                    Text("Paired devices that aren't connected, and cast speakers", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f))
+                    Text("Bluetooth devices that aren't connected", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f))
                 }
             }
+            SpeakersAndTvs(castState, castingTo)
+            PrismDevices()
         }
+    }
+}
+
+/** Prism Connect handoff in the output picker: other Prism devices on this Wi-Fi to move the music to (or bring it from). */
+@Composable
+private fun PrismDevices() {
+    val handoff = LocalContainer.current.handoff
+    val devices by handoff.devices.collectAsState()
+    val busy by handoff.busy.collectAsState()
+    DisposableEffect(Unit) {
+        handoff.startDiscovery()
+        onDispose { handoff.stopDiscovery() }
+    }
+    if (devices.isEmpty() && busy == null) return
+    Text(
+        "Prism devices", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f),
+        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 4.dp),
+    )
+    busy?.let { label ->
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.size(18.dp), color = Color.White.copy(alpha = 0.7f), strokeWidth = 2.dp)
+            Spacer(Modifier.width(14.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+        }
+    }
+    devices.forEach { d ->
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable(enabled = busy == null) { handoff.moveTo(d) }
+                .padding(start = 24.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(PrismIcons.Handoff, null, tint = Color.White, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(d.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "Move the music there" + if (d.paired) "" else " · pairs the first time",
+                    style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            androidx.compose.material3.TextButton(onClick = { handoff.bringFrom(d) }, enabled = busy == null) {
+                Text("Bring here", color = Color.White)
+            }
+        }
+    }
+}
+
+private val speakerWords = listOf("speaker", "sonos", "receiver", "avr", "denon", "marantz", "yamaha", "onkyo", "pioneer", "bose", "amp", "audio", "soundbar", "wiim", "bluesound", "heos")
+
+/** Prism Connect in the output picker: speakers, TVs and receivers on this Wi-Fi (UPnP / DLNA), looked for while it's open. */
+@Composable
+private fun SpeakersAndTvs(castState: com.prism.music.connect.CastState, castingTo: String?) {
+    val cast = LocalContainer.current.cast
+    val renderers by cast.renderers.collectAsState()
+    var lookedLong by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        cast.startDiscovery()
+        onDispose { cast.stopDiscovery() }
+    }
+    LaunchedEffect(Unit) { delay(8_000); lookedLong = true }
+    Text(
+        "Speakers & TVs", style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.7f),
+        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 4.dp),
+    )
+    val shown = renderers.let { list ->
+        // The one being cast to stays listed even if it's stopped answering searches.
+        val playing = (castState as? com.prism.music.connect.CastState.Casting)?.renderer ?: (castState as? com.prism.music.connect.CastState.Connecting)?.renderer
+        if (playing != null && list.none { it.id == playing.id }) listOf(playing) + list else list
+    }
+    shown.forEach { r ->
+        val selected = r.id == castingTo
+        val connecting = castState is com.prism.music.connect.CastState.Connecting && selected
+        val speaker = speakerWords.any { w -> "${r.name} ${r.manufacturer} ${r.model}".lowercase().contains(w) }
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable { if (!selected) cast.connect(r) }
+                .padding(horizontal = 24.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = if (selected) 0.95f else 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (connecting) CircularProgressIndicator(Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                else Icon(if (speaker) PrismIcons.Speaker else PrismIcons.Tv, null, tint = if (selected) Color.Black else Color.White, modifier = Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(r.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    r.detail + when { connecting -> " · Connecting…"; selected -> " · Playing"; else -> "" },
+                    style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (selected && !connecting) Icon(PrismIcons.Check, "Selected", tint = Color.White)
+        }
+    }
+    if (castingTo != null) Row(
+        Modifier.fillMaxWidth()
+            .clickable { cast.disconnect(keepPlaying = false) }
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(PrismIcons.Close, null, tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Stop casting", style = MaterialTheme.typography.bodyLarge)
+            Text("The music pauses; pick this phone above to carry on here", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f))
+        }
+    }
+    if (shown.isEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!lookedLong) {
+            CircularProgressIndicator(Modifier.size(18.dp), color = Color.White.copy(alpha = 0.7f), strokeWidth = 2.dp)
+            Spacer(Modifier.width(14.dp))
+            Text("Looking on this Wi-Fi…", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+        } else Text(
+            "None found. Speakers, TVs and receivers show here when they're on, on the same Wi-Fi, and have DLNA / UPnP " +
+                "(often called media sharing or \"media renderer\") switched on.",
+            style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f),
+        )
     }
 }
 

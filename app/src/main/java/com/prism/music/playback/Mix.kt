@@ -121,6 +121,11 @@ class MixEngine(
         abort("released")
     }
 
+    /** Ends a blend under way at once (casting starts: the music goes elsewhere, and no blend may leave it at half volume). */
+    fun stopBlend() {
+        if (phase != Phase.IDLE) abort("stopped")
+    }
+
     /** The song a scan from the phone was last asked for (once per song as its end comes up). */
     private var scanAskedFor: String? = null
     /** When the ending song went quiet mid-blend and the next was brought in early (0 when it hasn't). */

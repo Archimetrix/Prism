@@ -133,6 +133,9 @@ import kotlin.math.abs
  * The app's screen. Declared in the manifest as [PrismActivity], so that ".MainActivity" can be the classic app-icon
  * alias (#20) and home-screen icons made before stay valid.
  */
+/** A volume key press on a cast speaker or TV, out of 100. */
+private const val VOLUME_KEY_STEP = 4
+
 open class MainActivity : ComponentActivity() {
     private val deepLink = MutableStateFlow<Uri?>(null)
 
@@ -210,6 +213,21 @@ open class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         linkIn(intent)?.let { deepLink.value = it }
+    }
+
+    /** While casting, the volume keys turn the speaker or TV up and down (with Prism open; elsewhere, the media session does). */
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        val cast = container.cast
+        if (cast.casting && (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            cast.adjustVolume(if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP) VOLUME_KEY_STEP else -VOLUME_KEY_STEP)
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        if (container.cast.casting && (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN)) return true
+        return super.onKeyUp(keyCode, event)
     }
 
     /** A music.youtube.com link opened in Prism, or a YouTube / YouTube Music link shared to it. */
@@ -375,6 +393,13 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
         LaunchedEffect(Unit) {
             c.together.events.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
         }
+        LaunchedEffect(Unit) {
+            c.cast.events.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        }
+        LaunchedEffect(Unit) {
+            c.handoff.events.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+        }
+        com.prism.music.ui.components.HandoffDialogs()
         LaunchedEffect(Unit) {
             deepLink.collect { uri -> if (uri != null) { handleDeepLink(uri, navigator, c); deepLink.value = null } }
         }
@@ -767,6 +792,8 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
         // The Quick Settings tile: straight to listening.
         uri.scheme == "prism" && uri.host == "recognize" -> nav.go(Routes.RECOGNIZE + "?start=true")
         uri.scheme == "prism" && uri.host == "recognized" -> nav.go(Routes.RECOGNIZED)
+        // A handoff pairing code's notification: Prism Connect's settings, where the code shows.
+        uri.scheme == "prism" && uri.host == "connect" -> nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.CONNECT.key))
         uri.scheme == "prism" && uri.host == "mix" && path.isNotEmpty() -> nav.go(Routes.mix(path[0]))
         v != null -> {
             nav.openPlayer()

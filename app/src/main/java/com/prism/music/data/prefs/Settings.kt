@@ -273,6 +273,10 @@ data class AppSettings(
     val djFlow: com.prism.music.playback.DjFlow = com.prism.music.playback.DjFlow.STEADY,
     /** A notification when an artist the listener starred puts something out (Release Radar). */
     val releaseNotifications: Boolean = true,
+    /** Prism Connect: control Prism from a browser on the same Wi-Fi (off until switched on; paired browsers only). */
+    val webRemote: Boolean = false,
+    /** Prism Connect: other Prism devices on the Wi-Fi can find this one and move what they're playing here. */
+    val handoffAvailable: Boolean = false,
     val lyricsScale: Float = 1f,
     /** Lyrics on Android Auto's player (the car's Lyrics button flips this too). */
     val carLyrics: Boolean = true,
@@ -491,6 +495,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val singCacheMb = intPreferencesKey("sing_cache_mb")
         val djFlow = stringPreferencesKey("dj_flow")
         val releaseNotifications = booleanPreferencesKey("release_notifications")
+        val webRemote = booleanPreferencesKey("web_remote")
+        val handoffAvailable = booleanPreferencesKey("handoff_available")
         val lyricsScale = floatPreferencesKey("lyrics_scale")
         val carLyrics = booleanPreferencesKey("car_lyrics")
         val carLyricsStyle = stringPreferencesKey("car_lyrics_style")
@@ -653,6 +659,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             singCacheMb = p[K.singCacheMb] ?: d.singCacheMb,
             djFlow = p.enum(K.djFlow, d.djFlow),
             releaseNotifications = p[K.releaseNotifications] ?: d.releaseNotifications,
+            webRemote = p[K.webRemote] ?: d.webRemote,
+            handoffAvailable = p[K.handoffAvailable] ?: d.handoffAvailable,
             lyricsScale = p[K.lyricsScale] ?: d.lyricsScale,
             carLyrics = p[K.carLyrics] ?: d.carLyrics,
             carLyricsStyle = p.enum(K.carLyricsStyle, d.carLyricsStyle),
@@ -853,6 +861,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setSingCacheMb(v: Int) = edit { it[K.singCacheMb] = v }
     fun setDjFlow(v: com.prism.music.playback.DjFlow) = edit { it[K.djFlow] = v.name }
     fun setReleaseNotifications(v: Boolean) = edit { it[K.releaseNotifications] = v }
+    fun setWebRemote(v: Boolean) = edit { it[K.webRemote] = v }
+    fun setHandoffAvailable(v: Boolean) = edit { it[K.handoffAvailable] = v }
     fun setLyricsScale(v: Float) = edit { it[K.lyricsScale] = v }
     fun setCarLyrics(v: Boolean) = edit { it[K.carLyrics] = v }
     fun setCarLyricsStyle(v: CarLyricsStyle) = edit { it[K.carLyricsStyle] = v.name }

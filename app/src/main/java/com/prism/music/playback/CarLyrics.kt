@@ -73,6 +73,47 @@ class LyricsOverlayPlayer(player: Player) : ForwardingSimpleBasePlayer(player) {
         invalidateState()
     }
 
+    /** A speaker or TV the music is cast to (Prism Connect): its volume is the session's, so the volume keys work it. */
+    interface Remote {
+        /** 0–100, or null when not casting. */
+        val volume: Int?
+        fun setVolume(v: Int)
+        fun adjust(delta: Int)
+    }
+
+    var remote: Remote? = null
+
+    /** The cast volume (or casting itself) changed. Call on the main thread. */
+    fun remoteChanged() = invalidateState()
+
+    override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int): com.google.common.util.concurrent.ListenableFuture<*> {
+        val r = remote
+        if (r?.volume == null) return super.handleSetDeviceVolume(deviceVolume, flags)
+        r.setVolume(deviceVolume)
+        return com.google.common.util.concurrent.Futures.immediateVoidFuture()
+    }
+
+    override fun handleIncreaseDeviceVolume(flags: Int): com.google.common.util.concurrent.ListenableFuture<*> {
+        val r = remote
+        if (r?.volume == null) return super.handleIncreaseDeviceVolume(flags)
+        r.adjust(REMOTE_STEP)
+        return com.google.common.util.concurrent.Futures.immediateVoidFuture()
+    }
+
+    override fun handleDecreaseDeviceVolume(flags: Int): com.google.common.util.concurrent.ListenableFuture<*> {
+        val r = remote
+        if (r?.volume == null) return super.handleDecreaseDeviceVolume(flags)
+        r.adjust(-REMOTE_STEP)
+        return com.google.common.util.concurrent.Futures.immediateVoidFuture()
+    }
+
+    override fun handleSetDeviceMuted(muted: Boolean, flags: Int): com.google.common.util.concurrent.ListenableFuture<*> {
+        val r = remote
+        if (r?.volume == null) return super.handleSetDeviceMuted(muted, flags)
+        if (muted) r.setVolume(0)
+        return com.google.common.util.concurrent.Futures.immediateVoidFuture()
+    }
+
     override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): com.google.common.util.concurrent.ListenableFuture<*> {
         val order = shown
         val real = if (order != null && mediaItemIndex in order.indices) order[mediaItemIndex] else mediaItemIndex
@@ -82,6 +123,18 @@ class LyricsOverlayPlayer(player: Player) : ForwardingSimpleBasePlayer(player) {
     override fun getState(): State {
         var s = super.getState()
         shown = null
+        remote?.volume?.let { v ->
+            s = s.buildUpon()
+                .setDeviceInfo(androidx.media3.common.DeviceInfo.Builder(androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE).setMinVolume(0).setMaxVolume(100).build())
+                .setDeviceVolume(v)
+                .setIsDeviceMuted(v == 0)
+                .setAvailableCommands(
+                    s.availableCommands.buildUpon().addAll(
+                        Player.COMMAND_GET_DEVICE_VOLUME, Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS, Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
+                    ).build()
+                )
+                .build()
+        }
         if (s.shuffleModeEnabled && s.timeline.windowCount > 1 && s.currentMediaItemIndex in 0 until s.timeline.windowCount) {
             val t = PlayOrderTimeline.of(s.timeline)
             if (t != null) {
@@ -103,6 +156,11 @@ class LyricsOverlayPlayer(player: Player) : ForwardingSimpleBasePlayer(player) {
             .apply { if (o.artwork != null) { setArtworkData(o.artwork, MediaMetadata.PICTURE_TYPE_FRONT_COVER); setArtworkUri(null) } }
             .build()
         return s.buildUpon().setPlaylist(s.timeline, s.currentTracks, meta).build()
+    }
+
+    private companion object {
+        /** A volume key press on a cast speaker or TV, out of 100. */
+        const val REMOTE_STEP = 4
     }
 }
 

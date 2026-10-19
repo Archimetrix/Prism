@@ -22,9 +22,15 @@ object Notifications {
     const val NEW_RELEASES = "new_releases"
     const val REWIND = "rewind"
     const val RECOGNITION = "recognition"
+    const val CONNECT = "connect"
 
     fun createChannels(context: Context) {
         val nm = NotificationManagerCompat.from(context)
+        // Pairing codes are wanted on screen at once (the other device is waiting for them).
+        nm.createNotificationChannel(
+            NotificationChannelCompat.Builder(CONNECT, NotificationManagerCompat.IMPORTANCE_HIGH)
+                .setName("Prism Connect").setDescription("Pairing codes when another device wants to play here").build()
+        )
         listOf(
             Triple(NEW_RELEASES, "New releases", "New music from artists you follow"),
             Triple(REWIND, "Rewind", "When your year in music is ready"),

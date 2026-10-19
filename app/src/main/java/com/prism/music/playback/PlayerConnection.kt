@@ -180,6 +180,8 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
     }
 
     fun setOutput(device: AudioDeviceInfo?) {
+        // Picking one of the phone's own outputs while casting brings the music back here, playing on.
+        if (device != null && c.cast.casting) c.cast.disconnect(keepPlaying = true)
         _output.value = device
         player?.setPreferredAudioDevice(device)
     }
@@ -398,6 +400,35 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         }
     }
 
+    /**
+     * Prism Connect handoff: another device's playback continues here, the whole queue from the same song and place,
+     * in the same play order ([order]: queue indices as they play; null when not shuffled) and repeat mode.
+     */
+    fun takeOver(songs: List<Song>, index: Int, positionMs: Long, playing: Boolean, order: List<Int>?, repeat: Int, title: String) {
+        if (songs.isEmpty()) return
+        ++playToken
+        djNext = false
+        c.dj.setOn(false)
+        c.queue.smartShuffle.value = false
+        c.queue.smartPicks.value = emptySet()
+        c.queue.source.value = QueueSource(QueueKind.OTHER, title)
+        c.queue.autoplayContinuation = null
+        c.queue.autoplayStart.value = -1
+        c.queue.userQueued.value = emptySet()
+        ensureStarted()
+        withPlayer { p ->
+            val start = index.coerceIn(0, songs.lastIndex)
+            p.setMediaItems(songs.map { it.toMediaItem() }, start, positionMs.coerceAtLeast(0))
+            p.repeatMode = repeat.coerceIn(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL)
+            val shuffled = order != null && order.size == songs.size && order.sorted() == songs.indices.toList()
+            if (shuffled) p.setShuffleOrder(HistoryShuffleOrder(order!!.toIntArray()) { p.currentMediaItemIndex })
+            p.shuffleModeEnabled = shuffled
+            p.prepare()
+            p.playWhenReady = playing
+            service?.maybeAutoplay()
+        }
+    }
+
     /** Listen Together: makes what plays after the current song match the host's. */
     fun replaceUpcoming(songs: List<Song>) = withPlayer { p ->
         val idx = p.currentMediaItemIndex
@@ -496,6 +527,10 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
 
     fun setVideoMode(enabled: Boolean) {
         val s = service ?: return
+        if (enabled && c.cast.casting) {
+            _errors.tryEmit("Videos play on this phone. While casting, the speaker or TV gets the song")
+            return
+        }
         _videoLoading.value = enabled
         // An episode's picture is that episode's own choice; only music turns "keep playing videos" on.
         if (s.player.currentMediaItem?.toSong()?.isEpisode != true || !enabled) s.videoWanted = enabled
@@ -613,8 +648,13 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         }
     }
 
+    private val _jumps = MutableStateFlow(0)
+    /** Moves on with every seek or jump of the playhead (the web remote sends its new place at once). */
+    val jumps: StateFlow<Int> = _jumps
+
     override fun onEvents(player: Player, events: Player.Events) {
         refresh()
+        if (events.contains(Player.EVENT_POSITION_DISCONTINUITY)) _jumps.value++
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {

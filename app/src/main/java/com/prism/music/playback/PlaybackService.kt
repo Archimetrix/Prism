@@ -254,7 +254,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             scope = scope,
             tempo = c.mixTempo,
             // DJ mode blends every song into the next, beat-matched, at Crossfade's automatic length.
-            mixMs = { c.settings.current.let { s -> if (s.mix || c.dj.onNow) s.mixSeconds * 1000L else null } },
+            // Not while casting: the renderer plays one song at a time (and the phone's own player is muted).
+            mixMs = { c.settings.current.let { s -> if ((s.mix || c.dj.onNow) && !c.cast.casting) s.mixSeconds * 1000L else null } },
             auto = { c.settings.current.mixAuto || c.dj.onNow },
             beatMatch = { c.settings.current.mixBeatMatch || c.dj.onNow },
             harmonic = { from, to ->
@@ -267,6 +268,28 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             scanFromPhone = { id -> scope.launch { c.mixTempo.measure(id, network = false) } },
             buildTail = ::buildTailPlayer,
         ).also { it.start() }
+        // Prism Connect: the speaker or TV being cast to plays what this player plays, and its volume is the session's.
+        sessionPlayer.remote = object : LyricsOverlayPlayer.Remote {
+            override val volume: Int? get() = if (c.cast.casting) c.cast.volume else null
+            override fun setVolume(v: Int) = c.cast.setVolume(v)
+            override fun adjust(delta: Int) = c.cast.adjustVolume(delta)
+        }
+        c.cast.attach(player, object : com.prism.music.connect.Cast.Hooks {
+            override fun beforeCasting() {
+                mix.stopBlend()
+                if (c.sing.onNow) c.sing.setOn(false)
+                // The renderer gets the sound only: a video goes back to the song, and episodes play at 1×.
+                videoWanted = false
+                if (player.currentMediaItem?.videoModeId != null) scope.launch { setVideoMode(false) }
+                if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
+            }
+
+            override fun afterCasting() {
+                if (player.currentMediaItem?.toSong()?.isEpisode == true && episodeSpeed != 1f) player.setPlaybackSpeed(episodeSpeed)
+            }
+
+            override fun remoteChanged() = sessionPlayer.remoteChanged()
+        })
         restoreQueue()
         c.player.attach(this)
     }
@@ -286,6 +309,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (a.isEpisode || b.isEpisode) return false
         // Singing along: each song plays whole, with its own vocals taken out.
         if (c.sing.onNow) return false
+        if (c.cast.casting) return false
         if (c.queue.followingHost || c.together.state.value !is com.prism.music.playback.together.TogetherState.Idle) return false
         // Only while an album plays through (a radio or playlist that puts two of an album's songs side by side blends).
         // An album played as a DJ set is a set: it blends.
@@ -365,6 +389,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             com.prism.music.widget.Widgets.update(this, song, false, song.id in c.library.likedIds.value, player.currentPosition, player.duration.takeIf { it > 0 })
         }
         mix.release()
+        c.cast.detach(player)
         c.player.detach()
         carLyrics.stop()
         effects.release()
@@ -426,7 +451,9 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (song.isEpisode) {
             val resume = c.episodes.positionOf(song.id)
             if (resume > 0 && player.currentPosition < 5_000) player.seekTo(resume)
-            if (player.playbackParameters.speed != episodeSpeed) player.setPlaybackSpeed(episodeSpeed)
+            // (At 1× while casting: the speaker or TV plays at its own speed.)
+            val speed = if (c.cast.casting) 1f else episodeSpeed
+            if (player.playbackParameters.speed != speed) player.setPlaybackSpeed(speed)
         } else if (lastWasEpisode) {
             if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
             // Watching a podcast isn't a wish for music videos: music after it starts as the song.
@@ -473,7 +500,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     var episodeSpeed = 1f
         set(v) {
             field = v
-            if (player.currentMediaItem?.toSong()?.isEpisode == true) player.setPlaybackSpeed(v)
+            if (player.currentMediaItem?.toSong()?.isEpisode == true && !c.cast.casting) player.setPlaybackSpeed(v)
         }
     private var lastWasEpisode = false
 

@@ -110,6 +110,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     SOUND("sound", "Playback & sound", PrismIcons.Equalizer),
     LYRICS("lyrics", "Lyrics", PrismIcons.Lyrics),
     DOWNLOADS("downloads", "Downloads & storage", PrismIcons.DownloadCircle),
+    CONNECT("connect", "Prism Connect", PrismIcons.Cast),
     HOME("home", "Home screen", PrismIcons.Home),
     LIBRARY("library", "Library & Replay", PrismIcons.Library),
     ABOUT("about", "About", PrismIcons.Info),
@@ -123,6 +124,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         SOUND -> listOfNotNull(if (s.lossless) "Lossless" else s.audioQuality.label + " quality", if (s.mix) "Crossfade" else null, if (s.normalize) "Normalized" else null, if (s.spatial) "Prism Spatial" else null, if (s.eq.enabled) "EQ ${s.eq.preset}" else null).joinToString(" · ")
         LYRICS -> "${s.lyricsOrder.first().label} first · ${if (s.preferSynced) "karaoke preferred" else "any lyrics"}"
         DOWNLOADS -> listOfNotNull("Smart Downloads ${formatGb(s.offlineGb)}", if (s.downloadWifiOnly) "Wi-Fi only" else "Any network").joinToString(" · ")
+        CONNECT -> listOfNotNull("Speakers & TVs", if (s.webRemote) "Browser remote on" else null, if (s.handoffAvailable) "Available for handoff" else null).joinToString(" · ")
         HOME -> "Sections, order and styles" + if (s.contentCountry.isNotBlank()) " · ${countryName(s.contentCountry)}" else ""
         LIBRARY -> "${s.libraryView.label} view · ${if (s.replayHours) "hours" else "minutes"}"
         ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates"
@@ -134,7 +136,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
 
 private val hubGroups = listOf(
     "Look & feel" to listOf(SettingsSection.APPEARANCE, SettingsSection.INTERFACE, SettingsSection.PLAYER),
-    "Listening" to listOf(SettingsSection.SOUND, SettingsSection.LYRICS, SettingsSection.DOWNLOADS),
+    "Listening" to listOf(SettingsSection.SOUND, SettingsSection.LYRICS, SettingsSection.DOWNLOADS, SettingsSection.CONNECT),
     "Your Prism" to listOf(SettingsSection.HOME, SettingsSection.LIBRARY),
     "" to listOf(SettingsSection.ABOUT),
 )
@@ -241,6 +243,7 @@ private fun SettingsPage(
             SettingsSection.SOUND -> item { SoundPage() }
             SettingsSection.LYRICS -> item { LyricsSettings() }
             SettingsSection.DOWNLOADS -> item { DownloadSettings() }
+            SettingsSection.CONNECT -> item { ConnectSettings() }
             SettingsSection.HOME -> item {
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
                     Group("Home") {

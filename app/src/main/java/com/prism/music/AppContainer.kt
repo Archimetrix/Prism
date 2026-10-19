@@ -33,7 +33,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toPath
@@ -95,6 +97,11 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
                 android.util.Log.i("PrismMix", "scan list done")
                 list.delete()
             }
+        }
+        // Debug builds: renderers by description address, one per line in …/files/connect_renderer.txt, for casting to a
+        // pretend one on a PC through adb (SSDP doesn't cross it); see SimulatedRendererTest.castFromThePhone.
+        if (BuildConfig.DEBUG) getExternalFilesDir(null)?.let { java.io.File(it, "connect_renderer.txt") }?.takeIf { it.isFile }?.let { f ->
+            f.readLines().map { it.trim() }.filter { it.startsWith("http://") }.forEach { container.cast.addByLocation(it) }
         }
     }
 }
@@ -278,6 +285,24 @@ class AppContainer(val app: Application) {
 
     /** Listen Together sessions on the local network. */
     val together by lazy { com.prism.music.playback.together.Together(app, this) }
+
+    /** Prism Connect: speakers and TVs on the network (UPnP / DLNA). */
+    val cast by lazy { com.prism.music.connect.Cast(app, this) }
+    private val webRemoteMade = lazy { com.prism.music.connect.WebRemote(app, this) }
+    /** Prism Connect: Prism played from a browser on the same Wi-Fi (Settings → Prism Connect). */
+    val webRemote by webRemoteMade
+    /** Prism Connect: playback moving between Prism devices on the same Wi-Fi. */
+    val handoff by lazy { com.prism.music.connect.Handoff(app, this) }
+    init {
+        scope.launch {
+            settings.flow.map { it.webRemote }.distinctUntilChanged().collect { on ->
+                if (on) webRemote.setEnabled(true) else if (webRemoteMade.isInitialized()) webRemote.setEnabled(false)
+            }
+        }
+        scope.launch {
+            settings.flow.map { it.handoffAvailable }.distinctUntilChanged().collect { on -> if (on) handoff.setAvailable(true) else handoff.setAvailable(false) }
+        }
+    }
 
     /** Data saver is on and the phone is on mobile data (#40): smaller pictures, no artist photos or animated covers. */
     fun dataSaving(): Boolean = settings.current.dataSaver && network.metered.value

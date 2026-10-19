@@ -683,6 +683,16 @@ object PrismIcons {
         }
         solid { circle(4.2f, 18.8f, 1.2f) }
     }
+    val Tv = icon("Tv") {
+        line { roundRect(2.5f, 4.5f, 21.5f, 17f, 2.5f) }
+        line { moveTo(8.5f, 20.5f); lineTo(15.5f, 20.5f) }
+    }
+    /** A phone with an arrow leaving it: playback moving to another device. */
+    val Handoff = icon("Handoff") {
+        line { roundRect(3f, 3.5f, 11f, 20.5f, 2.2f) }
+        line { moveTo(6f, 17.5f); lineTo(8f, 17.5f) }
+        line { moveTo(13.5f, 12f); lineTo(21f, 12f); moveTo(17.8f, 8.8f); lineTo(21f, 12f); lineTo(17.8f, 15.2f) }
+    }
     val Speed = icon("Speed") {
         line { moveTo(4.6f, 17f); arcTo(8.5f, 8.5f, 0f, true, true, 19.4f, 17f) }
         line(2f) { moveTo(12f, 14f); lineTo(15.8f, 9.4f) }
