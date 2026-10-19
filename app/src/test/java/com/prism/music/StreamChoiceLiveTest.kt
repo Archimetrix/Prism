@@ -163,4 +163,34 @@ class StreamChoiceLiveTest {
         println("[video] findMusicVideo: $found")
         assertTrue("a video for Linger", found.any { it.second != null })
     }
+
+    /** Every "Linger" by Royel Otis that YouTube Music has (search pages, the artist's page, albums), and its video. */
+    @Test
+    fun everyLingerHasItsVideo() = runBlocking {
+        val seen = LinkedHashMap<String, com.prism.music.data.model.Song>()
+        for (q in listOf("linger royel otis", "royel otis linger", "linger siriusxm royel otis", "linger cranberries cover royel otis")) {
+            for (f in listOf(SearchFilter.SONGS, SearchFilter.VIDEOS)) runCatching {
+                ytm.search(q, f).items.filterIsInstance<SongItem>().map { it.song }
+                    .filter { it.title.contains("linger", true) && it.artistText.contains("royel", true) }
+                    .forEach { seen.putIfAbsent(it.id, it) }
+            }
+        }
+        runCatching {
+            val artistId = seen.values.flatMap { it.artists }.firstOrNull { it.name.contains("Royel", true) && it.id != null }?.id
+            if (artistId != null) ytm.artist(artistId).shelves.flatMap { it.items }.filterIsInstance<SongItem>().map { it.song }
+                .filter { it.title.contains("linger", true) }.forEach { seen.putIfAbsent(it.id, it) }
+        }
+        // As it comes from its album's page (the album's tracks), from a radio of it, and with the next queue's item.
+        for (s in seen.values.toList()) {
+            s.album?.id?.let { a ->
+                runCatching { ytm.album(a).songs.filter { it.title.contains("linger", true) } }.getOrNull()?.forEach { seen.putIfAbsent("album:" + it.id, it) }
+            }
+            runCatching { ytm.next(s.id).songs.firstOrNull { it.id == s.id } }.getOrNull()?.let { seen.putIfAbsent("next:" + it.id, it) }
+        }
+        for ((key, s) in seen) {
+            print("[linger] $key ")
+            val v = runCatching { ytm.findMusicVideo(s) }
+            println("[linger] ${s.title} | ${s.artists.joinToString { "${it.name}(${it.id})" }} | ${s.id} | ${s.durationSec}s | video=${s.isVideo} | album ${s.album?.title} -> ${v.getOrNull() ?: v.exceptionOrNull()}")
+        }
+    }
 }

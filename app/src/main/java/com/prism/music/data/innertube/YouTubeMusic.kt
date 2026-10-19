@@ -446,12 +446,24 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
      * the watch queue when YouTube provides it, otherwise a filtered video search.
      */
     suspend fun findMusicVideo(song: Song): String? {
-        next(song.id).counterparts[song.id]?.let { return it }
-        if (song.artists.isEmpty() || song.title.isBlank()) return null
+        next(song.id).counterparts[song.id]?.let { log("video for ${song.id} \"${song.title}\": YouTube's own pairing $it"); return it }
+        if (song.artists.isEmpty() || song.title.isBlank()) {
+            log("video for ${song.id} \"${song.title}\": no artist or title to search with")
+            return null
+        }
         val videos = search("${song.title} ${song.primaryArtist}", SearchFilter.VIDEOS).items
             .filterIsInstance<SongItem>().map { it.song }
-        return MusicVideoMatch.pick(song, videos)
+        val picked = MusicVideoMatch.pick(song, videos)
+        // What was looked at, so a "no video" can be told apart from a wrong rule (shared in playback diagnostics).
+        log(
+            "video for ${song.id} \"${song.title}\" by ${song.artistText} (${song.durationSec}s): " +
+                (picked?.let { "picked $it" } ?: "none of") + " " +
+                videos.take(6).joinToString("; ") { "\"${it.title}\" by ${it.artistText} ${it.durationSec}s ${it.id}" },
+        )
+        return picked
     }
+
+    private fun log(message: String) { runCatching { android.util.Log.i("PrismVideo", message) } }
 
     suspend fun lyrics(browseId: String): String? {
         val res = browse(browseId)

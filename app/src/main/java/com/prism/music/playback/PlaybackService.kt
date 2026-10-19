@@ -828,6 +828,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (song.id in c.queue.noVideo) return VideoLookup(null)
         val found = runCatching { withContext(Dispatchers.IO) { c.ytm.findMusicVideo(song) } }
         found.getOrNull()?.let { c.queue.counterparts[song.id] = it; return VideoLookup(it) }
+        found.exceptionOrNull()?.let { android.util.Log.w("PrismVideo", "video lookup for ${song.id} failed: $it") }
         if (found.isSuccess) c.queue.noVideo.add(song.id)
         return VideoLookup(null, lookupFailed = found.isFailure)
     }
@@ -1104,6 +1105,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             return
         }
         current.videoModeId?.let { failedVideos += it; prefetched -= it }
+        android.util.Log.w("PrismVideo", "video ${current.videoModeId} for $songId didn't load (${player.playerError?.errorCodeName ?: "no picture in time"}); back to the song")
         val lag = current.videoModeId?.takeIf { it != song.id }?.let { c.videoSync.cached(song.id, it) } ?: 0L
         val pos = (player.currentPosition - lag).coerceAtLeast(0)
         swapInPlace(idx, song.toMediaItem(null))
