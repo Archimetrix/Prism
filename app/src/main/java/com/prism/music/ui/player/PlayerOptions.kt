@@ -131,6 +131,14 @@ fun PlayerOptionsSheet(
         com.prism.music.ui.components.videoDownloadAction(song, videos[song.id]),
         ActionItem(PrismIcons.Groups, "Listen together", value = if (inSession) "On" else null, active = inSession) { onCollapse(); nav.go(Routes.TOGETHER) },
         ActionItem(PrismIcons.Stats, "Stats for nerds", active = statsShown, onClick = onToggleStats),
+        // Playback diagnostics are on (Settings → About): the listener marks the moment they heard a stutter.
+        if (!c.settings.flow.collectAsState().value.audioDiagnostics) null else ActionItem(PrismIcons.Info, "Mark a stutter") {
+            val at = c.player.position
+            com.prism.music.playback.AudioDiagnostics.log(
+                "mark", "the listener heard a stutter in ${song.title} – ${song.artistText} (${song.id}) at %d:%02d".format(at / 60_000, at / 1000 % 60),
+            )
+            toast("Marked at %d:%02d".format(at / 60_000, at / 1000 % 60))
+        },
         if (hasCanvas) ActionItem(PrismIcons.AnimatedCover, "Animated cover", active = song.id !in hidden, keepOpen = true) { c.canvas.setHidden(song.id, song.id !in hidden) } else null,
         if (!hasCanvas) null else if (saved.has(song.id, cover)) ActionItem(PrismIcons.Download, "Animated cover saved", active = true, keepOpen = true) { c.canvasStore.unsave(song) }
         else ActionItem(PrismIcons.Download, "Save animated cover", keepOpen = true) {
@@ -159,7 +167,7 @@ fun PlayerOptionsSheet(
         // A file on the phone: no radio, download, YouTube playlist or music video.
         QuickActions(if (song.isLocal) quick.filter { it.label == "Sleep" } else quick) { runAction(it, close) }
         ActionGroup("Lyrics", lyrics) { runAction(it, close) }
-        ActionGroup("Player", if (song.isLocal) player.filter { it.label == "Stats for nerds" || it.label == "Immersive mode" } else player) { runAction(it, close) }
+        ActionGroup("Player", if (song.isLocal) player.filter { it.label == "Stats for nerds" || it.label == "Immersive mode" || it.label == "Mark a stutter" } else player) { runAction(it, close) }
         ActionGroup("More", go) { runAction(it, close) }
     }
 }

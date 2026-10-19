@@ -61,6 +61,14 @@ android {
             // Kept unminified: NewPipeExtractor + Rhino rely on reflection.
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName(if (useReleaseKey) "release" else "debug")
+            // `-PsideBySide` on a release build: the same "Prism Dev" test copy, but optimised like a release (debug
+            // builds run Prism's own audio code slower, which matters when chasing stutters). Always the debug key, so
+            // it can't be mistaken for (or installed over) the real Prism.
+            if (project.hasProperty("sideBySide")) {
+                applicationIdSuffix = "." + (project.property("sideBySide") as String).ifBlank { "dev" }
+                manifestPlaceholders["appLabel"] = "Prism Dev"
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 

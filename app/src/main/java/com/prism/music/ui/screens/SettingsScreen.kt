@@ -99,7 +99,9 @@ import com.prism.music.ui.theme.AppFonts
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.LocalUi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /** The settings categories, in the order they're listed; each opens its own page. */
@@ -281,6 +283,7 @@ private fun SettingsPage(
                     CheckForUpdates()
                     Item("Open-source licenses", "Prism is GPL-3.0-or-later · the libraries it's built with", onClick = { nav.go(Routes.settings(SettingsSection.LICENSES.key)) }) { Chevron() }
                 }
+                DiagnosticsGroup()
                 }
             }
             SettingsSection.LICENSES -> item { LicensesPage() }
@@ -342,6 +345,44 @@ private fun CountryRow(name: String, selected: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
         if (selected) Icon(PrismIcons.Check, null, tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+/**
+ * Playback diagnostics: a log of what the audio did (the AudioTrack, underruns, devices, Prism's own processing and
+ * background work), kept on the phone, for chasing stutters. Shared only when the listener shares it.
+ */
+@Composable
+private fun DiagnosticsGroup() {
+    val c = LocalContainer.current
+    val s = LocalAppSettings.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    Group("Diagnostics") {
+        Toggle(
+            "Playback diagnostics",
+            "Keeps a log on this phone of what the audio does, to find out where stutters come from. Nothing is sent anywhere",
+            s.audioDiagnostics,
+        ) { c.settings.setAudioDiagnostics(it) }
+        if (s.audioDiagnostics) {
+            Note("When you hear a stutter, open the player's ⋯ menu and tap \"Mark a stutter\" (or note the song and time), then share the log here.")
+            Item("Share diagnostics", "The log, the phone's model and Prism's audio settings, as a text file", onClick = {
+                scope.launch {
+                    val file = withContext(Dispatchers.IO) { com.prism.music.playback.AudioDiagnostics.export(context, com.prism.music.playback.AudioDiagnostics.about(c)) }
+                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.share", file)
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Prism playback diagnostics")
+                        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    send.clipData = android.content.ClipData.newRawUri(null, uri)
+                    context.startActivity(android.content.Intent.createChooser(send, "Share diagnostics"))
+                }
+            })
+            Item("Clear diagnostics", "Starts the log again", onClick = {
+                scope.launch(Dispatchers.IO) { com.prism.music.playback.AudioDiagnostics.clear { com.prism.music.playback.AudioDiagnostics.about(c) } }
+                android.widget.Toast.makeText(context, "Diagnostics cleared", android.widget.Toast.LENGTH_SHORT).show()
+            })
+        }
     }
 }
 

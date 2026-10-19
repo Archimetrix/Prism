@@ -86,14 +86,16 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         context.getSystemService(AudioManager::class.java)?.registerAudioDeviceCallback(object : AudioDeviceCallback() {
             private var primed = false
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+                if (primed) AudioDiagnostics.log("device", "added: ${addedDevices.joinToString { AudioDiagnostics.describe(it) }}")
                 // The callback reports existing devices once on registration; after that, a new
                 // device (headphones plugged in, earbuds connected) takes over like it would elsewhere.
-                if (primed) setOutput(null)
+                if (primed) setOutput(null, "a device was added")
                 primed = true
             }
 
             override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
-                if (removedDevices.any { it.id == _output.value?.id }) setOutput(null)
+                AudioDiagnostics.log("device", "removed: ${removedDevices.joinToString { AudioDiagnostics.describe(it) }}")
+                if (removedDevices.any { it.id == _output.value?.id }) setOutput(null, "the picked output went away")
             }
         }, android.os.Handler(android.os.Looper.getMainLooper()))
     }
@@ -179,9 +181,10 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         service?.episodeSpeed = speed
     }
 
-    fun setOutput(device: AudioDeviceInfo?) {
+    fun setOutput(device: AudioDeviceInfo?, reason: String = "picked in the device sheet") {
         // Picking one of the phone's own outputs while casting brings the music back here, playing on.
         if (device != null && c.cast.casting) c.cast.disconnect(keepPlaying = true)
+        AudioDiagnostics.log("route", "player pointed at ${AudioDiagnostics.describe(device)} ($reason; was ${AudioDiagnostics.describe(_output.value)})")
         _output.value = device
         player?.setPreferredAudioDevice(device)
     }

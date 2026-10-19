@@ -168,6 +168,7 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
         val uri = c.audioOnPhone(id, scratch)
             ?: throw IOException(if (c.network.metered.value && !c.settings.current.singOnCellular) "Waiting for Wi-Fi to get this song ready" else "This song isn't on the phone yet")
         val (vocals, accompaniment) = sessions()
+        com.prism.music.playback.AudioDiagnostics.log("background", "Sing separation of $id started")
         try {
             PcmDecoder(c.app, uri).use { dec ->
                 val first = dec.read() ?: throw IOException("The song didn't decode")
@@ -226,6 +227,7 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
             store.delete(id)
             throw t
         } finally {
+            com.prism.music.playback.AudioDiagnostics.log("background", "Sing separation of $id ended after ${(System.nanoTime() - started) / 1_000_000} ms")
             scratch.delete()
             store.trim(c.settings.current.singCacheMb * 1_048_576L, setOfNotNull(id, c.player.currentSong.value?.id))
         }

@@ -108,6 +108,21 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
 
     override fun onCreate() {
         super.onCreate()
+        AudioDiagnostics.init(this)
+        // Media3's own audio warnings (spurious AudioTrack timestamps, position jumps…) go into the diagnostics too.
+        androidx.media3.common.util.Log.setLogger(object : androidx.media3.common.util.Log.Logger {
+            private val system = androidx.media3.common.util.Log.Logger.DEFAULT
+            override fun d(tag: String, message: String, throwable: Throwable?) = system.d(tag, message, throwable)
+            override fun i(tag: String, message: String, throwable: Throwable?) = system.i(tag, message, throwable)
+            override fun w(tag: String, message: String, throwable: Throwable?) {
+                system.w(tag, message, throwable)
+                AudioDiagnostics.log("media3", "W $tag: $message" + (throwable?.let { " ($it)" } ?: ""))
+            }
+            override fun e(tag: String, message: String, throwable: Throwable?) {
+                system.e(tag, message, throwable)
+                AudioDiagnostics.log("media3", "E $tag: $message" + (throwable?.let { " ($it)" } ?: ""))
+            }
+        })
         effects = AudioEffects(this)
         // Lossless mode keeps hi-res files (24-bit FLAC) at full resolution instead of rounding to 16-bit.
         val renderers = object : DefaultRenderersFactory(this) {
@@ -166,6 +181,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         player.setShuffleOrder(HistoryShuffleOrder(IntArray(0)) { player.currentMediaItemIndex })
         player.addListener(this)
         player.addAnalyticsListener(StatsListener())
+        player.addAnalyticsListener(DiagnosticsListener())
         player.skipSilenceEnabled = c.settings.current.skipSilence
 
         sessionPlayer = LyricsOverlayPlayer(player)
@@ -201,6 +217,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         c.onStreamResolved = { id -> scope.launch { applyStreamStats(id) } }
         scope.launch { c.settings.flow.map { it.eq }.distinctUntilChanged().collect { effects.apply(it) } }
         scope.launch { c.settings.flow.map { it.skipSilence }.distinctUntilChanged().collect { player.skipSilenceEnabled = it } }
+        scope.launch { c.settings.flow.map { it.audioDiagnostics }.distinctUntilChanged().collect { on -> AudioDiagnostics.setEnabled(on) { AudioDiagnostics.about(c) } } }
         scope.launch { c.settings.flow.map { it.autoplay }.distinctUntilChanged().drop(1).collect { onAutoplayChanged(it) } }
         // "Keep playing videos" switched off: songs already lined up as their videos go back to songs.
         scope.launch { c.settings.flow.map { it.videoContinues }.distinctUntilChanged().drop(1).collect { if (it) armNextVideo() else disarmVideos() } }
@@ -239,6 +256,12 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 if (++tick % 5 == 0 && player.isPlaying) saveEpisodePosition()
                 // Widgets' progress bars move on every 15 s (more often would cost battery for little).
                 if (tick % 15 == 0 && player.isPlaying) pushWidgets()
+                // Diagnostics: every 10 s of playing, how far ahead it's loaded and what Prism's own processing cost.
+                if (tick % 10 == 0 && player.isPlaying && AudioDiagnostics.enabled) AudioDiagnostics.log(
+                    "tick",
+                    "at ${player.currentPosition / 1000} s, ${(player.bufferedPosition - player.currentPosition).coerceAtLeast(0) / 1000} s loaded ahead; " +
+                        (AudioDiagnostics.summary() ?: "no processing measured"),
+                )
                 if (player.mediaItemCount > 0) c.nerdStats.value = c.nerdStats.value.copy(
                     bufferMs = (player.bufferedPosition - player.currentPosition).coerceAtLeast(0),
                     effects = listOfNotNull(
@@ -656,6 +679,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             else -> 0f
         }
         normalizer.setGainDb(gain)
+        if (gain != normalizeGainDb) AudioDiagnostics.log("normalize", "gain %.1f dB (%s) at %d s".format(gain, if (measured != null) "measured" else if (yt != null) "YouTube's figure" else "none", player.currentPosition / 1000))
         normalizeGainDb = gain
         c.nerdStats.value = c.nerdStats.value.copy(
             loudnessDb = (measured ?: yt)?.toDouble(), loudnessMeasured = measured != null, normalizationGainDb = gain,
@@ -1684,6 +1708,56 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
             bufferSizeMs: Long,
             elapsedSinceLastFeedMs: Long,
         ) = update { copy(underruns = underruns + 1) }
+    }
+
+    // ------------------------------------------------------------ Playback diagnostics
+
+    /** What the audio does, for [AudioDiagnostics] (only written while it's on). */
+    private inner class DiagnosticsListener : AnalyticsListener {
+        private fun at(t: AnalyticsListener.EventTime) = "at ${formatMs(t.currentPlaybackPositionMs)}"
+        private fun formatMs(ms: Long) = if (ms < 0) "?" else "%d:%02d.%d".format(ms / 60_000, ms / 1000 % 60, ms / 100 % 10)
+        private fun track(cfg: AudioSink.AudioTrackConfig) =
+            "${AudioEffects.encodingName(cfg.encoding)} ${cfg.sampleRate} Hz, channel mask ${cfg.channelConfig}, buffer ${cfg.bufferSize} bytes" +
+                (if (cfg.offload) ", offload" else "") + (if (cfg.tunneling) ", tunneling" else "")
+
+        override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) =
+            AudioDiagnostics.log("track", "made: ${track(audioTrackConfig)} ${at(eventTime)}; outputs ${AudioDiagnostics.devices(this@PlaybackService)}")
+
+        override fun onAudioTrackReleased(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) =
+            AudioDiagnostics.log("track", "released: ${track(audioTrackConfig)} ${at(eventTime)}")
+
+        override fun onAudioUnderrun(eventTime: AnalyticsListener.EventTime, bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) =
+            AudioDiagnostics.log("underrun", "the output ran dry ${at(eventTime)}: buffer ${bufferSizeMs} ms, last fed ${elapsedSinceLastFeedMs} ms before")
+
+        override fun onAudioSinkError(eventTime: AnalyticsListener.EventTime, audioSinkError: Exception) =
+            AudioDiagnostics.log("sink-error", "${audioSinkError.javaClass.simpleName}: ${audioSinkError.message} ${at(eventTime)}")
+
+        override fun onAudioCodecError(eventTime: AnalyticsListener.EventTime, audioCodecError: Exception) =
+            AudioDiagnostics.log("codec-error", "${audioCodecError.javaClass.simpleName}: ${audioCodecError.message} ${at(eventTime)}")
+
+        override fun onAudioPositionAdvancing(eventTime: AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) =
+            AudioDiagnostics.log("playing", "audio started coming out ${at(eventTime)}")
+
+        override fun onAudioInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) =
+            AudioDiagnostics.log("format", "${format.codecs ?: format.sampleMimeType} ${format.sampleRate} Hz ${format.channelCount} ch, pcm ${format.pcmEncoding}")
+
+        override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) =
+            AudioDiagnostics.log("decoder", "$decoderName (${initializationDurationMs} ms to start)")
+
+        override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) = AudioDiagnostics.log(
+            "state",
+            when (state) { Player.STATE_BUFFERING -> "buffering"; Player.STATE_READY -> "ready"; Player.STATE_ENDED -> "ended"; else -> "idle" } +
+                " ${at(eventTime)}, ${(player.bufferedPosition - player.currentPosition).coerceAtLeast(0) / 1000} s loaded ahead",
+        )
+
+        override fun onIsPlayingChanged(eventTime: AnalyticsListener.EventTime, isPlaying: Boolean) =
+            AudioDiagnostics.log("state", (if (isPlaying) "playing" else "not playing (${player.playbackSuppressionReason.let { if (it == 0) "paused or waiting" else "suppressed: $it" }})") + " ${at(eventTime)}")
+
+        override fun onMediaItemTransition(eventTime: AnalyticsListener.EventTime, mediaItem: MediaItem?, reason: Int) =
+            AudioDiagnostics.log("song", "${mediaItem?.mediaMetadata?.title} – ${mediaItem?.mediaMetadata?.artist} (${mediaItem?.mediaId}), reason $reason")
+
+        override fun onPlayerError(eventTime: AnalyticsListener.EventTime, error: PlaybackException) =
+            AudioDiagnostics.log("error", "${error.errorCodeName}: ${error.message} ${at(eventTime)}")
     }
 }
 

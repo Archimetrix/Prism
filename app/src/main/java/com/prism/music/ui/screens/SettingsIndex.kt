@@ -189,6 +189,9 @@ object SettingsIndex {
         SettingEntry(B, "About", "Your data stays here", "privacy"),
         SettingEntry(B, "About", "Check for updates", "update new version"),
         SettingEntry(B, "About", "Open-source licenses", "license gpl"),
+        SettingEntry(B, "Diagnostics", "Playback diagnostics", "stutter judder skip glitch lag bluetooth airpods log debug"),
+        SettingEntry(B, "Diagnostics", "Share diagnostics", "log send report"),
+        SettingEntry(B, "Diagnostics", "Clear diagnostics", "log reset"),
     )
 
     /**

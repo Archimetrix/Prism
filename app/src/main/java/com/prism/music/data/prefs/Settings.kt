@@ -318,6 +318,8 @@ data class AppSettings(
     val songsEverywhere: Boolean = false,
     /** The player's right-hand time shows the song's length instead of the time left (#82; tapping it switches). */
     val showTrackLength: Boolean = false,
+    /** Playback diagnostics (Settings → About): a log of what the audio did, for chasing stutters ([AudioDiagnostics]). */
+    val audioDiagnostics: Boolean = false,
     /** Search opens with the keyboard up (#71). */
     val searchKeyboard: Boolean = false,
     /** Double-tapping the left or right of the player's cover seeks back / ahead this many seconds (#79); 0 = off. */
@@ -519,6 +521,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val radioSongsOnly = booleanPreferencesKey("radio_songs_only")
         val songsEverywhere = booleanPreferencesKey("songs_everywhere")
         val showTrackLength = booleanPreferencesKey("show_track_length")
+        val audioDiagnostics = booleanPreferencesKey("audio_diagnostics")
         val searchKeyboard = booleanPreferencesKey("search_keyboard")
         val doubleTapSeekSeconds = intPreferencesKey("double_tap_seek_seconds")
         val stopOnSwipeAway = booleanPreferencesKey("stop_on_swipe_away")
@@ -684,6 +687,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             radioSongsOnly = p[K.radioSongsOnly] ?: d.radioSongsOnly,
             songsEverywhere = p[K.songsEverywhere] ?: d.songsEverywhere,
             showTrackLength = p[K.showTrackLength] ?: d.showTrackLength,
+            audioDiagnostics = p[K.audioDiagnostics] ?: d.audioDiagnostics,
             searchKeyboard = p[K.searchKeyboard] ?: d.searchKeyboard,
             doubleTapSeekSeconds = p[K.doubleTapSeekSeconds] ?: d.doubleTapSeekSeconds,
             stopOnSwipeAway = p[K.stopOnSwipeAway] ?: d.stopOnSwipeAway,
@@ -887,6 +891,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setRadioSongsOnly(v: Boolean) = edit { it[K.radioSongsOnly] = v }
     fun setSongsEverywhere(v: Boolean) = edit { it[K.songsEverywhere] = v }
     fun setShowTrackLength(v: Boolean) = edit { it[K.showTrackLength] = v }
+    fun setAudioDiagnostics(v: Boolean) = edit { it[K.audioDiagnostics] = v }
     fun setSearchKeyboard(v: Boolean) = edit { it[K.searchKeyboard] = v }
     fun setDoubleTapSeekSeconds(v: Int) = edit { it[K.doubleTapSeekSeconds] = v }
     fun setStopOnSwipeAway(v: Boolean) = edit { it[K.stopOnSwipeAway] = v }

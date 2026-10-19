@@ -76,6 +76,8 @@ class VideoSync(
         if (System.currentTimeMillis() - prefs.getLong("x:$k", 0L) < UNMATCHED_RETRY_MS) { failed += k; return null }
         return inFlight.computeIfAbsent(k) {
             scope.async {
+                val started = System.nanoTime()
+                AudioDiagnostics.log("background", "video sync of $songId → $videoId started")
                 try {
                     val lag = measure(songId, videoId)
                     // Only a real "these don't line up" is remembered; network errors can be retried.
@@ -88,6 +90,7 @@ class VideoSync(
                     Log.w(TAG, "sync $k failed", e)
                     null
                 } finally {
+                    AudioDiagnostics.log("background", "video sync of $songId ended after ${(System.nanoTime() - started) / 1_000_000} ms")
                     inFlight.remove(k)
                 }
             }

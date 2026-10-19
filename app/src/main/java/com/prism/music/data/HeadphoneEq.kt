@@ -52,6 +52,8 @@ class HeadphoneEq(
     /** Device key → the profile picked for it. */
     val bindings: StateFlow<Map<String, Binding>> = _bindings
 
+    /** The last output [detect] found (diagnostics log a change). */
+    @Volatile private var lastDetected: Output? = null
     private val _output = MutableStateFlow(detect())
     val output: StateFlow<Output?> = _output
 
@@ -72,7 +74,12 @@ class HeadphoneEq(
 
     private fun detect(): Output? {
         val d = runCatching { com.prism.music.ui.player.currentOutput(context, preferred.value) }.getOrNull() ?: return null
-        return Output(keyOf(d), nameOf(d), isHeadphones(d))
+        return Output(keyOf(d), nameOf(d), isHeadphones(d)).also { o ->
+            if (o != lastDetected) com.prism.music.playback.AudioDiagnostics.log(
+                "correction", "output is now ${com.prism.music.playback.AudioDiagnostics.describe(d)}; correction ${_bindings.value[o.key]?.profile?.name ?: "none"}",
+            )
+            lastDetected = o
+        }
     }
 
     fun refreshOutput() { _output.value = detect() }

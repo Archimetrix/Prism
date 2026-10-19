@@ -51,6 +51,7 @@ class NormalizerProcessor : BaseAudioProcessor() {
             out.flip()
             return
         }
+        val t0 = if (AudioDiagnostics.enabled) System.nanoTime() else 0L
         val glide = 1f - exp(-1f / (0.1f * rate))
         val ceiling = 0.89f // -1 dBFS
         val samples = bytes / (if (float) 4 else 2)
@@ -67,6 +68,7 @@ class NormalizerProcessor : BaseAudioProcessor() {
         }
         inputBuffer.position(inputBuffer.limit())
         out.flip()
+        if (t0 != 0L) AudioDiagnostics.processed("normalizer", t0, samples / inputAudioFormat.channelCount.coerceAtLeast(1), rate)
     }
 
     override fun onReset() {

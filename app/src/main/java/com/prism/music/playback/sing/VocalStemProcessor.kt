@@ -144,8 +144,10 @@ class VocalStemProcessor(private val sing: Source) : BaseAudioProcessor() {
     override fun queueInput(inputBuffer: ByteBuffer) {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
+        val t0 = if (com.prism.music.playback.AudioDiagnostics.enabled) System.nanoTime() else 0L
         val frameBytes = (if (float) 4 else 2) * channels
         var frames = bytes / frameBytes
+        val total = frames
         val out = replaceOutputBuffer(bytes)
         while (frames > 0) {
             if (periodFrames > 0 && position >= periodFrames) advance()
@@ -155,6 +157,7 @@ class VocalStemProcessor(private val sing: Source) : BaseAudioProcessor() {
             frames -= n
         }
         out.flip()
+        if (t0 != 0L) com.prism.music.playback.AudioDiagnostics.processed("Sing", t0, total, rate)
     }
 
     private fun processRun(input: ByteBuffer, out: ByteBuffer, frames: Int) {

@@ -336,10 +336,12 @@ class MixTempo(
                 // Decoding a whole song is heavy: at background priority, so the playing song's own loading comes first.
                 val before = android.os.Process.getThreadPriority(android.os.Process.myTid())
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                AudioDiagnostics.log("background", "song scan of $id started (Normalize/Crossfade/DJ)")
                 val r = try {
                     runCatching { scan(id, network) }.onFailure { Log.w(TAG, "scan of $id failed: $it") }
                 } finally {
                     android.os.Process.setThreadPriority(before)
+                    AudioDiagnostics.log("background", "song scan of $id ended after ${(System.nanoTime() - started) / 1_000_000} ms")
                 }
                 val s = r.getOrNull()
                 when {

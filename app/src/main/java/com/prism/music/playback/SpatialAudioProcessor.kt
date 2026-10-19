@@ -152,6 +152,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
             out.flip()
             return
         }
+        val t0 = if (AudioDiagnostics.enabled) System.nanoTime() else 0L
         framesProcessed += frames
         val now = System.currentTimeMillis()
         if (now - lastLog > 10_000) {
@@ -219,6 +220,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         }
         inputBuffer.position(inputBuffer.limit())
         out.flip()
+        if (t0 != 0L) AudioDiagnostics.processed("spatial", t0, frames, rate)
     }
 
     private fun soft(x: Float): Float {

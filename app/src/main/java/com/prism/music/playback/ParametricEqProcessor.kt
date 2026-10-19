@@ -89,6 +89,7 @@ class ParametricEqProcessor : BaseAudioProcessor() {
             replaceOutputBuffer(bytes).put(inputBuffer).flip()
             return
         }
+        val t0 = if (AudioDiagnostics.enabled) System.nanoTime() else 0L
         val out = replaceOutputBuffer(bytes)
         val frameBytes = (if (float) 4 else 2) * channels
         val frames = bytes / frameBytes
@@ -106,6 +107,7 @@ class ParametricEqProcessor : BaseAudioProcessor() {
         }
         inputBuffer.position(inputBuffer.limit())
         out.flip()
+        if (t0 != 0L) AudioDiagnostics.processed("headphone EQ", t0, frames, rate)
     }
 
     override fun onFlush() {
