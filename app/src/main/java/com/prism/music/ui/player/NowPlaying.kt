@@ -506,9 +506,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 Box(
                     Modifier.align(Alignment.TopCenter)
                         .offset { IntOffset(0, lerp(6.dp, (DISMISS_STRIP - 5.dp) / 2, p()).roundToPx()) }
-                        .size(32.dp, 3.dp)
+                        .size(36.dp, 4.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.45f)),
+                        .background(Color.White.copy(alpha = 0.6f)),
                 )
                 if (collapse.value < 0.999f && settings.showPlayingFrom && originAlbum != null) PlaybackOriginCaption(
                     // The song's own album, which needn't be what's playing (a playlist, a radio): not "Playing from".
@@ -635,7 +635,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             val scrolls = collapse.value < 0.01f && !covered
                             PlayerMarquee(
                                 // The title leads, the artist under it a size smaller (#41). Spectrum: large and light.
-                                song.title, MaterialTheme.typography.headlineSmall, Color.White, scrolls,
+                                song.title, MaterialTheme.typography.headlineMedium, Color.White, scrolls,
                                 Modifier.clickable(enabled = song.album?.id != null) { song.album?.id?.let { onCollapse(); nav.go(Routes.album(it)) } },
                             )
                             // With more than one artist, the name asks which one to open (#42).

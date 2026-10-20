@@ -126,8 +126,8 @@ fun ArtworkMeshBackdrop(mesh: ArtworkMesh?, modifier: Modifier = Modifier, seam:
         val seamY = seam.toPx().coerceIn(0f, size.height)
         shown?.let { drawMesh(it, seamY, 1f) }
         incoming?.let { drawMesh(it, seamY, fade.value) }
-        // Spectrum (1.7): a deeper, calmer field, darkest under the controls, so the white type sits on quiet ground.
-        drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.16f), 0.55f to Color.Black.copy(alpha = 0.34f), 1f to Color.Black.copy(alpha = 0.58f)))
+        // Aura × Spectrum (1.7): the cover's colours glow, deepening under the controls so the white type reads.
+        drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.08f), 0.55f to Color.Black.copy(alpha = 0.22f), 1f to Color.Black.copy(alpha = 0.42f)))
     }
 }
 

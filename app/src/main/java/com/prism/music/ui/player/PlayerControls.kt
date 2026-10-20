@@ -235,8 +235,8 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
-            idleHeight = when (style) { ScrubberStyle.HAIRLINE -> 3.dp; ScrubberStyle.BOLD -> 7.dp; ScrubberStyle.THUMB -> 3.dp },
-            activeHeight = when (style) { ScrubberStyle.HAIRLINE -> 7.dp; ScrubberStyle.BOLD -> 12.dp; ScrubberStyle.THUMB -> 5.dp },
+            idleHeight = when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD -> 9.dp; ScrubberStyle.THUMB -> 4.dp },
+            activeHeight = when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD -> 14.dp; ScrubberStyle.THUMB -> 6.dp },
             thumb = style == ScrubberStyle.THUMB,
             spectrum = true,
             marks = listOfNotNull(bestMark),
@@ -279,9 +279,9 @@ fun BoxScope.BestPartChip(): Boolean {
     if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
     val haptics = rememberHaptics()
     // Spectrum: a hairline tag, matching the tick on the bar.
-    val tag = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
+    val tag = CircleShape
     Row(
-        Modifier.align(Alignment.Center).clip(tag).border(1.dp, Color.White.copy(alpha = 0.35f), tag)
+        Modifier.align(Alignment.Center).clip(tag).background(Color.White.copy(alpha = 0.12f)).border(1.2.dp, com.prism.music.ui.theme.PrismTokens.spectrum, tag)
             .clickable(onClickLabel = "Skip to the best part") { haptics.tick(); pc.seekToLyric(start) }
             .padding(horizontal = 10.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -379,15 +379,19 @@ private fun PlayDisc(isPlaying: Boolean, isLoading: Boolean, filled: Boolean, si
     val haptics = rememberHaptics()
     val pressed = remember { MutableInteractionSource() }
     Box(
-        Modifier.size(size + 14.dp).clickable(pressed, indication = null) { haptics.click(); onClick() },
+        Modifier.size(size + 14.dp).clickable(pressed, indication = null) { haptics.click(); onClick() }
+            // Aura × Spectrum: a ring of split light round the play button, a little out from it.
+            .drawBehind {
+                val w = 2.dp.toPx()
+                drawCircle(com.prism.music.ui.theme.PrismTokens.spectrumRing(center), radius = size.toPx() / 2 + 6.dp.toPx(), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+            },
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.size(size).clip(CircleShape)
                 .then(
                     if (filled) Modifier.background(Color.White)
-                    // Spectrum's play button: a thin ring, nothing inside it but the glyph.
-                    else Modifier.border(1.5.dp, Color.White.copy(alpha = 0.9f), CircleShape)
+                    else Modifier.background(Color.White.copy(alpha = 0.10f)).border(1.5.dp, Color.White.copy(alpha = 0.9f), CircleShape)
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -537,10 +541,12 @@ fun PlayerActionRow(
     val repeat by pc.repeatMode.collectAsState()
     val settings by c.settings.flow.collectAsState()
     val videoLoading by pc.videoLoading.collectAsState()
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val widest = BOTTOM_ACTION_SIZE * 2 + PILL_SEGMENT_WIDTH * 3 + 2.dp
-        val inset = ((maxWidth - widest) / 4).coerceAtLeast(0.dp)
-        Row(Modifier.fillMaxWidth().padding(horizontal = inset), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    // Aura × Spectrum: lyrics, video and the queue together in one capsule of glass.
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape).padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
             BottomGlyph(if (lyricsOpen) PrismIcons.LyricsFilled else PrismIcons.Lyrics, if (lyricsOpen) "Close lyrics" else "Lyrics", lyricsOpen, onToggleLyrics)
             AnimatedContent(
                 queueOpen,
@@ -570,7 +576,7 @@ fun PlayerActionRow(
                     PillSegment(
                         PrismIcons.Video,
                         when { videoMode -> "Back to the song"; videoAvailable -> "Music video"; else -> "No music video for this song" },
-                        videoMode || videoLoading, enabled = videoAvailable || videoMode, loading = videoLoading, width = BOTTOM_ACTION_SIZE,
+                        videoMode || videoLoading, enabled = videoAvailable || videoMode, loading = videoLoading, width = 56.dp,
                     ) {
                         if (videoMode || videoLoading) onVideoMode(false) else onVideoMode(true)
                     }
@@ -619,7 +625,8 @@ private fun PillSegment(
 ) {
     val haptics = rememberHaptics()
     Box(
-        Modifier.width(width).height(BOTTOM_ACTION_SIZE)
+        Modifier.width(width).height(BOTTOM_ACTION_SIZE).clip(CircleShape)
+            .background(if (highlighted && enabled) Color.White.copy(alpha = 0.16f) else Color.Transparent)
             .semantics { selected = highlighted }
             .clickable(remember { MutableInteractionSource() }, indication = null, enabled = enabled) { haptics.tick(); onClick() },
         contentAlignment = Alignment.Center,
@@ -638,7 +645,8 @@ private fun PillSegment(
 private fun BottomGlyph(icon: ImageVector, description: String, highlighted: Boolean, onClick: () -> Unit) {
     val haptics = rememberHaptics()
     Box(
-        Modifier.size(BOTTOM_ACTION_SIZE).clip(CircleShape)
+        Modifier.size(width = 56.dp, height = BOTTOM_ACTION_SIZE).clip(CircleShape)
+            .background(if (highlighted) Color.White.copy(alpha = 0.16f) else Color.Transparent)
             .semantics { selected = highlighted }
             .clickable(remember { MutableInteractionSource() }, indication = null) { haptics.tick(); onClick() },
         contentAlignment = Alignment.Center,
@@ -654,11 +662,11 @@ fun CircleGlyph(icon: ImageVector, description: String, active: Boolean = false,
     val ink by animateFloatAsState(if (active) 1f else 0.8f, label = "glyphInk")
     val haptics = rememberHaptics()
     Box(
-        Modifier.size(40.dp).clip(CircleShape)
+        Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = if (active) 0.22f else 0.13f)).border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape)
             .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = description) { haptics.click(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Crossfade(icon, animationSpec = tween(180), label = "glyph") { Icon(it, description, tint = Color.White.copy(alpha = ink), modifier = Modifier.size(24.dp)) }
+        Crossfade(icon, animationSpec = tween(180), label = "glyph") { Icon(it, description, tint = Color.White.copy(alpha = ink), modifier = Modifier.size(20.dp)) }
     }
 }
 
@@ -681,15 +689,22 @@ fun OutputCaption() {
         is com.prism.music.connect.CastState.Connecting -> "Connecting to ${cs.renderer.name}…"
         else -> null
     }
-    Text(
-        castLabel ?: current?.let { outputLabel(it, phoneName) } ?: phoneName,
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-        color = Color.White.copy(alpha = 0.55f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth(0.65f).clickable { picking = true },
-    )
+    // Where the sound goes, after a dot of split light.
+    Row(
+        Modifier.fillMaxWidth(0.65f).clip(CircleShape).clickable { picking = true }.padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(6.dp).clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrumRing()))
+        Spacer(Modifier.width(7.dp))
+        Text(
+            castLabel ?: current?.let { outputLabel(it, phoneName) } ?: phoneName,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.62f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+    }
     if (picking) OutputPickerSheet(phoneName) { picking = false }
 }
 
@@ -1006,7 +1021,7 @@ fun QualityLabel(modifier: Modifier = Modifier, selected: Boolean = false, onCli
         text,
         style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
         color = Color.White.copy(alpha = if (selected) 0.95f else 0.55f),
-        modifier = modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+        modifier = modifier.clip(CircleShape)
             .background(Color.White.copy(alpha = if (selected) 0.14f else 0f))
             .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 2.dp),
     )

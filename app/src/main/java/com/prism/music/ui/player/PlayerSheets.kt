@@ -180,7 +180,7 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
 
 @Composable
 private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
         Text(label, color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelSmall)
         Text(value, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 2)
     }

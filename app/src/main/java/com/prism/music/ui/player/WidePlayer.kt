@@ -284,17 +284,18 @@ private fun WideCover(
 @Composable
 private fun PaneTabs(pane: PlayerPane, onPane: (PlayerPane) -> Unit, modifier: Modifier) {
     val haptics = rememberHaptics()
-    Row(modifier.clip(RoundedCornerShape(3.dp)).border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(3.dp)).padding(2.dp)) {
+    Row(modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(50)).padding(3.dp)) {
         PlayerPane.entries.forEach { p ->
             val on = p == pane
             Box(
-                Modifier.clip(RoundedCornerShape(2.dp))
-                    .background(if (on) Color.White else Color.Transparent)
+                Modifier.clip(RoundedCornerShape(50))
+                    .background(if (on) Color.White.copy(alpha = 0.18f) else Color.Transparent)
+                    .then(if (on) Modifier.border(1.2.dp, com.prism.music.ui.theme.PrismTokens.spectrum, RoundedCornerShape(50)) else Modifier)
                     .clickable(onClickLabel = p.label) { haptics.tick(); onPane(p) }
                     .padding(horizontal = 16.dp, vertical = 7.dp),
             ) {
                 Text(
-                    p.label, color = if (on) Color(0xFF060609) else Color.White.copy(alpha = 0.65f),
+                    p.label, color = Color.White.copy(alpha = if (on) 1f else 0.65f),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }

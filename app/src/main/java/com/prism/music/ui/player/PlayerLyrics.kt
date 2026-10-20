@@ -502,6 +502,28 @@ fun SweptLine(
     }
 }
 
+/**
+ * A thin line of split light growing under the line being sung, from [startMs] to [endMs] on [clock]; [origin] is where
+ * it grows from (0 the start, 0.5 the middle for centred lyrics, 1 the end). Read in the draw phase, so it costs no
+ * recomposition.
+ */
+@Composable
+fun LyricProgress(startMs: Long, endMs: Long, clock: State<Long>, origin: Float, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.height(2.dp)) {
+        val f = ((clock.value - startMs).toFloat() / (endMs - startMs)).coerceIn(0f, 1f)
+        if (f <= 0f) return@Canvas
+        // At most 70% of the width, so it reads as a mark under the words rather than a rule across the page.
+        val full = size.width * 0.7f
+        val w = full * f
+        val x = when (origin) { 0.5f -> (size.width - w) / 2; 1f -> size.width - w; else -> 0f }
+        drawRoundRect(
+            com.prism.music.ui.theme.PrismTokens.spectrum(true, x, x + full),
+            androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Size(w, size.height),
+            androidx.compose.ui.geometry.CornerRadius(size.height / 2),
+        )
+    }
+}
+
 /** Weights of [WeightSweptLine]: words still to come, and sung ones; the word being sung moves between them. */
 private const val LIGHT_WEIGHT = 300
 private const val SUNG_WEIGHT = 500
@@ -748,6 +770,12 @@ fun LyricsPanel(
                     } else {
                         Text(shown.text, style = style, color = Color.White.copy(alpha = lineAlpha), modifier = Modifier.fillMaxWidth())
                     }
+                    // How far the line has been sung: a thin line of split light under it.
+                    if (isActive && synced && !browsing && line.endMs > line.timeMs) LyricProgress(
+                        line.timeMs, line.endMs, clock,
+                        when { centred && !line.alignEnd -> 0.5f; line.alignEnd != rtl -> 1f; else -> 0f },
+                        Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+                    )
                     // "Under each line": the line in Latin letters, smaller, lit word by word with it.
                     if (!romanInstead && romanLine != null) {
                         val romanStyle = style.copy(

@@ -1,5 +1,6 @@
 package com.prism.music.ui.player
 
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismSlider
 import com.prism.music.ui.components.PrismSwitch
 import com.prism.music.ui.components.PrismTextButton
@@ -50,7 +51,9 @@ fun SingButton(song: Song, onClick: () -> Unit) {
     val p = progress[song.id]
     val haptics = rememberHaptics()
     Box(
-        Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(alpha = if (on) 0.24f else 0.12f))
+        Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(alpha = if (on) 0.22f else 0.12f))
+            // On: ringed in split light.
+            .then(if (on) Modifier.border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, CircleShape) else Modifier.border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape))
             .clickable(onClickLabel = "Sing") { haptics.tick(); onClick() },
         contentAlignment = Alignment.Center,
     ) {

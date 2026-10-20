@@ -262,7 +262,7 @@ private fun QueueRow(
             Icon(PrismIcons.DragHandle, "Drag to reorder", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(20.dp).offset(x = (-4).dp).then(dragHandle))
             Spacer(Modifier.width(4.dp))
         }
-        AsyncImage(hiRes(song.thumbnail, 226), null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.08f)))
+        AsyncImage(hiRes(song.thumbnail, 226), null, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.08f)))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(song.title, style = MaterialTheme.typography.titleMedium, color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -271,7 +271,7 @@ private fun QueueRow(
         if (badge != null) {
             Text(
                 badge, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1,
-                modifier = Modifier.clip(RoundedCornerShape(3.dp)).border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(3.dp)).padding(horizontal = 7.dp, vertical = 3.dp),
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 9.dp, vertical = 3.dp),
             )
             Spacer(Modifier.width(8.dp))
         }
