@@ -682,7 +682,7 @@ private fun TypeSettings() {
         ) { Chevron() }
         if (hasAppFont) Item("Remove your font", "Back to a built-in font", onClick = {
             AppFonts.remove(AppFonts.FontSlot.APP)
-            if (s.fontChoice == FontChoice.CUSTOM) prefs.setFontChoice(FontChoice.CONDENSED)
+            if (s.fontChoice == FontChoice.CUSTOM) prefs.setFontChoice(FontChoice.PRISM)
             prefs.setAppFont("")
         })
         Label("Lyrics font")

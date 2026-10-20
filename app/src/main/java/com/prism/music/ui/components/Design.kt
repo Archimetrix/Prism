@@ -65,7 +65,7 @@ import com.prism.music.ui.theme.LocalUi
 fun pageTitleStyle(): TextStyle = when (LocalUi.current.titleSize) {
     TitleSize.LARGE -> MaterialTheme.typography.headlineLarge
     TitleSize.MEDIUM -> MaterialTheme.typography.headlineMedium
-    TitleSize.SMALL -> MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+    TitleSize.SMALL -> MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal)
 }
 
 /** A top-level page's heading: a big title, an optional quiet line under it, and round actions on the right. */

@@ -73,7 +73,18 @@ fun androidx.compose.ui.text.TextStyle.withLyricsFont(): androidx.compose.ui.tex
 @OptIn(ExperimentalTextApi::class)
 object AppFonts {
     private val cache = HashMap<FontChoice, FontFamily>()
-    private val weights = listOf(300, 400, 500, 600, 700, 800, 900)
+    private val weights = listOf(200, 300, 400, 500, 600, 700, 800, 900)
+
+    /**
+     * Outfit (res/font/outfit.ttf, OFL 1.1, from google/fonts), Prism's own typeface: one variable file, set up at every
+     * weight the UI uses. Latin only: other scripts fall back to the phone's font, glyph by glyph.
+     */
+    val prism: FontFamily by lazy {
+        FontFamily(weights.map { w ->
+            Font(com.prism.music.R.font.outfit, FontWeight(w), FontStyle.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(w)))
+        })
+    }
+
     private val sansFlex = arrayOf("/product/fonts/GoogleSansFlex-Regular.ttf", "/system/fonts/GoogleSansFlex-Regular.ttf")
     private val googleSans = arrayOf("/product/fonts/GoogleSans-Regular.ttf", "/system/fonts/GoogleSans-Regular.ttf")
     private val robotoFlex = arrayOf("/system/fonts/RobotoFlex-Regular.ttf")
@@ -85,6 +96,7 @@ object AppFonts {
     )
 
     private fun build(choice: FontChoice): FontFamily = when (choice) {
+        FontChoice.PRISM -> prism
         FontChoice.SYSTEM -> FontFamily.Default
         FontChoice.GOOGLE_SANS -> file(*sansFlex)?.let { variable(it) }
             ?: file(*googleSans)?.let { FontFamily(Font(it)) }

@@ -51,6 +51,7 @@ private val libraries = listOf(
     Library("CameraX (scanning a Blend code)", "The Android Open Source Project", "Apache 2.0", "apache-2.0", "https://developer.android.com/jetpack/androidx/releases/camera"),
     Library("ONNX Runtime (Sing's engine, downloaded with it)", "Microsoft", "MIT", "onnxruntime", "https://github.com/microsoft/onnxruntime"),
     Library("Spleeter 2-stem model (Sing, downloaded)", "Deezer; ONNX conversion by sherpa-onnx", "MIT", "spleeter", "https://github.com/deezer/spleeter"),
+    Library("Outfit (Prism's typeface)", "The Outfit Project Authors", "SIL Open Font License 1.1", "outfit", "https://github.com/Outfitio/Outfit-Fonts"),
 )
 
 /** Settings → About → Open-source licenses: Prism's own license, then everything it ships with. */

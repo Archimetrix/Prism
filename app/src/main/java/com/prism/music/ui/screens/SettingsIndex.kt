@@ -63,7 +63,7 @@ object SettingsIndex {
         SettingEntry(A, "Theme", "Theme", "dark light system mode night"),
         SettingEntry(A, "Theme", "Pure black", "amoled oled"),
         SettingEntry(A, "Colour", "Colour", "color accent dynamic material you artwork"),
-        SettingEntry(A, "Text", "Font", "typeface custom ttf otf"),
+        SettingEntry(A, "Text", "Font", "typeface custom ttf otf outfit prism system"),
         SettingEntry(A, "Text", "Remove your font"),
         SettingEntry(A, "Text", "Lyrics font", "typeface"),
         SettingEntry(A, "Text", "Lyrics font file"),

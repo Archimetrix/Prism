@@ -126,7 +126,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, strapline: Strin
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             if (onMore != null) Icon(PrismIcons.ChevronRight, "See all", Modifier.size(26.dp), tint = scheme.onSurfaceVariant)

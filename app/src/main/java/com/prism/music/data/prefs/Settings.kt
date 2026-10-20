@@ -62,9 +62,12 @@ enum class SectionStyle(val label: String) { CAROUSEL("Carousel"), GRID("Grid"),
 
 // ---------------------------------------------------------------- Look & layout
 
-/** The app's typeface. Device fonts are used where the phone has them, with a fallback otherwise. */
+/**
+ * The app's typeface. [PRISM] is Outfit, bundled with Prism (res/font, a variable font: every weight from one file).
+ * The device fonts are used where the phone has them, with a fallback otherwise.
+ */
 enum class FontChoice(val label: String) {
-    SYSTEM("Default"), GOOGLE_SANS("Google Sans"), ROUNDED("Rounded"), CONDENSED("Condensed"), SERIF("Serif"), MONO("Mono"),
+    PRISM("Prism"), SYSTEM("System"), GOOGLE_SANS("Google Sans"), ROUNDED("Rounded"), CONDENSED("Condensed"), SERIF("Serif"), MONO("Mono"),
     /** A .ttf / .otf the listener imported (#12; `AppFonts.FontSlot`). */
     CUSTOM("Your font"),
 }
@@ -396,7 +399,7 @@ data class AppSettings(
     /** The Podcasts button at the top of Home. Off, Podcasts opens from a Library tile instead (#28). */
     val homePodcastsButton: Boolean = true,
     // Interface
-    val fontChoice: FontChoice = FontChoice.CONDENSED,
+    val fontChoice: FontChoice = FontChoice.PRISM,
     /** The imported app font's name, and when it (or the lyrics font) was last imported, so the UI picks it up. */
     val appFontName: String = "",
     val fontStamp: Long = 0,

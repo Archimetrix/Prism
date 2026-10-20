@@ -100,8 +100,26 @@ private fun neutralScheme(dark: Boolean, pureBlack: Boolean): ColorScheme {
     }
 }
 
-/** Builds a full Material 3 scheme from a single seed colour (tonal approximation). */
+/**
+ * Builds a full Material 3 scheme from a single seed colour (tonal approximation), with the colours text and icons sit
+ * on checked for contrast ([readableOn]): a pale yellow or neon cover can't give an accent you can't read.
+ */
 fun schemeFromSeed(seed: Color, dark: Boolean, pureBlack: Boolean): ColorScheme {
+    val c = tonalScheme(seed, dark, pureBlack)
+    val primary = readableOn(c.primary, c.background)
+    return c.copy(
+        primary = primary, surfaceTint = primary,
+        onPrimary = readableOn(c.onPrimary, primary),
+        onPrimaryContainer = readableOn(c.onPrimaryContainer, c.primaryContainer),
+        secondary = readableOn(c.secondary, c.background),
+        onSecondaryContainer = readableOn(c.onSecondaryContainer, c.secondaryContainer),
+        tertiary = readableOn(c.tertiary, c.background),
+        onTertiaryContainer = readableOn(c.onTertiaryContainer, c.tertiaryContainer),
+        onSurfaceVariant = readableOn(c.onSurfaceVariant, c.background),
+    )
+}
+
+private fun tonalScheme(seed: Color, dark: Boolean, pureBlack: Boolean): ColorScheme {
     if (isNeutralSeed(seed.toArgb())) return neutralScheme(dark, pureBlack)
     val out = FloatArray(3)
     ColorUtils.colorToHSL(seed.toArgb(), out)
@@ -183,25 +201,38 @@ fun schemeFromSeed(seed: Color, dark: Boolean, pureBlack: Boolean): ColorScheme 
 
 private val base = Typography()
 
-/** Tight, confident headings over a calm body; [family] is the typeface picked in Appearance. */
+/**
+ * The 1.7 type scale (Spectrum): thin and large at the top, calm in the middle, firm only for small labels.
+ * The rule it keeps: ExtraLight (200) only at 28 sp and up, Light (300) from 21 sp, nothing under 400 below that,
+ * so thin strokes never blur at row size or drop below contrast. Sizes are sp, so the phone's and Prism's own text size
+ * still apply. [family] is the typeface picked in Look & feel (Outfit by default).
+ */
 fun prismTypography(family: FontFamily = FontFamily.Default): Typography {
-    fun TextStyle.f() = copy(fontFamily = family)
-    return Typography(
-        displayLarge = base.displayLarge.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.035).em).f(),
-        displayMedium = base.displayMedium.copy(fontWeight = FontWeight.Black, letterSpacing = (-0.03).em).f(),
-        displaySmall = base.displaySmall.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.025).em).f(),
-        headlineLarge = base.headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.025).em).f(),
-        headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.02).em).f(),
-        headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.015).em).f(),
-        titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.012).em).f(),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.005).em).f(),
-        titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold).f(),
-        labelLarge = base.labelLarge.copy(fontWeight = FontWeight.SemiBold).f(),
-        labelMedium = base.labelMedium.copy(fontWeight = FontWeight.Medium).f(),
-        labelSmall = base.labelSmall.copy(fontWeight = FontWeight.Medium).f(),
-        bodyLarge = base.bodyLarge.copy(letterSpacing = 0.1.sp).f(),
-        bodyMedium = base.bodyMedium.f(),
-        bodySmall = base.bodySmall.f(),
+    fun style(size: Float, line: Float, weight: Int, tracking: Float = 0f) =
+        TextStyle(fontFamily = family, fontSize = size.sp, lineHeight = line.sp, fontWeight = FontWeight(weight), letterSpacing = tracking.em)
+    return base.copy(
+        // Replay's big numbers, the welcome screen.
+        displayLarge = style(56f, 60f, 200, -0.03f),
+        displayMedium = style(44f, 50f, 200, -0.025f),
+        displaySmall = style(36f, 42f, 200, -0.02f),
+        // Page titles (Home's greeting, Library, Settings…).
+        headlineLarge = style(36f, 42f, 200, -0.02f),
+        // Hero titles: album, playlist, artist.
+        headlineMedium = style(28f, 34f, 300, -0.015f),
+        headlineSmall = style(24f, 30f, 300, -0.01f),
+        // Section headings.
+        titleLarge = style(22f, 28f, 300, -0.01f),
+        // Row titles.
+        titleMedium = style(16f, 22f, 500, -0.003f),
+        titleSmall = style(14f, 20f, 500),
+        bodyLarge = style(16f, 22f, 400),
+        bodyMedium = style(14.5f, 20f, 400),
+        // Subtitles and notes.
+        bodySmall = style(13f, 18f, 400, 0.003f),
+        // Buttons, tabs, chips; labelSmall also for eyebrows.
+        labelLarge = style(14f, 18f, 500, 0.01f),
+        labelMedium = style(12.5f, 16f, 500, 0.02f),
+        labelSmall = style(11.5f, 14f, 500, 0.05f),
     )
 }
 
