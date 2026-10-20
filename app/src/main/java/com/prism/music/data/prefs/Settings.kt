@@ -60,6 +60,9 @@ enum class HomeShortcut(val label: String) {
 @Serializable
 data class PinnedPlaylist(val id: String, val title: String, val thumbnail: String? = null)
 
+/** Where Autoplay finds what to play next. */
+enum class AutoplaySource(val label: String) { MIXED("Both"), YOURS("Your music"), YOUTUBE("YouTube Music") }
+
 enum class SectionStyle(val label: String) { CAROUSEL("Carousel"), GRID("Grid"), LIST("List"), HERO("Spotlight") }
 
 // ---------------------------------------------------------------- Look & layout
@@ -172,6 +175,11 @@ object HomeSections {
     const val MADE_FOR_YOU = "local:made_for_you"
     /** Release Radar's new albums, singles and EPs from the listener's artists. */
     const val NEW_RELEASES = "local:new_releases"
+    /** Made on the phone from your own plays: your month's most played, what you used to play, likes gone quiet, mixes. */
+    const val ON_REPEAT = "local:on_repeat"
+    const val REPEAT_REWIND = "local:repeat_rewind"
+    const val FORGOTTEN = "local:forgotten"
+    const val YOUR_MIXES = "local:your_mixes"
     const val YT_PREFIX = "yt:shelf:"
     /** GREETING's key predates the rename: the section is only the shortcut tiles. */
     const val TILES_TITLE = "Shortcut tiles"
@@ -190,6 +198,10 @@ object HomeSections {
         HomeSectionConfig(LIKED, "Liked songs"),
         HomeSectionConfig(DOWNLOADS, "Downloads", visible = false),
         HomeSectionConfig(SPEED_DIAL, "Speed dial", style = SectionStyle.GRID),
+        HomeSectionConfig(ON_REPEAT, "On repeat"),
+        HomeSectionConfig(YOUR_MIXES, "Mixes from your music"),
+        HomeSectionConfig(REPEAT_REWIND, "Repeat rewind"),
+        HomeSectionConfig(FORGOTTEN, "Forgotten favourites"),
     )
 
     /** What a fresh install's Home shows (and what Reset goes back to). */
@@ -199,6 +211,8 @@ object HomeSections {
         HomeSectionConfig(QUICK_PICKS, "Quick picks", style = SectionStyle.LIST),
         HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
         HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE),
+        HomeSectionConfig(ON_REPEAT, "On repeat"),
+        HomeSectionConfig(YOUR_MIXES, "Mixes from your music"),
         HomeSectionConfig("${YT_PREFIX}mixed for you", "Mixed for you"),
     )
 
@@ -206,11 +220,15 @@ object HomeSections {
      * Sections added in a later Prism, put into an existing layout once (after Quick picks, or at the top), so people
      * who customized Home before still get them; removing them afterwards sticks.
      */
-    fun withNewSections(layout: List<HomeSectionConfig>): List<HomeSectionConfig> {
-        val add = listOf(HomeSectionConfig(MADE_FOR_YOU, "Made for you"), HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE))
-            .filter { n -> layout.none { it.key == n.key } }
+    fun withNewSections(
+        layout: List<HomeSectionConfig>,
+        sections: List<HomeSectionConfig> = listOf(HomeSectionConfig(MADE_FOR_YOU, "Made for you"), HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE)),
+        after: String = QUICK_PICKS,
+    ): List<HomeSectionConfig> {
+        val add = sections.filter { n -> layout.none { it.key == n.key } }
         if (add.isEmpty()) return layout
-        val at = layout.indexOfFirst { it.key == QUICK_PICKS }.let { if (it < 0) minOf(1, layout.size) else it + 1 }
+        val at = layout.indexOfFirst { it.key == after }.let { if (it < 0) layout.indexOfFirst { it.key == QUICK_PICKS } else it }
+            .let { if (it < 0) minOf(1, layout.size) else it + 1 }
         return layout.toMutableList().apply { addAll(at, add) }
     }
 }
@@ -332,6 +350,8 @@ data class AppSettings(
     val audioQuality: AudioQuality = AudioQuality.HIGH,
     val cellularQuality: AudioQuality = AudioQuality.HIGH,
     val autoplay: Boolean = true,
+    /** Where Autoplay's songs come from: your own music, YouTube Music's radio, or both (offline it's always yours). */
+    val autoplaySource: AutoplaySource = AutoplaySource.MIXED,
     /** Autoplay and radios play songs: music videos swap for their song, and videos with no song version are left out (#39). */
     val radioSongsOnly: Boolean = true,
     /**
@@ -547,6 +567,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val audioQuality = stringPreferencesKey("audio_quality")
         val cellularQuality = stringPreferencesKey("cellular_quality")
         val autoplay = booleanPreferencesKey("autoplay")
+        val autoplaySource = stringPreferencesKey("autoplay_source")
         val radioSongsOnly = booleanPreferencesKey("radio_songs_only")
         val songsEverywhere = booleanPreferencesKey("songs_everywhere")
         val showTrackLength = booleanPreferencesKey("show_track_length")
@@ -715,6 +736,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             audioQuality = p.enum(K.audioQuality, d.audioQuality),
             cellularQuality = p.enum(K.cellularQuality, d.cellularQuality),
             autoplay = p[K.autoplay] ?: d.autoplay,
+            autoplaySource = p[K.autoplaySource]?.let { n -> AutoplaySource.entries.firstOrNull { it.name == n } } ?: d.autoplaySource,
             radioSongsOnly = p[K.radioSongsOnly] ?: d.radioSongsOnly,
             songsEverywhere = p[K.songsEverywhere] ?: d.songsEverywhere,
             showTrackLength = p[K.showTrackLength] ?: d.showTrackLength,
@@ -826,14 +848,24 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
 
     /** Once (1.7): Home layouts saved before "Made for you" and "New releases" existed get them, after Quick picks. */
     fun addNewHomeSections() = edit { p ->
-        val flag = booleanPreferencesKey("home_sections_1_7")
-        if (p[flag] == true) return@edit
-        p[K.homeLayout]?.let { stored ->
-            runCatching { json.decodeFromString<List<HomeSectionConfig>>(stored) }.getOrNull()?.let { layout ->
-                p[K.homeLayout] = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(HomeSectionConfig.serializer()), HomeSections.withNewSections(layout))
+        fun once(flag: String, change: (List<HomeSectionConfig>) -> List<HomeSectionConfig>) {
+            val key = booleanPreferencesKey(flag)
+            if (p[key] == true) return
+            p[K.homeLayout]?.let { stored ->
+                runCatching { json.decodeFromString<List<HomeSectionConfig>>(stored) }.getOrNull()?.let { layout ->
+                    p[K.homeLayout] = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(HomeSectionConfig.serializer()), change(layout))
+                }
             }
+            p[key] = true
         }
-        p[flag] = true
+        once("home_sections_1_7") { HomeSections.withNewSections(it) }
+        // Made on the phone (1.7): On repeat and Mixes from your music, after Made for you.
+        once("home_sections_local") {
+            HomeSections.withNewSections(
+                it, listOf(HomeSectionConfig(HomeSections.ON_REPEAT, "On repeat"), HomeSectionConfig(HomeSections.YOUR_MIXES, "Mixes from your music")),
+                after = HomeSections.MADE_FOR_YOU,
+            )
+        }
     }
 
     suspend fun saveAccount(cookie: String, visitorData: String, dataSyncId: String) = editNow {
@@ -923,6 +955,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setAudioQuality(v: AudioQuality) = edit { it[K.audioQuality] = v.name }
     fun setCellularQuality(v: AudioQuality) = edit { it[K.cellularQuality] = v.name }
     fun setAutoplay(v: Boolean) = edit { it[K.autoplay] = v }
+    fun setAutoplaySource(v: AutoplaySource) = edit { it[K.autoplaySource] = v.name }
     fun setRadioSongsOnly(v: Boolean) = edit { it[K.radioSongsOnly] = v }
     fun setSongsEverywhere(v: Boolean) = edit { it[K.songsEverywhere] = v }
     fun setShowTrackLength(v: Boolean) = edit { it[K.showTrackLength] = v }

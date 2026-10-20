@@ -105,6 +105,9 @@ val homeShelfCache = MutableStateFlow<List<Shelf>>(emptyList())
 private val lastQuickPicks = MutableStateFlow<Shelf?>(null)
 private val standInPicks = MutableStateFlow<List<Song>>(emptyList())
 private val speedDialMine = MutableStateFlow<List<BrowseItem>>(emptyList())
+/** The last lists and mixes made from your music, shown while the next are made. */
+private val lastYours = MutableStateFlow<com.prism.music.data.foryou.YourMusic.Sections?>(null)
+private val YOURS_KEYS = setOf(HomeSections.ON_REPEAT, HomeSections.REPEAT_REWIND, HomeSections.FORGOTTEN, HomeSections.YOUR_MIXES)
 
 fun shelfKey(title: String) = HomeSections.YT_PREFIX + title.trim().lowercase()
 
@@ -168,6 +171,19 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         (picks?.items?.filterIsInstance<SongItem>()?.map { it.song } ?: standIn).filter { it.id !in onDial }
     }
 
+    // Offline, Home is what's on the phone: no YouTube shelves, and lists keep to songs that play without a connection.
+    val online by c.network.online.collectAsState()
+    LaunchedEffect(online) { if (online && home.state is Load.Err) { home.reload(false); moods.reload(false) } }
+    val offline: (Song) -> Boolean = { online || c.availableOffline(it.id) }
+    val wantsYours = !online || layout.any { it.key in YOURS_KEYS }
+    val yours by produceState(lastYours.value, recent.firstOrNull()?.id, online, refreshes, wantsYours) {
+        if (!wantsYours) return@produceState
+        value = runCatching { c.yourMusic.sections(offlineOnly = !online) }.getOrNull()?.also { lastYours.value = it }
+    }
+    val offlinePicks by produceState(emptyList<Song>(), online, recent.firstOrNull()?.id) {
+        if (!online) value = runCatching { c.yourMusic.offlinePicks() }.getOrDefault(emptyList())
+    }
+
     val onSong: (SongItem) -> Unit = { c.player.playSingle(it.song) }
     val openItem: (BrowseItem) -> Unit = { nav.open(it, onSong) }
 
@@ -184,8 +200,9 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)) {
             item { HomeTopBar() }
             item(key = "update") { UpdateBanner() }
-            if (home.state is Load.Loading && shelves.isEmpty()) item { LoadingState() }
-            (home.state as? Load.Err)?.let { e -> item { ErrorState(e.message) { home.reload(false) } } }
+            if (!online) item(key = "offline") { OfflineNote() }
+            if (online && home.state is Load.Loading && shelves.isEmpty()) item { LoadingState() }
+            (home.state as? Load.Err)?.takeIf { online }?.let { e -> item { ErrorState(e.message) { home.reload(false) } } }
 
             layout.forEach { cfg ->
                 item(key = cfg.key) {
@@ -195,24 +212,30 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                             // When YouTube serves no picks, songs like your latest play stand in (from its radio, less
                             // what you've just heard). Your recent plays themselves never do: that's Recently played.
                             // A pick starts a radio from it (#38), as on YouTube Music, unless Customize Home says to play them in order.
-                            if (pickSongs.isNotEmpty()) SongSection(
+                            // Offline: the songs on the phone you're most likely to want, played in order.
+                            if (!online) { if (offlinePicks.isNotEmpty()) SongSection(cfg, "Quick picks", "Ready offline", offlinePicks, snap = true) }
+                            else if (pickSongs.isNotEmpty()) SongSection(
                                 cfg, "Quick picks", picks?.strapline, pickSongs, snap = true,
                                 play = if (settings.quickPicksRadio) { list, i -> c.player.playRadio(list[i]) } else null,
                             )
                         }
-                        HomeSections.RECENT -> if (recent.isNotEmpty()) SongSection(cfg, cfg.title, null, recent.take(20))
-                        HomeSections.LIKED -> if (liked.isNotEmpty()) SongSection(cfg, "Liked songs", null, liked.take(20)) { nav.go(Routes.liked()) }
+                        HomeSections.RECENT -> recent.filter(offline).take(20).let { if (it.isNotEmpty()) SongSection(cfg, cfg.title, null, it) }
+                        HomeSections.LIKED -> liked.filter(offline).take(20).let { if (it.isNotEmpty()) SongSection(cfg, "Liked songs", null, it) { nav.go(Routes.liked()) } }
+                        HomeSections.ON_REPEAT -> yours?.onRepeat?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.title, "Your most played this month", it) }
+                        HomeSections.REPEAT_REWIND -> yours?.repeatRewind?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.title, "What you used to play on repeat", it) }
+                        HomeSections.FORGOTTEN -> yours?.forgotten?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.title, "Favourites you haven't played in a while", it) }
+                        HomeSections.YOUR_MIXES -> yours?.mixes?.takeIf { it.isNotEmpty() }?.let { YourMixesSection(cfg, it) }
                         HomeSections.DOWNLOADS -> {
                             val dls by c.downloads.downloads.collectAsState()
                             val songs = remember(dls) { c.downloads.completedSongs() }
                             if (songs.isNotEmpty()) SongSection(cfg, "Downloads", null, songs.take(20)) { nav.go(Routes.DOWNLOADS) }
                         }
-                        HomeSections.SPEED_DIAL -> SpeedDialSection(cfg, dialItems, openItem)
-                        HomeSections.MADE_FOR_YOU -> MadeForYouSection(cfg)
-                        HomeSections.NEW_RELEASES -> NewReleasesSection(cfg)
+                        HomeSections.SPEED_DIAL -> SpeedDialSection(cfg, if (online) dialItems else dialItems.filter { it is SongItem && c.availableOffline(it.id) }, openItem)
+                        HomeSections.MADE_FOR_YOU -> MadeForYouSection(cfg, offline = !online)
+                        HomeSections.NEW_RELEASES -> if (online) NewReleasesSection(cfg)
                         HomeSections.REPLAY -> ReplayTeaser(cfg)
                         HomeSections.GENRES -> TopGenresSection(cfg)
-                        HomeSections.MOODS -> {
+                        HomeSections.MOODS -> if (online) {
                             val m = (moods.state as? Load.Ok)?.value?.picks?.take(12)
                             if (!m.isNullOrEmpty()) {
                                 SectionHeader(cfg.title, strapline = "Picked for you", onMore = { nav.go(Routes.MOODS) })
@@ -228,7 +251,7 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                                 }
                             }
                         }
-                        else -> {
+                        else -> if (online) {
                             // Not a shelf that already shows as Quick picks or Speed dial (it was on Home twice).
                             val shelf = shelves.firstOrNull { shelfKey(it.title) == cfg.key }?.takeIf { it !== picks && it !== dial }
                             if (shelf != null) ShelfSection(cfg, shelf, openItem)
@@ -255,6 +278,23 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         }
     }
     TopScrollEdge({ edge })
+    }
+}
+
+/** Offline: Home says so, and that what it shows plays without a connection. */
+@Composable
+private fun OfflineNote() {
+    val ui = com.prism.music.ui.theme.LocalUi.current
+    Row(
+        Modifier.padding(start = 16.dp, end = 16.dp, top = ui.gap(14.dp)).fillMaxWidth().pane(ui.shape(16.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(PrismIcons.CloudOff, null, tint = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text("You're offline", style = MaterialTheme.typography.titleSmall)
+            Text("Home shows the music on this phone: downloads, songs kept whole and your files", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

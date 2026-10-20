@@ -130,6 +130,7 @@ object SettingsIndex {
         SettingEntry(P, "Gestures", "Haptics", "vibration vibrate"),
         // Playback & sound
         SettingEntry(S, "Playback", "Autoplay", "radio continue similar"),
+        SettingEntry(S, "Playback", "Autoplay from", "radio your music prism radio youtube offline local", needs = turnOn("Autoplay") { it.autoplay }),
         SettingEntry(S, "Playback", "Songs, not videos", "music videos audio"),
         SettingEntry(S, "Playback", "Everywhere", "songs not videos music videos audio", shown = "Songs, not videos: everywhere", needs = songsOnly),
         SettingEntry(S, "Playback", "Keep playing videos", "music video"),

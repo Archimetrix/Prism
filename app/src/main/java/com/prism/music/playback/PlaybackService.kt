@@ -782,19 +782,39 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         if (src.kind != QueueKind.SINGLE && !radio && player.repeatMode != Player.REPEAT_MODE_OFF) return
         if (player.mediaItemCount - player.currentMediaItemIndex > 3 || c.queue.autoplayLoading) return
         val seed = src.seedId ?: player.getMediaItemAt(player.mediaItemCount - 1).mediaId.takeIf { it.isNotBlank() } ?: return
-        // YouTube Music's radio can't start from a file on the phone.
-        if (seed.startsWith(Song.LOCAL_PREFIX)) return
+        // Where the songs come from (Settings → Playback & sound → Autoplay from): your own music (Prism's radio, made on
+        // the phone from your plays, likes, downloads and files), YouTube Music's radio, or both. A song's radio (Quick
+        // picks, "Radio") is YouTube's; with no connection, or after a file on the phone, only your own music can follow.
+        val offline = !c.network.isOnline()
+        val mode = c.settings.current.autoplaySource
+        val seedLocal = seed.startsWith(Song.LOCAL_PREFIX)
+        val useYours = offline || seedLocal || (!radio && mode != com.prism.music.data.prefs.AutoplaySource.YOUTUBE)
+        val useYouTube = !offline && !seedLocal && (radio || mode != com.prism.music.data.prefs.AutoplaySource.YOURS)
+        val seeds = (maxOf(0, player.mediaItemCount - 3) until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.filter { it.isNotBlank() }
         c.queue.autoplayLoading = true
         scope.launch {
-            val r = runCatching {
+            val existing = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+            val mine = if (!useYours) emptyList() else runCatching {
+                withContext(Dispatchers.IO) { c.yourMusic.radio(seeds, existing, 15, offlineOnly = offline) }
+            }.onFailure { android.util.Log.w("PrismRadio", "Prism radio failed", it) }.getOrNull().orEmpty().map { it.song }
+            // "Your music": YouTube only fills in when your own music has too little to follow with.
+            val wantYouTube = useYouTube && (radio || mode != com.prism.music.data.prefs.AutoplaySource.YOURS || mine.size < 5)
+            val r = if (!wantYouTube) null else runCatching {
                 withContext(Dispatchers.IO) { c.radio(seed, "RDAMVM$seed", continuation = c.queue.autoplayContinuation) }
             }.getOrNull()
             c.queue.autoplayLoading = false
             // Dropped if the queue was replaced, or Autoplay was switched off, while loading.
-            if (r == null || c.queue.source.value !== src || (!c.settings.current.autoplay && !radio)) return@launch
-            c.queue.autoplayContinuation = r.continuation
-            val existing = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
-            val add = r.songs.filter { it.id !in existing && !c.library.isDisliked(it.id) && !c.exclusions.blocks(it) }
+            if ((r == null && mine.isEmpty()) || c.queue.source.value !== src || (!c.settings.current.autoplay && !radio)) return@launch
+            if (r != null) c.queue.autoplayContinuation = r.continuation
+            val theirs = r?.songs.orEmpty()
+            val songs = when {
+                radio || mine.isEmpty() -> theirs
+                theirs.isEmpty() -> mine
+                // Both: mostly your own music, with two of YouTube's in every five.
+                else -> com.prism.music.data.foryou.MadeForYou.interleave(mine, theirs, 20) { it.primaryArtist.lowercase() }
+            }
+            android.util.Log.i("PrismRadio", "autoplay after $seed: ${mine.size} of yours, ${theirs.size} from YouTube ($mode${if (offline) ", offline" else ""})")
+            val add = songs.distinctBy { it.id }.filter { it.id !in existing && !c.library.isDisliked(it.id) && !c.exclusions.blocks(it) }
             if (add.isNotEmpty()) {
                 if (c.queue.autoplayStart.value < 0) c.queue.autoplayStart.value = player.mediaItemCount
                 player.addMediaItems(add.map { it.toMediaItem() })

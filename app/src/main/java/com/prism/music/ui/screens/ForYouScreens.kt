@@ -121,10 +121,29 @@ fun MixCover(mix: Mix, modifier: Modifier = Modifier, showTitle: Boolean = true)
     }
 }
 
+/**
+ * Home's "Mixes from your music": by genre, by artist and what's ready offline, made on the phone from songs you know
+ * ([com.prism.music.data.foryou.YourMusic]); each opens as a mix page.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun YourMixesSection(cfg: HomeSectionConfig, mixes: List<Mix>) {
+    val c = LocalContainer.current
+    val nav = LocalNavigator.current
+    SectionHeader(cfg.title, strapline = "Made on your phone from songs you know")
+    StyledEntries(cfg.style, mixes.map { mix ->
+        HomeEntry(
+            mix.id, mix.title, mix.subtitle,
+            art = { m -> MixCover(mix, m, showTitle = false) },
+            onLongClick = { c.player.playQueue(mix.songs, 0, com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.PLAYLIST, mix.title, originId = mix.id)) },
+        ) { nav.go(Routes.mix(mix.id)) }
+    })
+}
+
 /** Home's "Made for you": the time-of-day mix, the Daily Mixes and Release Radar, made on the phone. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MadeForYouSection(cfg: HomeSectionConfig) {
+fun MadeForYouSection(cfg: HomeSectionConfig, offline: Boolean = false) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
     val mixes by c.forYou.mixes.collectAsState(initial = null)
@@ -137,7 +156,11 @@ fun MadeForYouSection(cfg: HomeSectionConfig) {
         if (c.releaseRadar.due()) ReleaseRadar.runSoon(c.app)
     }
     val list = mixes ?: return
-    val shown = list.filter { it.songs.isNotEmpty() }
+    // Offline, each mix keeps to its songs that play without a connection (and one with too few of them waits).
+    val shown = remember(list, offline) {
+        if (!offline) list.filter { it.songs.isNotEmpty() }
+        else list.map { m -> m.copy(songs = m.songs.filter { c.availableOffline(it.id) }) }.filter { it.songs.size >= 5 }
+    }
     val blends by c.blends.blends.collectAsState(initial = emptyList())
     if (shown.isEmpty() && blends.isEmpty()) {
         // Nothing to make them from yet: a way to start.

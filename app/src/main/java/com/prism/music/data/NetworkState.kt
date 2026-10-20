@@ -25,8 +25,10 @@ class NetworkState(context: Context) {
      * A network with internet that isn't stuck behind a sign-in page counts as online. Android's own check
      * (VALIDATED) isn't required: it fails on some networks that work fine, and Prism would act offline there.
      */
-    private fun read(): Pair<Boolean, Boolean> {
-        val caps = cm?.getNetworkCapabilities(cm.activeNetwork) ?: return false to true
+    private fun read(): Pair<Boolean, Boolean> = of(cm?.getNetworkCapabilities(cm.activeNetwork))
+
+    private fun of(caps: NetworkCapabilities?): Pair<Boolean, Boolean> {
+        caps ?: return false to true
         return (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)) to
             !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }
@@ -37,17 +39,19 @@ class NetworkState(context: Context) {
     fun onReconnect(block: () -> Unit) { listeners += block }
 
     init {
+        // The default network's own capabilities, as the callback hands them over: activeNetwork can lag behind it (seen
+        // after Android's system restarted: the phone was back on mobile data, Prism stayed "offline").
         runCatching {
             cm?.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = update()
-                override fun onLost(network: Network) = update()
-                override fun onAvailable(network: Network) = update()
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = update(of(caps))
+                override fun onLost(network: Network) = update(false to true)
+                override fun onAvailable(network: Network) = update(of(cm.getNetworkCapabilities(network)))
             })
         }
     }
 
-    private fun update() {
-        val (online, metered) = read()
+    private fun update(state: Pair<Boolean, Boolean>) {
+        val (online, metered) = state
         val back = online && !_online.value
         _online.value = online
         _metered.value = metered

@@ -152,7 +152,11 @@ fun CollectionScreen(type: CollectionType, id: String, initialGenre: String?, bo
         CollectionType.PLAYLIST -> rememberLoad("playlist:$id") { orSaved(c, id) { LiveCollection(c.ytm.playlist(id), c.scope, c.ytm::playlistPage) } }
         // Prism's own mixes (Daily Mix, the time-of-day mix, Release Radar): kept on the phone.
         CollectionType.MIX -> rememberLoad("mix:$id") {
-            val mix = c.forYou.mix(id) ?: throw IllegalStateException("This mix isn't made yet")
+            // Daily Mixes are kept in the database; mixes from your music are made on the spot (again, if need be).
+            val mix = c.forYou.mix(id)
+                ?: c.yourMusic.mix(id)
+                ?: (if (com.prism.music.data.foryou.YourMusic.isLibraryMix(id)) c.yourMusic.sections(!c.network.isOnline()).mixes.firstOrNull { it.id == id } else null)
+                ?: throw IllegalStateException("This mix isn't made yet")
             LiveCollection(CollectionPage(mix.id, CollectionKind.PLAYLIST, mix.title, mix.subtitle, thumbnail = mix.covers.firstOrNull(), songs = mix.songs), c.scope, null)
         }
         else -> null

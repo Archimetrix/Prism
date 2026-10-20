@@ -92,6 +92,8 @@ object Tour {
             listOf(
                 "Daily Mixes group the artists you play by what goes together",
                 "Release Radar finds new music from the artists you follow",
+                "On repeat and Mixes from your music come from your plays alone, and work offline",
+                "When the queue ends, Prism's radio picks from your music (Settings → Playback & sound → Autoplay from)",
                 "Tap shuffle twice on a playlist for Smart Shuffle: new songs slip in",
                 "\"Not for me\" and \"Leave out of my taste\" keep things out",
             ),

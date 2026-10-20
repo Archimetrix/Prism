@@ -1113,6 +1113,17 @@ private fun SoundPage() {
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Group("Playback") {
             Toggle("Autoplay", "Similar music when the queue ends", s.autoplay) { prefs.setAutoplay(it) }
+            if (s.autoplay) {
+                Label("Autoplay from")
+                Chips(com.prism.music.data.prefs.AutoplaySource.entries, s.autoplaySource, { it.label }) { prefs.setAutoplaySource(it) }
+                Note(
+                    when (s.autoplaySource) {
+                        com.prism.music.data.prefs.AutoplaySource.YOURS -> "Prism's own radio, picked on your phone from what you play, like and keep"
+                        com.prism.music.data.prefs.AutoplaySource.YOUTUBE -> "YouTube Music's radio, for songs you haven't heard"
+                        com.prism.music.data.prefs.AutoplaySource.MIXED -> "Mostly your music, with two new songs from YouTube Music in every five"
+                    } + ". Offline, it's always your music.",
+                )
+            }
             Toggle(
                 "Songs, not videos", "Autoplay and radios play songs", s.radioSongsOnly,
                 info = "A music video in autoplay or a radio plays as its song, and videos with no song version are left out.",
