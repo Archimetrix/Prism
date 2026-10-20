@@ -97,6 +97,7 @@ object RecognizeWidgets {
 
     private fun small(context: Context) = RemoteViews(context.packageName, R.layout.widget_recognize_small).apply {
         setOnClickPendingIntent(R.id.rw_listen, listen(context))
+        if (Widgets.whiteLight(context)) setInt(R.id.rw_disc, "setBackgroundResource", R.drawable.widget_circle)
     }
 
     private fun song(context: Context, shape: Shape, r: RecognitionEntity?, art: android.graphics.Bitmap?) = RemoteViews(context.packageName, shape.layout).apply {
@@ -105,6 +106,7 @@ object RecognizeWidgets {
         setTextViewText(R.id.rw_artist, artist)
         if (art != null) setImageViewBitmap(R.id.rw_art, art) else setImageViewResource(R.id.rw_art, R.drawable.ic_tile_recognize)
         setOnClickPendingIntent(R.id.rw_listen, listen(context))
+        if (shape == Shape.CARD && Widgets.whiteLight(context)) setInt(R.id.rw_listen, "setBackgroundResource", R.drawable.widget_circle)
         setOnClickPendingIntent(
             R.id.rw_open,
             PendingIntent.getActivity(

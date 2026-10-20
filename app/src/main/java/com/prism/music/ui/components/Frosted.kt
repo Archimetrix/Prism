@@ -96,6 +96,12 @@ data class ArtPalette(
         return base.withLightness(if (dark) 0.74f else 0.40f, 1.1f)
     }
 
+    /** The same palette in greys (White light). */
+    fun grey(): ArtPalette {
+        fun g(c: Color) = Color(ColorUtils.HSLToColor(hsl(c).also { it[1] = 0f }))
+        return ArtPalette(g(vibrant), g(dominant))
+    }
+
     /** The page colour far below the picture, where the frost settles. */
     fun settle(dark: Boolean): Color = dominant.withLightness(if (dark) 0.09f else 0.93f, if (dark) 0.85f else 0.6f)
 
@@ -175,6 +181,8 @@ private val grain: ImageBitmap by lazy {
 }
 
 private val saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.35f) })
+/** White light: the frost in greys, so colour stays in the pictures themselves. */
+private val greyscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 /**
  * A frosted page backdrop, after Apple Music's artist pages: [frost] (the hero picture, blurred)
@@ -201,8 +209,9 @@ fun FrostedBackdrop(
     if (!settings.frostedPages) { Box(modifier.fillMaxSize().background(bg)); return }
     val shown by animateFloatAsState(if (frost != null) 1f else 0f, tween(500), label = "frost")
     val grainBrush = remember { ShaderBrush(ImageShader(grain, TileMode.Repeated, TileMode.Repeated)) }
+    val mono = com.prism.music.ui.theme.PrismTokens.white
     Canvas(modifier.fillMaxSize()) {
-        drawFrostedBackdrop(frost?.image, shown, palette, bg, heroHeight.toPx(), heroScroll(), parallax, dark, pureBlack, bleed)
+        drawFrostedBackdrop(frost?.image, shown, palette, bg, heroHeight.toPx(), heroScroll(), parallax, dark, pureBlack, bleed, mono)
         drawRect(grainBrush, alpha = if (dark) 0.5f else 0.35f)
     }
 }
@@ -214,7 +223,10 @@ fun FrostedBackdrop(
 internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdrop(
     img: ImageBitmap?, shown: Float, palette: ArtPalette?, bg: Color, heroPx: Float, heroScroll: Float, parallax: Float, dark: Boolean, pureBlack: Boolean,
     bleed: Boolean,
+    mono: Boolean = false,
 ) {
+        val filter = if (mono) greyscale else saturate
+        @Suppress("NAME_SHADOWING") val palette = if (mono) palette?.grey() else palette
         val w = size.width
         val scroll = heroScroll.coerceIn(0f, heroPx)
         val heroBottom = heroPx - scroll
@@ -232,7 +244,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
             val sy = ((img.height - sh) / 2).roundToInt()
             val srcSize = IntSize(sw.roundToInt().coerceAtLeast(1), sh.roundToInt().coerceAtLeast(1))
             if (heroBottom > 0f) clipRect(bottom = heroBottom) {
-                drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = saturate, filterQuality = FilterQuality.Low)
+                drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = filter, filterQuality = FilterQuality.Low)
             }
             val from = heroBottom.coerceAtLeast(0f)
             val below = (size.height - from).roundToInt()
@@ -241,7 +253,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
                 // flow on down the page where they are in the picture, rather than as streaks or a flat colour…
                 if (below > 0) clipRect(top = from) {
                     scale(1f, -1f, pivot = Offset(0f, from)) {
-                        drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = saturate, filterQuality = FilterQuality.Low)
+                        drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = filter, filterQuality = FilterQuality.Low)
                     }
                 }
                 // …then settle into the picture's main colour by the reflection's end, a little deeper toward the bottom.
@@ -264,7 +276,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
                 if (below > 0) drawImage(
                     img, IntOffset(sx, (row - 1).coerceAtLeast(0)), IntSize(srcSize.width, 1),
                     IntOffset(0, from.roundToInt()), IntSize(w.roundToInt(), below),
-                    alpha = shown, colorFilter = saturate, filterQuality = FilterQuality.Low,
+                    alpha = shown, colorFilter = filter, filterQuality = FilterQuality.Low,
                 )
                 // …and settle into the page's tint further down.
                 drawRect(
@@ -412,7 +424,8 @@ fun ArtworkAccent(palette: ArtPalette?, content: @Composable () -> Unit) {
     // Always the same composition shape, palette or not: switching between calling content() bare and inside
     // MaterialTheme threw the whole subtree away when the palette arrived — a menu sheet being swiped down
     // was rebuilt mid-gesture (stuttered, or popped back up after being flung away).
-    val themed = if (palette == null) scheme else {
+    // White light keeps every page neutral, so the artwork's colour stays in the artwork.
+    val themed = if (palette == null || com.prism.music.ui.theme.PrismTokens.white) scheme else {
         val accent = palette.accent(dark)
         val on = if (accent.luminance() > 0.5f) Color.Black else Color.White
         scheme.copy(primary = accent, onPrimary = on, surfaceTint = accent)

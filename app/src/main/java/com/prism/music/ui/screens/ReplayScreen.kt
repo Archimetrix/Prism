@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.theme.lit
 import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismFilledTonalButton
@@ -324,7 +325,7 @@ private fun HeroCard(d: ReplayData, period: Period, notYet: Boolean, loading: Bo
             .background(
                 Brush.linearGradient(
                     if (themed) listOf(scheme.primaryContainer.copy(alpha = 1f).compositeDark(), scheme.primary.compositeDark(0.55f), scheme.tertiary.compositeDark(0.55f))
-                    else listOf(Color(0xFF1B0F3B), Color(0xFF7C5CFF), Color(0xFFFF3B5C))
+                    else listOf(Color(0xFF1B0F3B).lit(), Color(0xFF7C5CFF).lit(), Color(0xFFFF3B5C).lit())
                 )
             )
             .clickable(enabled = !notYet, onClick = onOpen)
@@ -435,7 +436,7 @@ fun listenTotal(ms: Long): ListenTotal =
 fun replayGradient(): List<Color> {
     val scheme = MaterialTheme.colorScheme
     return if (LocalAppSettings.current.replayThemeColors) listOf(scheme.primary.compositeDark(0.6f), scheme.tertiary.compositeDark(0.5f), scheme.secondary.compositeDark(0.6f))
-    else listOf(Color(0xFFFF3B5C), Color(0xFF7C5CFF), Color(0xFF00B4D8))
+    else listOf(Color(0xFFFF3B5C).lit(), Color(0xFF7C5CFF).lit(), Color(0xFF00B4D8).lit())
 }
 
 /**

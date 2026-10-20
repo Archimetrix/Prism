@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.theme.lit
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismTextButton
@@ -757,7 +758,7 @@ private fun Pill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: S
     val pill = RoundedCornerShape(24.dp)
     Row(
         modifier.height(48.dp)
-            .then(if (primary && enabled) Modifier.shadow(14.dp, pill, ambientColor = Color(0xFFFF4D5E), spotColor = Color(0xFF7C5CFF)) else Modifier)
+            .then(if (primary && enabled) Modifier.shadow(14.dp, pill, ambientColor = Color(0xFFFF4D5E).lit(), spotColor = Color(0xFF7C5CFF).lit()) else Modifier)
             .clip(pill).background(bg)
             .then(if (!primary) Modifier.border(1.dp, com.prism.music.ui.components.glassEdge(), pill) else Modifier)
             .graphicsLayer { alpha = if (enabled) 1f else 0.5f }

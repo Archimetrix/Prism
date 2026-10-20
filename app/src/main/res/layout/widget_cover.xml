@@ -83,6 +83,16 @@
             android:layout_marginTop="10dp"
             android:max="1000"
             android:progressDrawable="@drawable/widget_progress_spectrum" />
+
+        <ProgressBar
+            android:id="@+id/widget_progress_white"
+            android:visibility="gone"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="10dp"
+            android:max="1000"
+            android:progressDrawable="@drawable/widget_progress_light" />
     </LinearLayout>
 
     <!-- Not shown in this size; there so every widget takes the same updates. -->

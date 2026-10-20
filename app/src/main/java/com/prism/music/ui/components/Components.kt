@@ -1,5 +1,6 @@
 package com.prism.music.ui.components
 
+import com.prism.music.ui.theme.lit
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -246,7 +247,7 @@ fun PlayingBars(modifier: Modifier = Modifier, color: Color = Color.White, spect
     val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "a")
     val b by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "b")
     val d by t.animateFloat(0.5f, 0.9f, infiniteRepeatable(tween(370), RepeatMode.Reverse), label = "d")
-    val colors = if (spectrum) listOf(Color(0xFFFF6B5E), Color(0xFF3DDC97), Color(0xFF7C8CFF)) else listOf(color, color, color)
+    val colors = if (spectrum && !com.prism.music.ui.theme.PrismTokens.white) listOf(Color(0xFFFF6B5E), Color(0xFF3DDC97), Color(0xFF7C8CFF)) else listOf(color, color, color)
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
         listOf(a, b, d).forEachIndexed { i, h ->
             Box(Modifier.weight(1f).fillMaxSize().graphicsLayer {
@@ -299,7 +300,7 @@ fun ItemCard(item: BrowseItem, modifier: Modifier = Modifier, width: Dp = Dp.Uns
 
 @Composable
 fun MoodTile(item: MoodItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val color = Color(item.color or 0xFF000000)
+    val color = Color(item.color or 0xFF000000).lit()
     val ui = com.prism.music.ui.theme.LocalUi.current
     // The mood's own colour, deepening across the tile, with a soft sheen; its name set light.
     Box(

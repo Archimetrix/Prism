@@ -251,13 +251,17 @@ fun isAppDark(settings: AppSettings = LocalAppSettings.current): Boolean = when 
 fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable () -> Unit) {
     val dark = isAppDark(settings)
     val context = LocalContext.current
-    val seedTarget = when (settings.colorSource) {
-        ColorSource.ARTWORK -> artworkColor ?: Color(settings.accent)
-        ColorSource.CUSTOM -> Color(settings.accent)
-        ColorSource.DYNAMIC -> Color(settings.accent)
+    // White light: no accent at all, the neutral scheme (white ink on dark, near-black on light), and the spectrum's
+    // places in grey (PrismTokens). Written before anything below reads it, so the first frame is already right.
+    val white = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
+    if (PrismTokens.white != white) PrismTokens.white = white
+    val seedTarget = when {
+        white -> Color.White
+        settings.colorSource == ColorSource.ARTWORK -> artworkColor ?: Color(settings.accent)
+        else -> Color(settings.accent)
     }
     val seed by animateColorAsState(seedTarget, tween(900), label = "seed")
-    val scheme = if (settings.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31) {
+    val scheme = if (!white && settings.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31) {
         val d = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         if (dark && settings.pureBlack) d.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else d
     } else remember(seed, dark, settings.pureBlack) { schemeFromSeed(seed, dark, settings.pureBlack) }

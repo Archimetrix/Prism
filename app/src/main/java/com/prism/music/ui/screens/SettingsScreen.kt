@@ -606,8 +606,15 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                 val s = LocalAppSettings.current
                 val prefs = LocalContainer.current.settings
                 Group("Colour") {
-                    Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
-                    if (s.colorSource != ColorSource.DYNAMIC) {
+                    Label("Style")
+                    Chips(com.prism.music.data.prefs.LightStyle.entries, s.lightStyle, { it.label }) { prefs.setLightStyle(it) }
+                    Note(
+                        if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) "Light before the prism splits it: Prism in greys and ink, with no accent colour. Colour stays in the pictures."
+                        else "The split light runs through Prism: what's playing, progress, the Play ring, the tab you're on."
+                    )
+                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) Label("Accent")
+                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
+                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM && s.colorSource != ColorSource.DYNAMIC) {
                         Note(
                             if (s.colorSource == ColorSource.ARTWORK) "Adapts to the cover of what's playing; this accent is used when nothing is."
                             else "Pick an accent colour"

@@ -54,7 +54,7 @@ Updating works the same way: install the new APK over the old one, and your down
 ## Features
 
 ### New in 1.7
-- **A new look.** Colour from what's playing under frosted glass, with Prism's split light running through it (what's playing, progress, the Play ring, Settings' sections), the Outfit font, and every icon, the app icon and the widgets redrawn. Synced lyrics thicken word by word as they're sung.
+- **A new look.** Colour from what's playing under frosted glass, with Prism's split light running through it (what's playing, progress, the Play ring, Settings' sections), the Outfit font, and every icon, the app icon and the widgets redrawn. Synced lyrics thicken word by word as they're sung. Prefer it neutral? **White light** keeps Prism in greys and ink.
 - **Sing.** The microphone button by the lyrics takes the singer's voice out of the song as it plays, worked out on your phone (Deezer's Spleeter, a one-time ~50 MB download). Leave a little of the lead voice in, and move the key up or down.
 - **Made for you.** Up to six Daily Mixes grouped by what goes together, a time-of-day mix, and Release Radar (new albums, singles and EPs from your artists, with their release dates), on Home and in Android Auto. Pick artists you like to start them off.
 - **Smart Shuffle** slips recommendations into a playlist or album as it plays; **exclusions** keep an artist out, or keep a playlist out of your taste.

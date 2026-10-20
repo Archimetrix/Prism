@@ -1,7 +1,10 @@
 package com.prism.music.ui.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -18,42 +21,59 @@ import kotlin.math.min
  *
  * Screens read these tokens instead of literal values; the approved proposal is `.claude/redesign-aura-spectrum.html`.
  */
-@Immutable
+@Stable
 object PrismTokens {
-    /** The split light, red to violet. */
-    val spectrumColors = listOf(
+    /**
+     * Appearance → Colour → Style: "White light" (true) is the light before the prism splits it. Everything below that
+     * would be the spectrum (lines, rings, the hue tiles) is then neutral grey and ink instead, and the accent goes
+     * neutral too ([PrismTheme]). Set by [PrismTheme] from the settings; snapshot state, so what reads it redraws.
+     */
+    var white by mutableStateOf(false)
+
+    private val splitColors = listOf(
         0.00f to Color(0xFFFF4D5E), 0.20f to Color(0xFFFF9F43), 0.38f to Color(0xFFFFD84D),
         0.56f to Color(0xFF3DDC97), 0.76f to Color(0xFF36B8FF), 1.00f to Color(0xFF7C5CFF),
     )
-    /** The same, deeper, for text and thin lines on light backgrounds (the bright yellow doesn't read on white). */
-    val spectrumColorsDeep = listOf(
+    private val splitColorsDeep = listOf(
         0.00f to Color(0xFFE23347), 0.20f to Color(0xFFE57A12), 0.38f to Color(0xFFC79A00),
         0.56f to Color(0xFF15A86C), 0.76f to Color(0xFF1789D6), 1.00f to Color(0xFF6A44F0),
     )
-    fun spectrumColors(dark: Boolean) = if (dark) spectrumColors else spectrumColorsDeep
-    val spectrum: Brush = Brush.horizontalGradient(*spectrumColors.toTypedArray())
+    // White light: a quiet grey sheen. Mid greys where the line must read on either theme (borders, fills under white
+    // icons); near-white on dark pages and near-black on light ones where it carries text or a progress line.
+    private val whiteColors = listOf(0.00f to Color(0xFF9C9CA4), 0.50f to Color(0xFF7E7E86), 1.00f to Color(0xFF9C9CA4))
+    private val whiteOnDark = listOf(0.00f to Color(0xFFFFFFFF), 1.00f to Color(0xFFC6C6CC))
+    private val whiteOnLight = listOf(0.00f to Color(0xFF141418), 1.00f to Color(0xFF55555D))
+    private val ringSplit = listOf(Color(0xFFFF4D5E), Color(0xFFFF9F43), Color(0xFFFFD84D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF7C5CFF), Color(0xFFFF4D5E))
+    private val ringWhite = listOf(Color(0xFF8E8E96), Color(0xFF64646C), Color(0xFF8E8E96), Color(0xFFB2B2B8), Color(0xFF8E8E96))
+
+    /** The split light, red to violet (or White light's grey sheen). */
+    val spectrumColors get() = if (white) whiteColors else splitColors
+    /** The same, deeper, for text and thin lines on light backgrounds (the bright yellow doesn't read on white). */
+    val spectrumColorsDeep get() = if (white) whiteOnLight else splitColorsDeep
+    fun spectrumColors(dark: Boolean) = if (white) (if (dark) whiteOnDark else whiteOnLight) else if (dark) splitColors else splitColorsDeep
+    val spectrum: Brush get() = Brush.horizontalGradient(*spectrumColors.toTypedArray())
     /** The split light across a width (for text and lines), deeper on light backgrounds. */
     fun spectrum(dark: Boolean, startX: Float = 0f, endX: Float = Float.POSITIVE_INFINITY): Brush =
         Brush.horizontalGradient(*spectrumColors(dark).toTypedArray(), startX = startX, endX = endX)
     /** The split light round a circle (the play ring, Liked songs' cover, small dots), from red back to red. */
     fun spectrumRing(center: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Unspecified): Brush =
-        Brush.sweepGradient(
-            listOf(Color(0xFFFF4D5E), Color(0xFFFF9F43), Color(0xFFFFD84D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF7C5CFF), Color(0xFFFF4D5E)),
-            center,
-        )
+        Brush.sweepGradient(if (white) ringWhite else ringSplit, center)
     /** The spectrum's seven hues in order, one per Settings section (and a menu's quick actions). */
-    val hues = listOf(
+    private val splitHues = listOf(
         Color(0xFFFF5A6A), Color(0xFFFF9F43), Color(0xFFF2C53D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF5A8BFF), Color(0xFF8B6CFF),
     )
-    fun hue(i: Int): Color = hues[((i % hues.size) + hues.size) % hues.size]
+    /** White light's single tile colour: a grey white icons still read on. */
+    private val whiteHue = Color(0xFF74747C)
+    val hues: List<Color> get() = if (white) List(splitHues.size) { whiteHue } else splitHues
+    fun hue(i: Int): Color = if (white) whiteHue else splitHues[((i % splitHues.size) + splitHues.size) % splitHues.size]
 
     /** The colour [t] (0 red … 1 violet) along the hue run, so any number of rows can run evenly red to violet. */
     fun spectrumAt(t: Float): Color {
-        val x = t.coerceIn(0f, 1f) * (hues.size - 1)
-        val i = x.toInt().coerceAtMost(hues.size - 2)
-        return androidx.compose.ui.graphics.lerp(hues[i], hues[i + 1], x - i)
+        if (white) return whiteHue
+        val x = t.coerceIn(0f, 1f) * (splitHues.size - 1)
+        val i = x.toInt().coerceAtMost(splitHues.size - 2)
+        return androidx.compose.ui.graphics.lerp(splitHues[i], splitHues[i + 1], x - i)
     }
-
     object Space {
         /** The screen's side margin. */
         val gutter = 22.dp
@@ -75,6 +95,16 @@ object PrismTokens {
         const val STANDARD = 240
         const val EMPHASISED = 380
     }
+}
+
+/**
+ * A colour Prism draws itself (a mood or genre tile, Replay's card, a glow) as it should look now: unchanged in
+ * Spectrum; in White light a grey of about its weight, kept dark enough for white text on it.
+ */
+fun Color.lit(): Color {
+    if (!PrismTokens.white) return this
+    val l = toHsl().third
+    return Color.hsl(0f, 0f, (0.16f + l * 0.30f).coerceIn(0.16f, 0.40f), alpha)
 }
 
 /** Secondary text: 60% ink. */

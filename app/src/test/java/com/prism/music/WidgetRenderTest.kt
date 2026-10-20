@@ -31,7 +31,7 @@ class WidgetRenderTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val density get() = context.resources.displayMetrics.density
 
-    private fun render(layout: Int, wDp: Int, hDp: Int): Bitmap {
+    private fun render(layout: Int, wDp: Int, hDp: Int, white: Boolean = false): Bitmap {
         val w = (wDp * density).toInt()
         val h = (hDp * density).toInt()
         val host = FrameLayout(context)
@@ -39,6 +39,17 @@ class WidgetRenderTest {
         v.findViewById<TextView?>(R.id.widget_title)?.text = "Blinding Lights"
         v.findViewById<TextView?>(R.id.widget_artist)?.text = "The Weeknd"
         v.findViewById<ProgressBar?>(R.id.widget_progress)?.progress = 420
+        v.findViewById<ProgressBar?>(R.id.widget_progress_white)?.progress = 420
+        if (white) {
+            // What Widgets.views does in White light.
+            v.findViewById<View?>(R.id.widget_progress_white)?.let { white ->
+                white.visibility = View.VISIBLE
+                v.findViewById<View>(R.id.widget_progress).visibility = View.GONE
+            }
+            v.findViewById<View?>(R.id.widget_play)?.takeIf { layout != R.layout.widget_disc }?.setBackgroundResource(R.drawable.widget_circle)
+            v.findViewById<View?>(R.id.rw_listen)?.takeIf { layout == R.layout.widget_recognize }?.setBackgroundResource(R.drawable.widget_circle)
+            v.findViewById<View?>(R.id.rw_disc)?.setBackgroundResource(R.drawable.widget_circle)
+        }
         v.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
         v.layout(0, 0, w, h)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -47,14 +58,20 @@ class WidgetRenderTest {
     }
 
     @Test
-    fun prismWidgets() {
+    fun prismWidgets() = sheet("widgets.png", white = false)
+
+    /** The same widgets in White light (Appearance → Colour → Style). */
+    @Test
+    fun whiteLightWidgets() = sheet("widgets-white.png", white = true)
+
+    private fun sheet(name: String, white: Boolean) {
         val shots = listOf(
-            render(R.layout.widget_prism, 320, 150),
-            render(R.layout.widget_strip, 320, 64),
-            render(R.layout.widget_cover, 150, 150),
-            render(R.layout.widget_disc, 150, 150),
-            render(R.layout.widget_recognize, 320, 110),
-            render(R.layout.widget_recognize_small, 80, 80),
+            render(R.layout.widget_prism, 320, 150, white),
+            render(R.layout.widget_strip, 320, 64, white),
+            render(R.layout.widget_cover, 150, 150, white),
+            render(R.layout.widget_disc, 150, 150, white),
+            render(R.layout.widget_recognize, 320, 110, white),
+            render(R.layout.widget_recognize_small, 80, 80, white),
         )
         val gap = (16 * density).toInt()
         val width = shots.maxOf { it.width } + gap * 2
@@ -70,7 +87,7 @@ class WidgetRenderTest {
             y += s.height + gap
         }
         val out = File("build/widget-previews").apply { mkdirs() }
-        File(out, "widgets.png").outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        File(out, name).outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
         check(shots.all { it.getPixel(it.width / 2, it.height / 2) != Color.TRANSPARENT }) { "a widget drew nothing" }
     }
 }

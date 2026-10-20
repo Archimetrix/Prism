@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.theme.lit
 import androidx.compose.foundation.border
 import com.prism.music.data.model.quickPicks
 import com.prism.music.data.model.speedDial
@@ -718,7 +719,7 @@ private fun TopGenresSection() {
     ) {
         items(genres.size) { i ->
             val (g, n) = genres[i]
-            val col = Color(palette[i % palette.size])
+            val col = Color(palette[i % palette.size]).lit()
             Box(
                 Modifier.width(160.dp).height(64.dp).clip(ui.tile)
                     .background(Brush.linearGradient(listOf(col, col.copy(alpha = 0.6f))))

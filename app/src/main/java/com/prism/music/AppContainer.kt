@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -316,6 +317,13 @@ class AppContainer(val app: Application) {
         }
         scope.launch {
             settings.flow.map { it.handoffAvailable }.distinctUntilChanged().collect { on -> if (on) handoff.setAvailable(true) else handoff.setAvailable(false) }
+        }
+        // White light / Spectrum: the home-screen widgets are drawn again to match.
+        scope.launch {
+            settings.flow.map { it.lightStyle }.distinctUntilChanged().drop(1).collect {
+                com.prism.music.widget.Widgets.refresh(app)
+                com.prism.music.widget.RecognizeWidgets.refresh(app)
+            }
         }
     }
 

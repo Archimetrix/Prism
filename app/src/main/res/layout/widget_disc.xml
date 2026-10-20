@@ -27,6 +27,17 @@
             android:padding="2dp"
             android:progressDrawable="@drawable/widget_ring" />
 
+        <ProgressBar
+            android:id="@+id/widget_progress_white"
+            android:visibility="gone"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:indeterminate="false"
+            android:max="1000"
+            android:padding="2dp"
+            android:progressDrawable="@drawable/widget_ring_white" />
+
         <ImageView
             android:id="@+id/widget_art"
             android:layout_width="match_parent"

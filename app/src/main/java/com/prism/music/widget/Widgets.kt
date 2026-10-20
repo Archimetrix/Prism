@@ -100,6 +100,18 @@ object Widgets {
 
     private class State(val song: Song?, val playing: Boolean, val liked: Boolean, val positionMs: Long, val durationMs: Long)
 
+    /** Prism's own widgets whose play button sits in the spectrum ring, and whose progress is in split light. */
+    private val RINGED = setOf(WidgetStyle.PRISM, WidgetStyle.COVER, WidgetStyle.STRIP)
+    private val SPLIT_PROGRESS = setOf(WidgetStyle.PRISM, WidgetStyle.COVER, WidgetStyle.DISC)
+
+    /** Appearance → Colour → Style is White light. */
+    fun whiteLight(context: Context): Boolean = runCatching {
+        context.container.settings.current.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
+    }.getOrDefault(false)
+
+    /** [argb] as a grey of the same lightness. */
+    private fun grey(argb: Int): Int = FloatArray(3).also { ColorUtils.colorToHSL(argb, it); it[1] = 0f }.let { ColorUtils.HSLToColor(it) }
+
     /** The cover in each form the widgets use, for one song's picture. */
     private class Art(val url: String, val square: Map<WidgetStyle, Bitmap>, val frost: Bitmap?, val color: Int)
 
@@ -167,16 +179,24 @@ object Widgets {
         if (style == WidgetStyle.SPOTIFY) v.setInt(R.id.widget_like, "setColorFilter", if (s.liked) 0xFF1ED760.toInt() else Color.WHITE)
         val progress = if (s.durationMs > 0) (s.positionMs * 1000 / s.durationMs).toInt().coerceIn(0, 1000) else 0
         if (style != WidgetStyle.APPLE) v.setProgressBar(R.id.widget_progress, 1000, progress, false)
+        // White light (Appearance → Colour): Prism's own widgets in white and grey instead of the split light.
+        val white = whiteLight(context)
+        if (style in RINGED) v.setInt(R.id.widget_play, "setBackgroundResource", if (white) R.drawable.widget_circle else R.drawable.widget_play_ring)
+        if (style in SPLIT_PROGRESS) {
+            v.setViewVisibility(R.id.widget_progress, if (white) android.view.View.GONE else android.view.View.VISIBLE)
+            v.setViewVisibility(R.id.widget_progress_white, if (white) android.view.View.VISIBLE else android.view.View.GONE)
+            v.setProgressBar(R.id.widget_progress_white, 1000, progress, false)
+        }
 
         when (style) {
             WidgetStyle.PRISM -> {
                 // Frosted cover behind (Android 12+ rounds it for us); older launchers get the plain dark card.
                 if (art?.frost != null && Build.VERSION.SDK_INT >= 31) v.setImageViewBitmap(R.id.widget_bg, art.frost)
                 else v.setImageViewBitmap(R.id.widget_bg, null)
-                v.setTextColor(R.id.widget_label, art?.color?.let { ColorUtils.blendARGB(it, Color.WHITE, 0.55f) } ?: 0xB3FFFFFF.toInt())
+                v.setTextColor(R.id.widget_label, art?.color?.takeIf { !white }?.let { ColorUtils.blendARGB(it, Color.WHITE, 0.55f) } ?: 0xB3FFFFFF.toInt())
             }
             WidgetStyle.APPLE -> v.setInt(R.id.widget_tint, "setColorFilter", art?.color ?: 0xFF3A3A3C.toInt())
-            WidgetStyle.STRIP -> v.setInt(R.id.widget_tint, "setColorFilter", art?.color ?: 0xFF2A2A30.toInt())
+            WidgetStyle.STRIP -> v.setInt(R.id.widget_tint, "setColorFilter", art?.color?.let { if (white) grey(it) else it } ?: 0xFF2A2A30.toInt())
             else -> Unit
         }
 

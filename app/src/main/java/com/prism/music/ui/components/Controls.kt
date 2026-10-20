@@ -193,7 +193,9 @@ fun PrismSwitch(
     val s = MaterialTheme.colorScheme
     val dim = if (enabled) 1f else 0.4f
     val lit by animateFloatAsState(if (checked) 1f else 0f, tween(PrismTokens.Motion.STANDARD), label = "lit")
-    val knob by animateColorAsState(if (checked) Color.White else s.onSurface.copy(alpha = 0.6f), tween(PrismTokens.Motion.QUICK), label = "knob")
+    // White light: an ink track (white on dark, black on light) with the page's colour for the knob, so it still reads.
+    val white = PrismTokens.white
+    val knob by animateColorAsState(if (checked) (if (white) s.surface else Color.White) else s.onSurface.copy(alpha = 0.6f), tween(PrismTokens.Motion.QUICK), label = "knob")
     val x by animateDpAsState(if (checked) 19.dp else 3.dp, tween(PrismTokens.Motion.STANDARD), label = "x")
     val off = glassFill(2.2f)
     Box(
@@ -207,7 +209,7 @@ fun PrismSwitch(
         Box(
             Modifier.size(width = 44.dp, height = 26.dp)
                 .background(off, CircleShape)
-                .background(PrismTokens.spectrum, CircleShape, alpha = lit * dim)
+                .then(if (white) Modifier.background(s.onSurface.copy(alpha = lit * dim), CircleShape) else Modifier.background(PrismTokens.spectrum, CircleShape, alpha = lit * dim))
                 .border(1.dp, glassEdge(), CircleShape),
             contentAlignment = Alignment.CenterStart,
         ) {

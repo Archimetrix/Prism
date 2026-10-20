@@ -26,6 +26,8 @@ private val Context.dataStore by preferencesDataStore("prism_settings")
 enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
 enum class ColorSource(val label: String) { ARTWORK("Now playing"), DYNAMIC("Wallpaper"), CUSTOM("Custom") }
 enum class GlassKind(val label: String) { REGULAR("Regular"), CLEAR("Clear") }
+/** Appearance → Colour → Style: the split light through the app, or white light (neutral greys and ink, no accent). */
+enum class LightStyle(val label: String) { SPECTRUM("Spectrum"), WHITE("White light") }
 enum class AudioQuality(val label: String) { HIGH("High"), NORMAL("Normal"), LOW("Low") }
 /** How lyrics show on Android Auto's player. */
 enum class CarLyricsStyle(val label: String, val detail: String) {
@@ -224,6 +226,7 @@ data class AppSettings(
     val pureBlack: Boolean = false,
     val colorSource: ColorSource = ColorSource.CUSTOM,
     val accent: Int = 0xFF3A86FF.toInt(),
+    val lightStyle: LightStyle = LightStyle.SPECTRUM,
     val liquidGlass: Boolean = false,
     val glassKind: GlassKind = GlassKind.REGULAR,
     /** Blurred, non-refractive glass. Mutually exclusive with Liquid Glass. */
@@ -475,6 +478,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val accent = intPreferencesKey("accent")
         val liquidGlass = booleanPreferencesKey("liquid_glass")
         val glassKind = stringPreferencesKey("glass_kind")
+        val lightStyle = stringPreferencesKey("light_style")
         val frostedGlass = booleanPreferencesKey("frosted_glass")
         val haptics = booleanPreferencesKey("haptics")
         val fullBleedArtwork = booleanPreferencesKey("full_bleed_artwork")
@@ -607,7 +611,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 fontChoice, textScale, corners, uiDensity, titleSize, cardSize, reduceMotion, navStyle, navLabels, navHideOnScroll,
                 navTabs, startTab, miniPlayerStyle, miniSkipButtons, miniProgress, playerBackground, playerBackdropShow, playerArtCorners, transportStyle,
                 coverSize, scrubberStyle, artShrinkOnPause, showOutputDevice, lyricsAlign, libraryView, playlistHeroCover, frostedPages, replayThemeColors,
-                immersiveArt, immersiveLyrics, playerShuffleRepeat,
+                immersiveArt, immersiveLyrics, playerShuffleRepeat, lightStyle,
             )
         }
     }
@@ -633,6 +637,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             accent = p[K.accent] ?: d.accent,
             liquidGlass = p[K.liquidGlass] ?: d.liquidGlass,
             glassKind = p.enum(K.glassKind, d.glassKind),
+            lightStyle = p.enum(K.lightStyle, d.lightStyle),
             frostedGlass = p[K.frostedGlass] ?: d.frostedGlass,
             haptics = p[K.haptics] ?: d.haptics,
             fullBleedArtwork = p[K.fullBleedArtwork] ?: d.fullBleedArtwork,
@@ -847,6 +852,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setFrostedGlass(v: Boolean) = edit { it[K.frostedGlass] = v; if (v) it[K.liquidGlass] = false }
     fun setHaptics(v: Boolean) = edit { it[K.haptics] = v }
     fun setGlassKind(v: GlassKind) = edit { it[K.glassKind] = v.name }
+    fun setLightStyle(v: LightStyle) = edit { it[K.lightStyle] = v.name }
     fun setFullBleedArtwork(v: Boolean) = edit { it[K.fullBleedArtwork] = v }
     fun setImmersivePlayer(v: Boolean) = edit { it[K.immersivePlayer] = v }
     fun setImmersiveArt(v: ImmersiveArt) = edit { it[K.immersiveArt] = v.name }
