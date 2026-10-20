@@ -251,20 +251,36 @@ fun isAppDark(settings: AppSettings = LocalAppSettings.current): Boolean = when 
 fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable () -> Unit) {
     val dark = isAppDark(settings)
     val context = LocalContext.current
-    // White light: no accent at all, the neutral scheme (white ink on dark, near-black on light), and the spectrum's
-    // places in grey (PrismTokens). Written before anything below reads it, so the first frame is already right.
+    // White light: neutral surfaces (no tint from the accent) and, where the spectrum would be, the accent colour as in
+    // Prism's earlier look; with a white accent, greys and ink only (PrismTokens). Written before anything below reads
+    // it, so the first frame is already right.
     val white = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     if (PrismTokens.white != white) PrismTokens.white = white
-    val seedTarget = when {
-        white -> Color.White
-        settings.colorSource == ColorSource.ARTWORK -> artworkColor ?: Color(settings.accent)
+    val seedTarget = when (settings.colorSource) {
+        ColorSource.ARTWORK -> artworkColor ?: Color(settings.accent)
         else -> Color(settings.accent)
     }
     val seed by animateColorAsState(seedTarget, tween(900), label = "seed")
-    val scheme = if (!white && settings.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31) {
-        val d = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        if (dark && settings.pureBlack) d.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else d
-    } else remember(seed, dark, settings.pureBlack) { schemeFromSeed(seed, dark, settings.pureBlack) }
+    val dynamic = settings.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31
+    fun accentScheme(d: Boolean): ColorScheme =
+        if (dynamic) (if (d) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context))
+        else schemeFromSeed(seed, d, settings.pureBlack)
+    val accented = remember(seed, dark, settings.pureBlack, dynamic) {
+        accentScheme(dark).let { s -> if (dark && settings.pureBlack && dynamic) s.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else s }
+    }
+    val accentful = dynamic || !isNeutralSeed(seed.toArgb())
+    val scheme = if (!white) accented else remember(accented, dark, settings.pureBlack, accentful) {
+        val neutral = schemeFromSeed(Color.White, dark, settings.pureBlack)
+        if (!accentful) neutral
+        else neutral.copy(
+            primary = accented.primary, onPrimary = accented.onPrimary, primaryContainer = accented.primaryContainer,
+            onPrimaryContainer = accented.onPrimaryContainer, inversePrimary = accented.inversePrimary, surfaceTint = accented.primary,
+        )
+    }
+    val whiteAccent = if (!white || !accentful) null else remember(seed, dynamic, scheme.primary) {
+        PrismTokens.Accent(onDark = accentScheme(true).primary, onLight = accentScheme(false).primary, now = scheme.primary)
+    }
+    if (PrismTokens.whiteAccent?.now != whiteAccent?.now || (PrismTokens.whiteAccent == null) != (whiteAccent == null)) PrismTokens.whiteAccent = whiteAccent
 
     val ui = remember(settings.corners, settings.uiDensity, settings.cardSize, settings.titleSize, settings.reduceMotion) { PrismUi.from(settings) }
     val typography = remember(settings.fontChoice, settings.fontStamp) { prismTypography(AppFonts.family(settings.fontChoice)) }

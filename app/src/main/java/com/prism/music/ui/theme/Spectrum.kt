@@ -30,6 +30,14 @@ object PrismTokens {
      */
     var white by mutableStateOf(false)
 
+    /**
+     * White light with an accent colour (as in Prism's earlier look): where the spectrum would be, the accent instead,
+     * as read on dark pages, on light ones, and on the page showing now. Null for a neutral (white) accent: greys and ink.
+     */
+    class Accent(val onDark: Color, val onLight: Color, val now: Color)
+    var whiteAccent by mutableStateOf<Accent?>(null)
+    private fun solid(c: Color) = listOf(0f to c, 1f to c)
+
     private val splitColors = listOf(
         0.00f to Color(0xFFFF4D5E), 0.20f to Color(0xFFFF9F43), 0.38f to Color(0xFFFFD84D),
         0.56f to Color(0xFF3DDC97), 0.76f to Color(0xFF36B8FF), 1.00f to Color(0xFF7C5CFF),
@@ -47,17 +55,19 @@ object PrismTokens {
     private val ringWhite = listOf(Color(0xFF8E8E96), Color(0xFF64646C), Color(0xFF8E8E96), Color(0xFFB2B2B8), Color(0xFF8E8E96))
 
     /** The split light, red to violet (or White light's grey sheen). */
-    val spectrumColors get() = if (white) whiteColors else splitColors
+    val spectrumColors get() = if (white) whiteAccent?.let { solid(it.now) } ?: whiteColors else splitColors
     /** The same, deeper, for text and thin lines on light backgrounds (the bright yellow doesn't read on white). */
-    val spectrumColorsDeep get() = if (white) whiteOnLight else splitColorsDeep
-    fun spectrumColors(dark: Boolean) = if (white) (if (dark) whiteOnDark else whiteOnLight) else if (dark) splitColors else splitColorsDeep
+    val spectrumColorsDeep get() = if (white) whiteAccent?.let { solid(it.onLight) } ?: whiteOnLight else splitColorsDeep
+    fun spectrumColors(dark: Boolean) = if (white) {
+        whiteAccent?.let { solid(if (dark) it.onDark else it.onLight) } ?: if (dark) whiteOnDark else whiteOnLight
+    } else if (dark) splitColors else splitColorsDeep
     val spectrum: Brush get() = Brush.horizontalGradient(*spectrumColors.toTypedArray())
     /** The split light across a width (for text and lines), deeper on light backgrounds. */
     fun spectrum(dark: Boolean, startX: Float = 0f, endX: Float = Float.POSITIVE_INFINITY): Brush =
         Brush.horizontalGradient(*spectrumColors(dark).toTypedArray(), startX = startX, endX = endX)
     /** The split light round a circle (the play ring, Liked songs' cover, small dots), from red back to red. */
     fun spectrumRing(center: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Unspecified): Brush =
-        Brush.sweepGradient(if (white) ringWhite else ringSplit, center)
+        Brush.sweepGradient(if (white) whiteAccent?.let { listOf(it.now, it.now) } ?: ringWhite else ringSplit, center)
     /** The spectrum's seven hues in order, one per Settings section (and a menu's quick actions). */
     private val splitHues = listOf(
         Color(0xFFFF5A6A), Color(0xFFFF9F43), Color(0xFFF2C53D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF5A8BFF), Color(0xFF8B6CFF),

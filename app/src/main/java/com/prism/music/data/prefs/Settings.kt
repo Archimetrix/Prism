@@ -412,6 +412,8 @@ data class AppSettings(
     /** Playlists shown as tiles after the shortcuts. */
     val homePlaylists: List<PinnedPlaylist> = emptyList(),
     val homeCustomizeButton: Boolean = true,
+    /** Settings, Home screen, Continue line: the Continue line under Home's greeting. */
+    val homeContinue: Boolean = true,
     /** Tapping a song in Quick picks starts a radio from it (as on YouTube Music), instead of playing Quick picks in order (#38). */
     val quickPicksRadio: Boolean = true,
     /** The round Customize button at the top of Home (beside Podcasts); separate from the one at the bottom. */
@@ -582,6 +584,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val homeRecentTiles = intPreferencesKey("home_recent_tiles")
         val homePlaylists = stringPreferencesKey("home_playlists")
         val homeCustomizeButton = booleanPreferencesKey("home_customize_button")
+        val homeContinue = booleanPreferencesKey("home_continue")
         val quickPicksRadio = booleanPreferencesKey("quick_picks_radio")
         val homeCustomizeTopButton = booleanPreferencesKey("home_customize_top_button")
         val homePodcastsButton = booleanPreferencesKey("home_podcasts_button")
@@ -761,6 +764,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             homeRecentTiles = p[K.homeRecentTiles] ?: d.homeRecentTiles,
             homePlaylists = p[K.homePlaylists]?.let { runCatching { json.decodeFromString<List<PinnedPlaylist>>(it) }.getOrNull() } ?: d.homePlaylists,
             homeCustomizeButton = p[K.homeCustomizeButton] ?: d.homeCustomizeButton,
+            homeContinue = p[K.homeContinue] ?: d.homeContinue,
             quickPicksRadio = p[K.quickPicksRadio] ?: d.quickPicksRadio,
             homeCustomizeTopButton = p[K.homeCustomizeTopButton] ?: d.homeCustomizeTopButton,
             homePodcastsButton = p[K.homePodcastsButton] ?: d.homePodcastsButton,
@@ -958,6 +962,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setHomeRecentTiles(v: Int) = edit { it[K.homeRecentTiles] = v }
     fun setHomePlaylists(v: List<PinnedPlaylist>) = edit { it[K.homePlaylists] = json.encodeToString<List<PinnedPlaylist>>(v) }
     fun setHomeCustomizeButton(v: Boolean) = edit { it[K.homeCustomizeButton] = v }
+    fun setHomeContinue(v: Boolean) = edit { it[K.homeContinue] = v }
     fun setQuickPicksRadio(v: Boolean) = edit { it[K.quickPicksRadio] = v }
     fun setHomeCustomizeTopButton(v: Boolean) = edit { it[K.homeCustomizeTopButton] = v }
     fun setHomePodcastsButton(v: Boolean) = edit { it[K.homePodcastsButton] = v }

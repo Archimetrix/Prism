@@ -278,7 +278,8 @@ private fun HomeTopBar() {
             if (settings.greetingShowName && settings.accountName.isNotBlank()) Text(
                 settings.accountName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            ContextLine()
+            // Settings, Home screen, Continue line hides it.
+            if (settings.homeContinue) ContextLine()
         }
         // Podcasts live a tap away from Home (as on Spotify's), in the same quiet round button as Customize.
         // With the top Customize button off, Podcasts moves over into its place, beside the account.

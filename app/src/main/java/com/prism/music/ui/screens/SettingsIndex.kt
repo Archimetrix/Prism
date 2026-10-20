@@ -186,6 +186,7 @@ object SettingsIndex {
         // Home screen
         SettingEntry(H, "Home", "Customize Home", "sections order shortcuts quick picks speed dial"),
         SettingEntry(H, "Home", "Add new sections automatically", "shelves"),
+        SettingEntry(H, "Home", "Continue line", "continue album resume greeting hide context rewind"),
         SettingEntry(H, "Home", "Podcasts button"),
         SettingEntry(H, "Home", "Customize button at the top"),
         SettingEntry(H, "Home", "Customize button at the bottom"),

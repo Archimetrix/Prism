@@ -468,8 +468,8 @@ fun ArtworkAccent(palette: ArtPalette?, content: @Composable () -> Unit) {
     // Always the same composition shape, palette or not: switching between calling content() bare and inside
     // MaterialTheme threw the whole subtree away when the palette arrived — a menu sheet being swiped down
     // was rebuilt mid-gesture (stuttered, or popped back up after being flung away).
-    // White light keeps every page neutral, so the artwork's colour stays in the artwork.
-    val themed = if (palette == null || com.prism.music.ui.theme.PrismTokens.white) scheme else {
+    // White light with a white accent keeps every page neutral, so the artwork's colour stays in the artwork.
+    val themed = if (palette == null || (com.prism.music.ui.theme.PrismTokens.white && com.prism.music.ui.theme.PrismTokens.whiteAccent == null)) scheme else {
         val accent = palette.accent(dark)
         val on = if (accent.luminance() > 0.5f) Color.Black else Color.White
         scheme.copy(primary = accent, onPrimary = on, surfaceTint = accent)

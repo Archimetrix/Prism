@@ -261,6 +261,10 @@ private fun SettingsPage(
                     Group("Home") {
                         Item("Customize Home", "Sections, shortcuts and greeting", onClick = { nav.go(Routes.CATALOGUE) }) { Chevron() }
                         Toggle("Add new sections automatically", "New YouTube Music shelves appear on Home", s.autoAddSections) { c.settings.setAutoAddSections(it) }
+                        Toggle(
+                            "Continue line", "\"Continue …\" under the greeting", s.homeContinue,
+                            info = "The album you were last playing (or your Rewind, in December), under Home's greeting. Tap it to open.",
+                        ) { c.settings.setHomeContinue(it) }
                         Toggle("Podcasts button", "At the top of Home", s.homePodcastsButton, info = "Off, Podcasts opens from Library → Playlists.") { c.settings.setHomePodcastsButton(it) }
                         Toggle("Customize button at the top", "Top right of Home", s.homeCustomizeTopButton) { c.settings.setHomeCustomizeTopButton(it) }
                         Toggle("Customize button at the bottom", "At the end of Home", s.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
@@ -604,12 +608,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                     Label("Style")
                     Chips(com.prism.music.data.prefs.LightStyle.entries, s.lightStyle, { it.label }) { prefs.setLightStyle(it) }
                     Note(
-                        if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) "Greys and ink; colour stays in the pictures"
+                        if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) "Neutral, with your accent colour; pick white for greys only"
                         else "The split light runs through Prism"
                     )
-                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) Label("Accent")
-                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
-                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM && s.colorSource != ColorSource.DYNAMIC) {
+                    Label("Accent")
+                    Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
+                    if (s.colorSource != ColorSource.DYNAMIC) {
                         Note(
                             if (s.colorSource == ColorSource.ARTWORK) "Follows the cover of what's playing"
                             else "Pick an accent colour"
