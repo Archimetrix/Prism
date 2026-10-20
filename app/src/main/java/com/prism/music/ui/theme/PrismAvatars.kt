@@ -51,21 +51,43 @@ fun DrawScope.drawPrismAvatar(avatar: PrismAvatar) {
     val c = Offset(size.width / 2, size.height / 2)
     when (avatar) {
         PrismAvatar.PRISM -> {
-            drawRect(Brush.verticalGradient(listOf(Color(0xFF1A1626), INK)))
-            // Prism's own mark: a glass prism, light falling in from above left and fanning out below right as a wide
-            // spread of colour.
-            val tri = Path().apply {
-                moveTo(c.x - w * 0.02f, c.y - w * 0.20f); lineTo(c.x + w * 0.20f, c.y + w * 0.17f); lineTo(c.x - w * 0.24f, c.y + w * 0.17f); close()
-            }
-            val enter = Offset(c.x - w * 0.12f, c.y - w * 0.02f)
-            drawLine(Color.White, Offset(size.width * 0.02f, size.height * 0.18f), enter, w * 0.03f, StrokeCap.Round)
-            val exit = Offset(c.x + w * 0.08f, c.y + w * 0.04f)
+            // Prism's own picture of its name: white light falls straight down into a glass prism (point down) and opens
+            // out of its tip as a soft fan of colour, red to violet, all inside the circle.
+            drawRect(Brush.radialGradient(listOf(Color(0xFF1F1A35), Color(0xFF100D1A), Color(0xFF07060B)), Offset(c.x, c.y + w * 0.1f), w * 0.75f))
+            val tl = Offset(c.x - w * 0.21f, c.y - w * 0.18f)
+            val tr = Offset(c.x + w * 0.21f, c.y - w * 0.18f)
+            val tip = Offset(c.x, c.y + w * 0.13f)
+            fun dir(t: Double) = Offset(cos(t).toFloat(), sin(t).toFloat())
+            // The fan, under the glass: seven wedges from the tip, each bright there and fading as it spreads, over a glow.
+            val reach = w * 0.56f
+            val spread = 0.25 * PI
+            val from = PI / 2 + spread
+            val step = -2 * spread / HUES.size
+            drawCircle(Brush.radialGradient(listOf(Color(0xFFB98CFF).copy(alpha = 0.20f), Color.Transparent), Offset(c.x, tip.y + reach * 0.45f), reach * 0.7f), reach * 0.7f, Offset(c.x, tip.y + reach * 0.45f))
             HUES.forEachIndexed { i, h ->
-                val a = PI * (0.02 + 0.30 * i / (HUES.size - 1))
-                drawLine(h, exit, Offset(exit.x + (cos(a) * w).toFloat(), exit.y + (sin(a) * w).toFloat()), w * 0.05f, StrokeCap.Butt)
+                val t0 = from + step * i
+                val t1 = t0 + step * 1.05 // a hair of overlap: no dark seams between wedges
+                val wedge = Path().apply {
+                    moveTo(tip.x, tip.y)
+                    lineTo(tip.x + dir(t0).x * reach, tip.y + dir(t0).y * reach)
+                    lineTo(tip.x + dir(t1).x * reach, tip.y + dir(t1).y * reach)
+                    close()
+                }
+                drawPath(wedge, Brush.radialGradient(listOf(h, h.copy(alpha = 0.8f), h.copy(alpha = 0f)), tip, reach))
             }
-            drawPath(tri, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.06f)), startY = c.y - w * 0.2f, endY = c.y + w * 0.17f))
-            drawPath(tri, Color.White, style = Stroke(w * 0.026f, join = StrokeJoin.Round))
+            // The beam from above: a soft glow under a bright core.
+            val top = Offset(c.x, c.y - w * 0.62f)
+            val into = Offset(c.x, tl.y)
+            drawLine(Color.White.copy(alpha = 0.10f), top, into, w * 0.09f, StrokeCap.Round)
+            drawLine(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.2f), Color.White), top.y, into.y), top, into, w * 0.026f, StrokeCap.Round)
+            // The glass: rounded corners like Prism's mark, lit from the top, the light running through it to the tip.
+            val tri = Path().apply { moveTo(tl.x, tl.y); lineTo(tr.x, tr.y); lineTo(tip.x, tip.y); close() }
+            drawPath(tri, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.28f), Color.White.copy(alpha = 0.06f)), tl.y, tip.y))
+            drawLine(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.4f)), into.y, tip.y), into, tip, w * 0.014f, StrokeCap.Round)
+            drawPath(tri, Brush.verticalGradient(listOf(Color.White, Color.White.copy(alpha = 0.6f)), tl.y, tip.y), style = Stroke(w * 0.026f, join = StrokeJoin.Round))
+            // A glint along the top face, and the light gathering at the tip.
+            drawLine(Color.White.copy(alpha = 0.5f), Offset(tl.x + w * 0.07f, tl.y + w * 0.035f), Offset(c.x - w * 0.06f, tl.y + w * 0.035f), w * 0.012f, StrokeCap.Round)
+            drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.85f), Color.Transparent), tip, w * 0.055f), w * 0.055f, tip)
         }
         PrismAvatar.RING -> {
             drawRect(INK)
