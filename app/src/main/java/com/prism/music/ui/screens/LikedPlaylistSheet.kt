@@ -102,7 +102,7 @@ fun LikedPlaylistSheet(art: String?, onDismiss: () -> Unit) {
                         "Prism keeps it up to date: songs you like are added, songs you unlike are taken out.",
                     style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                 )
-                OutlinedTextField(name, { name = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.prism.music.ui.components.PrismTextField(name, { name = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Segmented(listOf("PRIVATE", "UNLISTED", "PUBLIC"), privacy, { when (it) { "PRIVATE" -> "Private"; "UNLISTED" -> "Unlisted"; else -> "Public" } }) { privacy = it }
                 PrismButton(
                     onClick = {
@@ -126,7 +126,7 @@ fun LikedPlaylistSheet(art: String?, onDismiss: () -> Unit) {
             }
             else -> {
                 Row(Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (syncing) { CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
+                    if (syncing) { com.prism.music.ui.components.PrismSpinner(Modifier.size(14.dp), stroke = 2.dp); Spacer(Modifier.width(8.dp)) }
                     Text(
                         when {
                             syncing -> "Updating…"

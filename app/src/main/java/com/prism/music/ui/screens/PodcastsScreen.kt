@@ -320,10 +320,7 @@ fun EpisodeRow(
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
             }
-            if (e.progress > 0.01f && !e.played) LinearProgressIndicator(
-                progress = { e.progress }, strokeCap = StrokeCap.Round, trackColor = quietFill(),
-                modifier = Modifier.padding(top = 6.dp).fillMaxWidth(0.6f).height(3.dp),
-            )
+            if (e.progress > 0.01f && !e.played) com.prism.music.ui.components.PrismProgressBar({ e.progress }, Modifier.padding(top = 6.dp).fillMaxWidth(0.6f))
             e.description?.let {
                 Text(
                     it.replace(Regex("\\s+"), " "), maxLines = 2, overflow = TextOverflow.Ellipsis,

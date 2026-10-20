@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The disc widget's progress: a faint ring all the way round, and the part played in white from the top. -->
+<!-- The disc widget's progress: a faint ring all the way round, and the part played in split light from the top. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape android:shape="ring" android:innerRadiusRatio="2.22" android:thickness="3dp" android:useLevel="false">
@@ -9,7 +9,7 @@
     <item android:id="@android:id/progress">
         <rotate android:fromDegrees="270" android:toDegrees="270" android:pivotX="50%" android:pivotY="50%">
             <shape android:shape="ring" android:innerRadiusRatio="2.22" android:thickness="3dp" android:useLevel="true">
-                <solid android:color="#FFFFFFFF" />
+                <gradient android:type="sweep" android:startColor="#FFFF4D5E" android:centerColor="#FF3DDC97" android:endColor="#FF7C5CFF" android:useLevel="false" />
             </shape>
         </rotate>
     </item>

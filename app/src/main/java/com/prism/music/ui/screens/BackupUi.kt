@@ -140,7 +140,7 @@ private fun WorkingDialog(text: String) {
         confirmButton = {},
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
+                com.prism.music.ui.components.PrismSpinner(Modifier.size(24.dp), stroke = 2.5.dp)
                 Spacer(Modifier.width(16.dp))
                 Text(text)
             }

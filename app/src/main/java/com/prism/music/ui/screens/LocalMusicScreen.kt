@@ -326,7 +326,7 @@ fun LocalMusicScreen(bottomPadding: Dp) {
             }
             tracks.isEmpty() -> Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (scanned) EmptyState(PrismIcons.Phone, "No music files found", "Songs you copy onto your phone, or download with another app, show up here.")
-                else CircularProgressIndicator(Modifier.padding(32.dp))
+                else com.prism.music.ui.components.PrismSpinner(Modifier.padding(32.dp).size(30.dp))
             }
             album != null -> TrackList(album.tracks.map { it.song }, album.title, bottomPadding, numbered = true)
             artist != null -> ArtistPage(artist, bottomPadding) { openAlbum = it.id }

@@ -141,6 +141,45 @@ fun PrismTextButton(
 }
 
 /**
+ * A text field on soft glass: a quiet hairline that firms up to full ink while typing, the label and cursor in ink
+ * (no accent box). Same parameters as Material's OutlinedTextField for plain text.
+ */
+@Composable
+fun PrismTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    textStyle: androidx.compose.ui.text.TextStyle = androidx.compose.material3.LocalTextStyle.current,
+    label: (@Composable () -> Unit)? = null,
+    placeholder: (@Composable () -> Unit)? = null,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    supportingText: (@Composable () -> Unit)? = null,
+    isError: Boolean = false,
+    keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
+    keyboardActions: androidx.compose.foundation.text.KeyboardActions = androidx.compose.foundation.text.KeyboardActions.Default,
+    singleLine: Boolean = false,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    minLines: Int = 1,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val ink = scheme.onSurface
+    androidx.compose.material3.OutlinedTextField(
+        value, onValueChange, modifier, enabled = enabled, textStyle = textStyle, label = label, placeholder = placeholder,
+        leadingIcon = leadingIcon, trailingIcon = trailingIcon, supportingText = supportingText, isError = isError,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, singleLine = singleLine, maxLines = maxLines, minLines = minLines,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = glassFill(1.6f), unfocusedContainerColor = glassFill(1.1f), disabledContainerColor = glassFill(0.8f),
+            focusedBorderColor = ink.copy(alpha = 0.55f), unfocusedBorderColor = ink.copy(alpha = 0.12f),
+            focusedLabelColor = ink, cursorColor = ink,
+            selectionColors = androidx.compose.foundation.text.selection.TextSelectionColors(ink, ink.copy(alpha = 0.25f)),
+        ),
+    )
+}
+
+/**
  * An on/off switch: on, its track fills with the split light and the knob is white; off, a glass track with a quiet
  * knob. [onCheckedChange] null: it only shows the state (its row does the toggling), as Material's does.
  */

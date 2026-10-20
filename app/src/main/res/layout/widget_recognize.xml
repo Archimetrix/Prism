@@ -49,7 +49,7 @@
                     android:text="@string/widget_recognize_label"
                     android:textColor="#FFB9A8FF"
                     android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <TextView
                     android:id="@+id/rw_title"
@@ -60,7 +60,7 @@
                     android:text="@string/widget_recognize_empty"
                     android:textColor="#FFFFFFFF"
                     android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <TextView
                     android:id="@+id/rw_artist"
@@ -91,7 +91,7 @@
             android:text="@string/widget_play"
             android:textColor="#FFFFFFFF"
             android:textSize="14sp"
-            android:textStyle="bold" />
+            android:fontFamily="sans-serif-medium" />
     </LinearLayout>
 
     <ImageView
@@ -99,8 +99,8 @@
         android:layout_width="72dp"
         android:layout_height="72dp"
         android:layout_marginStart="12dp"
-        android:background="@drawable/widget_circle"
-        android:backgroundTint="#FF7C5CFF"
+        android:background="@drawable/widget_play_ring"
+        android:tint="#FF121212"
         android:contentDescription="@string/widget_recognize_listen"
         android:padding="17dp"
         android:src="@drawable/ic_tile_recognize" />

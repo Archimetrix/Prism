@@ -547,7 +547,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 }
                 if (visible.isEmpty()) item {
                     if (query.isNotBlank()) EmptyState(PrismIcons.Search, "No matches", "Nothing in $title matches \"${query.trim()}\"" + if (loadingMore) " yet — more songs are still loading." else ".")
-                    else EmptyState(PrismIcons.HeartFilled, if (genreFilter != null) "No $genreFilter songs" else "Nothing here yet",
+                    else EmptyState(when (type) { CollectionType.LIKED -> PrismIcons.HeartFilled; CollectionType.DOWNLOADS -> PrismIcons.DownloadDone; else -> PrismIcons.Song }, if (genreFilter != null) "No $genreFilter songs" else "Nothing here yet",
                         if (type == CollectionType.LIKED) "Like songs from the player and they'll show up here." else "Songs you add will show up here.")
                 }
                 if (groupByGenre && showGenres) {
@@ -922,10 +922,20 @@ private fun HeroHeader(type: CollectionType, page: CollectionPage, art: String?,
                 hiRes(art, 1440), null, contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().graphicsLayer { translationY = scroll() * 0.5f },
             ) else Box(
-                Modifier.fillMaxSize().background(com.prism.music.ui.theme.PrismTokens.spectrumRing()),
+                // Liked songs and Downloads have no cover of their own: a soft wash of the split light over the page,
+                // corner to corner, with their icon on a round of glass.
+                Modifier.fillMaxSize().background(scheme.background).background(
+                    Brush.linearGradient(com.prism.music.ui.theme.PrismTokens.spectrumColors.map { (_, c) -> c.copy(alpha = 0.42f) }),
+                ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(if (type == CollectionType.DOWNLOADS) PrismIcons.DownloadDone else PrismIcons.HeartFilled, null, Modifier.size(120.dp), tint = scheme.onPrimary.copy(alpha = 0.85f))
+                Box(
+                    Modifier.size(150.dp).clip(CircleShape).background(com.prism.music.ui.components.glassFill(1.6f))
+                        .border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(if (type == CollectionType.DOWNLOADS) PrismIcons.DownloadDone else PrismIcons.HeartFilled, null, Modifier.size(64.dp), tint = scheme.onSurface)
+                }
             }
         }
         Box(Modifier.fillMaxWidth().height(130.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.32f), Color.Transparent))))
@@ -1018,8 +1028,8 @@ private fun EditPlaylistDialog(title: String, description: String, privacy: Stri
         title = { Text("Edit playlist") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(t, { t = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(d, { d = it.take(5000) }, label = { Text("Description") }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth())
+                com.prism.music.ui.components.PrismTextField(t, { t = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.prism.music.ui.components.PrismTextField(d, { d = it.take(5000) }, label = { Text("Description") }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth())
                 Text("Who can open it", style = MaterialTheme.typography.labelLarge)
                 com.prism.music.ui.components.Segmented(listOf("PRIVATE", "UNLISTED", "PUBLIC"), p, { when (it) { "PRIVATE" -> "Private"; "UNLISTED" -> "Unlisted"; else -> "Public" } }) { p = it }
                 Text(
@@ -1110,11 +1120,11 @@ private fun DownloadsInfo(songs: List<Song>, ask: (String, () -> Unit) -> Unit) 
     val videos by c.downloads.videos.collectAsState()
     val active = remember(all) { all.filter { it.value.state != Download.STATE_COMPLETED && it.value.state != Download.STATE_FAILED } }
     val bytes = remember(all) { all.values.filter { it.state == Download.STATE_COMPLETED }.sumOf { it.bytes } }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
         Text(
             "${songs.size} song${if (songs.size == 1) "" else "s"} · ${sizeText(bytes)} on this phone" +
                 if (videos.isNotEmpty()) " (${sizeText(bytes + videos.values.sumOf { it.bytes })} with videos)" else "",
-            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
         // Saved music videos take far more room than songs, so they get their own line.
         val savedVideos = remember(videos) { videos.values.filter { it.state == Download.STATE_COMPLETED } }
@@ -1122,12 +1132,12 @@ private fun DownloadsInfo(songs: List<Song>, ask: (String, () -> Unit) -> Unit) 
         if (videos.isNotEmpty()) Text(
             "${savedVideos.size} music video${if (savedVideos.size == 1) "" else "s"} · ${sizeText(videos.values.sumOf { it.bytes })}" +
                 if (videosLoading > 0) " · $videosLoading downloading" else "",
-            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
         val lossless = remember(all) { all.count { it.value.lossless } }
         if (lossless > 0) Text(
             "$lossless lossless from your phone's music files",
-            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
         val ids = songs.map { it.id }
         if (ids.any { it in levels }) {
@@ -1135,7 +1145,7 @@ private fun DownloadsInfo(songs: List<Song>, ask: (String, () -> Unit) -> Unit) 
             val karaoke = ids.count { (levels[it] ?: 0) >= 3 }
             Text(
                 "Lyrics for $withLyrics · $karaoke karaoke" + if (working > 0) " · getting more…" else "",
-                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
             )
         }
         if (active.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {

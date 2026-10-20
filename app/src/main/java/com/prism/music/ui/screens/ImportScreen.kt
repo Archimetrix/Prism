@@ -100,7 +100,7 @@ fun ImportScreen(bottomPadding: Dp) {
                     style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                 )
                 PrismTextButton(onClick = { scope.launch { c.library.sync() } }, enabled = sync != SyncState.SYNCING) {
-                    if (sync == SyncState.SYNCING) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    if (sync == SyncState.SYNCING) com.prism.music.ui.components.PrismSpinner(Modifier.size(16.dp), stroke = 2.dp)
                     else Icon(PrismIcons.Sync, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(if (sync == SyncState.SYNCING) "Syncing…" else "Sync library now")

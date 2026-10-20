@@ -181,7 +181,7 @@ fun LibraryScreen(bottomPadding: Dp) {
     Column(Modifier.fillMaxSize()) {
         com.prism.music.ui.components.ScreenHeader("Library") {
             if (settings.isLoggedIn) {
-                if (sync == SyncState.SYNCING) Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) }
+                if (sync == SyncState.SYNCING) Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) { com.prism.music.ui.components.PrismSpinner(Modifier.size(22.dp), stroke = 2.dp) }
                 else com.prism.music.ui.components.RoundAction(PrismIcons.Sync, "Sync with YouTube Music") { scope.launch { c.library.sync() } }
             }
             com.prism.music.ui.components.RoundAction(

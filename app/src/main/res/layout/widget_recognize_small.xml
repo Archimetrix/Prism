@@ -10,8 +10,8 @@
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:layout_gravity="center"
-        android:background="@drawable/widget_circle"
-        android:backgroundTint="#FF7C5CFF"
+        android:background="@drawable/widget_play_ring"
+        android:tint="#FF121212"
         android:importantForAccessibility="no"
         android:padding="15dp"
         android:src="@drawable/ic_tile_recognize" />

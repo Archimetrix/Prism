@@ -353,6 +353,30 @@ fun PrismSpinner(modifier: Modifier = Modifier, stroke: androidx.compose.ui.unit
     }
 }
 
+/**
+ * A thin progress line in split light on a faint track: [progress] (0…1) fills from the start, or with none a short
+ * run of light travels along it.
+ */
+@Composable
+fun PrismProgressBar(progress: (() -> Float)?, modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 3.dp) {
+    val dark = com.prism.music.ui.theme.LocalIsDark.current
+    val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    val run = if (progress == null && !still) {
+        rememberInfiniteTransition(label = "bar").animateFloat(-0.35f, 1f, infiniteRepeatable(tween(1300, easing = androidx.compose.animation.core.FastOutSlowInEasing)), label = "run").value
+    } else 0f
+    androidx.compose.foundation.Canvas(modifier.fillMaxWidth().height(height).clip(CircleShape).semantics { contentDescription = "Loading" }) {
+        drawRect(track)
+        val brush = com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width)
+        if (progress != null) {
+            drawRect(brush, size = size.copy(width = size.width * progress().coerceIn(0f, 1f)))
+        } else {
+            val from = if (still) 0f else run * size.width
+            drawRect(brush, topLeft = androidx.compose.ui.geometry.Offset(from, 0f), size = size.copy(width = size.width * 0.35f))
+        }
+    }
+}
+
 /** Something didn't load: a quiet icon on glass, one plain line, and one way to try again. */
 @Composable
 fun ErrorState(message: String, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
@@ -671,7 +695,7 @@ fun NewPlaylistDialog(onDismiss: () -> Unit, onCreate: (name: String, privacy: S
         title = { Text("New playlist") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                androidx.compose.material3.OutlinedTextField(name, { name = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                com.prism.music.ui.components.PrismTextField(name, { name = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Segmented(listOf("PRIVATE", "UNLISTED", "PUBLIC"), privacy, { when (it) { "PRIVATE" -> "Private"; "UNLISTED" -> "Unlisted"; else -> "Public" } }) { privacy = it }
                 Text(
                     when (privacy) {

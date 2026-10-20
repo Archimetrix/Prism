@@ -172,7 +172,7 @@ private fun HeadphonePicker(initial: String, onDismiss: () -> Unit, onPick: (Hea
             SearchField(query, "Search headphones (e.g. Sony WH-1000XM5)", { query = it })
             Spacer(Modifier.height(8.dp))
             when {
-                loading -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                loading -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { com.prism.music.ui.components.PrismSpinner(Modifier.size(30.dp)) }
                 error != null -> Note(error!!)
                 query.isNotBlank() && results.isEmpty() -> Note("No headphones match \"${query.trim()}\". AutoEq only has headphones someone has measured; you can also import a ParametricEQ file.")
             }
@@ -189,7 +189,7 @@ private fun HeadphonePicker(initial: String, onDismiss: () -> Unit, onPick: (Hea
                             Text(e.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("Measured by ${e.by}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         }
-                        if (fetching == e) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        if (fetching == e) com.prism.music.ui.components.PrismSpinner(Modifier.size(20.dp), stroke = 2.dp)
                     }
                 }
             }

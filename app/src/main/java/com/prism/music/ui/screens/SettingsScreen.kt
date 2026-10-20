@@ -231,11 +231,17 @@ private fun SettingsPage(
                     return@SubPage
                 }
                 item { AccountCard() }
+                // Every section's icon sits on its own colour of the split light, red at the top to violet at the foot.
+                val hubCount = hubGroups.sumOf { it.second.size }
+                var hubIndex = 0
                 hubGroups.forEach { (title, sections) ->
+                    val first = hubIndex
+                    hubIndex += sections.size
                     item {
                         Group(title) {
-                            sections.forEach { sec ->
-                                NavRow(sec.icon, sec.title, sec.summary(s), selected = sec == selected) {
+                            sections.forEachIndexed { i, sec ->
+                                val hue = com.prism.music.ui.theme.PrismTokens.spectrumAt((first + i) / (hubCount - 1).coerceAtLeast(1).toFloat())
+                                NavRow(sec.icon, sec.title, sec.summary(s), selected = sec == selected, hue = hue) {
                                     if (onOpen != null) onOpen(sec, null) else nav.go(Routes.settings(sec.key))
                                 }
                             }
@@ -420,7 +426,7 @@ private fun CheckForUpdates() {
             }
         },
     ) {
-        if (checking) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        if (checking) com.prism.music.ui.components.PrismSpinner(Modifier.size(20.dp), stroke = 2.dp)
     }
 }
 
@@ -541,7 +547,7 @@ private fun AccountSwitcher(onDismiss: () -> Unit) {
         )
         val list = accounts
         when {
-            list == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { androidx.compose.material3.CircularProgressIndicator() }
+            list == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { com.prism.music.ui.components.PrismSpinner(Modifier.size(30.dp)) }
             list.isEmpty() -> Text(
                 "YouTube didn't list any other channels. Sign out and in again if you've just made one.",
                 Modifier.padding(24.dp), style = MaterialTheme.typography.bodyMedium,
@@ -566,7 +572,7 @@ private fun AccountSwitcher(onDismiss: () -> Unit) {
                         }.padding(horizontal = 24.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(com.prism.music.ui.components.glassFill(2f)), contentAlignment = Alignment.Center) {
                             if (a.avatar != null) AsyncImage(a.avatar, null, Modifier.fillMaxSize()) else Icon(PrismIcons.Person, null)
                         }
                         Spacer(Modifier.width(14.dp))
@@ -797,16 +803,16 @@ private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, on
             val usable = f !in missing
             Column(
                 Modifier.width(96.dp).clip(ui.tile)
-                    .background(if (on) scheme.primaryContainer else com.prism.music.ui.components.quietFill())
-                    .border(if (on) 2.dp else 0.dp, if (on) scheme.primary else Color.Transparent, ui.tile)
+                    .background(com.prism.music.ui.components.glassFill(if (on) 2.6f else 1f))
+                    .then(if (on) Modifier.border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.tile) else Modifier)
                     .clickable(enabled = usable) { onPick(f) }
                     .then(if (usable) Modifier else Modifier.alpha(0.38f))
                     .padding(10.dp),
             ) {
-                Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Medium, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = if (on) scheme.onPrimaryContainer else scheme.onSurface)
+                Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Medium, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = scheme.onSurface)
                 Text(
                     if (f == FontChoice.CUSTOM) customName ?: "Your font…" else f.label,
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }

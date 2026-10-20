@@ -358,9 +358,8 @@ private fun UpdateBanner() {
     val busy = progress is com.prism.music.data.UpdateProgress.Downloading || progress is com.prism.music.data.UpdateProgress.Installing
     val ui = com.prism.music.ui.theme.LocalUi.current
     val scheme = MaterialTheme.colorScheme
-    // A frosted panel with an accent icon on frosted pages; the accent's container colour otherwise.
-    val frosted = LocalFrosted.current
-    val ink = if (frosted) scheme.onSurface else scheme.onPrimaryContainer
+    // Glass ringed in split light: news from Prism itself.
+    val ink = scheme.onSurface
     val (title, detail) = when (val p = progress) {
         is com.prism.music.data.UpdateProgress.Downloading ->
             "Downloading Prism ${u.version}…" to (p.fraction?.let { "${(it * 100).toInt()}%" } ?: "Starting")
@@ -371,7 +370,7 @@ private fun UpdateBanner() {
         is com.prism.music.data.UpdateProgress.NewSignature -> "Prism ${u.version} needs a reinstall" to "Tap to move over; your things come with you"
     }
     Column(
-        Modifier.padding(start = 16.dp, end = 16.dp, top = ui.gap(14.dp)).fillMaxWidth().pane(ui.shape(16.dp), scheme.primaryContainer)
+        Modifier.padding(start = 16.dp, end = 16.dp, top = ui.gap(14.dp)).fillMaxWidth().pane(ui.shape(16.dp)).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.shape(16.dp))
             .clickable(enabled = !busy) {
                 when {
                     !u.isApk -> runCatching { uri.openUri(u.url) }
@@ -382,7 +381,7 @@ private fun UpdateBanner() {
             },
     ) {
         Row(Modifier.padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(PrismIcons.Update, null, tint = if (frosted) scheme.primary else ink)
+            Icon(PrismIcons.Update, null, tint = ink)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f).padding(vertical = if (busy) 10.dp else 0.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, color = ink)
@@ -391,10 +390,7 @@ private fun UpdateBanner() {
             if (!busy) IconButton(onClick = { c.updates.dismiss() }) { Icon(PrismIcons.Close, "Dismiss", tint = ink) }
         }
         (progress as? com.prism.music.data.UpdateProgress.Downloading)?.let { p ->
-            val color = if (frosted) scheme.primary else ink
-            val track = ink.copy(alpha = 0.2f)
-            if (p.fraction != null) androidx.compose.material3.LinearProgressIndicator(progress = { p.fraction }, Modifier.fillMaxWidth(), color = color, trackColor = track)
-            else androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth(), color = color, trackColor = track)
+            com.prism.music.ui.components.PrismProgressBar(p.fraction?.let { f -> { f } }, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
         }
     }
 }

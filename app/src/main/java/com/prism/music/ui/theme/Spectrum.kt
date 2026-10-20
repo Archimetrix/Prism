@@ -47,6 +47,13 @@ object PrismTokens {
     )
     fun hue(i: Int): Color = hues[((i % hues.size) + hues.size) % hues.size]
 
+    /** The colour [t] (0 red … 1 violet) along the hue run, so any number of rows can run evenly red to violet. */
+    fun spectrumAt(t: Float): Color {
+        val x = t.coerceIn(0f, 1f) * (hues.size - 1)
+        val i = x.toInt().coerceAtMost(hues.size - 2)
+        return androidx.compose.ui.graphics.lerp(hues[i], hues[i + 1], x - i)
+    }
+
     object Space {
         /** The screen's side margin. */
         val gutter = 22.dp

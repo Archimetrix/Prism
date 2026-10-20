@@ -105,7 +105,7 @@ private fun Idle() {
         )
         Group("Sessions nearby") {
             if (nearby.isEmpty()) Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                com.prism.music.ui.components.PrismSpinner(Modifier.size(18.dp), stroke = 2.dp)
                 Spacer(Modifier.width(12.dp))
                 Text("Looking on this network…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -139,11 +139,11 @@ private fun JoinDialog(name: String, askAddress: Boolean, onDismiss: () -> Unit,
         title = { Text("Join $name") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (askAddress) OutlinedTextField(
+                if (askAddress) com.prism.music.ui.components.PrismTextField(
                     address, { address = it.trim() }, label = { Text("Address on the host's screen") }, placeholder = { Text("192.168.1.20") },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                com.prism.music.ui.components.PrismTextField(
                     code, { code = it.filter(Char::isDigit).take(4) }, label = { Text("Session code") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), modifier = Modifier.fillMaxWidth(),
                 )
@@ -157,7 +157,7 @@ private fun JoinDialog(name: String, askAddress: Boolean, onDismiss: () -> Unit,
 @Composable
 private fun Joining(name: String) {
     Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        com.prism.music.ui.components.PrismSpinner(Modifier.size(22.dp), stroke = 2.dp)
         Spacer(Modifier.width(14.dp))
         Text("Joining $name…", style = MaterialTheme.typography.titleMedium)
     }
@@ -263,7 +263,7 @@ private fun HostControls(now: Msg.State) {
 private fun NowPlayingCard(song: Song?, caption: String) {
     val ui = LocalUi.current
     Row(
-        Modifier.fillMaxWidth().pane(ui.card, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.94f)).padding(14.dp),
+        Modifier.fillMaxWidth().pane(ui.card).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Artwork(song?.thumbnail, Modifier.size(72.dp), ui.art, size = 300)
@@ -296,9 +296,9 @@ private fun BigCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title
         Modifier.fillMaxWidth().featurePane(ui.card)
             .clickable(onClick = onClick).padding(20.dp),
     ) {
-        Icon(icon, null, Modifier.size(30.dp), tint = if (LocalFrosted.current) MaterialTheme.colorScheme.primary else ink)
+        Box(Modifier.size(48.dp).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(24.dp), tint = ink) }
         Spacer(Modifier.height(10.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, color = ink)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = ink)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = ink.copy(alpha = 0.85f))
         Spacer(Modifier.height(14.dp))
         PrismButton(onClick = onClick) { Text(action) }

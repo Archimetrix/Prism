@@ -106,7 +106,7 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     when {
                         downloading.isNotEmpty() -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            com.prism.music.ui.components.PrismSpinner(Modifier.size(18.dp), stroke = 2.dp)
                             Spacer(Modifier.width(10.dp))
                             Text("Downloading… ${(downloading.first().fraction * 100).toInt()}%", style = MaterialTheme.typography.bodyMedium)
                         }

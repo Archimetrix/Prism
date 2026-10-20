@@ -40,7 +40,7 @@ fun HandoffDialogs() {
             text = {
                 Column {
                     Text("$them is showing a six-digit code. Type it here (only needed the first time).", style = MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(
+                    com.prism.music.ui.components.PrismTextField(
                         value = code,
                         onValueChange = { v -> code = v.filter { it.isDigit() }.take(6) },
                         singleLine = true,

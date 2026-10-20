@@ -1003,12 +1003,12 @@ private fun SearchAsPane(state: LyricsState, sources: List<LyricsSource>, onSear
         }
         if (open) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) {
             // The keyboard covers the pane's foot: its own key goes on to Artist, then searches.
-            androidx.compose.material3.OutlinedTextField(
+            com.prism.music.ui.components.PrismTextField(
                 title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Title") }, singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Next),
             )
             Spacer(Modifier.height(8.dp))
-            androidx.compose.material3.OutlinedTextField(
+            com.prism.music.ui.components.PrismTextField(
                 artist, { artist = it }, Modifier.fillMaxWidth(), label = { Text("Artist") }, singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {

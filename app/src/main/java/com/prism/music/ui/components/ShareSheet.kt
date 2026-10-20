@@ -177,7 +177,7 @@ private fun PrivateNotice(changing: Boolean, onMakeShareable: () -> Unit) {
             "This playlist is private, so its link only works for you.",
             Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
-        if (changing) CircularProgressIndicator(Modifier.padding(horizontal = 14.dp).size(18.dp), strokeWidth = 2.dp)
+        if (changing) com.prism.music.ui.components.PrismSpinner(Modifier.padding(horizontal = 14.dp).size(18.dp), stroke = 2.dp)
         else PrismTextButton(onClick = onMakeShareable) { Text("Make unlisted") }
     }
 }

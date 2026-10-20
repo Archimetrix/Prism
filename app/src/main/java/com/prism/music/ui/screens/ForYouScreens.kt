@@ -242,7 +242,7 @@ fun NewReleasesScreen(bottomPadding: Dp) {
     ) {
         if (running) item("running") {
             Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                com.prism.music.ui.components.PrismSpinner(Modifier.size(18.dp), stroke = 2.dp)
                 Spacer(Modifier.width(12.dp))
                 Text("Looking round your artists…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -386,7 +386,7 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
+            com.prism.music.ui.components.PrismTextField(
                 query, { query = it; if (it.isBlank()) searched = null }, Modifier.fillMaxWidth(), singleLine = true,
                 placeholder = { Text("Search for an artist") }, leadingIcon = { Icon(PrismIcons.Search, null) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { searched = query.trim() }),
@@ -406,7 +406,7 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
             }
             val list = artists
             if (list == null) item(span = { GridItemSpan(maxLineSpan) }) {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { com.prism.music.ui.components.PrismSpinner(Modifier.size(30.dp)) }
             } else items(list, key = { it.id }) { a ->
                 val on = favorites.any { it.id == a.id }
                 val photo by produceState(a.thumbnail, a.id) { value = ArtistPhotos.of(c, a) }

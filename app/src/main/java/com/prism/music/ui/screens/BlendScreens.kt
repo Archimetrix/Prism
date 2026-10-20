@@ -187,7 +187,7 @@ fun BlendsScreen(bottomPadding: Dp) {
                 Spacer(Modifier.height(8.dp))
                 Text("Your code: let a friend scan it in Prism", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
+                com.prism.music.ui.components.PrismTextField(
                     name, { name = it.take(30) }, Modifier.fillMaxWidth(), singleLine = true,
                     label = { Text("Your name in Blends") },
                     trailingIcon = { if (name != c.blends.myName) PrismTextButton({ c.blends.myName = name; nameVersion++ }) { Text("Save") } },

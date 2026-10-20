@@ -147,13 +147,13 @@ fun LoginScreen(onDone: () -> Unit, onBack: () -> Unit, addAccount: Boolean = fa
         )
         if (finishing) {
             Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
+                com.prism.music.ui.components.PrismSpinner(Modifier.size(30.dp))
                 Spacer(Modifier.height(20.dp))
                 Text("Signing you in to Prism…", style = MaterialTheme.typography.titleMedium)
             }
             return@Column
         }
-        if (progress < 1f) LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth())
+        if (progress < 1f) com.prism.music.ui.components.PrismProgressBar({ progress }, Modifier.fillMaxWidth(), height = 2.dp)
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             onRelease = { it.stopLoading(); it.destroy() },
@@ -230,7 +230,7 @@ fun LoginScreen(onDone: () -> Unit, onBack: () -> Unit, addAccount: Boolean = fa
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth().height(140.dp), placeholder = { Text("SAPISID=…; __Secure-3PAPISID=…; …") })
+                    com.prism.music.ui.components.PrismTextField(text, { text = it }, Modifier.fillMaxWidth().height(140.dp), placeholder = { Text("SAPISID=…; __Secure-3PAPISID=…; …") })
                 }
             },
             confirmButton = {
@@ -291,7 +291,7 @@ fun DiscordLoginScreen(onBack: () -> Unit) {
             title = { Text("Sign in to Discord") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(PrismIcons.ArrowBack, "Back") } },
         )
-        if (progress < 1f && failed == null) LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth())
+        if (progress < 1f && failed == null) com.prism.music.ui.components.PrismProgressBar({ progress }, Modifier.fillMaxWidth(), height = 2.dp)
         Box(Modifier.fillMaxSize()) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),

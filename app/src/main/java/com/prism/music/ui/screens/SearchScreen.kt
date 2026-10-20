@@ -5,6 +5,8 @@ import com.prism.music.data.friendlyMessage
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.unit.em
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -239,7 +241,7 @@ fun SearchScreen(bottomPadding: Dp) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 6.dp),
         ) { filter = it }
         Box(Modifier.fillMaxWidth().height(3.dp).padding(horizontal = 16.dp)) {
-            if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().clip(CircleShape))
+            if (loading) com.prism.music.ui.components.PrismProgressBar(null, Modifier.fillMaxWidth())
         }
         // While typing, a few completions sit above the live results.
         AnimatedVisibility(focused && suggestions.isNotEmpty() && suggestions.firstOrNull()?.equals(query.trim(), true) != true) {
@@ -456,10 +458,7 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
     val longPress: (() -> Unit)? = if (item is SongItem) ({ songMenu = true }) else item.playable()?.let { p -> { playMenu(p) } }
     Row(
         Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
-            .then(
-                if (com.prism.music.ui.components.LocalFrosted.current) Modifier.pane(ui.card)
-                else Modifier.clip(ui.card).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(scheme.surfaceContainerHigh, scheme.primaryContainer.copy(alpha = 0.55f))))
-            )
+            .pane(ui.card)
             .combinedClickable(onClick = onClick, onLongClick = longPress).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -469,8 +468,8 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
         )
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text("TOP RESULT", style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.Medium)
-            Text(item.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("TOP RESULT", style = MaterialTheme.typography.labelSmall.copy(brush = com.prism.music.ui.theme.PrismTokens.spectrum(com.prism.music.ui.theme.LocalIsDark.current), letterSpacing = 0.1.em), fontWeight = FontWeight.Medium)
+            Text(item.title, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(listOf(kind, detail).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         // What this card started is playing: the button pauses and resumes it rather than starting it over (issue #5).
@@ -485,8 +484,13 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
                 (item is SongItem && source.kind == QueueKind.SINGLE && source.seedId == item.id && index == 0)
             )
         val playing = mine && isPlaying
-        FilledIconButton(onClick = { if (mine) c.player.togglePlay() else onPlay() }, Modifier.size(48.dp)) {
-            Icon(if (playing) PrismIcons.Pause else PrismIcons.Play, if (playing) "Pause" else "Play", Modifier.size(22.dp))
+        // The play disc, ringed in split light like the player's.
+        Box(
+            Modifier.size(56.dp).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape).padding(5.dp)
+                .clip(CircleShape).background(scheme.onSurface).clickable { if (mine) c.player.togglePlay() else onPlay() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (playing) PrismIcons.Pause else PrismIcons.Play, if (playing) "Pause" else "Play", Modifier.size(22.dp), tint = scheme.surface)
         }
     }
 }

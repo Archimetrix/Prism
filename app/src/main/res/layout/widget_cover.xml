@@ -51,7 +51,7 @@
                     android:text="@string/widget_nothing"
                     android:textColor="#FFFFFFFF"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:fontFamily="sans-serif-medium" />
 
                 <TextView
                     android:id="@+id/widget_artist"
@@ -65,10 +65,10 @@
 
             <ImageView
                 android:id="@+id/widget_play"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/widget_circle"
+                android:background="@drawable/widget_play_ring"
                 android:contentDescription="@string/widget_play"
                 android:padding="10dp"
                 android:src="@drawable/ic_w_play"
@@ -82,7 +82,7 @@
             android:layout_height="3dp"
             android:layout_marginTop="10dp"
             android:max="1000"
-            android:progressDrawable="@drawable/widget_progress_light" />
+            android:progressDrawable="@drawable/widget_progress_spectrum" />
     </LinearLayout>
 
     <!-- Not shown in this size; there so every widget takes the same updates. -->
