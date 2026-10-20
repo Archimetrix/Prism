@@ -366,7 +366,7 @@ private fun ModeGlyph(icon: ImageVector, description: String, active: Boolean, b
     ) {
         Icon(icon, description, tint = Color.White.copy(alpha = alpha), modifier = Modifier.size(24.dp))
         if (badge != null) Text(
-            badge, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+            badge, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Medium,
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp),
         )
         if (active) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(4.dp).clip(CircleShape).background(Color.White))

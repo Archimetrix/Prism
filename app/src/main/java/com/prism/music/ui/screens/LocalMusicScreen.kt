@@ -375,7 +375,7 @@ private fun SectionChips(sections: List<LocalSection>, pager: androidx.compose.f
 private fun SectionsEditor(sections: List<LocalSection>, onDismiss: () -> Unit) {
     val prefs = LocalContainer.current.settings
     com.prism.music.ui.components.PrismSheet(onDismiss = onDismiss) {
-        Text("Sections", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+        Text("Sections", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 20.dp))
         Text(
             "Tick the sections you want and use the arrows to order them.", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp),
@@ -450,7 +450,7 @@ private fun ArtistsPage(artists: List<LocalArtist>, bottomPadding: Dp, sort: Ord
                 Artwork(a.art, Modifier.size(56.dp), CircleShape, size = 226, placeholderIcon = PrismIcons.Person)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(a.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(a.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         listOf(songCount(a.tracks.size), if (a.albums.size == 1) "1 album" else "${a.albums.size} albums").joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -520,7 +520,7 @@ private fun <K> SortSheet(
     val scheme = MaterialTheme.colorScheme
     var shown by remember { mutableStateOf(order) }
     com.prism.music.ui.components.PrismSheet(onDismiss = onDismiss) { close ->
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 20.dp))
         val (usual, other) = dirs(shown.key)
         Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PrismChip(!shown.reversed, { shown = shown.copy(reversed = false); onSort(shown) }, usual, icon = PrismIcons.ChevronDown)
@@ -539,7 +539,7 @@ private fun <K> SortSheet(
             ) {
                 Text(
                     label(k), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, color = if (on) scheme.primary else scheme.onSurface,
+                    fontWeight = if (on) FontWeight.Medium else FontWeight.Normal, color = if (on) scheme.primary else scheme.onSurface,
                 )
                 if (on) androidx.compose.material3.Icon(PrismIcons.Check, null, tint = scheme.primary)
             }
@@ -583,7 +583,7 @@ private fun ArtistPage(artist: LocalArtist, bottomPadding: Dp, onOpenAlbum: (Loc
                     Artwork(album.art, Modifier.size(44.dp), LocalUi.current.smallArt, size = 226, placeholderIcon = PrismIcons.Album)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(album.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(album.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         album.year.takeIf { it > 0 }?.let { Text("$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                     androidx.compose.material3.Icon(PrismIcons.ChevronRight, "Open album", tint = MaterialTheme.colorScheme.onSurfaceVariant)

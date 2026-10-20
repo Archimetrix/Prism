@@ -123,7 +123,7 @@ private fun RecognizeCard(denied: Boolean, onListen: () -> Unit, onOpen: (String
                         Spacer(Modifier.width(16.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Found it", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                            Text(r.title ?: "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(r.title ?: "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(r.artist ?: "", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -150,7 +150,7 @@ private fun RecognizeCard(denied: Boolean, onListen: () -> Unit, onOpen: (String
                 }
                 else -> {
                     val listening = s as? Recognizer.State.Listening
-                    Text("Recognize", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Recognize", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
                     ListenButton(listening != null, listening?.level ?: 0f, size = 190.dp) {
                         if (listening != null) c.recognizer.cancel() else onListen()
                     }
@@ -164,7 +164,7 @@ private fun RecognizeCard(denied: Boolean, onListen: () -> Unit, onOpen: (String
                             s is Recognizer.State.Failed -> s.message
                             else -> "Tap to listen"
                         },
-                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center,
                     )
                     Text(
                         when {

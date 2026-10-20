@@ -244,7 +244,7 @@ fun BlendsScreen(bottomPadding: Dp) {
 fun BlendBadge(match: Int, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     Box(modifier.clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color(0xFF6C5CE7), Color(0xFFE84393)))), contentAlignment = Alignment.Center) {
-        Text("$match%", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+        Text("$match%", color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -384,10 +384,10 @@ private fun BlendCardDialog(blend: Blend, me: TasteCode, friend: TasteCode, onDi
             ) {
                 Text("BLEND", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelLarge, letterSpacing = 4.sp)
                 Column {
-                    Text(me.name, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("+ ${friend.name}", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(me.name, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("+ ${friend.name}", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(16.dp))
-                    Text("${blend.match}%", color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Black)
+                    Text("${blend.match}%", color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.ExtraLight)
                     Text("taste match", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.titleMedium)
                 }
                 Column {

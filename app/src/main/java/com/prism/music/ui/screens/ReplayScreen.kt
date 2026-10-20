@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismFilledTonalButton
 import com.prism.music.ui.theme.PrismIcons
@@ -247,8 +248,8 @@ fun ReplayScreen(bottomPadding: Dp) {
                                 placeholderIcon = PrismIcons.Person,
                             )
                             Text(
-                                "${i + 1}", color = inkOn(MaterialTheme.colorScheme.primary), fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.align(Alignment.BottomStart).clip(CircleShape).background(MaterialTheme.colorScheme.primary).padding(horizontal = 9.dp, vertical = 2.dp),
+                                "${i + 1}", color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.align(Alignment.BottomStart).clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrumRing()).padding(horizontal = 9.dp, vertical = 2.dp),
                             )
                         }
                         Spacer(Modifier.height(6.dp))
@@ -291,7 +292,7 @@ fun ReplayScreen(bottomPadding: Dp) {
             ) {
                 Text(
                     "${i + 1}", Modifier.width(36.dp), style = MaterialTheme.typography.titleLarge,
-                    color = if (i < 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Black,
+                    color = if (i < 3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium,
                 )
                 Artwork(s.thumbnail, Modifier.size(52.dp), ui.smallArt, size = 226)
                 Spacer(Modifier.width(12.dp))
@@ -332,7 +333,7 @@ private fun HeroCard(d: ReplayData, period: Period, notYet: Boolean, loading: Bo
         Column {
             Text(
                 (if (period.isYear) "REWIND ${period.year}" else "REPLAY " + period.label.uppercase()),
-                color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black,
+                color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.height(4.dp))
             Column(Modifier.toggleListenUnit()) {
@@ -364,7 +365,7 @@ private fun HeroCard(d: ReplayData, period: Period, notYet: Boolean, loading: Bo
             // The story: Prism's take on Wrapped / Replay. A year's is its Rewind, which opens on 1 December.
             if (notYet) Text(
                 "Your ${period.year} Rewind opens on December 1",
-                color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
             ) else Row(
                 Modifier.clip(CircleShape).background(Color.White).padding(start = 14.dp, end = 18.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -372,7 +373,7 @@ private fun HeroCard(d: ReplayData, period: Period, notYet: Boolean, loading: Bo
                 if (loading) androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), color = Color.Black, strokeWidth = 2.dp)
                 else Icon(PrismIcons.Play, null, Modifier.size(20.dp), tint = Color.Black)
                 Spacer(Modifier.width(8.dp))
-                Text(if (period.isYear) "Watch your Rewind" else "Watch your Replay", color = Color.Black, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(if (period.isYear) "Watch your Rewind" else "Watch your Replay", color = Color.Black, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismOutlinedButton
 import com.prism.music.ui.components.PrismSwitch
@@ -128,7 +129,7 @@ fun RecognizeScreen(autoStart: Boolean, bottomPadding: Dp) {
                             is Recognizer.State.Failed -> s.message
                             else -> "Tap to find out what's playing"
                         },
-                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center,
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -189,7 +190,7 @@ private fun FoundCard(r: RecognitionEntity, song: Song?) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Artwork(r.cover ?: song?.thumbnail, Modifier.size(240.dp), LocalUi.current.art, placeholderIcon = PrismIcons.Song)
         Spacer(Modifier.height(20.dp))
-        Text(r.title ?: "", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(r.title ?: "", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(r.artist ?: "", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         r.album?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
         Spacer(Modifier.height(20.dp))
@@ -238,8 +239,8 @@ fun RecognizedScreen(bottomPadding: Dp) {
                 }.padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                    Icon(PrismIcons.Recognize, null, tint = MaterialTheme.colorScheme.onPrimary)
+                Box(Modifier.size(52.dp).clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrumRing()), contentAlignment = Alignment.Center) {
+                    Icon(PrismIcons.Recognize, null, tint = Color.White)
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {

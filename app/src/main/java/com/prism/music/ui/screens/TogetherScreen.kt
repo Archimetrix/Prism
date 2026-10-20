@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismFilledTonalButton
 import com.prism.music.ui.components.PrismOutlinedButton
@@ -176,7 +178,7 @@ private fun Hosting(s: TogetherState.Hosting) {
             Eyebrow("Session code", color = ink.copy(alpha = 0.8f))
             Text(
                 s.code.toCharArray().joinToString(" "), color = ink,
-                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Black, letterSpacing = 0.08.em),
+                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Light, letterSpacing = 0.08.em, brush = com.prism.music.ui.theme.PrismTokens.spectrum(com.prism.music.ui.theme.LocalIsDark.current)),
             )
             Text(
                 "Friends open Listen together in Prism on the same Wi-Fi, tap your session and enter this code.",
@@ -246,11 +248,11 @@ private fun HostControls(now: Msg.State) {
         IconButton(onClick = { c.together.control("previous") }) { Icon(PrismIcons.Previous, "Previous", Modifier.size(30.dp)) }
         Spacer(Modifier.width(18.dp))
         Box(
-            Modifier.size(58.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)
+            Modifier.size(58.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape)
                 .clickable { c.together.control(if (now.playing) "pause" else "play") },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(if (now.playing) PrismIcons.Pause else PrismIcons.Play, if (now.playing) "Pause" else "Play", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimary)
+            Icon(if (now.playing) PrismIcons.Pause else PrismIcons.Play, if (now.playing) "Pause" else "Play", Modifier.size(32.dp), tint = MaterialTheme.colorScheme.surface)
         }
         Spacer(Modifier.width(18.dp))
         IconButton(onClick = { c.together.control("next") }) { Icon(PrismIcons.Next, "Next", Modifier.size(30.dp)) }
@@ -268,7 +270,7 @@ private fun NowPlayingCard(song: Song?, caption: String) {
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Eyebrow(caption)
-            Text(song?.title ?: "Nothing playing yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(song?.title ?: "Nothing playing yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             song?.let { Text(it.artistText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
     }
@@ -280,7 +282,7 @@ private fun QueueLine(song: Song) {
         Artwork(song.thumbnail, Modifier.size(40.dp), LocalUi.current.smallArt, size = 120)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artistText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
@@ -296,7 +298,7 @@ private fun BigCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title
     ) {
         Icon(icon, null, Modifier.size(30.dp), tint = if (LocalFrosted.current) MaterialTheme.colorScheme.primary else ink)
         Spacer(Modifier.height(10.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ink)
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, color = ink)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = ink.copy(alpha = 0.85f))
         Spacer(Modifier.height(14.dp))
         PrismButton(onClick = onClick) { Text(action) }

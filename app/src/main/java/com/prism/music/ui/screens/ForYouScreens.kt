@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.pane
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismTextButton
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -110,11 +112,11 @@ fun MixCover(mix: Mix, modifier: Modifier = Modifier, showTitle: Boolean = true)
             }
         } else if (covers.isNotEmpty()) AsyncImage(hiRes(covers[0], 544), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to tint.copy(alpha = 0.95f))))
-        // Its colour along the top edge, as a label would be.
-        Box(Modifier.fillMaxWidth().height(5.dp).background(tint))
+        // Made by Prism: the split light along the bottom edge (Aura × Spectrum), as Prism signs its own covers.
+        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(com.prism.music.ui.theme.PrismTokens.spectrum))
         if (showTitle) Text(
-            mix.title, color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(10.dp),
+            mix.title, color = Color.White, style = MaterialTheme.typography.titleMedium,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 12.dp, bottom = 14.dp),
         )
     }
 }
@@ -142,11 +144,11 @@ fun MadeForYouSection(cfg: HomeSectionConfig) {
         if (favorites.isEmpty() && recent.isEmpty()) {
             SectionHeader(cfg.title)
             Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(LocalUi.current.tile)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)).clickable { nav.go(Routes.PICK_ARTISTS) }.padding(16.dp),
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().pane(LocalUi.current.card)
+                    .border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, LocalUi.current.card).clickable { nav.go(Routes.PICK_ARTISTS) }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(PrismIcons.StarFilled, null, tint = MaterialTheme.colorScheme.primary)
+                Icon(PrismIcons.StarFilled, null, tint = MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Pick a few artists you like", style = MaterialTheme.typography.titleMedium)
@@ -180,8 +182,8 @@ fun MadeForYouSection(cfg: HomeSectionConfig) {
                     Modifier.fillMaxWidth().aspectRatio(1f).clip(LocalUi.current.art)
                         .background(Brush.linearGradient(listOf(Color(0xFF6C5CE7), Color(0xFFE84393)))),
                 ) {
-                    Text("$match%", color = Color.White, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.align(Alignment.Center))
-                    Text("Blend", color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
+                    Text("$match%", color = Color.White, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Medium), modifier = Modifier.align(Alignment.Center))
+                    Text("Blend", color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("You + ${e.friendName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -378,7 +380,7 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
             if (onboarding) PrismTextButton({ finish() }) { Text("Skip") }
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
-            Text("Pick artists you like", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Pick artists you like", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Medium)
             Text(
                 "They shape your Daily Mixes and Release Radar. They're starred on this phone; nothing is followed on YouTube.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -417,7 +419,7 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
                     Box {
                         Artwork(photo, Modifier.size(92.dp), CircleShape, placeholderIcon = PrismIcons.Person)
                         if (on) Box(
-                            Modifier.size(92.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),
+                            Modifier.size(92.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)).border(3.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape),
                             contentAlignment = Alignment.Center,
                         ) { Icon(PrismIcons.Check, "Picked", tint = Color.White, modifier = Modifier.size(36.dp)) }
                     }

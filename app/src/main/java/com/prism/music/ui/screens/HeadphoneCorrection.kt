@@ -168,7 +168,7 @@ private fun HeadphonePicker(initial: String, onDismiss: () -> Unit, onPick: (Hea
     }
     PrismSheet(onDismiss) { _ ->
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("Your headphones", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp))
+            Text("Your headphones", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(bottom = 10.dp))
             SearchField(query, "Search headphones (e.g. Sony WH-1000XM5)", { query = it })
             Spacer(Modifier.height(8.dp))
             when {

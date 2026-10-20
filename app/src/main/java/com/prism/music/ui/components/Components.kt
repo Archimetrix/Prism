@@ -626,7 +626,7 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
     val shown = if (query.isBlank()) mine else mine.filter { it.title.contains(query.trim(), ignoreCase = true) }
     PrismSheet(onDismiss = onDismiss) { close ->
         Column(Modifier.padding(bottom = 20.dp)) {
-            Text("Add to playlist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+            Text("Add to playlist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 20.dp))
             Text(song.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(10.dp))
             SheetAction(PrismIcons.Add, "New playlist") { creating = true }
@@ -720,7 +720,7 @@ fun <T> SortButton(options: List<T>, selected: T, label: (T) -> String, modifier
         androidx.compose.material3.DropdownMenu(open, { open = false }) {
             options.forEach { o ->
                 androidx.compose.material3.DropdownMenuItem(
-                    text = { Text(label(o), fontWeight = if (o == selected) FontWeight.SemiBold else FontWeight.Normal) },
+                    text = { Text(label(o), fontWeight = if (o == selected) FontWeight.Medium else FontWeight.Normal) },
                     onClick = { onSelect(o); open = false },
                     trailingIcon = if (o == selected) ({ Icon(PrismIcons.Check, null, tint = MaterialTheme.colorScheme.primary) }) else null,
                 )

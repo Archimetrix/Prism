@@ -38,7 +38,7 @@ fun MoodsScreen(bottomPadding: Dp) {
                     if (tiles.isEmpty()) return@forEach
                     item(key = "h:$title") {
                         Text(
-                            title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                            title, style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 10.dp),
                         )
                     }

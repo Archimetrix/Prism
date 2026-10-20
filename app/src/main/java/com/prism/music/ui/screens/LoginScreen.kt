@@ -436,7 +436,7 @@ fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
             Modifier.align(Alignment.TopCenter).widthIn(max = 480.dp).fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(28.dp),
             verticalArrangement = Arrangement.Bottom,
         ) {
-            Text("Prism", color = Color.White, style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Black)
+            Text("Prism", color = Color.White, style = MaterialTheme.typography.displayLarge)
             Text("Your YouTube Music, refracted.", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(28.dp))
             Feature(PrismIcons.Spatial, "Prism Spatial audio & a 10-band EQ")

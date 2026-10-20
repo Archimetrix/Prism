@@ -64,7 +64,7 @@ fun HandoffDialogs() {
                     Text("${s.from} wants to play music here. To let it, type this code on ${s.from}:", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "${s.code.take(3)} ${s.code.drop(3)}",
-                        style = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp, textAlign = TextAlign.Center),
+                        style = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.Medium, letterSpacing = 4.sp, textAlign = TextAlign.Center),
                         modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
                     )
                     Text("It goes away once they're paired, or after three minutes.", style = MaterialTheme.typography.bodySmall,

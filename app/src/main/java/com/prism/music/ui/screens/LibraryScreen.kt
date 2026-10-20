@@ -376,6 +376,17 @@ private fun LibraryItem(item: com.prism.music.data.model.BrowseItem, asList: Boo
     if (asList) ResultRow(item, onLongClick, onClick) else ItemCard(item, width = 400.dp, onLongClick = onLongClick, onClick = onClick)
 }
 
+/** Which of the spectrum's hues a Library page's tile takes, so they run red to violet down the list. */
+private fun shortcutHue(icon: ImageVector): Int = when (icon) {
+    PrismIcons.DownloadDone, PrismIcons.Download -> 0
+    PrismIcons.Phone -> 1
+    PrismIcons.History -> 2
+    PrismIcons.Groups -> 3
+    PrismIcons.Blend -> 4
+    PrismIcons.Recognize -> 5
+    else -> 6
+}
+
 @Composable
 private fun ShortcutTile(title: String, subtitle: String, icon: ImageVector, asList: Boolean, art: String? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
@@ -384,10 +395,14 @@ private fun ShortcutTile(title: String, subtitle: String, icon: ImageVector, asL
     fun Cover(modifier: Modifier, shape: androidx.compose.ui.graphics.Shape, iconSize: Dp) {
         // A picture the listener chose (Liked songs can have one too).
         if (art != null) com.prism.music.ui.components.Artwork(art, modifier, shape, size = 544)
+        // Liked songs wears the whole prism; the other pages take one of its hues each, in the spectrum's order.
         else Box(
-            modifier.clip(shape).background(Brush.linearGradient(listOf(scheme.primary, scheme.tertiary))),
+            modifier.clip(shape).background(
+                if (icon == PrismIcons.HeartFilled) com.prism.music.ui.theme.PrismTokens.spectrumRing()
+                else androidx.compose.ui.graphics.SolidColor(com.prism.music.ui.theme.PrismTokens.hue(shortcutHue(icon))),
+            ),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, Modifier.size(iconSize), tint = scheme.onPrimary) }
+        ) { Icon(icon, null, Modifier.size(iconSize), tint = androidx.compose.ui.graphics.Color.White) }
     }
     if (asList) {
         Row(
@@ -397,7 +412,7 @@ private fun ShortcutTile(title: String, subtitle: String, icon: ImageVector, asL
             Cover(Modifier.size(56.dp), ui.smallArt, 26.dp)
             Spacer(Modifier.width(14.dp))
             Column {
-                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
             }
         }

@@ -121,7 +121,7 @@ fun LikedPlaylistSheet(art: String?, onDismiss: () -> Unit) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = scheme.onPrimary)
                         Spacer(Modifier.width(10.dp))
                         Text("Making it…")
-                    } else Text("Make playlist", fontWeight = FontWeight.SemiBold)
+                    } else Text("Make playlist", fontWeight = FontWeight.Medium)
                 }
             }
             else -> {

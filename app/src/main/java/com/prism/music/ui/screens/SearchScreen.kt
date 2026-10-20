@@ -374,7 +374,7 @@ private fun Browse(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (recents.isNotEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) { Text("Recent searches", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)) }
+            item(span = { GridItemSpan(maxLineSpan) }) { Text("Recent searches", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)) }
             items(recents.take(6), span = { GridItemSpan(maxLineSpan) }) { r ->
                 SuggestionRow(PrismIcons.History, r, onFill = onFill, onRemove = { onRemove(r) }) { onPick(r) }
             }
@@ -397,7 +397,7 @@ private fun Browse(
                         Modifier.fillMaxWidth().clickable { nav.go(com.prism.music.ui.Routes.MOODS) }.padding(top = 14.dp, bottom = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.weight(1f))
+                        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                         Icon(PrismIcons.ArrowForward, "See all", Modifier.padding(end = 4.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -469,8 +469,8 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
         )
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text("TOP RESULT", style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.Bold)
-            Text(item.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text("TOP RESULT", style = MaterialTheme.typography.labelSmall, color = scheme.primary, fontWeight = FontWeight.Medium)
+            Text(item.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(listOf(kind, detail).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         // What this card started is playing: the button pauses and resumes it rather than starting it over (issue #5).

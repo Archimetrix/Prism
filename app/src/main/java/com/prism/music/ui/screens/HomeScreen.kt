@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.foundation.border
 import com.prism.music.data.model.quickPicks
 import com.prism.music.data.model.speedDial
 import com.prism.music.ui.theme.PrismIcons
@@ -276,6 +277,7 @@ private fun HomeTopBar() {
             if (settings.greetingShowName && settings.accountName.isNotBlank()) Text(
                 settings.accountName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            ContextLine()
         }
         // Podcasts live a tap away from Home (as on Spotify's), in the same quiet round button as Customize.
         // With the top Customize button off, Podcasts moves over into its place, beside the account.
@@ -287,12 +289,45 @@ private fun HomeTopBar() {
         }
         Spacer(Modifier.width(8.dp))
         Box(
-            Modifier.size(42.dp).clip(CircleShape).background(quietFill(MaterialTheme.colorScheme.primaryContainer)).clickable { nav.go(Routes.SETTINGS) },
+            Modifier.size(42.dp).clip(CircleShape).background(com.prism.music.ui.components.glassFill(1.4f))
+                .border(1.dp, com.prism.music.ui.components.glassEdge(), CircleShape).clickable { nav.go(Routes.SETTINGS) },
             contentAlignment = Alignment.Center,
         ) {
             if (settings.accountAvatar.isNotBlank()) AsyncImage(settings.accountAvatar, "Account", Modifier.fillMaxSize())
-            else Icon(PrismIcons.Person, "Settings", tint = if (LocalFrosted.current) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer)
+            else Icon(PrismIcons.Person, "Settings", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
         }
+    }
+}
+
+/**
+ * The line under the greeting: what to pick up, in a pill of glass after a short line of split light. Rewind through
+ * December once it's open, otherwise the album of the song played last ("Continue After Hours"), which it opens.
+ */
+@Composable
+private fun ContextLine() {
+    val c = LocalContainer.current
+    val nav = LocalNavigator.current
+    val recent by c.library.recent.collectAsState()
+    val year = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    val rewind = remember { Calendar.getInstance().get(Calendar.MONTH) == Calendar.DECEMBER && c.rewind.isOpen(year) }
+    val album = recent.firstNotNullOfOrNull { s -> s.album?.takeIf { it.id != null && it.title.isNotBlank() } }
+    val (label, open) = when {
+        rewind -> "Your Rewind $year is ready" to { c.rewindRequest.value = year; nav.go(Routes.REPLAY) }
+        album != null -> "Continue ${album.title}" to { nav.go(Routes.album(album.id!!)) }
+        else -> return
+    }
+    val dark = com.prism.music.ui.theme.LocalIsDark.current
+    Row(
+        Modifier.padding(top = 10.dp).clip(CircleShape).background(com.prism.music.ui.components.glassFill(1.3f))
+            .border(1.dp, com.prism.music.ui.components.glassEdge(), CircleShape)
+            .clickable(onClickLabel = label, onClick = open).padding(start = 12.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(width = 20.dp, height = 3.dp).clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrum(dark)))
+        Spacer(Modifier.width(9.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        Spacer(Modifier.width(4.dp))
+        Icon(PrismIcons.ChevronRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -410,19 +445,21 @@ private fun GreetingSection(recent: List<Song>) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { t ->
                     Row(
-                        Modifier.weight(1f).height(58.dp).pane(ui.shape(14.dp), scheme.surfaceContainerHigh.copy(alpha = 0.9f))
-                            .combinedClickable(onClick = t.onClick, onLongClick = t.playable?.let { p -> { menu(p) } })
-                            .padding(6.dp),
+                        Modifier.weight(1f).height(58.dp).pane(ui.tile, scheme.surfaceContainerHigh.copy(alpha = 0.9f))
+                            .combinedClickable(onClick = t.onClick, onLongClick = t.playable?.let { p -> { menu(p) } }),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        // Liked songs wears the prism's colours; the other pages a tile of stronger glass.
                         if (t.icon != null) Box(
-                            Modifier.size(46.dp).clip(ui.shape(10.dp))
-                                .background(Brush.linearGradient(listOf(scheme.primary, scheme.tertiary))),
+                            Modifier.size(58.dp).background(
+                                if (t.playable == Playable.Liked) com.prism.music.ui.theme.PrismTokens.spectrumRing()
+                                else androidx.compose.ui.graphics.SolidColor(com.prism.music.ui.components.glassFill(2f)),
+                            ),
                             contentAlignment = Alignment.Center,
-                        ) { Icon(t.icon, null, Modifier.size(22.dp), tint = scheme.onPrimary) }
-                        else Artwork(t.image, Modifier.size(46.dp), ui.shape(10.dp), size = 226)
+                        ) { Icon(t.icon, null, Modifier.size(22.dp), tint = if (t.playable == Playable.Liked) Color.White else scheme.onSurface) }
+                        else Artwork(t.image, Modifier.size(58.dp), androidx.compose.ui.graphics.RectangleShape, size = 226)
                         Text(
-                            t.title, Modifier.padding(horizontal = 10.dp), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            t.title, Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.labelLarge,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -592,7 +629,7 @@ private fun SpeedDialTile(item: BrowseItem, modifier: Modifier, shape: androidx.
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))))
         Text(
             item.title, Modifier.align(Alignment.BottomStart).padding(horizontal = 8.dp, vertical = 7.dp),
-            color = Color.White, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            color = Color.White, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }
@@ -638,9 +675,12 @@ private fun ReplayTeaser() {
     // Through December (once this year's Rewind has opened), the teaser is the Rewind's own card and opens its story.
     val rewind = remember { Calendar.getInstance().get(Calendar.MONTH) == Calendar.DECEMBER && c.rewind.isOpen(year) }
     val ui = com.prism.music.ui.theme.LocalUi.current
+    // A card of glass ringed in split light, the time listened set large and light in the spectrum.
+    val dark = com.prism.music.ui.theme.LocalIsDark.current
+    val scheme = MaterialTheme.colorScheme
     Box(
-        Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)).fillMaxWidth().height(150.dp).clip(ui.shape(26.dp))
-            .background(Brush.linearGradient(replayGradient()))
+        Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)).fillMaxWidth().height(150.dp)
+            .pane(ui.card).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum(dark), ui.card)
             .clickable {
                 if (rewind) c.rewindRequest.value = year
                 nav.go(Routes.REPLAY)
@@ -648,15 +688,16 @@ private fun ReplayTeaser() {
             .padding(22.dp),
     ) {
         Column(Modifier.align(Alignment.BottomStart)) {
-            Text(if (rewind) "REWIND $year" else "REPLAY $year", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black)
-            if (rewind) Text("Your year in music", color = Color.White, style = MaterialTheme.typography.displaySmall, maxLines = 1)
-            else Text(total.full, Modifier.toggleListenUnit(), color = Color.White, style = MaterialTheme.typography.displaySmall)
+            com.prism.music.ui.components.Eyebrow(if (rewind) "Rewind $year" else "Replay $year")
+            val big = MaterialTheme.typography.displaySmall.copy(brush = com.prism.music.ui.theme.PrismTokens.spectrum(dark))
+            if (rewind) Text("Your year in music", style = big, maxLines = 1)
+            else Text(total.full, Modifier.toggleListenUnit(), style = big)
             Text(
                 if (rewind) "${total.full}. Your top songs and artists, your year in Prism, and more" else "See your top songs, artists and genres",
-                color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyMedium, maxLines = 2,
+                color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 2,
             )
         }
-        Icon(if (rewind) PrismIcons.Play else PrismIcons.ReplayFilled, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd))
+        Icon(if (rewind) PrismIcons.Play else PrismIcons.ReplayFilled, null, tint = scheme.onSurface, modifier = Modifier.align(Alignment.TopEnd))
     }
 }
 

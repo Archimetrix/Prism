@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -189,7 +191,7 @@ fun PodcastScreen(id: String, bottomPadding: Dp) {
                             Artwork(p.thumbnail, Modifier.size(132.dp), ui.art, size = 544, placeholderIcon = PrismIcons.Podcasts)
                             Spacer(Modifier.width(16.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(p.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                Text(p.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                                 p.author?.let { a ->
                                     Text(
                                         a.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
@@ -204,12 +206,12 @@ fun PodcastScreen(id: String, bottomPadding: Dp) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             val latest = episodes.firstOrNull { it.song.id !in played } ?: episodes.firstOrNull()
                             Row(
-                                Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primary)
+                                Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.onSurface)
                                     .clickable(enabled = latest != null) { latest?.let { playEpisode(c, it.song, p.title) } }
                                     .padding(horizontal = 18.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(PrismIcons.Play, null, tint = MaterialTheme.colorScheme.onPrimary)
+                                Icon(PrismIcons.Play, null, tint = MaterialTheme.colorScheme.surface)
                                 Spacer(Modifier.width(6.dp))
                                 Text("Latest episode", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
                             }
@@ -301,7 +303,7 @@ fun EpisodeRow(
         Column(Modifier.weight(1f)) {
             Text(
                 song.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
                 color = when { playing -> scheme.primary; dim -> scheme.onSurfaceVariant; else -> scheme.onSurface },
             )
             val length = when {

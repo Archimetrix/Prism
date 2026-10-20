@@ -401,7 +401,7 @@ private fun PlayCapsule(onClick: () -> Unit) {
     ) {
         Icon(PrismIcons.Play, null, Modifier.size(26.dp), tint = fg)
         Spacer(Modifier.width(4.dp))
-        Text("Play", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = fg)
+        Text("Play", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = fg)
     }
 }
 
@@ -428,7 +428,7 @@ private fun TopBar(
         Box(Modifier.fillMaxWidth().statusBarsPadding().height(60.dp)) {
             Text(
                 page.name, Modifier.align(Alignment.Center).padding(horizontal = 112.dp).graphicsLayer { alpha = solid() },
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             com.prism.music.ui.components.RoundAction(PrismIcons.ArrowBack, "Back", Modifier.align(Alignment.CenterStart).padding(start = 12.dp), glass = true) { nav.back() }
             Row(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -467,7 +467,7 @@ private fun AppleHeader(title: String, onMore: (() -> Unit)?) {
             .then(if (onMore != null) Modifier.clickable(onClick = onMore) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text(title, style = MaterialTheme.typography.titleLarge)
         if (onMore != null) Icon(PrismIcons.ChevronRight, "See all", Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -493,7 +493,7 @@ private fun Spotlight(item: AlbumItem, onOpen: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Eyebrow(if (year == thisYear) "New release" else "Latest release", color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
-                Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOfNotNull(year?.toString(), kind, details).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
@@ -502,7 +502,7 @@ private fun Spotlight(item: AlbumItem, onOpen: () -> Unit) {
             }
             Spacer(Modifier.width(8.dp))
             Box(
-                Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)
+                Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape)
                     .clickable(onClickLabel = "Play ${item.title}") {
                         scope.launch {
                             val songs = release ?: runCatching { c.ytm.album(item.id).songs }.getOrNull().orEmpty()
@@ -510,7 +510,7 @@ private fun Spotlight(item: AlbumItem, onOpen: () -> Unit) {
                         }
                     },
                 contentAlignment = Alignment.Center,
-            ) { Icon(PrismIcons.Play, "Play", tint = MaterialTheme.colorScheme.onPrimary) }
+            ) { Icon(PrismIcons.Play, "Play", tint = MaterialTheme.colorScheme.surface) }
         }
     }
 }
@@ -622,18 +622,18 @@ private fun AboutCard(page: ArtistPage, genre: String?, onOpen: () -> Unit) {
     val facts = facts(page, genre)
     if (bio == null && facts.isEmpty()) return
     Text(
-        "About ${page.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+        "About ${page.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 10.dp),
     )
     FrostedPanel(Modifier.padding(horizontal = 16.dp).fillMaxWidth(), onClick = onOpen) {
         Column(Modifier.padding(16.dp).animateContentSize()) {
             if (bio != null) {
                 Text(bio, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                Text("MORE", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+                Text("MORE", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
             }
             facts.forEachIndexed { i, (k, v) ->
                 if (bio != null || i > 0) HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                Text(k.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                Text(k.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                 Text(v, style = MaterialTheme.typography.bodyLarge)
             }
         }
@@ -649,7 +649,7 @@ private fun InfoSheet(page: ArtistPage, genre: String?, favorite: Boolean, onFav
                 Artwork(page.thumbnail, Modifier.size(56.dp), CircleShape, size = 226, placeholderIcon = PrismIcons.Person)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(page.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(page.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     page.subscribers?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 IconButton(onClick = onFavorite) {
@@ -659,7 +659,7 @@ private fun InfoSheet(page: ArtistPage, genre: String?, favorite: Boolean, onFav
             }
             facts(page, genre).forEach { (k, v) ->
                 HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Text(k.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                Text(k.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                 Text(v, style = MaterialTheme.typography.bodyLarge)
             }
             page.description?.takeIf { it.isNotBlank() }?.let {
@@ -679,7 +679,7 @@ private fun SignatureSheet(page: ArtistPage, genre: String?, onDismiss: () -> Un
     val auto = remember(page.id, genre) { ArtistTypography.forArtist(page.id, genre, ArtistTypography.parseAudience(page.subscribers)) }
     PrismSheet(onDismiss = onDismiss) {
         Column(Modifier.padding(horizontal = 22.dp)) {
-            Text("Signature", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Signature", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
             Text(
                 "How ${page.name}'s name is set on their page. Tip: long-press the name to come back here.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -841,7 +841,7 @@ private fun ReleaseCard(item: BrowseItem, modifier: Modifier, open: (BrowseItem)
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            item.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold,
+            item.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
         // "Single • 2024" reads as "2024 · Single"; plain albums just show the year.

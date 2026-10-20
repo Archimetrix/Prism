@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.data.friendlyMessage
@@ -749,16 +751,22 @@ private fun PlayShufflePills(enabled: Boolean, onPlay: () -> Unit, onShuffle: ()
 @Composable
 private fun Pill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, primary: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val bg = if (primary) scheme.primary else frostFill(1.6f)
-    val fg = if (primary) scheme.onPrimary else scheme.primary
+    // Play: a solid pill in the text colour, glowing in the spectrum's colours; Shuffle: a pill of glass.
+    val bg = if (primary) scheme.onSurface else frostFill(1.6f)
+    val fg = if (primary) scheme.surface else scheme.onSurface
+    val pill = RoundedCornerShape(24.dp)
     Row(
-        modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).background(bg).graphicsLayer { alpha = if (enabled) 1f else 0.5f }
+        modifier.height(48.dp)
+            .then(if (primary && enabled) Modifier.shadow(14.dp, pill, ambientColor = Color(0xFFFF4D5E), spotColor = Color(0xFF7C5CFF)) else Modifier)
+            .clip(pill).background(bg)
+            .then(if (!primary) Modifier.border(1.dp, com.prism.music.ui.components.glassEdge(), pill) else Modifier)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.5f }
             .clickable(enabled = enabled, onClick = onClick),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, Modifier.size(22.dp), tint = fg)
         Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = fg)
+        Text(label, style = MaterialTheme.typography.titleSmall, color = fg)
     }
 }
 
@@ -779,7 +787,7 @@ private fun CollectionTopBar(
             com.prism.music.ui.components.RoundAction(PrismIcons.ArrowBack, "Back", glass = true) { nav.back() }
             Text(
                 title, Modifier.weight(1f).padding(horizontal = 12.dp).graphicsLayer { alpha = solid() },
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (downloadIcon != null) {
@@ -811,7 +819,7 @@ private fun Header(type: CollectionType, page: CollectionPage, art: String?, cov
             } else {
                 Box(
                     Modifier.size(248.dp).shadow(30.dp, cover)
-                        .background(Brush.linearGradient(listOf(scheme.primary, scheme.tertiary)), cover),
+                        .background(com.prism.music.ui.theme.PrismTokens.spectrumRing(), cover),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(if (type == CollectionType.DOWNLOADS) PrismIcons.DownloadDone else PrismIcons.HeartFilled, null, Modifier.size(96.dp), tint = scheme.onPrimary)
@@ -823,7 +831,7 @@ private fun Header(type: CollectionType, page: CollectionPage, art: String?, cov
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            page.title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+            page.title, style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }
@@ -852,14 +860,14 @@ private fun HeaderDetails(page: CollectionPage, centred: Boolean, privacy: Strin
                 linked.forEachIndexed { i, a ->
                     if (i > 0) Text(if (i == linked.lastIndex) " & " else ", ", style = MaterialTheme.typography.titleSmall, color = scheme.primary)
                     Text(
-                        a.name, style = MaterialTheme.typography.titleSmall, color = scheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        a.name, style = MaterialTheme.typography.titleSmall, color = scheme.primary, fontWeight = FontWeight.Medium, maxLines = 1,
                         modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { nav.go(Routes.artist(a.id!!)) }.padding(horizontal = 2.dp, vertical = 2.dp),
                     )
                 }
             }
         } else if (page.subtitle.isNotBlank()) Text(
             page.subtitle.removePrefix("Playlist • "), style = MaterialTheme.typography.titleSmall, color = scheme.primary,
-            fontWeight = FontWeight.SemiBold, textAlign = align, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Medium, textAlign = align, maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
         val facts = buildList {
             if (page.kind == CollectionKind.ALBUM) {
@@ -914,7 +922,7 @@ private fun HeroHeader(type: CollectionType, page: CollectionPage, art: String?,
                 hiRes(art, 1440), null, contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().graphicsLayer { translationY = scroll() * 0.5f },
             ) else Box(
-                Modifier.fillMaxSize().background(Brush.linearGradient(listOf(scheme.primary, scheme.tertiary))),
+                Modifier.fillMaxSize().background(com.prism.music.ui.theme.PrismTokens.spectrumRing()),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(if (type == CollectionType.DOWNLOADS) PrismIcons.DownloadDone else PrismIcons.HeartFilled, null, Modifier.size(120.dp), tint = scheme.onPrimary.copy(alpha = 0.85f))
@@ -925,7 +933,7 @@ private fun HeroHeader(type: CollectionType, page: CollectionPage, art: String?,
             page.title,
             Modifier.align(Alignment.BottomStart).padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
             style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Light,
                 shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = if (scheme.background.luminance() < 0.5f) 0.35f else 0f), blurRadius = 18f),
             ),
             maxLines = 2, overflow = TextOverflow.Ellipsis,

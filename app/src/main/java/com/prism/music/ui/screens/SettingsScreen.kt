@@ -456,7 +456,7 @@ private fun AccountCard() {
         Column(Modifier.weight(1f)) {
             Text(
                 if (s.isLoggedIn) s.accountName.ifBlank { "YouTube Music" } else "Sign in to YouTube Music",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = ink,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), color = ink,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
@@ -537,7 +537,7 @@ private fun AccountSwitcher(onDismiss: () -> Unit) {
     com.prism.music.ui.components.ActionSheet(s.accountAvatar.ifBlank { null }, onDismiss) { close ->
         Text(
             "Accounts and channels", Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp),
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
         )
         val list = accounts
         when {
@@ -803,7 +803,7 @@ private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, on
                     .then(if (usable) Modifier else Modifier.alpha(0.38f))
                     .padding(10.dp),
             ) {
-                Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = if (on) scheme.onPrimaryContainer else scheme.onSurface)
+                Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Medium, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = if (on) scheme.onPrimaryContainer else scheme.onSurface)
                 Text(
                     if (f == FontChoice.CUSTOM) customName ?: "Your font…" else f.label,
                     style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
@@ -1321,7 +1321,7 @@ private fun LyricsSettings() {
                         Modifier.size(26.dp).clip(CircleShape).background(if (i == 0 && on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("${i + 1}", color = if (i == 0 && on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("${i + 1}", color = if (i == 0 && on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f).alpha(if (on) 1f else 0.45f)) {
