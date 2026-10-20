@@ -30,6 +30,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -320,7 +321,7 @@ object BestPartButton {
 
 /** Previous, play/pause, next — oversized glyphs, no circles. */
 @Composable
-fun TransportRow(isPlaying: Boolean, isLoading: Boolean, previousEnabled: Boolean, nextEnabled: Boolean, compact: Boolean = false) {
+fun TransportRow(isPlaying: Boolean, isLoading: Boolean, previousEnabled: Boolean, nextEnabled: Boolean, compact: Boolean = false, episode: Boolean = false) {
     val pc = LocalContainer.current.player
     val style = LocalAppSettings.current.transportStyle
     val playSize = if (compact) 58.dp else 74.dp
@@ -344,7 +345,9 @@ fun TransportRow(isPlaying: Boolean, isLoading: Boolean, previousEnabled: Boolea
         val holdMs = LocalAppSettings.current.holdSeekSeconds * 1000L
         val back = if (holdMs > 0) ({ pc.seekBy(-holdMs) }) else null
         val ahead = if (holdMs > 0) ({ pc.seekBy(holdMs) }) else null
-        TransportGlyph(prevIcon, "Previous", skip, 53.dp, if (style == TransportStyle.GLYPHS) 0.85f else 1f, previousEnabled, onHold = back) { pc.previous() }
+        // A podcast episode skips within itself, as podcast players do: back 15 s, ahead 30 s.
+        if (episode) SkipGlyph(EPISODE_BACK_S, ahead = false, touch = 53.dp) { pc.seekBy(-EPISODE_BACK_S * 1000L) }
+        else TransportGlyph(prevIcon, "Previous", skip, 53.dp, if (style == TransportStyle.GLYPHS) 0.85f else 1f, previousEnabled, onHold = back) { pc.previous() }
         if (style == TransportStyle.GLYPHS) {
             if (isLoading) {
                 Box(Modifier.size(playTouch), contentAlignment = Alignment.Center) {
@@ -356,7 +359,8 @@ fun TransportRow(isPlaying: Boolean, isLoading: Boolean, previousEnabled: Boolea
         } else {
             PlayDisc(isPlaying, isLoading, filled = style == TransportStyle.BUTTON, size = if (compact) 64.dp else 78.dp) { pc.togglePlay() }
         }
-        TransportGlyph(nextIcon, "Next", skip, 53.dp, if (style == TransportStyle.GLYPHS) 0.85f else 1f, nextEnabled, onHold = ahead) { pc.next() }
+        if (episode) SkipGlyph(EPISODE_AHEAD_S, ahead = true, touch = 53.dp) { pc.seekBy(EPISODE_AHEAD_S * 1000L) }
+        else TransportGlyph(nextIcon, "Next", skip, 53.dp, if (style == TransportStyle.GLYPHS) 0.85f else 1f, nextEnabled, onHold = ahead) { pc.next() }
         if (modes) ModeGlyph(
             PrismIcons.Repeat,
             when (repeat) { Player.REPEAT_MODE_ALL -> "Repeat all"; Player.REPEAT_MODE_ONE -> "Repeat one"; else -> "Repeat off" },
@@ -458,6 +462,25 @@ private fun TransportGlyph(
     }
 }
 
+/** A circular arrow with the seconds in it: back ([ahead] false) or ahead by [seconds] in a podcast episode. */
+@Composable
+private fun SkipGlyph(seconds: Int, ahead: Boolean, touch: Dp, onClick: () -> Unit) {
+    val haptics = rememberHaptics()
+    val label = if (ahead) "Ahead $seconds seconds" else "Back $seconds seconds"
+    Box(
+        Modifier.size(touch).clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = label) { haptics.click(); onClick() }
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Refresh turns clockwise (ahead); mirrored it turns back.
+        Icon(PrismIcons.Refresh, null, tint = Color.White, modifier = Modifier.size(40.dp).graphicsLayer { if (!ahead) scaleX = -1f })
+        Text("$seconds", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+private const val EPISODE_BACK_S = 15
+private const val EPISODE_AHEAD_S = 30
+
 private const val HOLD_TO_SEEK_MS = 400L
 private const val HOLD_SEEK_REPEAT_MS = 450L
 
@@ -540,9 +563,11 @@ fun PlayerActionRow(
     onToggleLyrics: () -> Unit,
     onToggleQueue: () -> Unit,
     onVideoMode: (Boolean) -> Unit,
+    episode: Boolean = false,
 ) {
     val c = LocalContainer.current
     val pc = c.player
+    if (episode) { EpisodeActionRow(queueOpen, onToggleQueue); return }
     val shuffle by pc.shuffle.collectAsState()
     val smart by c.queue.smartShuffle.collectAsState()
     val repeat by pc.repeatMode.collectAsState()
@@ -593,6 +618,41 @@ fun PlayerActionRow(
         }
     }
 }
+
+/**
+ * A podcast episode's capsule: no lyrics or music video (episodes have neither), but its playback speed, a tap away
+ * (1× → 1.25× → … → 2× → 0.75×), and the queue.
+ */
+@Composable
+private fun EpisodeActionRow(queueOpen: Boolean, onToggleQueue: () -> Unit) {
+    val pc = LocalContainer.current.player
+    val speed by pc.episodeSpeed.collectAsState()
+    val haptics = rememberHaptics()
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape).padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val label = "${speed.toString().removeSuffix(".0")}×"
+            Box(
+                Modifier.height(BOTTOM_ACTION_SIZE).clip(CircleShape)
+                    .background(if (speed != 1f) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+                    .clickable(onClickLabel = "Playback speed $label") {
+                        haptics.tick()
+                        pc.setEpisodeSpeed(EPISODE_SPEEDS[(EPISODE_SPEEDS.indexOf(speed) + 1).mod(EPISODE_SPEEDS.size)])
+                    }
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, color = Color.White, style = MaterialTheme.typography.labelLarge)
+            }
+            BottomGlyph(PrismIcons.Queue, "Up next", queueOpen, onToggleQueue)
+        }
+    }
+}
+
+/** The episode speeds a tap cycles through (the player's ⋯ has the same). */
+val EPISODE_SPEEDS = listOf(1f, 1.25f, 1.5f, 1.75f, 2f, 0.75f)
 
 /** A group of bottom-row glyphs (shuffle, repeat, autoplay while the queue is up): Spectrum keeps them out of a capsule. */
 @Composable
@@ -718,6 +778,33 @@ fun OutputCaption() {
         )
     }
     if (picking) OutputPickerSheet(phoneName) { picking = false }
+}
+
+/**
+ * While a sleep timer is set: a small moon and the time left ("12 min", "Song end") on the player, so it's plain the
+ * music will stop. Tap it to change or cancel the timer. Nothing when no timer is set.
+ */
+@Composable
+fun SleepBadge(modifier: Modifier = Modifier) {
+    val c = LocalContainer.current
+    val sleepAt by c.player.sleepAt.collectAsState()
+    val endOfSong by c.player.sleepEndOfSong.collectAsState()
+    if (sleepAt <= 0 && !endOfSong) return
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(sleepAt) { while (isActive && sleepAt > 0) { now = System.currentTimeMillis(); delay(15_000) } }
+    val left = if (endOfSong) "Song end" else "${((sleepAt - now) / 60_000).coerceAtLeast(0) + 1} min"
+    var open by remember { mutableStateOf(false) }
+    Row(
+        modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).clickable { open = true }
+            .padding(horizontal = 9.dp, vertical = 3.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "Sleep timer: $left. Tap to change it." },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(PrismIcons.Moon, null, Modifier.size(13.dp), tint = Color.White.copy(alpha = 0.85f))
+        Spacer(Modifier.width(5.dp))
+        Text(left, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
+    }
+    if (open) SleepTimerDialog { open = false }
 }
 
 private val OUTPUT_TYPES = setOf(

@@ -123,6 +123,31 @@ val Context.container: AppContainer get() = (applicationContext as PrismApp).con
 @OptIn(UnstableApi::class)
 class AppContainer(val app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * Shows Android's notification prompt (set by the activity on screen). It isn't asked at start-up any more, with
+     * nothing on screen to say why: the tour's "Stay in the loop" step asks, or else the first download does.
+     */
+    @Volatile var notificationPrompt: (() -> Unit)? = null
+
+    /**
+     * Whether Prism had been set up before this run (welcome screen done, or signed in): the tour greets a new listener
+     * and someone updating differently. Set once, when the activity first starts.
+     */
+    @Volatile var returningUser: Boolean? = null
+
+    /** Settings → About → "Take the tour": the activity shows the whole tour. */
+    val tourRequests = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Asks for notifications once ever, when Prism may not post them yet and is on screen to ask. */
+    fun askNotifications() {
+        if (android.os.Build.VERSION.SDK_INT < 33 || com.prism.music.data.Notifications.allowed(app)) return
+        val prefs = app.getSharedPreferences("prompts", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("notifications_asked", false)) return
+        val prompt = notificationPrompt ?: return
+        prefs.edit().putBoolean("notifications_asked", true).apply()
+        prompt()
+    }
     val settings = SettingsRepository(app, scope)
 
     val http: OkHttpClient = OkHttpClient.Builder()
@@ -233,6 +258,8 @@ class AppContainer(val app: Application) {
     val taste = com.prism.music.data.TasteRepository(this)
     /** Big data files downloaded on first use (the Japanese reading dictionary, Sing's model). */
     val models = com.prism.music.data.ModelStore(app, http)
+    /** Playlists and saved albums kept on the phone (no account needed). */
+    val prismLibrary = com.prism.music.data.PrismLibrary(java.io.File(app.filesDir, "library"))
     /** Lyrics in Latin letters (Korean, Japanese, Chinese, Arabic, Hindi…). */
     val romanizer = com.prism.music.data.lyrics.Romanizer(
         http, db.romanized(), models, scope, app.getSharedPreferences("romanize_songs", android.content.Context.MODE_PRIVATE),

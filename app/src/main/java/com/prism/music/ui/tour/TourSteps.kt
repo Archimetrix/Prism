@@ -1,0 +1,180 @@
+package com.prism.music.ui.tour
+
+import android.content.Context
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.prism.music.BuildConfig
+import com.prism.music.ui.Routes
+import com.prism.music.ui.theme.PrismIcons
+
+/**
+ * One page of Prism's tour.
+ *
+ * [since] is the versionCode of the release the feature (or its current look) came in. A new install sees every step
+ * (the full tour); someone updating sees only the steps newer than the last tour they saw ([Tour.seenVersion]). To
+ * introduce a later release's features: add steps with that release's versionCode, and keep the older steps true to
+ * the app (new installs still see all of them).
+ */
+data class TourStep(
+    val since: Int,
+    val icon: ImageVector,
+    val title: String,
+    val body: String,
+    val points: List<String> = emptyList(),
+    /** Small icons beside the big one, for what the step covers. */
+    val extras: List<ImageVector> = emptyList(),
+    /** "Show me": where it opens (the tour closes; it can be taken again from Settings → About). */
+    val showMe: String? = null,
+    val kind: Kind = Kind.PLAIN,
+) {
+    enum class Kind { PLAIN, NOTIFICATIONS }
+}
+
+object Tour {
+    /** Prism 1.7 (build 39): the redesign and its features. Everyone, new or updating, sees all of these once. */
+    private const val V1_7 = 39
+
+    /** Every step, in the order they're shown. */
+    val steps: List<TourStep> = listOf(
+        TourStep(
+            V1_7, PrismIcons.Home, "Home",
+            "Your starting point, made from what you play.",
+            listOf(
+                "Quick picks: songs to start with, swipe across for more",
+                "Made for you: Daily Mixes, your time-of-day mix and Release Radar",
+                "The grid button at the top arranges Home's sections",
+                "\"Continue …\" picks up the album you were in",
+            ),
+            listOf(PrismIcons.StarFilled, PrismIcons.Customize),
+        ),
+        TourStep(
+            V1_7, PrismIcons.PlayCircle, "The player",
+            "Tap the mini player (or swipe it up) to open it; swipe down to close.",
+            listOf(
+                "Best part jumps to where listeners replay most; hold it to pick your own",
+                "Double-tap the cover's sides to skip back or ahead",
+                "Hold previous or next to seek",
+                "⋯ has the sleep timer, stats, downloads and Player settings",
+            ),
+            listOf(PrismIcons.Flame, PrismIcons.Moon),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Lyrics, "Lyrics",
+            "Open them from the button under the controls. Many songs light up word by word.",
+            listOf(
+                "Tap a line to jump there",
+                "Their source is at the bottom: tap it to pick another, or fix the timing from ⋯",
+                "Translate them, or read other scripts in Latin letters (Settings → Lyrics)",
+            ),
+            listOf(PrismIcons.Translate, PrismIcons.Romanize),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Mic, "Sing",
+            "Karaoke with the song's own music: Prism takes the voice out, on your phone.",
+            listOf(
+                "With the lyrics open, tap Sing at the bottom",
+                "Leave a little of the voice in to sing along, or none",
+                "Move the key up or down to suit your voice",
+            ),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Equalizer, "DJ mode and Crossfade",
+            "Let Prism mix your music: songs blend into each other, in key and on the beat.",
+            listOf(
+                "In the queue, tap DJ, then pick Steady, Build up or Wind down",
+                "Long-press an album or playlist → Play as a DJ set",
+                "Crossfade (Settings → Playback & sound) blends any two songs",
+            ),
+            listOf(PrismIcons.Queue, PrismIcons.Shuffle),
+        ),
+        TourStep(
+            V1_7, PrismIcons.StarFilled, "Made for you",
+            "Mixes made on your phone from what you play. Nothing about your listening leaves it.",
+            listOf(
+                "Daily Mixes group the artists you play by what goes together",
+                "Release Radar finds new music from the artists you follow",
+                "Tap shuffle twice on a playlist for Smart Shuffle: new songs slip in",
+                "\"Not for me\" and \"Leave out of my taste\" keep things out",
+            ),
+            listOf(PrismIcons.SmartShuffle, PrismIcons.Block),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Search, "Search and Recognize",
+            "Find anything on YouTube Music, or name the song playing around you.",
+            listOf(
+                "Filters for songs, videos, albums, artists, podcasts and live",
+                "\"On this phone\" searches your own music files",
+                "The waveform button in the search box listens for a song",
+                "Add the Recognize widget or Quick Settings tile to do it from anywhere",
+            ),
+            listOf(PrismIcons.Recognize),
+        ),
+        TourStep(
+            V1_7, PrismIcons.LibraryFilled, "Your library",
+            "Everything you keep, with or without a YouTube Music account.",
+            listOf(
+                "Liked songs, Downloads and the music files on your phone",
+                "Make playlists and save albums: without an account they're kept on this phone",
+                "Blend makes a playlist of two tastes with a friend",
+                "Listen together plays in step with friends on the same Wi-Fi",
+            ),
+            listOf(PrismIcons.Blend, PrismIcons.Groups),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Stats, "Replay and Rewind",
+            "Your listening, recapped on your phone.",
+            listOf(
+                "Replay: your top songs, artists and genres for any stretch of time",
+                "Rewind: your year in music, as a story, each December",
+                "Share any slide as a picture",
+            ),
+            listOf(PrismIcons.History),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Cast, "Prism Connect",
+            "Music beyond your phone.",
+            listOf(
+                "Play on speakers, TVs and Chromecasts: tap the device line under the controls",
+                "Control Prism from a browser on your computer",
+                "Hand what's playing to another phone or tablet with Prism",
+            ),
+            listOf(PrismIcons.Tv, PrismIcons.Handoff),
+            showMe = Routes.settings("connect"),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Palette, "Make it yours",
+            "Prism takes its colour from what's playing. Change as much of it as you like.",
+            listOf(
+                "Appearance: Spectrum or White light, your accent, fonts, icons and backgrounds",
+                "Layout: the tab bar, your tabs and the mini player",
+                "Player: its background, the cover and what shows on it",
+                "Search Settings from the box at the top of Settings",
+            ),
+            listOf(PrismIcons.Customize, PrismIcons.Settings),
+            showMe = Routes.settings("appearance"),
+        ),
+        TourStep(
+            V1_7, PrismIcons.Update, "Stay in the loop",
+            "Let Prism tell you when something needs you.",
+            listOf(
+                "Download progress",
+                "New releases from artists you star",
+                "Your Rewind, ready on December 1",
+            ),
+            kind = TourStep.Kind.NOTIFICATIONS,
+        ),
+    )
+
+    private fun prefs(context: Context) = context.getSharedPreferences("tour", Context.MODE_PRIVATE)
+
+    /** The versionCode of the last tour finished or skipped; 0 for none (a new install, or one from before tours). */
+    fun seenVersion(context: Context): Int = prefs(context).getInt("seen_version", 0)
+
+    /** The tour is done for this version: later only newer steps are shown. */
+    fun markSeen(context: Context) = prefs(context).edit().putInt("seen_version", BuildConfig.VERSION_CODE).apply()
+
+    /** The steps someone who last saw the tour at [seen] hasn't seen: all of them for 0. */
+    fun stepsAfter(seen: Int): List<TourStep> = steps.filter { it.since > seen }
+
+    /** Whether it's the whole tour (never seen one) or only what's new since the last one. */
+    fun isFullTour(seen: Int) = seen == 0
+}

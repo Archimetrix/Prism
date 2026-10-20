@@ -13,7 +13,7 @@
 
 **[⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)** · [Release notes](../../releases/latest) · [▶ Watch the showcase (1:55)](promo/prism-showcase.mp4)
 
-**New in [1.7](../../releases/tag/v1.7.0):** a whole new look, Sing (karaoke with the song's own music), Made for you (Daily Mixes, Release Radar, Smart Shuffle), DJ mode, Blend, song recognition, Prism Connect (speakers and TVs, a browser remote, handoff), Rewind every year, headphone correction, romanized lyrics, jump to the best part, and tablet and landscape layouts.
+**New in [1.7](../../releases/tag/v1.7.0):** a whole new look, Sing (karaoke with the song's own music), Made for you (Daily Mixes, Release Radar, Smart Shuffle), DJ mode, Blend, song recognition, Prism Connect (speakers and TVs, a browser remote, handoff), Rewind every year, headphone correction, romanized lyrics, jump to the best part, tablet and landscape layouts, playlists without an account, and a tour of it all.
 
 <img src="docs/screenshots/home-dark.jpg" width="22%" alt="Home">
 <img src="docs/screenshots/player.jpg" width="22%" alt="Now playing">
@@ -91,6 +91,7 @@ Updating works the same way: install the new APK over the old one, and your down
 - **Replay.** Minutes, top songs, artists and genres for this month, the last 30 days, any year or all time. Play or shuffle your top 250. Each year's story is its **Rewind**.
 - **Custom playlist pictures** and **backgrounds** for Home, Search, Library, Replay and Settings.
 - **Make it yours:** your own font file (and a separate one for lyrics), thin, regular or bold icons, and six app icons to pick from.
+- **No account needed for a library of your own**: make playlists (they can hold music files from your phone too) and save albums, kept on your phone and in your backups.
 - Signed in, likes, playlists, albums and artists sync both ways. **Add albums and playlists to your library**, **star your favourite artists** (they lead Library → Artists and are subscribed on YouTube Music), **make new playlists**, and add songs to them from a searchable sheet.
 - **Your playlists, your way:** rename them, rewrite the description, choose private, unlisted or public, take songs out, or delete them.
 - **Import playlists from Spotify, Apple Music and more** with [TuneMyMusic](https://www.tunemymusic.com) (Library → Import playlists). It copies them into your YouTube Music account, and Prism syncs them in when you come back.

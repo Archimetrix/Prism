@@ -139,7 +139,8 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 Text(status, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.weight(1f, fill = false))
                 if (offerData) {
                     Spacer(Modifier.width(8.dp))
-                    QueueChip("Use mobile data") { c.settings.setMixTempoOnCellular(true); c.dj.rescan(allowData = true) }
+                    // For this DJ set only (until Prism closes): "Measure songs on mobile data" stays as the listener set it.
+                    QueueChip("Use mobile data") { c.dj.rescan(allowData = true) }
                 }
             }
         }

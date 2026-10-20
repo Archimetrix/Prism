@@ -76,7 +76,7 @@ fun PlayerOptionsSheet(
             value = when { downloaded -> "Downloaded"; dl != null -> "${dl.percent.toInt().coerceAtLeast(0)}%"; else -> null },
             active = downloaded, keepOpen = true,
         ) { if (dl != null) c.downloads.remove(song.id) else c.downloads.download(song) },
-        if (c.settings.current.isLoggedIn) ActionItem(PrismIcons.PlaylistAdd, "Playlist", keepOpen = true) { pickPlaylist = true } else null,
+        ActionItem(PrismIcons.PlaylistAdd, "Playlist", keepOpen = true) { pickPlaylist = true },
         ActionItem(
             PrismIcons.Moon, "Sleep",
             value = when { sleepEnd -> "Song end"; sleepAt > 0 -> "${sleepMin} min"; else -> null },
@@ -85,7 +85,7 @@ fun PlayerOptionsSheet(
     )
     val speed by c.player.episodeSpeed.collectAsState()
     if (song.isEpisode) {
-        val speeds = listOf(1f, 1.25f, 1.5f, 1.75f, 2f, 0.75f)
+        val speeds = EPISODE_SPEEDS
         val episode = listOfNotNull(
             ActionItem(
                 PrismIcons.Speed, "Playback speed", value = "${speed.toString().removeSuffix(".0")}×", active = speed != 1f, keepOpen = true,
@@ -102,13 +102,18 @@ fun PlayerOptionsSheet(
         }
         return
     }
-    val translating = c.settings.flow.collectAsState().value.lyricsTranslate
+    val optionSettings = c.settings.flow.collectAsState().value
+    val translating = optionSettings.lyricsTranslate
+    // Says which language, so turning it on for a song already in it explains itself.
+    val translateInto = optionSettings.lyricsTranslateTo.ifBlank { defaultTranslateTarget() }.let { tag ->
+        java.util.Locale.forLanguageTag(tag).getDisplayLanguage(java.util.Locale.getDefault()).ifBlank { tag }
+    }
     val lyrics = listOf(
         ActionItem(PrismIcons.Mic, "Sing", value = if (c.sing.on.collectAsState().value) "On" else null, active = c.sing.on.collectAsState().value, onClick = onSing),
         ActionItem(PrismIcons.Lyrics, "Lyrics source", onClick = onLyricsSource),
         ActionItem(PrismIcons.Timer, "Lyrics timing", onClick = onLyricsTiming),
         ActionItem(
-            PrismIcons.Translate, "Translate lyrics", value = if (translating) "On" else "Off", active = translating, keepOpen = true,
+            PrismIcons.Translate, "Translate lyrics", value = if (translating) "Into $translateInto" else "Off", active = translating, keepOpen = true,
         ) { c.settings.setLyricsTranslate(!translating) },
         ActionItem(PrismIcons.Refresh, "Download lyrics again") { onRedownloadLyrics(); toast("Downloading lyrics again") },
     ) + listOfNotNull(
@@ -168,8 +173,8 @@ fun PlayerOptionsSheet(
             }
             if (!song.isLocal) SheetIconButton(PrismIcons.Share, "Share") { sharing = true }
         }
-        // A file on the phone: no radio, download, YouTube playlist or music video.
-        QuickActions(if (song.isLocal) quick.filter { it.label == "Sleep" } else quick) { runAction(it, close) }
+        // A file on the phone: no radio, download or music video (a Prism playlist is fine).
+        QuickActions(if (song.isLocal) quick.filter { it.label == "Sleep" || it.label == "Playlist" } else quick) { runAction(it, close) }
         ActionGroup("Lyrics", lyrics) { runAction(it, close) }
         // The player's settings, one tap away (Settings → Player).
         val settingsRow = ActionItem(PrismIcons.Settings, "Player settings") { onCollapse(); nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.PLAYER.key)) }

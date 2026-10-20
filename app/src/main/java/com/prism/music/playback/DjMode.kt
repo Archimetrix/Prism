@@ -34,8 +34,8 @@ class DjMode {
     }
 
     /**
-     * Mobile data allowed for its scans from the queue's "Use mobile data" (the setting is saved too, but a moment later:
-     * the look that follows mustn't read the old value).
+     * Mobile data allowed for its scans from the queue's "Use mobile data", until Prism closes. The setting ("Measure
+     * songs on mobile data") isn't changed by it.
      */
     @Volatile var dataAllowed = false
         private set

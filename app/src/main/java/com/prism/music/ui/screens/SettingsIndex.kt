@@ -85,7 +85,8 @@ object SettingsIndex {
         SettingEntry(A, "Motion", "Reduce motion", "animations accessibility"),
         // Layout & navigation
         SettingEntry(L, "Navigation bar", "Style", "tab bar bottom bar"),
-        SettingEntry(L, "Navigation bar", "Labels", "tab bar names"),
+        SettingEntry(L, "Navigation bar", "Labels", "tab bar names",
+            needs = Needs("The Minimal bar has no labels; pick Floating or Docked first") { it.navStyle != com.prism.music.data.prefs.NavBarStyle.MINIMAL }),
         SettingEntry(L, "Navigation bar", "Shrink while scrolling", "tab bar hide"),
         SettingEntry(L, "Tabs", "Tabs", "tab bar order home search library replay settings local files"),
         SettingEntry(L, "Tabs", "Open Prism on", "start tab first screen"),
@@ -216,6 +217,7 @@ object SettingsIndex {
         SettingEntry(B, "About", "Prism", "version github"),
         SettingEntry(B, "About", "Your data stays here", "privacy"),
         SettingEntry(B, "About", "Check for updates", "update new version"),
+        SettingEntry(B, "About", "Take the tour", "tutorial walkthrough help guide what's new how to"),
         SettingEntry(B, "About", "Open-source licenses", "license gpl"),
         SettingEntry(B, "Diagnostics", "Playback diagnostics", "stutter judder skip glitch lag bluetooth airpods log debug"),
         SettingEntry(B, "Diagnostics", "Share diagnostics", "log send report"),

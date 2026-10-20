@@ -153,7 +153,10 @@ open class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val c = container
         c.player.connect()
-        if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        // Not asked here any more (a prompt before the welcome screen, with no reason given): the tour or the first
+        // download asks, through this.
+        if (c.returningUser == null) c.returningUser = c.settings.current.let { it.onboarded || it.isLoggedIn }
+        c.notificationPrompt = { if (Build.VERSION.SDK_INT >= 33) runOnUiThread { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) } }
         SmartDownloadWorker.schedule(this, c.settings.current.smartDownloads)
         // Tidies the smart-download queue (it only adds more if it's been a while).
         if (c.settings.current.smartDownloads) SmartDownloadWorker.runNow(this, force = false)
@@ -544,7 +547,10 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             Beside { CollectionScreen(CollectionType.ALBUM, it.arguments?.getString("id")!!, null, bottomPadding) }
                         }
                         composable("playlist/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
-                            Beside { CollectionScreen(CollectionType.PLAYLIST, it.arguments?.getString("id")!!, null, bottomPadding) }
+                            val id = it.arguments?.getString("id")!!
+                            // A playlist made in Prism (kept on the phone) opens on the same page, from the phone.
+                            val type = if (com.prism.music.data.PrismLibrary.isPrismList(id)) CollectionType.PRISM else CollectionType.PLAYLIST
+                            Beside { CollectionScreen(type, id, null, bottomPadding) }
                         }
                         composable("liked?genre={genre}", listOf(navArgument("genre") { type = NavType.StringType; nullable = true; defaultValue = null })) {
                             Beside { CollectionScreen(CollectionType.LIKED, "liked", it.arguments?.getString("genre"), bottomPadding) }
@@ -618,6 +624,20 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                     exit = slideOutVertically(tween(if (settings.reduceMotion) 240 else 360)) { it } + fadeOut(tween(300)),
                 ) {
                     NowPlayingScreen { playerOpen = false }
+                }
+
+                // The tour (1.7): the whole of it after setting up a new install or the first time a release with tours
+                // runs; later releases show only what's new since the last one seen. Settings → About takes it again.
+                var tour by remember { mutableStateOf<com.prism.music.ui.tour.TourPlan?>(null) }
+                LaunchedEffect(showChrome) {
+                    if (showChrome && tour == null) {
+                        kotlinx.coroutines.delay(600) // after the first page has drawn
+                        tour = com.prism.music.ui.tour.pendingTour(context, c.returningUser == true)
+                    }
+                }
+                LaunchedEffect(Unit) { c.tourRequests.collect { playerOpen = false; tour = com.prism.music.ui.tour.fullTour(c.returningUser == true) } }
+                tour?.let { plan ->
+                    com.prism.music.ui.tour.TourOverlay(plan, onOpen = { r -> playerOpen = false; navigator.go(r) }, onDone = { tour = null })
                 }
             }
         }

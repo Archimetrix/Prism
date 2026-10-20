@@ -149,7 +149,10 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
                     Playable.Liked -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(liked.size), "Playlist", art, null, songs = liked)
                     Playable.Downloads -> c.downloads.completedSongs().let { ShareTarget("Downloads", com.prism.music.data.model.songCount(it.size), "Playlist", art, null, songs = it) }
                     is Playable.Page -> target.share
-                    is Playable.Of -> target.item.shareTarget(art)
+                    // A Prism playlist has no link: it's shared as its picture and song list.
+                    is Playable.Of -> c.prismLibrary.list(target.item.id)?.let { l ->
+                        ShareTarget(l.title, com.prism.music.data.model.songCount(l.songs.size), "Playlist", art, null, songs = l.songs)
+                    } ?: target.item.shareTarget(art)
                 }
             }
         }
@@ -157,7 +160,12 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
         // An album in the library can be taken out from here, by the library's own entry (a remaster or other edition
         // opens as another album page, whose bookmark didn't reach this one).
         val inLibrary = item is AlbumItem && c.settings.current.isLoggedIn && c.library.albums.value.any { it.id == item.id }
-        val remove = if (inLibrary) listOf(ActionItem(PrismIcons.Delete, "Remove from library") {
+        // Saved on the phone (no account): taken out of the phone's library.
+        val savedHere = item is AlbumItem && !c.settings.current.isLoggedIn && c.prismLibrary.isSaved(item.id)
+        val remove = if (savedHere) listOf(ActionItem(PrismIcons.Delete, "Remove from library") {
+            c.prismLibrary.unsaveAlbum(item.id)
+            Toast.makeText(context, "Removed from your library", Toast.LENGTH_SHORT).show()
+        }) else if (inLibrary) listOf(ActionItem(PrismIcons.Delete, "Remove from library") {
             c.scope.launch(Dispatchers.Main) {
                 val ok = c.library.removeAlbum(item.id, (item as AlbumItem).playlistId)
                 Toast.makeText(context, if (ok) "Removed from your library" else "Couldn't update your library", Toast.LENGTH_SHORT).show()
@@ -189,8 +197,10 @@ private suspend fun songsFor(c: AppContainer, target: Playable, shuffle: Boolean
     is Playable.Of -> when (val item = target.item) {
         is AlbumItem -> c.ytm.album(item.id).songs to QueueSource(QueueKind.ALBUM, item.title)
         is PlaylistItem ->
-            // Mixes and radios only exist as a watch queue.
-            if (item.isMix || item.id.startsWith("RD")) radio(c, item.seedVideoId, item.id, item.params, item.title)
+            // A Prism playlist is on the phone; mixes and radios only exist as a watch queue.
+            if (com.prism.music.data.PrismLibrary.isPrismList(item.id))
+                (c.prismLibrary.list(item.id)?.songs ?: emptyList()) to QueueSource(QueueKind.PLAYLIST, item.title, originId = item.id)
+            else if (item.isMix || item.id.startsWith("RD")) radio(c, item.seedVideoId, item.id, item.params, item.title)
             else c.ytm.playlistAll(item.id, 1000).songs to QueueSource(QueueKind.PLAYLIST, item.title, originId = item.id.removePrefix("VL"))
         is ArtistItem -> {
             val a = c.ytm.artist(item.id)

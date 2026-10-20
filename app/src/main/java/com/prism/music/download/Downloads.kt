@@ -376,6 +376,8 @@ class DownloadRepository(private val context: Context, private val c: AppContain
             if (!c.loudness.contains(song.id)) runCatching { c.ytm.playerExtras(song.id, c.streams.signatureTimestamp()).loudnessDb?.let { c.loudness.edit().putFloat(song.id, it.toFloat()).apply() } }
         }
         DownloadService.sendAddDownload(context, PrismDownloadService::class.java, request, false)
+        // Downloads show their progress in a notification: the first one the listener starts asks, if nothing has.
+        if (appOnScreen()) c.askNotifications()
     }
 
     fun downloadAll(songs: List<Song>) = songs.forEach(::download)

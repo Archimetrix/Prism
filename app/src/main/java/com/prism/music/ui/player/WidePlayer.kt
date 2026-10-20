@@ -119,7 +119,7 @@ internal fun WidePlayerContent(
                 }
             }
             Spacer(Modifier.height(if (short) 2.dp else 8.dp))
-            TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || position > 3000, nextEnabled = hasNext, compact = short)
+            TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || position > 3000, nextEnabled = hasNext, compact = short, episode = song.isEpisode)
             if (!short) {
                 Spacer(Modifier.height(10.dp))
                 if (!settings.hideVolumeBar) VolumeRow(volume)
@@ -130,8 +130,15 @@ internal fun WidePlayerContent(
                 onToggleLyrics = { onPane(PlayerPane.LYRICS) },
                 onToggleQueue = { onPane(if (pane == PlayerPane.QUEUE) PlayerPane.LYRICS else PlayerPane.QUEUE) },
                 onVideoMode = { pc.setVideoMode(it) },
+                            episode = song.isEpisode,
             )
-            if (!short && settings.showOutputDevice) { Spacer(Modifier.height(10.dp)); OutputCaption() }
+            if (!short && settings.showOutputDevice) {
+                Spacer(Modifier.height(10.dp))
+                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutputCaption()
+                    SleepBadge(Modifier.padding(start = 8.dp))
+                }
+            } else if (!short) SleepBadge()
         }
     }
 
@@ -269,7 +276,8 @@ private fun WideCover(
             }
         } else {
             Box(Modifier.fillMaxSize().shadow(10.dp, shape).clip(shape).background(Color.Black.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-                Icon(PrismIcons.Song, null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(40.dp))
+                if (song.isLocal) com.prism.music.ui.components.LocalCoverFill(song)
+                else Icon(PrismIcons.Song, null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(40.dp))
                 AsyncImage(artRequest, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 1f - canvasCover })
                 canvas?.let { clip -> CanvasPlayer(clip, canvasSaved, isPlaying, Modifier.fillMaxSize(), onCoverChanged = { canvasCover = it }, hold = covered) }
             }

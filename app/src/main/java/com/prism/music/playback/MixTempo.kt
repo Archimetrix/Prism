@@ -181,8 +181,10 @@ data class Tempo(
 
             // Fast tempos are often a song's eighth notes (kick on the beat, hi-hat between). If every other "beat"
             // is clearly stronger, the song is at half that tempo and the strong ones are its beats; otherwise
-            // (drum & bass: kick and snare both hit hard) the fast tempo stands.
-            if (60 * fps / lag > 140 && 60 * fps / (2 * lag) >= 70) {
+            // (drum & bass: kick and snare both hit hard) the fast tempo stands. Only above 152: a rock song at
+            // 145–150 (Mr. Brightside, 148) has a kick on 1 and 3 louder than its snare on 2 and 4, and was halved
+            // to 74; the ballads this is for read 158–184 here (Hello, Ain't No Sunshine, Creep).
+            if (60 * fps / lag > HALVE_ABOVE_BPM && 60 * fps / (2 * lag) >= 70) {
                 val strong = phase(from, to, 2 * lag)
                 val a = comb(strong, to, 2 * lag)
                 val b = comb(strong + lag, to, 2 * lag)
@@ -269,6 +271,8 @@ data class Tempo(
 
         /** Below the song's loud parts by this much (natural log of power: 40 dB), it counts as silence. */
         private const val SILENCE_BELOW_PEAK = 9.2f
+        /** A tempo read faster than this may be a song's eighth notes, and is halved when every other beat leads. */
+        const val HALVE_ABOVE_BPM = 152.0
 
         private fun sq(x: Double) = x * x
 

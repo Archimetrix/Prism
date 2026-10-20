@@ -123,7 +123,8 @@ import com.prism.music.ui.theme.LocalIsDark
 import com.prism.music.ui.theme.LocalUi
 import kotlinx.coroutines.launch
 
-enum class CollectionType { ALBUM, PLAYLIST, LIKED, DOWNLOADS, MIX }
+/** [PRISM]: a playlist made in Prism and kept on the phone ([com.prism.music.data.PrismLibrary]). */
+enum class CollectionType { ALBUM, PLAYLIST, LIKED, DOWNLOADS, MIX, PRISM }
 
 /** Names of artists YouTube Music lists as similar ("Fans might also like"), for classifying obscure artists. */
 private suspend fun relatedArtists(c: com.prism.music.AppContainer, s: Song): List<String> {
@@ -163,7 +164,19 @@ fun CollectionScreen(type: CollectionType, id: String, initialGenre: String?, bo
             if (!more) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.offline.savePage(id, live.page.copy(songs = live.songs.value)) }
         }
     }
+    val prismLists by c.prismLibrary.lists.collectAsState()
     val page: Load<LiveCollection> = when (type) {
+        CollectionType.PRISM -> {
+            val list = prismLists.firstOrNull { it.id == id }
+            if (list == null) Load.Err("This playlist isn't on this phone any more")
+            else Load.Ok(remember(list) {
+                LiveCollection(
+                    CollectionPage(list.id, CollectionKind.PLAYLIST, list.title, "Prism playlist · on this phone", description = list.description.ifBlank { null },
+                        thumbnail = list.songs.firstOrNull()?.thumbnail, songs = list.songs),
+                    c.scope, null,
+                )
+            })
+        }
         CollectionType.LIKED -> Load.Ok(remember(liked) {
             LiveCollection(CollectionPage("liked", CollectionKind.PLAYLIST, "Liked songs", com.prism.music.data.model.songCount(liked.size), thumbnail = null, songs = liked), c.scope, null)
         })
@@ -246,7 +259,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     val sortList = when (type) {
         CollectionType.LIKED -> "liked"
         CollectionType.DOWNLOADS -> "downloads"
-        CollectionType.PLAYLIST -> "playlist:${page.id}"
+        CollectionType.PLAYLIST, CollectionType.PRISM -> "playlist:${page.id}"
         else -> null
     }
     var sort by remember(page.id) {
@@ -338,7 +351,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     val totalSec = visible.sumOf { it.durationSec }
     val popular = remember(live.page) { if (type == CollectionType.ALBUM) live.page.popularIds else emptySet() }
     // Playlists (and Liked songs) can have a picture of the listener's choosing.
-    val coverKey = when (type) { CollectionType.PLAYLIST -> page.id; CollectionType.LIKED -> "liked"; CollectionType.DOWNLOADS -> "downloads"; else -> null }
+    val coverKey = when (type) { CollectionType.PLAYLIST, CollectionType.PRISM -> page.id; CollectionType.LIKED -> "liked"; CollectionType.DOWNLOADS -> "downloads"; else -> null }
     val art = coverKey?.let { c.covers.art(it, page.thumbnail) } ?: page.thumbnail
     // Prism's own lists without a picture take their colours from their newest song.
     val frostUrl = art ?: songs.firstOrNull()?.thumbnail
@@ -369,6 +382,25 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             }
         }
     }
+    // Without an account, an album is saved to the library on the phone instead (Library → Albums).
+    val savedAlbums by c.prismLibrary.albums.collectAsState()
+    val localAlbum = type == CollectionType.ALBUM && !settings.isLoggedIn
+    val savedHere = localAlbum && savedAlbums.any { it.id == page.id }
+    val toggleSavedHere: () -> Unit = {
+        if (savedHere) {
+            c.prismLibrary.unsaveAlbum(page.id)
+            Toast.makeText(context, "Removed from your library", Toast.LENGTH_SHORT).show()
+        } else {
+            val by = page.artists.joinToString(", ") { it.name }.ifBlank { page.subtitle }
+            c.prismLibrary.saveAlbum(
+                com.prism.music.data.SavedAlbum(
+                    page.id, page.title, listOfNotNull(page.releaseKind ?: "Album", by.takeIf { it.isNotBlank() }, page.year?.toString()).joinToString(" • "),
+                    page.thumbnail, page.playlistId, System.currentTimeMillis(),
+                ),
+            )
+            Toast.makeText(context, "Saved to your library", Toast.LENGTH_SHORT).show()
+        }
+    }
     val radioId = when (type) {
         CollectionType.ALBUM -> live.page.playlistId
         CollectionType.PLAYLIST -> live.page.id
@@ -397,6 +429,10 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     // Owned playlists: a song can be taken out of it.
     val slots by live.setVideoIds.collectAsState()
     fun removeAction(s: Song): List<SheetItem> {
+        if (type == CollectionType.PRISM) return listOf(SheetItem(PrismIcons.PlaylistRemove, "Remove from this playlist") {
+            c.prismLibrary.remove(page.id, s.id)
+            Toast.makeText(context, "Removed from ${page.title}", Toast.LENGTH_SHORT).show()
+        })
         val slot = slots[s.id]
         if (type != CollectionType.PLAYLIST || !live.page.owned || slot == null) return emptyList()
         return listOf(SheetItem(PrismIcons.PlaylistRemove, "Remove from this playlist") {
@@ -444,6 +480,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
         CollectionType.LIKED -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
         CollectionType.DOWNLOADS -> ShareTarget("Downloads", com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
         CollectionType.MIX -> ShareTarget(title, page.subtitle, "Mix", art, null, songs = songs)
+        CollectionType.PRISM -> ShareTarget(title, com.prism.music.data.model.songCount(songs.size), "Playlist", art, null, songs = songs)
     }
 
     // A wide landscape window (a tablet on its side) keeps the cover and its details beside the songs, as Apple Music
@@ -481,7 +518,11 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             val header: @Composable () -> Unit = {
                 if (hero) HeroHeader(type, shown, art, { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0 }, heroHeight)
                 else Header(type, shown, art, coverKey) { coverSheet = true }
-                HeaderDetails(shown, centred = !hero, privacy = privacy, saved = saved.takeIf { savableId != null }, onSaved = toggleSaved)
+                HeaderDetails(
+                    shown, centred = !hero, privacy = privacy,
+                    saved = if (localAlbum) savedHere else saved.takeIf { savableId != null },
+                    onSaved = if (localAlbum) toggleSavedHere else toggleSaved,
+                )
             }
             val playRow: @Composable () -> Unit = {
                 PlayShufflePills(
@@ -549,7 +590,11 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 if (visible.isEmpty()) item {
                     if (query.isNotBlank()) EmptyState(PrismIcons.Search, "No matches", "Nothing in $title matches \"${query.trim()}\"" + if (loadingMore) " yet — more songs are still loading." else ".")
                     else EmptyState(when (type) { CollectionType.LIKED -> PrismIcons.HeartFilled; CollectionType.DOWNLOADS -> PrismIcons.DownloadDone; else -> PrismIcons.Song }, if (genreFilter != null) "No $genreFilter songs" else "Nothing here yet",
-                        if (type == CollectionType.LIKED) "Like songs from the player and they'll show up here." else "Songs you add will show up here.")
+                        when (type) {
+                            CollectionType.LIKED -> "Like songs from the player and they'll show up here."
+                            CollectionType.PRISM -> "Add songs from any song's menu (⋯ or a long press) → Add to playlist."
+                            else -> "Songs you add will show up here."
+                        })
                 }
                 if (groupByGenre && showGenres) {
                     // A song with a second genre shows under both.
@@ -631,6 +676,9 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 if (savableId != null && saved != null) add(
                     SheetItem(if (saved == true) PrismIcons.LibraryAdded else PrismIcons.LibraryAdd, if (saved == true) "Remove from library" else "Add to library") { toggleSaved() },
                 )
+                if (localAlbum) add(
+                    SheetItem(if (savedHere) PrismIcons.LibraryAdded else PrismIcons.LibraryAdd, if (savedHere) "Remove from library" else "Add to library") { toggleSavedHere() },
+                )
                 if (type != CollectionType.DOWNLOADS) add(
                     SheetItem(if (allDownloaded) PrismIcons.Delete else PrismIcons.Download, if (allDownloaded) "Remove downloads" else "Download all") { toggleDownloads() },
                 )
@@ -639,7 +687,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                     SheetItem(PrismIcons.PlaylistAdd, if (likedPlaylistId != null) "Playlist · kept up to date" else "Make it a playlist") { likedPlaylistSheet = true },
                 )
                 if (coverKey != null) add(SheetItem(PrismIcons.Photo, "Change picture") { coverSheet = true })
-                if (type == CollectionType.PLAYLIST && live.page.owned) add(SheetItem(PrismIcons.Edit, "Edit details") { editing = true })
+                if ((type == CollectionType.PLAYLIST && live.page.owned) || type == CollectionType.PRISM) add(SheetItem(PrismIcons.Edit, "Edit details") { editing = true })
                 // A sleep or kids' playlist: plays as usual, but doesn't shape recommendations.
                 if (type == CollectionType.PLAYLIST) {
                     val listId = page.playlistId ?: page.id.removePrefix("VL")
@@ -650,7 +698,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                     })
                 }
                 addAll(downloadsItems)
-                if (type == CollectionType.PLAYLIST && live.page.owned) add(SheetItem(PrismIcons.Delete, "Delete playlist", danger = true) { deleting = true })
+                if ((type == CollectionType.PLAYLIST && live.page.owned) || type == CollectionType.PRISM) add(SheetItem(PrismIcons.Delete, "Delete playlist", danger = true) { deleting = true })
             }
             // The songs as the page shows them (filtered, sorted; offline only those on the phone).
             val queue = playable
@@ -664,7 +712,11 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             ) { pageMenu = false }
         }
 
-        if (editing) EditPlaylistDialog(title, description.orEmpty(), privacy ?: "PRIVATE", onDismiss = { editing = false }) { t, d, p ->
+        if (editing && type == CollectionType.PRISM) EditPlaylistDialog(title, description.orEmpty(), null, onDismiss = { editing = false }) { t, d, _ ->
+            editing = false
+            c.prismLibrary.rename(page.id, t, d)
+            title = t; description = d.ifBlank { null }
+        } else if (editing) EditPlaylistDialog(title, description.orEmpty(), privacy ?: "PRIVATE", onDismiss = { editing = false }) { t, d, p ->
             editing = false
             scope.launch {
                 runCatching {
@@ -685,10 +737,11 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     if (deleting) AlertDialog(
         onDismissRequest = { deleting = false },
         title = { Text("Delete playlist?") },
-        text = { Text("\"$title\" will be deleted from your YouTube Music account.") },
+        text = { Text(if (type == CollectionType.PRISM) "\"$title\" will be deleted from this phone. The songs in it stay where they are." else "\"$title\" will be deleted from your YouTube Music account.") },
         confirmButton = {
             PrismTextButton(onClick = {
                 deleting = false
+                if (type == CollectionType.PRISM) { c.prismLibrary.delete(page.id); nav.back(); return@PrismTextButton }
                 scope.launch {
                     c.library.deletePlaylist(PlaylistItem(page.id, title, "", page.thumbnail))
                         .onSuccess { nav.back() }
@@ -823,7 +876,7 @@ private fun Header(type: CollectionType, page: CollectionPage, art: String?, cov
                         .background(com.prism.music.ui.theme.PrismTokens.spectrumRing(), cover),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(if (type == CollectionType.DOWNLOADS) PrismIcons.DownloadDone else PrismIcons.HeartFilled, null, Modifier.size(96.dp), tint = scheme.onPrimary)
+                    Icon(when (type) { CollectionType.DOWNLOADS -> PrismIcons.DownloadDone; CollectionType.LIKED -> PrismIcons.HeartFilled; else -> PrismIcons.QueueMusic }, null, Modifier.size(96.dp), tint = scheme.onPrimary)
                 }
             }
             if (coverKey != null) GlassSurface(Modifier.align(Alignment.BottomEnd).padding(10.dp).size(40.dp), shape = RoundedCornerShape(50), onMedia = true, inPage = true) {
@@ -935,7 +988,7 @@ private fun HeroHeader(type: CollectionType, page: CollectionPage, art: String?,
                         .border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(if (type == CollectionType.DOWNLOADS) PrismIcons.DownloadDone else PrismIcons.HeartFilled, null, Modifier.size(64.dp), tint = scheme.onSurface)
+                    Icon(when (type) { CollectionType.DOWNLOADS -> PrismIcons.DownloadDone; CollectionType.LIKED -> PrismIcons.HeartFilled; else -> PrismIcons.QueueMusic }, null, Modifier.size(64.dp), tint = scheme.onSurface)
                 }
             }
         }
@@ -1020,10 +1073,10 @@ private fun MoreBy(name: String, artistId: String, albumId: String) {
 
 /** Rename an owned playlist, rewrite its description, or change who can open it. */
 @Composable
-private fun EditPlaylistDialog(title: String, description: String, privacy: String, onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
+private fun EditPlaylistDialog(title: String, description: String, privacy: String?, onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
     var t by remember { mutableStateOf(title) }
     var d by remember { mutableStateOf(description) }
-    var p by remember { mutableStateOf(privacy) }
+    var p by remember { mutableStateOf(privacy ?: "PRIVATE") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit playlist") },
@@ -1031,6 +1084,8 @@ private fun EditPlaylistDialog(title: String, description: String, privacy: Stri
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 com.prism.music.ui.components.PrismTextField(t, { t = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 com.prism.music.ui.components.PrismTextField(d, { d = it.take(5000) }, label = { Text("Description") }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth())
+                // A Prism playlist (no [privacy]) is only on this phone: nobody else can open it anyway.
+                if (privacy == null) return@Column
                 Text("Who can open it", style = MaterialTheme.typography.labelLarge)
                 com.prism.music.ui.components.Segmented(listOf("PRIVATE", "UNLISTED", "PUBLIC"), p, { when (it) { "PRIVATE" -> "Private"; "UNLISTED" -> "Unlisted"; else -> "Public" } }) { p = it }
                 Text(

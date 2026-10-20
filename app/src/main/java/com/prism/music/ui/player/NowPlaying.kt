@@ -197,13 +197,25 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val window = com.prism.music.ui.theme.LocalWindowLayout.current
     val wide = window.twoPanePlayer || window.shortLandscape || window.tabletop
 
-    // The player always owns light status-bar icons.
+    // The player is always dark, so it owns light system-bar icons, and the navigation bar's scrim (three-button
+    // navigation) is a dark one: in light mode a light grey strip sat under the player.
     DisposableEffect(Unit) {
         val window = (view.context as? Activity)?.window
         val ctl = window?.let { WindowCompat.getInsetsController(it, view) }
         val previous = ctl?.isAppearanceLightStatusBars
+        val previousNav = ctl?.isAppearanceLightNavigationBars
         ctl?.isAppearanceLightStatusBars = false
-        onDispose { if (previous != null) ctl.isAppearanceLightStatusBars = previous }
+        ctl?.isAppearanceLightNavigationBars = false
+        @Suppress("DEPRECATION")
+        val previousNavColor = window?.navigationBarColor
+        @Suppress("DEPRECATION")
+        window?.navigationBarColor = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
+        onDispose {
+            if (previous != null) ctl.isAppearanceLightStatusBars = previous
+            if (previousNav != null) ctl.isAppearanceLightNavigationBars = previousNav
+            @Suppress("DEPRECATION")
+            if (previousNavColor != null) window.navigationBarColor = previousNavColor
+        }
     }
     // Lyrics on screen keep it awake (a wide player shows them unless its other pane is picked).
     val lyricsInView = lyricsOpen || (wide && !queueOpen && !statsOpen)
@@ -602,7 +614,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 .background(Color.Black.copy(alpha = 0.18f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (!artLoaded) Icon(PrismIcons.Song, null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(40.dp))
+                            // A file on the phone with no artwork gets a cover of its own rather than a bare note.
+                            if (!artLoaded) {
+                                if (song.isLocal) com.prism.music.ui.components.LocalCoverFill(song)
+                                else Icon(PrismIcons.Song, null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(40.dp))
+                            }
                             AsyncImage(
                                 artRequest, null, contentScale = ContentScale.Crop,
                                 onState = { if (it is AsyncImagePainter.State.Success) artLoaded = true },
@@ -729,7 +745,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             if (!BestPartChip() && settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = statsOpen) { toggleStats() }
                         }
                         Spacer(Modifier.height(8.dp))
-                        TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || position > 3000, nextEnabled = hasNext)
+                        TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || position > 3000, nextEnabled = hasNext, episode = song.isEpisode)
                         Spacer(Modifier.height(12.dp))
                         // A hidden volume bar keeps its room, so the transport sits where it always has (giving it to
                         // a Large / Full width cover in 1.6.4 dropped the controls toward the bottom row).
@@ -740,10 +756,18 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             onToggleLyrics = { if (lyricsOpen) closeLyrics() else openLyrics() },
                             onToggleQueue = toggleQueue,
                             onVideoMode = { pc.setVideoMode(it) },
+                            episode = song.isEpisode,
                         )
                         val deckGap = if (roomyCover) 12.dp else 18.dp
                         Spacer(Modifier.height(deckGap))
-                        if (settings.showOutputDevice) OutputCaption() else if (!roomyCover) Spacer(Modifier.height(14.dp))
+                        // The device line, with the sleep timer beside it while one is set (on its own when the line is hidden).
+                        if (settings.showOutputDevice) Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutputCaption()
+                            SleepBadge(Modifier.padding(start = 8.dp))
+                        } else {
+                            SleepBadge()
+                            if (!roomyCover) Spacer(Modifier.height(14.dp))
+                        }
                         Spacer(Modifier.height(deckGap))
                     }
                 }

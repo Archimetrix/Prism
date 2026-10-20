@@ -296,6 +296,7 @@ private fun SettingsPage(
                     }
                     Item("Your data stays here", "Prism has no server", info = "Your history, Replay and settings live only on this phone.", onClick = {})
                     CheckForUpdates()
+                    Item("Take the tour", "A minute's walk through Prism", onClick = { c.tourRequests.tryEmit(Unit) }) { Chevron() }
                     Item("Open-source licenses", "GPL-3.0-or-later, and what it's built with", onClick = { nav.go(Routes.settings(SettingsSection.LICENSES.key)) }) { Chevron() }
                     // Debug builds only, so it's left out of Settings search (named title: SettingsIndexTest skips it).
                     if (com.prism.music.BuildConfig.DEBUG) Item(
@@ -875,8 +876,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation()
                 Group("Navigation bar") {
                     Label("Style")
                     Chips(NavBarStyle.entries, s.navStyle, { it.label }) { prefs.setNavStyle(it) }
-                    Label("Labels")
-                    Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
+                    // The Minimal bar has no labels to show.
+                    if (s.navStyle != NavBarStyle.MINIMAL) {
+                        Label("Labels")
+                        Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
+                    }
                     Toggle("Shrink while scrolling", "Slims down as you scroll", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
                 }
             }
@@ -1417,10 +1421,11 @@ private fun DownloadSettings() {
             val downloads by c.downloads.downloads.collectAsState()
             val pickBytes = picks.sumOf { downloads[it]?.bytes ?: 0L }
             Label("Space to use: ${formatGb(gb)}")
+            val used = pickBytes + cacheBytes
+            val usedText = if (used < 1_073_741_824L) "${used / 1_048_576} MB" else "%.1f GB".format(used / 1_073_741_824.0)
             Note(
-                "About ${smartSongEstimate(gb, s.audioQuality)} songs · using %.1f of it · %.1f GB free on the phone".format(
-                    (pickBytes + cacheBytes) / 1_073_741_824.0, freeGb,
-                ) + if (gb > freeGb) " (it stops when storage runs low)" else ""
+                "About ${smartSongEstimate(gb, s.audioQuality)} songs · $usedText used · %.1f GB free on the phone".format(freeGb) +
+                    if (gb > freeGb) " (it stops when storage runs low)" else ""
             )
             PrismSlider(
                 i, { i = it }, Modifier.padding(horizontal = 16.dp), valueRange = 0f..sizes.lastIndex.toFloat(), steps = sizes.size - 2,

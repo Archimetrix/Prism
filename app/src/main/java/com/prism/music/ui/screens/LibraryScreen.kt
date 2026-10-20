@@ -91,6 +91,9 @@ fun LibraryScreen(bottomPadding: Dp) {
     val dls by c.downloads.downloads.collectAsState()
     val thumbs by c.library.artistThumbs.collectAsState()
     val favorites by c.artistPrefs.favorites.collectAsState()
+    // Playlists and albums kept on the phone (without an account, the only ones there are).
+    val prismLists by c.prismLibrary.lists.collectAsState()
+    val savedAlbums by c.prismLibrary.albums.collectAsState()
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
     val startPage = remember { LibTab.entries.indexOfFirst { it.name == settings.libraryStartTab }.coerceAtLeast(0) }
@@ -106,8 +109,8 @@ fun LibraryScreen(bottomPadding: Dp) {
     val mine = remember(liked, dls) {
         (liked + dls.values.filter { it.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }.mapNotNull { it.song }).distinctBy { it.id }
     }
-    val albums = remember(remoteAlbums, mine) {
-        (remoteAlbums + LibraryRepository.albumsFrom(mine)).distinctBy { it.id }
+    val albums = remember(remoteAlbums, mine, savedAlbums) {
+        (savedAlbums.map { it.item() } + remoteAlbums + LibraryRepository.albumsFrom(mine)).distinctBy { it.id }
     }
     // Starred artists lead, marked as favourites.
     val artists = remember(remoteArtists, mine, thumbs, favorites) {
@@ -153,7 +156,7 @@ fun LibraryScreen(bottomPadding: Dp) {
     val playlistSortName by c.library.playlistSort.collectAsState()
     val playlistSort = PlaylistSort.entries.firstOrNull { it.name == playlistSortName }
         ?: if (playlistOrder.isEmpty()) PlaylistSort.LIBRARY else PlaylistSort.CUSTOM
-    val myPlaylists = remember(playlists) { playlists.filter { it.id != "LM" } }
+    val myPlaylists = remember(playlists, prismLists) { prismLists.map { it.item() } + playlists.filter { it.id != "LM" } }
     val sortedPlaylists = remember(myPlaylists, playlistOrder, playlistSort) {
         when (playlistSort) {
             PlaylistSort.CUSTOM -> LibraryRepository.inOrder(myPlaylists, playlistOrder)
@@ -208,8 +211,13 @@ fun LibraryScreen(bottomPadding: Dp) {
                 if (empty) item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (!settings.isLoggedIn) {
-                            EmptyState(PrismIcons.LibraryFilled, "Sign in to sync your library", "Your playlists, albums, artists and likes from YouTube Music will appear here.")
-                            PrismButton(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
+                            // Without an account the library is still the listener's own, kept on the phone.
+                            when (tab) {
+                                LibTab.SONGS -> EmptyState(PrismIcons.HeartFilled, "No liked songs yet", "Tap the heart on the player and the song shows up here, on this phone.")
+                                LibTab.ALBUMS -> EmptyState(PrismIcons.Album, "No albums yet", "Tap the bookmark on an album's page to keep it here. Albums you like or download songs from show up too.")
+                                else -> EmptyState(PrismIcons.Person, "No artists yet", "Star an artist on their page, or like their songs, and they show up here.")
+                            }
+                            PrismTextButton(onClick = { nav.go(Routes.LOGIN) }) { Text("Or sign in to sync your YouTube Music library") }
                         } else {
                             EmptyState(PrismIcons.LibraryFilled, "Nothing here yet", "Like or download songs, or star artists, and they'll show up here.")
                         }
@@ -231,12 +239,13 @@ fun LibraryScreen(bottomPadding: Dp) {
                         item { ShortcutTile("Listen together", "With friends on the same Wi-Fi", PrismIcons.Groups, asList) { nav.go(Routes.TOGETHER) } }
                         item { ShortcutTile("Blend", "A playlist of two tastes", PrismIcons.Blend, asList) { nav.go(Routes.BLENDS) } }
                         item { ShortcutTile("Recognized", "Songs found by listening", PrismIcons.Recognize, asList) { nav.go(Routes.RECOGNIZED) } }
-                        if (settings.isLoggedIn) item { ShortcutTile("New playlist", "Make one on YouTube Music", PrismIcons.Add, asList) { creating = true } }
+                        item { ShortcutTile("New playlist", if (settings.isLoggedIn) "Make one on YouTube Music" else "Kept on this phone", PrismIcons.Add, asList) { creating = true } }
                         if (settings.isLoggedIn) item { ShortcutTile("Import playlists", "From Spotify, Apple Music…", PrismIcons.PlaylistAdd, asList) { nav.go(Routes.IMPORT) } }
-                        if (!settings.isLoggedIn) item(span = { GridItemSpan(maxLineSpan) }) {
+                        // Signed out: playlists made here are kept on the phone; signing in brings YouTube Music's too.
+                        if (!settings.isLoggedIn && prismLists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                EmptyState(PrismIcons.LibraryFilled, "Sign in to sync your playlists", "Your YouTube Music playlists will appear here.")
-                                PrismButton(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
+                                EmptyState(PrismIcons.QueueMusic, "Your playlists", "Make one with New playlist, or from any song's menu (Add to playlist). They're kept on this phone, no account needed.")
+                                PrismTextButton(onClick = { nav.go(Routes.LOGIN) }) { Text("Or sign in to bring your YouTube Music playlists") }
                             }
                         }
                         if (myPlaylists.size > 1) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -274,7 +283,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                     }
                     LibTab.ALBUMS -> {
                         if (albums.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                            SortBar("${albums.size} albums", AlbumSort.entries, albumSort, { it.label }) { albumSort = it; c.library.setSort("library:albums", it.name) }
+                            SortBar(if (albums.size == 1) "1 album" else "${albums.size} albums", AlbumSort.entries, albumSort, { it.label }) { albumSort = it; c.library.setSort("library:albums", it.name) }
                         }
                         items(sortedAlbums, key = { "a" + it.id }) { a -> LibraryItem(a, asList) { nav.open(a, onSong) } }
                     }
@@ -292,8 +301,9 @@ fun LibraryScreen(bottomPadding: Dp) {
 
     if (creating) {
         val context = androidx.compose.ui.platform.LocalContext.current
-        com.prism.music.ui.components.NewPlaylistDialog(onDismiss = { creating = false }) { name, privacy ->
+        com.prism.music.ui.components.NewPlaylistDialog(onDismiss = { creating = false }, local = !settings.isLoggedIn) { name, privacy ->
             creating = false
+            if (!settings.isLoggedIn) { nav.go(Routes.playlist(c.prismLibrary.create(name))); return@NewPlaylistDialog }
             scope.launch {
                 val id = runCatching { c.ytm.createPlaylist(name, emptyList(), privacy = privacy) }.getOrNull()
                 if (id == null) android.widget.Toast.makeText(context, "Couldn't make the playlist", android.widget.Toast.LENGTH_SHORT).show()
@@ -320,10 +330,16 @@ fun LibraryScreen(bottomPadding: Dp) {
         AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("Delete playlist?") },
-            text = { Text("\"${p.title}\" will be deleted from your YouTube Music account. If it's someone else's playlist, it's only removed from your library.") },
+            text = {
+                Text(
+                    if (com.prism.music.data.PrismLibrary.isPrismList(p.id)) "\"${p.title}\" will be deleted from this phone. The songs in it stay where they are."
+                    else "\"${p.title}\" will be deleted from your YouTube Music account. If it's someone else's playlist, it's only removed from your library.",
+                )
+            },
             confirmButton = {
                 PrismTextButton(onClick = {
                     deleting = null
+                    if (com.prism.music.data.PrismLibrary.isPrismList(p.id)) { c.prismLibrary.delete(p.id); return@PrismTextButton }
                     scope.launch {
                         c.library.deletePlaylist(p).onFailure {
                             android.widget.Toast.makeText(context, "Couldn't delete \"${p.title}\": ${it.friendlyMessage()}", android.widget.Toast.LENGTH_LONG).show()

@@ -567,7 +567,7 @@ fun SongActionsSheet(song: Song, extra: List<SheetItem> = emptyList(), onDismiss
         song.podcastId?.let { id -> ActionItem(PrismIcons.Podcasts, "Go to podcast") { nav.go(Routes.podcast(id)) } },
         if (song.isEpisode && song.id in c.episodes.played.value) ActionItem(PrismIcons.Refresh, "Mark as unplayed") { c.episodes.forget(song.id); c.episodes.unmarkPlayed(song.id) }
         else if (song.isEpisode) ActionItem(PrismIcons.DoneAll, "Mark as played") { c.episodes.markPlayed(song.id) } else null,
-        if (c.settings.current.isLoggedIn && !local) ActionItem(PrismIcons.PlaylistAdd, "Add to playlist", keepOpen = true) { pickPlaylist = true } else null,
+        ActionItem(PrismIcons.PlaylistAdd, "Add to playlist", keepOpen = true) { pickPlaylist = true },
         song.album?.id?.let { id -> ActionItem(PrismIcons.Album, "Go to album", value = song.album?.title?.takeIf { it.length <= 22 }) { nav.go(Routes.album(id)) } },
     ) + goToArtists(song) { route -> nav.go(route) }
     val more = extra.map { it.toAction() } + listOfNotNull(
@@ -625,20 +625,27 @@ fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit) {
     }
 }
 
-/** Adds [song] to one of the account's playlists, or to a new one. */
+/**
+ * Adds [song] to one of the listener's playlists, or to a new one: Prism playlists (on the phone) and, when signed in, the
+ * account's YouTube Music ones. A new one is a YouTube Music playlist when signed in, else a Prism one.
+ */
 @Composable
 fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
     val c = LocalContainer.current
     val playlists by c.library.playlists.collectAsState()
+    val prismLists by c.prismLibrary.lists.collectAsState()
+    // A file on the phone can only go in a Prism playlist (YouTube Music has no copy of it).
+    val signedIn = c.settings.current.isLoggedIn && !song.isLocal
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var creating by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     fun toast(text: String) = android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).show()
     if (creating) {
-        NewPlaylistDialog(onDismiss = { creating = false; onDismiss() }) { name, privacy ->
+        NewPlaylistDialog(onDismiss = { creating = false; onDismiss() }, local = !signedIn) { name, privacy ->
             creating = false
             onDismiss()
+            if (!signedIn) { c.prismLibrary.create(name, listOf(song)); toast("Added to $name"); return@NewPlaylistDialog }
             c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 val id = runCatching { c.ytm.createPlaylist(name, listOf(song.id), privacy = privacy) }.getOrNull()
                 toast(if (id != null) "Added to $name" else "Couldn't make the playlist")
@@ -647,7 +654,8 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
         }
         return
     }
-    val mine = playlists.filterIsInstance<PlaylistItem>().filter { !it.id.startsWith("LM") && !it.isMix }
+    val mine = prismLists.map { it.item() } +
+        (if (signedIn) playlists.filterIsInstance<PlaylistItem>().filter { !it.id.startsWith("LM") && !it.isMix } else emptyList())
     val shown = if (query.isBlank()) mine else mine.filter { it.title.contains(query.trim(), ignoreCase = true) }
     PrismSheet(onDismiss = onDismiss) { close ->
         Column(Modifier.padding(bottom = 20.dp)) {
@@ -657,7 +665,7 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
             SheetAction(PrismIcons.Add, "New playlist") { creating = true }
             if (mine.size > 8) SearchField(query, "Find a playlist", { query = it }, Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             if (mine.isEmpty()) Text(
-                "Your playlists show up here once your library has synced.", style = MaterialTheme.typography.bodyMedium,
+                if (signedIn) "Your playlists show up here once your library has synced." else "Make your first playlist: it's kept on this phone, no account needed.", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp),
             )
             androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 440.dp)) {
@@ -665,6 +673,11 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             close {
+                                if (com.prism.music.data.PrismLibrary.isPrismList(p.id)) {
+                                    val added = c.prismLibrary.add(p.id, listOf(song))
+                                    toast(if (added > 0) "Added to ${p.title}" else "Already in ${p.title}")
+                                    return@close
+                                }
                                 c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                     val ok = runCatching { c.ytm.addToPlaylist(p.id, song.id) }.isSuccess
                                     toast(if (ok) "Added to ${p.title}" else "Couldn't add to ${p.title}")
@@ -686,9 +699,9 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
     }
 }
 
-/** Name a new YouTube Music playlist and choose who can open it. */
+/** Name a new playlist: a YouTube Music one (and who can open it), or with [local] a Prism one kept on this phone. */
 @Composable
-fun NewPlaylistDialog(onDismiss: () -> Unit, onCreate: (name: String, privacy: String) -> Unit) {
+fun NewPlaylistDialog(onDismiss: () -> Unit, local: Boolean = false, onCreate: (name: String, privacy: String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var privacy by remember { mutableStateOf("PRIVATE") }
     AlertDialog(
@@ -697,6 +710,13 @@ fun NewPlaylistDialog(onDismiss: () -> Unit, onCreate: (name: String, privacy: S
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 com.prism.music.ui.components.PrismTextField(name, { name = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (local) {
+                    Text(
+                        "Kept on this phone (and in your backups), no account needed. Sign in to YouTube Music for playlists on your account.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    return@Column
+                }
                 Segmented(listOf("PRIVATE", "UNLISTED", "PUBLIC"), privacy, { when (it) { "PRIVATE" -> "Private"; "UNLISTED" -> "Unlisted"; else -> "Public" } }) { privacy = it }
                 Text(
                     when (privacy) {

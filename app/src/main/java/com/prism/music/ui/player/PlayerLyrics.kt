@@ -343,6 +343,8 @@ fun CurrentLyricStrip(state: LyricsState, isPlaying: Boolean, onClick: () -> Uni
     val synced = lines.any { it.timeMs >= 0 }
     Box(Modifier.fillMaxWidth().offset(y = 6.dp)) {
         when {
+            // A podcast episode has no lyrics to look for: the line keeps its room, empty.
+            state.song.isEpisode -> Text(" ", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 4.dp))
             lines.isNotEmpty() && !synced -> StripRow(onClick, note = true) {
                 Text("Open lyrics", style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1)
             }
@@ -672,6 +674,23 @@ fun LyricsPanel(
             .onFailure { android.util.Log.w("PrismLyrics", "Couldn't translate the lyrics: $it") }.getOrNull()
     }
     val translations = translation?.takeUnless { it.sameLanguage }?.translations
+    // Turned on for a song already in that language, nothing changes: say why, once, right after it's turned on.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var translateWasOn by remember { mutableStateOf(settings.lyricsTranslate) }
+    var justTurnedOn by remember { mutableStateOf(false) }
+    LaunchedEffect(settings.lyricsTranslate) {
+        if (settings.lyricsTranslate && !translateWasOn) justTurnedOn = true
+        translateWasOn = settings.lyricsTranslate
+    }
+    LaunchedEffect(translation, justTurnedOn) {
+        val t = translation ?: return@LaunchedEffect
+        if (!justTurnedOn) return@LaunchedEffect
+        justTurnedOn = false
+        if (t.sameLanguage) {
+            val name = java.util.Locale.forLanguageTag(t.to).getDisplayLanguage(java.util.Locale.getDefault()).ifBlank { t.to }
+            android.widget.Toast.makeText(context, "These lyrics are already in $name. Translations show for songs in other languages.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
     // Lyrics in a script the listener can't read, in Latin letters: under each line, or in its place.
     val roman = rememberRomanized(state)
     val romanInstead = romanizeMode(state.song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
