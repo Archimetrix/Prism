@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.VectorGroup
 import androidx.compose.ui.graphics.vector.VectorPath
 import androidx.compose.ui.graphics.vector.toPath
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import com.prism.music.ui.theme.PrismIcons
@@ -35,18 +36,75 @@ class IconRenderTest {
         .filter { it.type == ImageVector::class.java }
         .map { f -> f.isAccessible = true; f.get(PrismIcons) as ImageVector }
 
-    private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawIcon(v: ImageVector, color: Color) {
+    /** [v] as Compose draws it (fill strength included), its lines scaled by [weight] relative to the built one. */
+    private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawIcon(v: ImageVector, color: Color, weight: Float = 1f) {
         fun group(g: VectorGroup) {
             for (node in g) when (node) {
                 is VectorPath -> {
                     val path = node.pathData.toPath().apply { fillType = node.pathFillType }
-                    if (node.fill != null) drawPath(path, color)
-                    if (node.stroke != null) drawPath(path, color, style = Stroke(node.strokeLineWidth, cap = node.strokeLineCap, join = node.strokeLineJoin))
+                    if (node.fill != null) drawPath(path, color.copy(alpha = color.alpha * node.fillAlpha))
+                    if (node.stroke != null) drawPath(path, color, style = Stroke(node.strokeLineWidth * weight, cap = node.strokeLineCap, join = node.strokeLineJoin))
                 }
                 is VectorGroup -> rotate(node.rotation, Offset(node.pivotX, node.pivotY)) { group(node) }
             }
         }
         group(v.root)
+    }
+
+    /**
+     * The sheet to review the set by: every icon (selected twins too) with its name, in Thin, Regular and Bold at 24 dp,
+     * three device pixels to the dp, light on dark, onto icon-previews/icon-review.png. Plus every icon at 20, 24 and
+     * 32 dp at a phone's density (2.6), dark on light, onto icon-previews/icon-sizes.png.
+     */
+    @Test
+    fun reviewSheets() {
+        val named = PrismIcons::class.java.declaredFields.filter { it.type == ImageVector::class.java }
+            .map { f -> f.isAccessible = true; f.name to (f.get(PrismIcons) as ImageVector) }
+        val measurer = androidx.compose.ui.text.TextMeasurer(
+            androidx.compose.ui.text.font.createFontFamilyResolver(org.robolectric.RuntimeEnvironment.getApplication()), Density(1f), LayoutDirection.Ltr,
+        )
+        val label = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.TextUnit(15f, androidx.compose.ui.unit.TextUnitType.Sp))
+        val weights = com.prism.music.ui.theme.IconWeight.entries
+        val now = com.prism.music.ui.theme.IconStyle.weight.scale
+
+        run {
+            val cellW = 300; val cellH = 118; val cols = 6
+            val rows = (named.size + cols - 1) / cols
+            val bmp = Bitmap.createBitmap(cols * cellW, rows * cellH + 40, Bitmap.Config.ARGB_8888)
+            CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(bmp.asImageBitmap()), Size(bmp.width.toFloat(), bmp.height.toFloat())) {
+                drawRect(Color(0xFF060609))
+                drawText(measurer.measure("Thin · Regular · Bold at 24 dp (×3)", label), Color(0x99EEEEF5), Offset(16f, 10f))
+                named.forEachIndexed { i, (name, v) ->
+                    val x = (i % cols) * cellW + 16f
+                    val y = (i / cols) * cellH + 40f
+                    drawText(measurer.measure(name, label), Color(0x99EEEEF5), Offset(x, y))
+                    weights.forEachIndexed { k, w ->
+                        translate(x + k * 90f, y + 26f) { scale(3f, Offset.Zero) { drawIcon(v, Color(0xFFEEEEF5), w.scale / now) } }
+                    }
+                }
+            }
+            val dir = File("build/icon-previews").apply { mkdirs() }
+            File(dir, "icon-review.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        run {
+            val d = 2.6f
+            val sizes = listOf(20f, 24f, 32f)
+            val cellW = (sizes.sum() * d + 60).toInt(); val cellH = (32 * d + 24).toInt(); val cols = 8
+            val rows = (named.size + cols - 1) / cols
+            val bmp = Bitmap.createBitmap(cols * cellW, rows * cellH, Bitmap.Config.ARGB_8888)
+            CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(bmp.asImageBitmap()), Size(bmp.width.toFloat(), bmp.height.toFloat())) {
+                drawRect(Color(0xFFF6F6F8))
+                named.forEachIndexed { i, (_, v) ->
+                    var x = (i % cols) * cellW + 12f
+                    val y = (i / cols) * cellH + 12f
+                    sizes.forEach { s ->
+                        translate(x, y + (32 - s) * d / 2) { scale(s / 24f * d, Offset.Zero) { drawIcon(v, Color(0xFF0A0A10)) } }
+                        x += s * d + 18
+                    }
+                }
+            }
+            File(File("build/icon-previews"), "icon-sizes.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
     }
 
     /**
