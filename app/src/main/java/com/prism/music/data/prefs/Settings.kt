@@ -362,6 +362,8 @@ data class AppSettings(
     val autoplay: Boolean = true,
     /** Where Autoplay's songs come from: your own music, YouTube Music's radio, or both (offline it's always yours). */
     val autoplaySource: AutoplaySource = AutoplaySource.MIXED,
+    /** Home's Replay card look ([com.prism.music.ui.screens.ReplayCardStyle] name). */
+    val replayCard: String = "WASH",
     /** Autoplay and radios play songs: music videos swap for their song, and videos with no song version are left out (#39). */
     val radioSongsOnly: Boolean = true,
     /**
@@ -578,6 +580,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val cellularQuality = stringPreferencesKey("cellular_quality")
         val autoplay = booleanPreferencesKey("autoplay")
         val autoplaySource = stringPreferencesKey("autoplay_source")
+        val replayCard = stringPreferencesKey("replay_card")
         val radioSongsOnly = booleanPreferencesKey("radio_songs_only")
         val songsEverywhere = booleanPreferencesKey("songs_everywhere")
         val showTrackLength = booleanPreferencesKey("show_track_length")
@@ -747,6 +750,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             cellularQuality = p.enum(K.cellularQuality, d.cellularQuality),
             autoplay = p[K.autoplay] ?: d.autoplay,
             autoplaySource = p[K.autoplaySource]?.let { n -> AutoplaySource.entries.firstOrNull { it.name == n } } ?: d.autoplaySource,
+            replayCard = p[K.replayCard] ?: d.replayCard,
             radioSongsOnly = p[K.radioSongsOnly] ?: d.radioSongsOnly,
             songsEverywhere = p[K.songsEverywhere] ?: d.songsEverywhere,
             showTrackLength = p[K.showTrackLength] ?: d.showTrackLength,
@@ -968,6 +972,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCellularQuality(v: AudioQuality) = edit { it[K.cellularQuality] = v.name }
     fun setAutoplay(v: Boolean) = edit { it[K.autoplay] = v }
     fun setAutoplaySource(v: AutoplaySource) = edit { it[K.autoplaySource] = v.name }
+    fun setReplayCard(name: String) = edit { it[K.replayCard] = name }
     fun setRadioSongsOnly(v: Boolean) = edit { it[K.radioSongsOnly] = v }
     fun setSongsEverywhere(v: Boolean) = edit { it[K.songsEverywhere] = v }
     fun setShowTrackLength(v: Boolean) = edit { it[K.showTrackLength] = v }

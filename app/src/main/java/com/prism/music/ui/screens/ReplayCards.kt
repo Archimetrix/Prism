@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,7 +52,8 @@ import com.prism.music.ui.theme.PrismTokens
 enum class ReplayCardStyle(val label: String, val note: String) {
     QUIET("Quiet", "Plain glass, one hairline of split light"),
     LEDGER("Ledger", "Three numbers side by side"),
-    WASH("Wash", "A faint wash of colour and month bars (1.7 so far)"),
+    WASH("Wash", "A faint wash of colour and month bars"),
+    FRAME("Spectrum frame", "Glass ringed in split light, the time in colour"),
     RING("Ring", "The year so far as a ring of split light"),
     COVER("Cover", "Your top song's cover sets the colour"),
     STRIPE("Prism stripe", "A band of refracted light down one side"),
@@ -138,6 +140,17 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
                 Text("Your top songs, artists and genres", color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
             }
             MonthBars(d.months, hues, Modifier.align(Alignment.BottomEnd).size(width = (d.months.size * 7).dp, height = 54.dp), slim = true)
+        }
+        // 1.7's first look: glass ringed in split light, the time set large and light in the spectrum.
+        ReplayCardStyle.FRAME -> Box(
+            base.pane(shape).border(1.5.dp, PrismTokens.spectrum(dark), shape).clickable(onClick = onClick).padding(22.dp),
+        ) {
+            Column(Modifier.align(Alignment.BottomStart)) {
+                Eyebrow("Replay ${d.year}")
+                Text(d.total, style = big.copy(brush = PrismTokens.spectrum(dark)), maxLines = 1)
+                Text("See your top songs, artists and genres", color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+            }
+            Icon(PrismIcons.ReplayFilled, null, Modifier.align(Alignment.TopEnd), tint = scheme.onSurface)
         }
         // The year so far as a ring of split light (how far through the year), the time in its middle.
         ReplayCardStyle.RING -> Row(
@@ -241,6 +254,50 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
             Icon(PrismIcons.ChevronRight, null, Modifier.align(Alignment.TopEnd), tint = Color.White)
         }
     }
+}
+
+/**
+ * [style] with the listener's own year so far (as Home would show it), for picking a look in Settings. A tap does
+ * nothing here.
+ */
+@Composable
+fun ReplayCardPreview(style: ReplayCardStyle, modifier: Modifier = Modifier) {
+    val c = com.prism.music.ui.theme.LocalContainer.current
+    val year = androidx.compose.runtime.remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
+    val raw by androidx.compose.runtime.produceState<PreviewYear?>(null) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { previewYear(c) }.getOrNull() }
+    }
+    val y = raw ?: return
+    val art = y.cover?.takeIf { style == ReplayCardStyle.COVER }?.let { coil3.compose.rememberAsyncImagePainter(it) }
+    val data = ReplayCardData(year, listenTotal(y.ms).full, y.months, y.song, y.songArtist, y.artist, y.yearDone, 0)
+    ReplayCard(style, data, art, modifier) {}
+}
+
+private class PreviewYear(
+    val ms: Long, val months: List<Long>, val song: String?, val songArtist: String?, val artist: String?, val cover: String?, val yearDone: Float,
+)
+
+/** The listener's year so far, as Home's Replay card reads it. */
+private suspend fun previewYear(c: com.prism.music.AppContainer): PreviewYear {
+    val cal = java.util.Calendar.getInstance()
+    fun monthStart(m: Int) = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.MONTH, m); set(java.util.Calendar.DAY_OF_MONTH, 1)
+        set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+    }
+    val start = monthStart(0).timeInMillis
+    val now = System.currentTimeMillis()
+    val plays = c.db.plays()
+    val months = (0..cal.get(java.util.Calendar.MONTH)).map { m ->
+        val from = monthStart(m)
+        val to = (from.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH, 1) }
+        plays.totalMs(from.timeInMillis, minOf(to.timeInMillis, now))
+    }
+    val song = plays.topSongs(start, now, 1).firstOrNull()
+    val artist = plays.topArtists(start, now, 1).firstOrNull()
+    return PreviewYear(
+        plays.totalMs(start, now), months, song?.title, song?.artistName, artist?.artistName, song?.thumbnail,
+        cal.get(java.util.Calendar.DAY_OF_YEAR).toFloat() / cal.getActualMaximum(java.util.Calendar.DAY_OF_YEAR),
+    )
 }
 
 /** The year's months as bars in hue order (this month brightest); [slim] for a small corner chart, else a full row of twelve. */

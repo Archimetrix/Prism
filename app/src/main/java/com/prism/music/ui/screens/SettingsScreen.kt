@@ -269,6 +269,13 @@ private fun SettingsPage(
                         Toggle("Customize button at the top", "Top right of Home", s.homeCustomizeTopButton) { c.settings.setHomeCustomizeTopButton(it) }
                         Toggle("Customize button at the bottom", "At the end of Home", s.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
                     }
+                    Group("Replay card") {
+                        val look = ReplayCardStyle.entries.firstOrNull { it.name == s.replayCard } ?: ReplayCardStyle.WASH
+                        Note("How Replay looks on Home, from the quietest to the most colourful")
+                        Chips(ReplayCardStyle.entries, look, { it.label }) { c.settings.setReplayCard(it.name) }
+                        Note(look.note)
+                        ReplayCardPreview(look, Modifier.padding(top = 6.dp, bottom = 14.dp))
+                    }
                     Group("Made for you") {
                         val context = androidx.compose.ui.platform.LocalContext.current
                         Item("Your artists", "They shape your mixes and Release Radar", onClick = { nav.go(Routes.PICK_ARTISTS) }) { Chevron() }

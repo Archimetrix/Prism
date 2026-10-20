@@ -190,6 +190,7 @@ object SettingsIndex {
         SettingEntry(H, "Home", "Customize Home", "sections order shortcuts quick picks speed dial"),
         SettingEntry(H, "Home", "Add new sections automatically", "shelves"),
         SettingEntry(H, "Home", "Continue line", "continue album resume greeting hide context rewind"),
+        SettingEntry(H, "Replay card", "Replay card", "replay teaser look style design quiet ledger wash spectrum frame ring cover stripe bars aurora"),
         SettingEntry(H, "Home", "Podcasts button"),
         SettingEntry(H, "Home", "Customize button at the top"),
         SettingEntry(H, "Home", "Customize button at the bottom"),

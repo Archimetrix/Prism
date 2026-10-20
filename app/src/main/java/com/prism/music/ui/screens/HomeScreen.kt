@@ -762,6 +762,27 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
             }
         }
     }
+    // The listener's pick of looks (Settings → Home screen → Replay card); December's Rewind card keeps its own below.
+    if (!rewind) {
+        val look = ReplayCardStyle.entries.firstOrNull { it.name == LocalAppSettings.current.replayCard } ?: ReplayCardStyle.WASH
+        val top by produceState<Pair<com.prism.music.data.db.SongPlays?, com.prism.music.data.db.ArtistPlays?>>(null to null) {
+            val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
+            val now = System.currentTimeMillis()
+            value = runCatching { c.db.plays().topSongs(start, now, 1).firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull() }.getOrDefault(null to null)
+        }
+        val coverUrl = top.first?.thumbnail?.takeIf { look == ReplayCardStyle.COVER }
+        val art = if (coverUrl != null) coil3.compose.rememberAsyncImagePainter(coverUrl) else null
+        val yearDone = remember {
+            val cal = Calendar.getInstance()
+            cal.get(Calendar.DAY_OF_YEAR).toFloat() / cal.getActualMaximum(Calendar.DAY_OF_YEAR)
+        }
+        ReplayCard(
+            look,
+            ReplayCardData(year, total.full, months, top.first?.title, top.first?.artistName, top.second?.artistName, yearDone, 0),
+            art, Modifier.padding(vertical = ui.gap(16.dp)),
+        ) { nav.go(Routes.REPLAY) }
+        return
+    }
     val hues = com.prism.music.ui.theme.PrismTokens.spectrumColors(dark).map { it.second }
     val wash = if (dark) 0.16f else 0.10f
     Box(
