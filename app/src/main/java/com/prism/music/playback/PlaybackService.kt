@@ -238,6 +238,8 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                 if (on) singAhead()
             }
         }
+        // "Get songs ready while Sing is off" switched on: start with the playing song.
+        scope.launch { c.settings.flow.map { it.singAlwaysReady }.distinctUntilChanged().collect { if (it) singAhead() } }
         // Smart Shuffle: picks go in when it's turned on, and leave when it's turned off.
         scope.launch { c.queue.smartShuffle.drop(1).collect { on -> if (on) smartAhead() else dropSmartPicks() } }
         // DJ mode: the set is worked out when it's turned on, and again when its energy curve changes.
@@ -1133,9 +1135,12 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         }
     }
 
-    /** Sing on: the playing song's vocals first, then the next song's, so it's ready when it starts. */
+    /**
+     * Sing on (or set to get songs ready while it's off): the playing song's vocals first, then the next song's, so
+     * it's ready when it starts.
+     */
     private fun singAhead() {
-        if (!c.sing.onNow) return
+        if (!c.sing.onNow && !c.settings.current.singAlwaysReady) return
         val songs = listOfNotNull(player.currentMediaItem, *upcoming(1).toTypedArray()).filter { it.videoModeId == null }.mapNotNull { it.toSong() }
         c.sing.prepare(songs)
     }

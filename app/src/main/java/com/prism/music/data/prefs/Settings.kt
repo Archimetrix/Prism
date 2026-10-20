@@ -290,6 +290,8 @@ data class AppSettings(
     val romanizeAll: Boolean = false,
     /** Sing gets songs ready (downloads them whole) on mobile data too. */
     val singOnCellular: Boolean = false,
+    /** Settings → Lyrics → Sing: the playing and next songs are got ready even while Sing is off, so it starts at once. */
+    val singAlwaysReady: Boolean = false,
     /** How much room Sing's separated vocals may take, in MB. */
     val singCacheMb: Int = 1024,
     /** DJ mode's energy curve (picked in the queue, where DJ mode is switched on for the queue playing). */
@@ -521,6 +523,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val romanize = stringPreferencesKey("romanize_lyrics")
         val romanizeAll = booleanPreferencesKey("romanize_all")
         val singOnCellular = booleanPreferencesKey("sing_cellular")
+        val singAlwaysReady = booleanPreferencesKey("sing_always_ready")
         val singCacheMb = intPreferencesKey("sing_cache_mb")
         val djFlow = stringPreferencesKey("dj_flow")
         val releaseNotifications = booleanPreferencesKey("release_notifications")
@@ -687,6 +690,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             romanize = p.enum(K.romanize, d.romanize),
             romanizeAll = p[K.romanizeAll] ?: d.romanizeAll,
             singOnCellular = p[K.singOnCellular] ?: d.singOnCellular,
+            singAlwaysReady = p[K.singAlwaysReady] ?: d.singAlwaysReady,
             singCacheMb = p[K.singCacheMb] ?: d.singCacheMb,
             djFlow = p.enum(K.djFlow, d.djFlow),
             releaseNotifications = p[K.releaseNotifications] ?: d.releaseNotifications,
@@ -893,6 +897,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setRomanize(v: RomanizeMode) = edit { it[K.romanize] = v.name }
     fun setRomanizeAll(v: Boolean) = edit { it[K.romanizeAll] = v }
     fun setSingOnCellular(v: Boolean) = edit { it[K.singOnCellular] = v }
+    fun setSingAlwaysReady(v: Boolean) = edit { it[K.singAlwaysReady] = v }
     fun setSingCacheMb(v: Int) = edit { it[K.singCacheMb] = v }
     fun setDjFlow(v: com.prism.music.playback.DjFlow) = edit { it[K.djFlow] = v.name }
     fun setReleaseNotifications(v: Boolean) = edit { it[K.releaseNotifications] = v }

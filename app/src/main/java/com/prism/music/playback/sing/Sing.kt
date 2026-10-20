@@ -82,10 +82,16 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
         return c.models.download(runtime) && c.models.download(ModelStore.Model.SING_MODEL)
     }
 
+    /** Settings → Lyrics → Sing → "Get songs ready while Sing is off": songs are separated ahead with Sing off too. */
+    private val alwaysReady: Boolean get() = c.settings.current.singAlwaysReady
+
+    /** Songs are being got ready: Sing is on, or set to get them ready anyway. */
+    private val working: Boolean get() = onNow || alwaysReady
+
     fun setOn(on: Boolean) {
         _on.value = on
         onNow = on
-        if (!on) {
+        if (!on && !alwaysReady) {
             synchronized(wanted) { wanted.clear() }
             scheduleRelease()
         }
@@ -100,7 +106,7 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
 
     /** Separates [songs] (the playing one first), skipping what's done, what can't be done, and what's already queued. */
     fun prepare(songs: List<Song>) {
-        if (!onNow || !engineReady()) return
+        if (!working || !engineReady()) return
         val todo = songs.filter { canSing(it) && !store.complete(it.id) }
         synchronized(wanted) {
             // The playing song goes to the front; anything no longer wanted is dropped.
@@ -116,7 +122,7 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
     private suspend fun drain() {
         while (true) {
             val next = synchronized(wanted) { wanted.removeFirstOrNull() } ?: return
-            if (!onNow) return
+            if (!working) return
             runCatching { withContext(worker) { separate(next) } }
                 .onSuccess { _problem.value = null }
                 .onFailure {
@@ -148,7 +154,7 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
         releaseJob = scope.launch {
             delay(3 * 60_000L)
             withContext(worker) {
-                if (!onNow) {
+                if (!working) {
                     sessions?.let { (v, a) -> runCatching { v.close() }; runCatching { a.close() } }
                     sessions = null
                 }
@@ -200,7 +206,7 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
                     }
                     try {
                         while (true) {
-                            if (!onNow) throw IOException("Sing was switched off")
+                            if (!working) throw IOException("Sing was switched off")
                             val in44 = reader.next() ?: break
                             val vocalsNow = back.push(spleeter.feed(in44))
                             if (vocalsNow.isNotEmpty()) {

@@ -294,6 +294,12 @@
         });
         el.appendChild(bg);
       }
+      // How far through the line the song is: a thin line of split light under it, grown while it's sung.
+      if (l.synced && !line.gap) {
+        const prog = document.createElement('span');
+        prog.className = 'prog';
+        el.appendChild(prog);
+      }
       if (l.synced) el.addEventListener('click', () => seekTo(line.t - (state ? state.lyricShift || 0 : 0)));
       box.appendChild(el);
       lineEls.push(el);
@@ -315,7 +321,11 @@
       lineEls.forEach((el, i) => {
         el.classList.toggle('past', i < now);
         el.classList.toggle('now', i === now);
-        if (i !== now) el.querySelectorAll('.w').forEach((w) => { w.style.backgroundPosition = ''; });
+        if (i !== now) {
+          el.querySelectorAll('.w').forEach((w) => { w.style.fontWeight = ''; w.style.color = ''; w.style.letterSpacing = ''; });
+          const prog = el.querySelector('.prog');
+          if (prog) prog.style.width = '';
+        }
       });
       lastLine = now;
       if (now >= 0 && performance.now() - userScrolledAt > 3000) {
@@ -325,14 +335,48 @@
       }
     }
     if (now >= 0) {
-      lineEls[now].querySelectorAll('.w').forEach((w) => {
+      const el = lineEls[now];
+      // Each word thickens from Light to Medium and brightens as it's sung, giving its extra width back as letter
+      // spacing so the line doesn't shift (as on the phone).
+      el.querySelectorAll('.w').forEach((w) => {
         const a = Number(w.dataset.t);
         const b = Number(w.dataset.e);
         const p = t <= a ? 0 : t >= b || b <= a ? 1 : (t - a) / (b - a);
-        w.style.backgroundPosition = `${100 - p * 100}% 0`;
+        const step = Math.round(p * 10);
+        w.style.fontWeight = String(300 + step * 20);
+        w.style.color = `rgba(255, 255, 255, ${0.42 + 0.058 * step})`;
+        const k = spreadOf(w);
+        w.style.letterSpacing = k ? `${(-k * step / 10).toFixed(3)}px` : '';
       });
+      const prog = el.querySelector('.prog');
+      if (prog) {
+        const start = lines[now].t;
+        const next = lines.slice(now + 1).find((x) => x.t > start);
+        const end = next ? next.t : start + 4000;
+        prog.style.width = `${Math.max(0, Math.min(1, (t - start) / Math.max(1, end - start))) * 70}%`;
+      }
     }
   }
+
+  // How much wider each letter of a word is at Medium than at Light, in px (measured once per word, in Outfit).
+  const measure = document.createElement('canvas').getContext('2d');
+  function spreadOf(w) {
+    if (w.dataset.k !== undefined) return Number(w.dataset.k);
+    const text = w.textContent || '';
+    if (!text.trim() || !measure) { w.dataset.k = '0'; return 0; }
+    const cs = getComputedStyle(w);
+    const size = cs.fontSize;
+    const family = cs.fontFamily;
+    measure.font = `300 ${size} ${family}`;
+    const light = measure.measureText(text).width;
+    measure.font = `500 ${size} ${family}`;
+    const medium = measure.measureText(text).width;
+    const k = Math.max(0, (medium - light) / text.length);
+    w.dataset.k = String(k);
+    return k;
+  }
+  // Measured once Outfit has loaded, so the first words aren't measured in a fallback font.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => document.querySelectorAll('.w').forEach((w) => { delete w.dataset.k; }));
 
   ['wheel', 'touchmove', 'keydown'].forEach((ev) => $('tab-lyrics').addEventListener(ev, () => { userScrolledAt = performance.now(); }, { passive: true }));
 

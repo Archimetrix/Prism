@@ -1,5 +1,11 @@
 package com.prism.music.ui.player
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
 import com.prism.music.ui.theme.withLyricsFont
 import android.app.Activity
 import androidx.compose.animation.AnimatedContent
@@ -114,8 +120,16 @@ import com.prism.music.data.prefs.ImmersiveArt
 import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.rememberHaptics
 
-/** The lines' look: big, bold and centred, like a lyric video's. */
-private val lineShadow = Shadow(Color.Black.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 2f), 14f)
+/** The lines' look (Aura × Spectrum): big, light and centred, lifted off the cover by a soft glow rather than a hard shadow. */
+private val lineShadow = Shadow(Color.Black.copy(alpha = 0.45f), androidx.compose.ui.geometry.Offset(0f, 1f), 26f)
+
+/** The lyrics' typeface on its weight axis, so the sung words thicken as on the lyrics page; null for System / imported fonts. */
+@Composable
+private fun lyricsAxis(): androidx.compose.ui.text.font.FontFamily? {
+    val s = com.prism.music.ui.theme.LocalAppSettings.current
+    val choice = if (s.lyricsFont.isEmpty()) s.fontChoice else com.prism.music.data.prefs.FontChoice.entries.firstOrNull { it.name == s.lyricsFont }
+    return remember(choice) { choice?.let(com.prism.music.ui.theme.AppFonts::axis) }
+}
 
 /**
  * Immersive mode (the player's ⋯ menu): the cover fills the screen (its animated version when it has one) and the
@@ -153,7 +167,9 @@ fun ImmersivePlayer(
     // A tap shows the button for a few seconds; another tap (or the time) hides it.
     // Held down, the button stays up however long that takes.
     var pressing by remember { mutableStateOf(false) }
-    LaunchedEffect(button, menu, pressing) { if (button && !menu && !pressing) { delay(4000); button = false } }
+    // A press on the controls keeps them up a while longer.
+    var poke by remember { mutableStateOf(0) }
+    LaunchedEffect(button, menu, pressing, poke) { if (button && !menu && !pressing) { delay(4000); button = false } }
 
     // Edge to edge for real: the system bars hide (a swipe from the edge shows them for a moment), and the screen stays on.
     DisposableEffect(Unit) {
@@ -287,16 +303,61 @@ fun ImmersivePlayer(
             }
         }
 
-        // ---- The settings button, on a tap: low down, under the thumb. Held, it fills and leaves immersive mode.
+        // ---- How far through the song: a hairline of split light along the very bottom, quiet enough to stay immersive.
+        val position = rememberPosition(fast = false, hold = covered)
+        val duration = c.player.duration.coerceAtLeast(1L)
+        val dark = true
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(2.dp).drawBehind {
+                drawRect(Color.White.copy(alpha = 0.12f))
+                drawRect(
+                    com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width),
+                    size = size.copy(width = size.width * (position.toFloat() / duration).coerceIn(0f, 1f)), alpha = 0.85f,
+                )
+            },
+        )
+
+        // ---- On a tap: the song at the top, and the controls low down under the thumb in a glass capsule (previous,
+        // play / pause, next and the settings button, which held fills and leaves immersive mode).
         AnimatedVisibility(
-            button || menu, Modifier.align(Alignment.BottomCenter).padding(bottom = insets.calculateBottomPadding() + 28.dp),
-            enter = fadeIn(tween(200)) + scaleIn(tween(200), initialScale = 0.85f), exit = fadeOut(tween(300)),
+            button || menu, Modifier.align(Alignment.TopCenter).padding(top = insets.calculateTopPadding() + 14.dp, start = 28.dp, end = 28.dp),
+            enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it / 2 }, exit = fadeOut(tween(300)),
         ) {
-            HoldToLeaveButton(
-                onTap = { menu = true },
-                onPressing = { pressing = it },
-                onHeld = { haptics.gestureEnd(); onExit() },
-            )
+            Column(
+                Modifier.clip(RoundedCornerShape(22.dp)).background(Color.Black.copy(alpha = 0.22f)).background(Color.White.copy(alpha = 0.10f))
+                    .border(0.7.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.2f), Color.White.copy(alpha = 0.02f))), RoundedCornerShape(22.dp))
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(song.title, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.artistText, color = Color.White.copy(alpha = 0.65f), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        AnimatedVisibility(
+            button || menu, Modifier.align(Alignment.BottomCenter).padding(bottom = insets.calculateBottomPadding() + 26.dp),
+            enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }, exit = fadeOut(tween(300)),
+        ) {
+            Row(
+                Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.22f)).background(Color.White.copy(alpha = 0.10f))
+                    .border(0.7.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.2f), Color.White.copy(alpha = 0.02f))), CircleShape)
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ImmersiveGlyph(PrismIcons.Previous, "Previous") { haptics.tick(); poke++; c.player.previous() }
+                Box(
+                    Modifier.size(56.dp).clip(CircleShape).background(Color.White)
+                        .border(2.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape)
+                        .clickable(onClickLabel = if (isPlaying) "Pause" else "Play") { haptics.click(); poke++; c.player.togglePlay() },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(if (isPlaying) PrismIcons.Pause else PrismIcons.Play, if (isPlaying) "Pause" else "Play", Modifier.size(26.dp), tint = Color.Black) }
+                ImmersiveGlyph(PrismIcons.Next, "Next") { haptics.tick(); poke++; c.player.next() }
+                HoldToLeaveButton(
+                    onTap = { menu = true },
+                    onPressing = { pressing = it },
+                    onHeld = { haptics.gestureEnd(); onExit() },
+                )
+            }
         }
     }
 
@@ -335,9 +396,10 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
     val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
     val synced = lines.any { it.timeMs >= 0 }
     val lineStyle = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Medium,
+        fontSize = 31.sp, lineHeight = 38.sp, fontWeight = FontWeight.Light,
         textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
     ).withLyricsFont()
+    val axis = lyricsAxis()
     if (lines.isEmpty() || !synced) {
         // Plain lyrics can't be followed along: the song's name stays up, as at the start of a lyric video.
         TitleCard(song)
@@ -363,9 +425,12 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
                 // Before the first line: the song's name, as a lyric video opens.
                 line == null && i < firstSung -> TitleCard(song)
                 line == null -> Text("♪", style = lineStyle, color = Color.White.copy(alpha = 0.7f))
+                line.isWordSynced && axis != null -> WeightSweptLine(line, clock, lineStyle, axis, Modifier.fillMaxWidth())
                 line.isWordSynced -> SweptLine(line, clock, lineStyle, Modifier.fillMaxWidth(), maxLines = 4, dimAlpha = 0.45f)
-                else -> Text(line.text, style = lineStyle, color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                else -> Text(line.text, style = lineStyle.copy(fontWeight = FontWeight.Normal), color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
             }
+            // How far through the line the song is: the split light, growing from the middle.
+            if (line != null && line.endMs > line.timeMs) LyricProgress(line.timeMs, line.endMs, clock, 0.5f, Modifier.fillMaxWidth().padding(top = 12.dp))
             // Romanized "under each line": the Latin spelling, smaller, under the big line.
             if (!instead && line != null) roman?.getOrNull(i)?.let { r ->
                 val romanStyle = lineStyle.copy(fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Normal, textDirection = TextDirection.Ltr)
@@ -379,8 +444,8 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
                 Text(
                     n.text, color = Color.White.copy(alpha = 0.55f), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Normal, textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
-                    ),
+                        fontWeight = FontWeight.Light, textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
+                    ).withLyricsFont(),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -497,9 +562,10 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
     val index by remember(lines) { derivedStateOf { lines.indexAtOrBefore(clock.value) } }
     val list = rememberLazyListState()
     val style = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Medium,
+        fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Light,
         textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
     ).withLyricsFont()
+    val axis = lyricsAxis()
     LaunchedEffect(lines, index) {
         val target = index.coerceAtLeast(0)
         // Glide to a line on screen; jump to one further off (a seek).
@@ -535,9 +601,11 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
                     Column(Modifier.fillMaxWidth()) {
                         when {
                             line.isGap -> Text("♪", style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
+                            current && line.isWordSynced && axis != null -> WeightSweptLine(line, clock, style, axis, Modifier.fillMaxWidth())
                             current && line.isWordSynced -> SweptLine(line, clock, style, Modifier.fillMaxWidth(), dimAlpha = 0.45f)
                             else -> Text(line.text, style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
                         }
+                        if (current && !line.isGap && line.endMs > line.timeMs) LyricProgress(line.timeMs, line.endMs, clock, 0.5f, Modifier.fillMaxWidth().padding(top = 10.dp))
                         if (!instead && !line.isGap) roman?.getOrNull(i)?.let { r ->
                             val romanStyle = style.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal, textDirection = TextDirection.Ltr)
                             if (current && r.isWordSynced) SweptLine(r, clock, romanStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = 0.45f)
@@ -548,4 +616,13 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
             }
         }
     }
+}
+
+/** Previous / next in immersive mode's capsule. */
+@Composable
+private fun ImmersiveGlyph(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(48.dp).clip(CircleShape).clickable(onClickLabel = description, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, description, Modifier.size(26.dp), tint = Color.White) }
 }

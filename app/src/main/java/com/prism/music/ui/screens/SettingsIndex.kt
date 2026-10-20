@@ -162,6 +162,7 @@ object SettingsIndex {
         SettingEntry(Y, "Language", "Japanese reading data", "romaji kanji dictionary download kuromoji"),
         SettingEntry(Y, "Sing", "Sing's voice separation", "karaoke vocals remove instrumental download model"),
         SettingEntry(Y, "Sing", "Get songs ready on mobile data", "karaoke cellular"),
+        SettingEntry(Y, "Sing", "Get songs ready while Sing is off", "karaoke prepare ahead background preload vocals always ready"),
         SettingEntry(Y, "Sing", "Room for sung songs", "karaoke storage space"),
         SettingEntry(Y, "Sing", "Clear sung songs", "karaoke storage delete"),
         SettingEntry(Y, "Look", "Alignment", "left centre center right"),

@@ -64,7 +64,8 @@ class RemoteServerTest {
         }
     }
 
-    private fun assets(name: String): ByteArray? = File("src/main/assets/remote/$name").takeIf { it.isFile }?.readBytes()
+    // As the app serves them: the page's files, and Prism's own font.
+    private fun assets(name: String): ByteArray? = (if (name == "outfit.ttf") File("src/main/res/font/outfit.ttf") else File("src/main/assets/remote/$name")).takeIf { it.isFile }?.readBytes()
 
     private class Answer(val status: Int, val headers: Map<String, String>, val body: String)
 

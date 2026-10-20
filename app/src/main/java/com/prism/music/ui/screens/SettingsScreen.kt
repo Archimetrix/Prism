@@ -1275,6 +1275,10 @@ private fun SingSettings() {
             },
         )
         Toggle("Get songs ready on mobile data", "A few MB a song", s.singOnCellular, info = "Sing needs each song whole on the phone. Off, it waits for Wi-Fi unless the song is downloaded or already played through.") { c.settings.setSingOnCellular(it) }
+        Toggle(
+            "Get songs ready while Sing is off", "So Sing starts at once when you turn it on", s.singAlwaysReady,
+            info = "The playing song and the next are separated in the background even with Sing off. It uses more battery while music plays; on mobile data it follows the setting above.",
+        ) { c.settings.setSingAlwaysReady(it) }
         SliderSetting("Room for sung songs", s.singCacheMb.toFloat(), 256f..4096f, { "${(it / 1024f).let { gb -> if (gb >= 1) "%.1f GB".format(gb) else "${it.roundToInt()} MB" }}" }, steps = 14) {
             c.settings.setSingCacheMb(it.roundToInt())
         }

@@ -75,7 +75,13 @@ class WebRemote(private val app: Application, private val c: AppContainer) : Rem
         override fun put(key: String, value: String) = prefs.edit().putString(key, value).apply()
         override fun remove(key: String) = prefs.edit().remove(key).apply()
     })
-    private val server = RemoteServer(auth, this, { name -> runCatching { app.assets.open("remote/$name").use { it.readBytes() } }.getOrNull() })
+    // The page's files; its font is Prism's own Outfit, straight from the app (nothing is fetched from the internet).
+    private val server = RemoteServer(auth, this, { name ->
+        runCatching {
+            if (name == "outfit.ttf") app.resources.openRawResource(com.prism.music.R.font.outfit).use { it.readBytes() }
+            else app.assets.open("remote/$name").use { it.readBytes() }
+        }.getOrNull()
+    })
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
     private val _running = MutableStateFlow(false)

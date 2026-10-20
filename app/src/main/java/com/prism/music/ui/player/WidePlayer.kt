@@ -103,6 +103,7 @@ internal fun WidePlayerContent(
     onLyricsSource: () -> Unit,
     onCollapse: () -> Unit,
     onSing: () -> Unit = {},
+    onSingNeedsDownload: () -> Unit = onSing,
 ) {
     val c = LocalContainer.current
     val pc = c.player
@@ -196,10 +197,7 @@ internal fun WidePlayerContent(
                 when (p) {
                     PlayerPane.LYRICS -> Column(Modifier.fillMaxSize()) {
                         LyricsPanel(lyricsState, isPlaying && !covered, controlsOpen = true, onRevealControls = {}, onHideControls = {}, modifier = Modifier.weight(1f).fillMaxWidth())
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.weight(1f)) { LyricsStatusWithChange(lyricsState, onLyricsSource) }
-                            if (c.sing.canSing(song)) SingButton(song, onSing)
-                        }
+                        LyricsFooter(lyricsState, song, onChangeSource = onLyricsSource, onNeedsDownload = onSingNeedsDownload)
                         Spacer(Modifier.height(10.dp))
                     }
                     PlayerPane.QUEUE -> InlineQueue(onRevealPlayer = {}, onHidePlayer = {}, modifier = Modifier.fillMaxSize())

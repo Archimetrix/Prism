@@ -137,6 +137,17 @@ fun DesignGalleryContent(modifier: Modifier = Modifier) {
                 listOf(ActionItem(PrismIcons.Album, "Album") {}, ActionItem(PrismIcons.Person, "Artist") {}, ActionItem(PrismIcons.Delete, "Remove from playlist", danger = true) {}),
             ) {}
         }
+        Section("Play on") {
+            com.prism.music.ui.player.OutputGroup("This phone") {
+                com.prism.music.ui.player.DeviceRow(PrismIcons.Phone, "Pixel 10 Pro XL", "Phone speaker") {}
+                com.prism.music.ui.player.DeviceRow(PrismIcons.Headphones, "AirPods Pro", "Bluetooth") {}
+            }
+            com.prism.music.ui.player.OutputGroup("Speakers & TVs") {
+                com.prism.music.ui.player.DeviceRow(PrismIcons.Speaker, "Kitchen speaker", "Google Cast", selected = true) {}
+                com.prism.music.ui.player.DeviceRow(PrismIcons.Tv, "Living Room TV", "DLNA · Connecting…", busy = true) {}
+                com.prism.music.ui.player.DeviceRow(PrismIcons.Close, "Stop casting", "The music pauses; pick this phone to carry on here") {}
+            }
+        }
         Section("Fields and states") {
             var q by remember { mutableStateOf("") }
             SearchField(q, "Search in playlist", { q = it }, Modifier.padding(horizontal = 16.dp))

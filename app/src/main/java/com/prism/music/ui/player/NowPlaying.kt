@@ -224,8 +224,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         statsOpen = opening
         if (opening) { closeLyrics(); queueOpen = false }
     }
-    LaunchedEffect(lyricsOpen, lyricsControlsOpen, volume.dragging) {
-        if (lyricsOpen && lyricsControlsOpen && !volume.dragging) { delay(5000); lyricsControlsOpen = false }
+    // Sing's controls up over the lyrics: the deck stays (it holds them), and comes back when they're opened.
+    val singing by c.sing.on.collectAsState()
+    val singControls = singing && SingUi.panel
+    LaunchedEffect(singControls) { if (singControls) lyricsControlsOpen = true }
+    LaunchedEffect(lyricsOpen, lyricsControlsOpen, volume.dragging, singControls) {
+        if (lyricsOpen && lyricsControlsOpen && !volume.dragging && !singControls) { delay(5000); lyricsControlsOpen = false }
     }
 
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -340,7 +344,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onSleepTimer = { showSleep = true },
             onCollapse = onCollapse,
             romanizable = hasForeignScript(lyricsState),
-            onSing = { showSing = true },
+            // Sing from the menu: the lyrics open with Sing on and its controls up (the download sheet the first time).
+            onSing = { if (c.sing.engineReady()) { openLyrics(); if (!c.sing.on.value) c.sing.setOn(true); SingUi.panel = true } else showSing = true },
         ) { showActions = false }
         if (showSleep) SleepTimerDialog { showSleep = false }
         if (showTiming) LyricsTimingSheet { showTiming = false }
@@ -501,6 +506,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onLyricsSource = { showProviders = true },
             onCollapse = onCollapse,
             onSing = { showSing = true },
+            onSingNeedsDownload = { showSing = true },
         ) else
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().then(skipGesture), horizontalAlignment = Alignment.CenterHorizontally) {
             // ------------------------------------------------ Handle + caption
@@ -713,11 +719,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     exit = shrinkVertically(tween(420, easing = FastOutSlowInEasing), shrinkTowards = Alignment.Top) + fadeOut(tween(300)),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // With the lyrics open: where they're from, and Sing beside it.
-                        if (lyricsOpen) Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.weight(1f)) { LyricsStatusWithChange(lyricsState) { showProviders = true } }
-                            if (c.sing.canSing(song)) SingButton(song) { showSing = true }
-                        }
+                        // With the lyrics open: the glass foot of the lyrics (their source, and Sing with its controls).
+                        if (lyricsOpen) LyricsFooter(lyricsState, song, onChangeSource = { showProviders = true }, onNeedsDownload = { showSing = true }, modifier = Modifier.padding(bottom = 6.dp))
                         else if (settings.lyricsOnPlayer) CurrentLyricStrip(lyricsState, isPlaying && !covered, openLyrics)
                         // With "Current lyric" off no blank line is kept for it: the cover and title get the room.
                         PlayerScrubber(position, pc.duration) {
