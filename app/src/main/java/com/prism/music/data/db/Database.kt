@@ -230,6 +230,19 @@ data class SongPlays(
 val SongPlays.mainArtist: String
     get() = primaryArtist.ifBlank { if (artistName == UNKNOWN_ARTIST) "" else artistName.substringBefore(", ") }
 
+/**
+ * One entry per song however many uploads of it were played (YouTube often has two "Beat It"s: the album's and a
+ * single's): same title without its brackets, same main artist. The most played upload stands for the song, with the
+ * plays and time of all of them; most listened first, as the query orders them.
+ */
+fun List<SongPlays>.mergeUploads(): List<SongPlays> {
+    fun key(s: SongPlays) = s.title.lowercase().replace(Regex("\\s*[(\\[][^)\\]]*[)\\]]"), "").replace(Regex("\\s+"), " ").trim() +
+        "|" + s.mainArtist.lowercase()
+    return groupBy { if (it.mainArtist.isBlank()) it.songId else key(it) }.values
+        .map { same -> same.maxBy { it.ms }.copy(plays = same.sumOf { it.plays }, ms = same.sumOf { it.ms }) }
+        .sortedWith(compareByDescending<SongPlays> { it.ms }.thenByDescending { it.plays })
+}
+
 @kotlinx.serialization.Serializable
 data class ArtistPlays(val artistName: String, val plays: Int, val ms: Long, val thumbnail: String?, val artistId: String?)
 @kotlinx.serialization.Serializable

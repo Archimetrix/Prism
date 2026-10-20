@@ -253,10 +253,15 @@ fun RecognizedScreen(bottomPadding: Dp) {
             }
         }
         if (history.isEmpty()) item("empty") {
-            Text(
-                "Songs you recognize show up here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                com.prism.music.ui.components.EmptyState(
+                    PrismIcons.Recognize, "Nothing recognized yet",
+                    "Hear a song you like? Let Prism listen for a few seconds: what it finds is kept here.",
+                )
+                PrismButton({ nav.go(Routes.RECOGNIZE + "?start=true") }) {
+                    Icon(PrismIcons.Recognize, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Recognize a song")
+                }
+            }
         }
         history.forEach { r ->
             item(r.id) {

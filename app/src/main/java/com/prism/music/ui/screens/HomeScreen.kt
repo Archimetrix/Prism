@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.data.db.mergeUploads
 import com.prism.music.ui.theme.lit
 import androidx.compose.foundation.border
 import com.prism.music.data.model.quickPicks
@@ -469,12 +470,23 @@ private fun GreetingSection(cfg: HomeSectionConfig, recent: List<Song>) {
             val art = c.covers.art(pl.id, pl.thumbnail)
             add(Tile(pl.title, null, art, Playable.Of(PlaylistItem(pl.id, pl.title, "Playlist", art))) { nav.go(Routes.playlist(pl.id)) })
         }
-        recent.distinctBy { it.album?.id ?: it.id }.take(settings.homeRecentTiles).forEach { s ->
-            val album = s.album?.id?.let { AlbumItem(it, s.album.title, s.primaryArtist, s.thumbnail) }
-            add(Tile(s.album?.title ?: s.title, null, s.thumbnail, Playable.Of(album ?: SongItem(s))) {
-                if (album != null) nav.go(Routes.album(album.id)) else c.player.playSingle(s)
-            })
-        }
+        // One tile per album: by its id, or (music files on the phone have no album id) by its title and artist.
+        recent.distinctBy { s -> s.album?.id ?: s.album?.title?.takeIf { it.isNotBlank() }?.let { "t:${it.lowercase()}|${s.primaryArtist.lowercase()}" } ?: s.id }
+            .take(settings.homeRecentTiles).forEach { s ->
+                val album = s.album?.id?.let { AlbumItem(it, s.album.title, s.primaryArtist, s.thumbnail) }
+                add(Tile(s.album?.title ?: s.title, null, s.thumbnail, Playable.Of(album ?: SongItem(s))) {
+                    when {
+                        album != null -> nav.go(Routes.album(album.id))
+                        // A file's album: its songs on the phone, in order.
+                        s.isLocal && s.album?.title != null -> {
+                            val songs = c.localMusic.tracks.value.map { it.song }.filter { it.album?.title == s.album.title && it.primaryArtist == s.primaryArtist }
+                            if (songs.size > 1) c.player.playQueue(songs, songs.indexOfFirst { it.id == s.id }.coerceAtLeast(0), com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.ALBUM, s.album.title))
+                            else c.player.playSingle(s)
+                        }
+                        else -> c.player.playSingle(s)
+                    }
+                })
+            }
     }
     val menu = rememberPlayMenu()
     if (tiles.isEmpty()) return
@@ -734,7 +746,7 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         val top by produceState<Pair<com.prism.music.data.db.SongPlays?, com.prism.music.data.db.ArtistPlays?>>(null to null) {
             val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
             val now = System.currentTimeMillis()
-            value = c.db.plays().topSongs(start, now, 1).firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull()
+            value = c.db.plays().topSongs(start, now, 20).mergeUploads().firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull()
         }
         val open: () -> Unit = { if (rewind) c.rewindRequest.value = year; nav.go(Routes.REPLAY) }
         val dark = com.prism.music.ui.theme.LocalIsDark.current
@@ -768,7 +780,7 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         val top by produceState<Pair<com.prism.music.data.db.SongPlays?, com.prism.music.data.db.ArtistPlays?>>(null to null) {
             val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
             val now = System.currentTimeMillis()
-            value = runCatching { c.db.plays().topSongs(start, now, 1).firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull() }.getOrDefault(null to null)
+            value = runCatching { c.db.plays().topSongs(start, now, 20).mergeUploads().firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull() }.getOrDefault(null to null)
         }
         val coverUrl = top.first?.thumbnail?.takeIf { look == ReplayCardStyle.COVER }
         val art = if (coverUrl != null) coil3.compose.rememberAsyncImagePainter(coverUrl) else null

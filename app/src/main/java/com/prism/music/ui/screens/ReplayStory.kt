@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.data.db.mergeUploads
 import com.prism.music.ui.theme.PrismIcons
 import android.content.Context
 import android.content.Intent
@@ -205,7 +206,7 @@ internal suspend fun loadReplayStory(c: AppContainer, period: Period): ReplaySto
 private suspend fun loadPeriodStory(c: AppContainer, period: Period): ReplayStory = withContext(Dispatchers.IO) {
     val (from, to) = range(period)
     val dao = c.db.plays()
-    val songs = dao.topSongs(from, to, 100)
+    val songs = dao.topSongs(from, to, 150).mergeUploads().take(100)
     val artists = dao.topArtists(from, to, 20)
     val totalMs = dao.totalMs(from, to)
     val genreMap = c.meta.cachedGenres(songs.map { it.toSong() })

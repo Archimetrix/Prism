@@ -451,9 +451,15 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
             log("video for ${song.id} \"${song.title}\": no artist or title to search with")
             return null
         }
-        val videos = search("${song.title} ${song.primaryArtist}", SearchFilter.VIDEOS).items
+        var videos = search("${song.title} ${song.primaryArtist}", SearchFilter.VIDEOS).items
             .filterIsInstance<SongItem>().map { it.song }
-        val picked = MusicVideoMatch.pick(song, videos)
+        var picked = MusicVideoMatch.pick(song, videos)
+        // Fan uploads can crowd the artist's own video off the first page: ask once more, for the official one.
+        if (picked == null) {
+            val more = runCatching { search("${song.title} ${song.primaryArtist} official video", SearchFilter.VIDEOS).items.filterIsInstance<SongItem>().map { it.song } }.getOrDefault(emptyList())
+            picked = MusicVideoMatch.pick(song, more)
+            videos = videos + more
+        }
         // What was looked at, so a "no video" can be told apart from a wrong rule (shared in playback diagnostics).
         log(
             "video for ${song.id} \"${song.title}\" by ${song.artistText} (${song.durationSec}s): " +

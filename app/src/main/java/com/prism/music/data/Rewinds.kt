@@ -1,5 +1,6 @@
 package com.prism.music.data
 
+import com.prism.music.data.db.mergeUploads
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
@@ -72,7 +73,7 @@ class Rewinds(private val c: AppContainer) {
     suspend fun build(year: Int): RewindSnapshot = withContext(Dispatchers.IO) {
         // The slow, network-bound pieces (a lyric line, the top artist's photo) go first, alongside the counting.
         val (from0, end0) = RewindCalendar.bounds(year)
-        val topNow = c.db.plays().topSongs(from0, minOf(end0, System.currentTimeMillis()), 1).firstOrNull()
+        val topNow = c.db.plays().topSongs(from0, minOf(end0, System.currentTimeMillis()), 20).mergeUploads().firstOrNull()
         val lyricJob = async { topNow?.let { lyricLine(it) } }
         val imageJob = async {
             c.db.plays().topArtists(from0, minOf(end0, System.currentTimeMillis()), 1).firstOrNull()?.artistId?.let { id ->
@@ -84,7 +85,7 @@ class Rewinds(private val c: AppContainer) {
         val (from, end) = RewindCalendar.bounds(year, zone)
         val to = minOf(end, now)
         val dao = c.db.plays()
-        val songs = dao.topSongs(from, to, 100)
+        val songs = dao.topSongs(from, to, 150).mergeUploads().take(100)
         val artists = dao.topArtists(from, to, 20)
         val totalMs = dao.totalMs(from, to)
         val genreMap = c.meta.cachedGenres(songs.map { it.song() })
@@ -110,7 +111,7 @@ class Rewinds(private val c: AppContainer) {
         val seasons = RewindCalendar.quarters.indices.mapNotNull { q ->
             val (qa, qb) = RewindCalendar.quarterBounds(year, q, zone)
             if (qa > to) return@mapNotNull null
-            val qs = dao.topSongs(qa, minOf(qb, to), 40)
+            val qs = dao.topSongs(qa, minOf(qb, to), 60).mergeUploads().take(40)
             if (qs.isEmpty()) return@mapNotNull null
             val g = c.meta.cachedGenres(qs.map { it.song() })
             val genre = qs.groupBy { g[it.songId] ?: "" }.filterKeys { it.isNotEmpty() }.mapValues { (_, v) -> v.sumOf { it.ms } }.maxByOrNull { it.value }?.key

@@ -70,7 +70,8 @@ class YourMusic(private val c: AppContainer) {
         val now = System.currentTimeMillis()
         val recent = s.events.filter { now - it.timestamp < 2 * HOUR }.map { it.songId }.toSet()
         val pool = LocalRadio.Pool(
-            songs = s.songs.values.filter { ok(it) && !it.isVideo && (!offlineOnly || c.availableOffline(it.id)) },
+            // Not clips under a minute (an album's intro, a skit, a sound file on the phone): they'd break the run of songs.
+            songs = s.songs.values.filter { ok(it) && !it.isVideo && (it.durationSec == 0 || it.durationSec >= 60) && (!offlineOnly || c.availableOffline(it.id)) },
             coListen = s.coListen,
             affinity = { s.model.score(it) },
             genreOf = { s.genres[it] },

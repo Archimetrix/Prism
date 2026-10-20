@@ -1,5 +1,6 @@
 package com.prism.music
 
+import com.prism.music.data.db.mergeUploads
 import com.prism.music.data.foryou.LocalRadio
 import com.prism.music.data.model.ArtistRef
 import com.prism.music.data.model.Song
@@ -79,6 +80,20 @@ class LocalRadioTest {
         val out = HomeSections.withNewSections(layout, add, after = HomeSections.MADE_FOR_YOU)
         assertEquals(listOf(HomeSections.QUICK_PICKS, HomeSections.MADE_FOR_YOU, HomeSections.ON_REPEAT, HomeSections.YOUR_MIXES, "x"), out.map { it.key })
         assertEquals(out, HomeSections.withNewSections(out, add, after = HomeSections.MADE_FOR_YOU))
+    }
+
+    /** Replay counts a song once, however many uploads of it were played. */
+    @Test
+    fun replayMergesUploadsOfOneSong() {
+        fun sp(id: String, title: String, artist: String, plays: Int, min: Long) =
+            com.prism.music.data.db.SongPlays(id, plays, min * 60_000, title, artist, null, null, 200, null, artist)
+        val merged = listOf(
+            sp("a", "Beat It", "Michael Jackson", 17, 58), sp("b", "Choosin' Texas", "Ella Langley", 8, 29),
+            sp("c", "Beat It (Single Version)", "Michael Jackson", 6, 21), sp("d", "Beat It", "Fall Out Boy", 2, 6),
+        ).mergeUploads()
+        assertEquals(listOf("a", "b", "d"), merged.map { it.songId })
+        assertEquals(23, merged[0].plays)
+        assertEquals(79 * 60_000L, merged[0].ms)
     }
 
     /** "Mixes from your music" is part of Made for you: one section, wherever the listener had it. */

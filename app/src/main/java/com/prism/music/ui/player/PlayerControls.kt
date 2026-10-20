@@ -303,7 +303,8 @@ fun BoxScope.BestPartChip(): Boolean {
                 .drawWithContent { drawContent(); drawRect(light, blendMode = androidx.compose.ui.graphics.BlendMode.SrcIn) },
         )
         Spacer(Modifier.width(5.dp))
-        Text(if (now.mine) "Your best part" else "Best part", style = MaterialTheme.typography.labelMedium.copy(brush = light))
+        // The words in plain white: the split light is the tag's outline and its flame.
+        Text(if (now.mine) "Your best part" else "Best part", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.92f))
     }
     return true
 }

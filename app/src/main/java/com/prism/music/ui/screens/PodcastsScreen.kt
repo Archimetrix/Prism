@@ -72,6 +72,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
+/** A search on the Podcasts page: null lists while it's asking. */
+private class PodcastSearch(val query: String, val shows: List<PodcastItem>?, val episodes: List<Song>?)
+
 /** What the Podcasts page shows: the account's shows and saved episodes (signed in), then YouTube Music's Podcasts page. */
 private class PodcastsHome(val yourShows: List<PodcastItem>, val saved: List<Song>, val shelves: List<Shelf>)
 
@@ -101,10 +104,45 @@ fun PodcastsScreen(bottomPadding: Dp) {
     }
     val resume by c.episodes.inProgress.collectAsState()
     val onSong: (SongItem) -> Unit = { playEpisode(c, it.song, "Podcasts") }
+    // Search right here: shows and episodes only, as you type (a moment after the last key).
+    var query by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+    val found by androidx.compose.runtime.produceState<PodcastSearch?>(null, query) {
+        val q = query.trim()
+        if (q.length < 2) { value = null; return@produceState }
+        value = PodcastSearch(q, null, null)
+        kotlinx.coroutines.delay(350)
+        coroutineScope {
+            val shows = async { runCatching { c.ytm.search(q, com.prism.music.data.innertube.SearchFilter.PODCASTS).items.filterIsInstance<PodcastItem>() }.getOrNull() }
+            val eps = async { runCatching { c.ytm.search(q, com.prism.music.data.innertube.SearchFilter.EPISODES).items.filterIsInstance<SongItem>().map { it.song } }.getOrNull() }
+            value = PodcastSearch(q, shows.await() ?: emptyList(), eps.await() ?: emptyList())
+        }
+    }
 
-    SubPage("Podcasts", bottomPadding, actions = {
-        RoundAction(PrismIcons.Search, "Search podcasts") { nav.go(Routes.SEARCH) }
-    }) {
+    SubPage("Podcasts", bottomPadding) {
+        item(key = "search") {
+            com.prism.music.ui.components.SearchField(query, "Search shows and episodes", { query = it }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        }
+        found?.let { f ->
+            when {
+                f.shows == null || f.episodes == null -> item(key = "searching") { LoadingState() }
+                f.shows.isEmpty() && f.episodes.isEmpty() -> item(key = "none") {
+                    EmptyState(PrismIcons.Podcasts, "Nothing found", "No shows or episodes for \"${f.query}\". Try the show's name, or a host.")
+                }
+                else -> {
+                    if (f.shows.isNotEmpty()) item(key = "found-shows") {
+                        SectionHeader("Shows")
+                        ItemCarousel(f.shows, { nav.open(it, onSong) })
+                    }
+                    if (f.episodes.isNotEmpty()) {
+                        item(key = "found-eps-h") { SectionHeader("Episodes") }
+                        items(f.episodes.take(30), key = { "fe:" + it.id }) { song ->
+                            EpisodeRow(Episode(song, date = null, description = null), showShow = true) { playEpisode(c, song, "Podcast search") }
+                        }
+                    }
+                }
+            }
+            return@SubPage
+        }
         if (resume.isNotEmpty()) {
             item(key = "resume-h") { SectionHeader("Continue listening") }
             items(resume.take(5), key = { "r:" + it.song.id }) { e ->

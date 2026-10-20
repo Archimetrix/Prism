@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.data.db.mergeUploads
 import com.prism.music.ui.theme.lit
 import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
@@ -149,7 +150,7 @@ fun ReplayScreen(bottomPadding: Dp) {
         val (from, to) = range(period)
         val dao = c.db.plays()
         // The top 250 are kept for Play / Shuffle; the screen itself shows the top 100 at most.
-        val top = dao.topSongs(from, to, 250)
+        val top = dao.topSongs(from, to, 300).mergeUploads().take(250)
         val songs = top.take(100)
         val genreMap = c.meta.cachedGenres(songs.map { it.toSong() })
         val genres = songs.groupBy { genreMap[it.songId] ?: "Unknown" }

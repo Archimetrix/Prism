@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.data.db.mergeUploads
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -292,7 +293,7 @@ private suspend fun previewYear(c: com.prism.music.AppContainer): PreviewYear {
         val to = (from.clone() as java.util.Calendar).apply { add(java.util.Calendar.MONTH, 1) }
         plays.totalMs(from.timeInMillis, minOf(to.timeInMillis, now))
     }
-    val song = plays.topSongs(start, now, 1).firstOrNull()
+    val song = plays.topSongs(start, now, 20).mergeUploads().firstOrNull()
     val artist = plays.topArtists(start, now, 1).firstOrNull()
     return PreviewYear(
         plays.totalMs(start, now), months, song?.title, song?.artistName, artist?.artistName, song?.thumbnail,
