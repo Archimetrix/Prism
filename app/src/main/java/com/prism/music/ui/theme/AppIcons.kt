@@ -8,7 +8,7 @@ import com.prism.music.R
 /** The app icons to pick from (#20): each is a launcher activity-alias in the manifest, with its two layers. */
 enum class AppIcon(val label: String, val alias: String, val background: Int, val foreground: Int) {
     CLASSIC("Classic", ".MainActivity", R.drawable.ic_launcher_background, R.drawable.ic_launcher_foreground),
-    SPECTRUM("Spectrum", ".IconSpectrum", R.drawable.ic_launcher_bg_spectrum, R.drawable.ic_launcher_foreground),
+    SPECTRUM("Spectrum", ".IconSpectrum", R.drawable.ic_launcher_bg_spectrum, R.drawable.ic_launcher_fg_white),
     SOLID("Solid", ".IconSolid", R.drawable.ic_launcher_background, R.drawable.ic_launcher_fg_solid),
     LIGHT("Light", ".IconLight", R.drawable.ic_launcher_bg_light, R.drawable.ic_launcher_fg_dark),
     WAVE("Wave", ".IconWave", R.drawable.ic_launcher_bg_wave, R.drawable.ic_launcher_fg_wave),
