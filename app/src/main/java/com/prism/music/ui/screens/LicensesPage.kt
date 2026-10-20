@@ -52,6 +52,12 @@ private val libraries = listOf(
     Library("ONNX Runtime (Sing's engine, downloaded with it)", "Microsoft", "MIT", "onnxruntime", "https://github.com/microsoft/onnxruntime"),
     Library("Spleeter 2-stem model (Sing, downloaded)", "Deezer; ONNX conversion by sherpa-onnx", "MIT", "spleeter", "https://github.com/deezer/spleeter"),
     Library("Outfit (Prism's typeface)", "The Outfit Project Authors", "SIL Open Font License 1.1", "outfit", "https://github.com/Outfitio/Outfit-Fonts"),
+    Library("Manrope (the Clean font)", "The Manrope Project Authors", "SIL Open Font License 1.1", "manrope", "https://github.com/googlefonts/manrope"),
+    Library("Plus Jakarta Sans (the Geometric font)", "The Plus Jakarta Sans Project Authors", "SIL Open Font License 1.1", "plus_jakarta_sans", "https://github.com/tokotype/PlusJakartaSans"),
+    Library("Urbanist (the Airy font)", "The Urbanist Project Authors", "SIL Open Font License 1.1", "urbanist", "https://github.com/coreyhu/Urbanist"),
+    Library("Nunito (the Rounded font)", "The Nunito Project Authors", "SIL Open Font License 1.1", "nunito", "https://github.com/googlefonts/nunito"),
+    Library("Fraunces (the Editorial font)", "The Fraunces Project Authors", "SIL Open Font License 1.1", "fraunces", "https://github.com/undercasetype/Fraunces"),
+    Library("Geist Mono (the Mono font)", "The Geist Project Authors", "SIL Open Font License 1.1", "geist_mono", "https://github.com/vercel/geist-font"),
 )
 
 /** Settings → About → Open-source licenses: Prism's own license, then everything it ships with. */

@@ -78,62 +78,65 @@ object AppFonts {
     private val weights = listOf(200, 300, 400, 500, 600, 700, 800, 900)
 
     /**
-     * Outfit (res/font/outfit.ttf, OFL 1.1, from google/fonts), Prism's own typeface: one variable file, set up at every
-     * weight the UI uses. Latin only: other scripts fall back to the phone's font, glyph by glyph.
+     * The typefaces Prism ships (res/font, each SIL Open Font License 1.1, from google/fonts), all variable: one file each,
+     * set up at every weight the UI uses. Latin (and for some Cyrillic / Greek) only: other scripts fall back to the
+     * phone's font, glyph by glyph. Fraunces is set at a middle optical size (its small sizes jump from light to heavy at 400, too dark beside the rest), without its wonky letters.
      */
-    val prism: FontFamily by lazy {
-        FontFamily(weights.map { w ->
-            Font(com.prism.music.R.font.outfit, FontWeight(w), FontStyle.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(w)))
-        })
+    private fun bundled(choice: FontChoice): Pair<Int, Array<FontVariation.Setting>>? = when (choice) {
+        FontChoice.PRISM -> com.prism.music.R.font.outfit to emptyArray()
+        FontChoice.CLEAN -> com.prism.music.R.font.manrope to emptyArray()
+        FontChoice.GEOMETRIC -> com.prism.music.R.font.plus_jakarta_sans to emptyArray()
+        FontChoice.AIRY -> com.prism.music.R.font.urbanist to emptyArray()
+        FontChoice.ROUNDED -> com.prism.music.R.font.nunito to emptyArray()
+        FontChoice.SERIF -> com.prism.music.R.font.fraunces to arrayOf(FontVariation.Setting("opsz", 48f), FontVariation.Setting("WONK", 0f))
+        FontChoice.MONO -> com.prism.music.R.font.geist_mono to emptyArray()
+        FontChoice.SYSTEM, FontChoice.CUSTOM -> null
     }
 
     /**
-     * Prism's typeface at every 20 along its weight axis, 200–700: for text whose weight moves smoothly (the lyric being
-     * sung thickens as it's sung). A family picks its nearest weight, so it holds the in-between ones too.
+     * How much lighter than asked [choice] is drawn, so its weights look like the others': Fraunces's 400 is about as
+     * dark as the sans fonts' 600.
      */
-    val prismAxis: FontFamily by lazy {
-        FontFamily((200..700 step 20).map { w ->
-            Font(com.prism.music.R.font.outfit, FontWeight(w), FontStyle.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(w)))
+    private fun lighten(choice: FontChoice): Int = if (choice == FontChoice.SERIF) 100 else 0
+
+    private fun bundledFamily(choice: FontChoice, ws: Iterable<Int>): FontFamily? = bundled(choice)?.let { (res, extra) ->
+        val less = lighten(choice)
+        FontFamily(ws.map { w ->
+            Font(res, FontWeight(w), FontStyle.Normal, variationSettings = FontVariation.Settings(FontVariation.weight((w - less).coerceAtLeast(100)), *extra))
         })
     }
 
-    private val sansFlex = arrayOf("/product/fonts/GoogleSansFlex-Regular.ttf", "/system/fonts/GoogleSansFlex-Regular.ttf")
-    private val googleSans = arrayOf("/product/fonts/GoogleSans-Regular.ttf", "/system/fonts/GoogleSans-Regular.ttf")
-    private val robotoFlex = arrayOf("/system/fonts/RobotoFlex-Regular.ttf")
+    /** Outfit, Prism's own typeface. */
+    val prism: FontFamily get() = family(FontChoice.PRISM)
 
-    private fun file(vararg paths: String): File? = paths.map(::File).firstOrNull { it.canRead() }
+    private val axisCache = HashMap<FontChoice, FontFamily>()
+
+    /**
+     * [choice]'s typeface at every 20 along its weight axis, 200–700, for text whose weight moves smoothly (the lyric being
+     * sung thickens as it's sung); null for System and Your font. A family picks its nearest weight, so it holds the
+     * in-between ones too.
+     */
+    fun axis(choice: FontChoice): FontFamily? =
+        synchronized(axisCache) { axisCache[choice] ?: bundledFamily(choice, 200..700 step 20)?.also { axisCache[choice] = it } }
+
+    /** Prism's typeface on its weight axis ([axis]). */
+    val prismAxis: FontFamily get() = axis(FontChoice.PRISM)!!
 
     private fun variable(f: File, vararg extra: FontVariation.Setting): FontFamily = FontFamily(
         weights.map { w -> Font(f, FontWeight(w), FontStyle.Normal, FontVariation.Settings(FontVariation.weight(w), *extra)) }
     )
 
     private fun build(choice: FontChoice): FontFamily = when (choice) {
-        FontChoice.PRISM -> prism
         FontChoice.SYSTEM -> FontFamily.Default
-        FontChoice.GOOGLE_SANS -> file(*sansFlex)?.let { variable(it) }
-            ?: file(*googleSans)?.let { FontFamily(Font(it)) }
-            ?: FontFamily.SansSerif
-        FontChoice.ROUNDED -> file(*sansFlex)?.let { variable(it, FontVariation.Setting("ROND", 100f)) }
-            ?: FontFamily.SansSerif
-        FontChoice.CONDENSED -> file(*robotoFlex)?.let { variable(it, FontVariation.width(78f)) }
-            ?: FontFamily(Typeface.create("sans-serif-condensed", Typeface.NORMAL))
-        FontChoice.SERIF -> FontFamily.Serif
-        FontChoice.MONO -> FontFamily.Monospace
         FontChoice.CUSTOM -> FontFamily.Default // see [family]
+        else -> bundledFamily(choice, weights) ?: FontFamily.Default
     }
 
-    /**
-     * Whether this phone has the font behind [choice]. Google Sans and Rounded need Google Sans Flex, which Pixels have
-     * and Samsungs (among others) don't; without it they fell back to the same face as Default, so picking them seemed
-     * to do nothing.
-     */
+    /** Whether [choice] can be used: the bundled typefaces always; Your font once one is imported. */
     fun available(choice: FontChoice): Boolean = when (choice) {
-        FontChoice.GOOGLE_SANS -> file(*sansFlex) != null || file(*googleSans) != null
-        FontChoice.ROUNDED -> file(*sansFlex) != null
         FontChoice.CUSTOM -> customFile(FontSlot.APP) != null
         else -> true
     }
-
     fun family(choice: FontChoice): FontFamily =
         if (choice == FontChoice.CUSTOM) custom(FontSlot.APP) ?: FontFamily.Default
         else synchronized(cache) { cache.getOrPut(choice) { runCatching { build(choice) }.getOrDefault(FontFamily.Default) } }

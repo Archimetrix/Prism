@@ -796,7 +796,7 @@ private fun AppIconSettings() {
     }
 }
 
-/** Each font's name, set in that font. */
+/** Each font's name, set in that font, with the typeface it is. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, onPick: (FontChoice) -> Unit) {
@@ -822,10 +822,13 @@ private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, on
                     style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
+                // The typeface's own name, quietly, so it can be looked up (and matched to a file for Your font).
+                f.face?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
             }
         }
     }
-    if (missing.isNotEmpty()) Note("${missing.joinToString(" and ") { it.label }} need${if (missing.size == 1) "s" else ""} Google Sans Flex, which this phone doesn't have.")
 }
 
 @Composable

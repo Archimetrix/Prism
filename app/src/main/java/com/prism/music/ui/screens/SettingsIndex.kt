@@ -65,7 +65,7 @@ object SettingsIndex {
         SettingEntry(A, "Colour", "Colour", "color accent dynamic material you artwork"),
         SettingEntry(A, "Colour", "Style", "white light spectrum monochrome neutral grey gray minimal colourless colorless simple"),
         SettingEntry(A, "Colour", "Accent", "color accent dynamic material you artwork wallpaper custom"),
-        SettingEntry(A, "Text", "Font", "typeface custom ttf otf outfit prism system"),
+        SettingEntry(A, "Text", "Font", "typeface custom ttf otf outfit prism system clean manrope geometric plus jakarta sans airy urbanist rounded nunito editorial serif fraunces mono geist"),
         SettingEntry(A, "Text", "Remove your font"),
         SettingEntry(A, "Text", "Lyrics font", "typeface"),
         SettingEntry(A, "Text", "Lyrics font file"),

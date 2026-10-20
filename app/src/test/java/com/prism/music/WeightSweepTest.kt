@@ -43,22 +43,31 @@ class WeightSweepTest {
     private val style = TextStyle(fontFamily = AppFonts.prismAxis, fontSize = 34.sp, lineHeight = 41.sp, fontWeight = FontWeight(300))
     private val fontPx = 34f * density
 
-    private fun width(word: String, weight: Int, spacingEm: Float) =
-        measurer.measure(AnnotatedString(word, SpanStyle(fontWeight = FontWeight(weight), letterSpacing = spacingEm.em)), style).size.width
+    private fun width(word: String, weight: Int, spacingEm: Float, st: TextStyle = style) =
+        measurer.measure(AnnotatedString(word, SpanStyle(fontWeight = FontWeight(weight), letterSpacing = spacingEm.em)), st).size.width
 
+    /** Every font Prism ships sweeps: Outfit and the 1.7 additions (Manrope, Plus Jakarta Sans, Urbanist, Nunito, Fraunces, Geist Mono). */
     @Test
     fun heavierWordsKeepTheirLightWidth() {
         val words = listOf("Waterfalls", "I", "said", "mind", "Somebody", "you", "WOW", "Lights")
-        // Some words come out the same width either way; most widen (else the weight axis isn't being applied).
-        val widened = words.count { width(it, 500, 0f) > width(it, 300, 0f) }
-        assertTrue("only $widened of ${words.size} words widen with weight: is the axis applied?", widened >= words.size / 2)
-        for (word in words) {
-            val spacing = weightSpacing(measurer, word, style, fontPx)
-            val light = width(word, 300, 0f)
-            for (k in spacing.indices) {
-                val w = width(word, 300 + k * 20, spacing[k])
-                // Within a couple of pixels: the line doesn't visibly move.
-                assertTrue("$word at ${300 + k * 20}: $w px against $light px light", abs(w - light) <= 2)
+        val fonts = com.prism.music.data.prefs.FontChoice.entries.mapNotNull { c -> AppFonts.axis(c)?.let { c to it } }
+        assertTrue("expected the seven bundled fonts, got ${fonts.map { it.first }}", fonts.size == 7)
+        for ((choice, axis) in fonts) {
+            val st = style.copy(fontFamily = axis)
+            // Some words come out the same width either way; most widen (else the weight axis isn't being applied).
+            // A monospaced font keeps every letter's width at every weight, by design.
+            if (choice != com.prism.music.data.prefs.FontChoice.MONO) {
+                val widened = words.count { width(it, 500, 0f, st) > width(it, 300, 0f, st) }
+                assertTrue("$choice: only $widened of ${words.size} words widen with weight: is the axis applied?", widened >= words.size / 2)
+            }
+            for (word in words) {
+                val spacing = weightSpacing(measurer, word, st, fontPx)
+                val light = width(word, 300, 0f, st)
+                for (k in spacing.indices) {
+                    val w = width(word, 300 + k * 20, spacing[k], st)
+                    // Within a couple of pixels: the line doesn't visibly move.
+                    assertTrue("$choice $word at ${300 + k * 20}: $w px against $light px light", abs(w - light) <= 2)
+                }
             }
         }
     }

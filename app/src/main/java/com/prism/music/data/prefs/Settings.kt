@@ -68,10 +68,23 @@ enum class SectionStyle(val label: String) { CAROUSEL("Carousel"), GRID("Grid"),
  * The app's typeface. [PRISM] is Outfit, bundled with Prism (res/font, a variable font: every weight from one file).
  * The device fonts are used where the phone has them, with a fallback otherwise.
  */
-enum class FontChoice(val label: String) {
-    PRISM("Prism"), SYSTEM("System"), GOOGLE_SANS("Google Sans"), ROUNDED("Rounded"), CONDENSED("Condensed"), SERIF("Serif"), MONO("Mono"),
+/**
+ * The app's typeface. Every one but System and Your font ships with Prism (res/font, SIL Open Font License), so it
+ * looks the same on every phone; [face] is the typeface's own name. SERIF and MONO keep their stored names.
+ */
+enum class FontChoice(val label: String, val face: String? = null) {
+    PRISM("Prism", "Outfit"), CLEAN("Clean", "Manrope"), GEOMETRIC("Geometric", "Plus Jakarta Sans"), AIRY("Airy", "Urbanist"),
+    ROUNDED("Rounded", "Nunito"), SERIF("Editorial", "Fraunces"), MONO("Mono", "Geist Mono"), SYSTEM("System"),
     /** A .ttf / .otf the listener imported (#12; `AppFonts.FontSlot`). */
-    CUSTOM("Your font"),
+    CUSTOM("Your font");
+
+    companion object {
+        /**
+         * A stored font name as it reads now: 1.7 dropped Google Sans and Condensed (both needed fonts only some phones
+         * have), and picks of either move to Clean.
+         */
+        fun upgrade(name: String): String = when (name) { "GOOGLE_SANS", "CONDENSED" -> CLEAN.name; else -> name }
+    }
 }
 
 /** How round cards, tiles and artwork are. */
@@ -747,10 +760,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             quickPicksRadio = p[K.quickPicksRadio] ?: d.quickPicksRadio,
             homeCustomizeTopButton = p[K.homeCustomizeTopButton] ?: d.homeCustomizeTopButton,
             homePodcastsButton = p[K.homePodcastsButton] ?: d.homePodcastsButton,
-            fontChoice = p.enum(K.fontChoice, d.fontChoice),
+            fontChoice = p[K.fontChoice]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } } ?: d.fontChoice,
             appFontName = p[K.appFontName] ?: d.appFontName,
             fontStamp = p[K.fontStamp] ?: d.fontStamp,
-            lyricsFont = p[K.lyricsFont] ?: d.lyricsFont,
+            lyricsFont = p[K.lyricsFont]?.let(FontChoice::upgrade) ?: d.lyricsFont,
             lyricsFontName = p[K.lyricsFontName] ?: d.lyricsFontName,
             textScale = p[K.textScale] ?: d.textScale,
             corners = p.enum(K.corners, d.corners),

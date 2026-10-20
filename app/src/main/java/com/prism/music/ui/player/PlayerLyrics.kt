@@ -544,13 +544,13 @@ internal fun weightSpacing(measurer: androidx.compose.ui.text.TextMeasurer, word
 /**
  * Spectrum's karaoke line (1.7): set light, and each word grows from Light to Medium on Prism's typeface's weight axis
  * as it's sung, brightening as it goes, instead of a light wiping through it. A heavier word is wider, so each word
- * gives that width back as letter spacing: the line never shifts. Needs [AppFonts.prismAxis] (the lyrics in Prism's
- * own font); other fonts use [SweptLine].
+ * gives that width back as letter spacing: the line never shifts. [axis] is the lyrics' typeface on its weight axis
+ * ([AppFonts.axis]: any font Prism ships); System and imported fonts use [SweptLine].
  */
 @Composable
-fun WeightSweptLine(line: LyricLine, clock: State<Long>, style: TextStyle, modifier: Modifier = Modifier) {
+fun WeightSweptLine(line: LyricLine, clock: State<Long>, style: TextStyle, axis: androidx.compose.ui.text.font.FontFamily, modifier: Modifier = Modifier) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val axisStyle = style.copy(fontFamily = com.prism.music.ui.theme.AppFonts.prismAxis, fontWeight = FontWeight(LIGHT_WEIGHT))
+    val axisStyle = style.copy(fontFamily = axis, fontWeight = FontWeight(LIGHT_WEIGHT))
     val fontPx = with(androidx.compose.ui.platform.LocalDensity.current) { style.fontSize.toPx() }
     // For each word, at each weight step: the letter spacing (em) that brings it back to its light width.
     val spacing = remember(line, axisStyle, fontPx) { line.words.map { w -> weightSpacing(measurer, w.text.trimEnd(), axisStyle, fontPx) } }
@@ -686,10 +686,10 @@ fun LyricsPanel(
 
     val canBlur = Build.VERSION.SDK_INT >= 31 && settings.lyricsBlur
     val scale = settings.lyricsScale
-    // The sung word's weight moves along Prism's typeface's axis: only when the lyrics are in it.
-    val axisLyrics = com.prism.music.ui.theme.LocalLyricsFont.current == null &&
-        settings.fontChoice == com.prism.music.data.prefs.FontChoice.PRISM ||
-        settings.lyricsFont == com.prism.music.data.prefs.FontChoice.PRISM.name
+    // The sung word's weight moves along the lyrics' typeface's axis: any font Prism ships (not System or an imported one).
+    val lyricsChoice = if (settings.lyricsFont.isEmpty()) settings.fontChoice
+        else com.prism.music.data.prefs.FontChoice.entries.firstOrNull { it.name == settings.lyricsFont }
+    val axisFamily = remember(lyricsChoice) { lyricsChoice?.let(com.prism.music.ui.theme.AppFonts::axis) }
     Box(modifier) {
     LazyColumn(
         state = listState,
@@ -765,7 +765,7 @@ fun LyricsPanel(
                 val lineAlpha = if (synced && !isActive) alpha * 0.55f else alpha
                 Column(Modifier.fillMaxWidth()) {
                     if (isActive && shown.isWordSynced) {
-                        if (axisLyrics) WeightSweptLine(shown, clock, style, Modifier.fillMaxWidth())
+                        if (axisFamily != null) WeightSweptLine(shown, clock, style, axisFamily, Modifier.fillMaxWidth())
                         else SweptLine(shown, clock, style.copy(fontWeight = FontWeight.Medium), Modifier.fillMaxWidth())
                     } else {
                         Text(shown.text, style = style, color = Color.White.copy(alpha = lineAlpha), modifier = Modifier.fillMaxWidth())
