@@ -1,7 +1,10 @@
 package com.prism.music.data
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -85,14 +88,23 @@ class ModelStore(private val context: Context, private val http: OkHttpClient) {
     fun dir(m: Model) = File(root, m.id)
     fun ready(m: Model) = File(dir(m), READY).isFile
 
-    /** Downloads, checks and unpacks [m] (once at a time; at once if it's already there). True when it's ready. */
-    suspend fun download(m: Model): Boolean = locks.getValue(m).withLock {
-        if (ready(m)) return@withLock true
-        set(m, State.Downloading(0f))
-        val result = runCatching { withContext(Dispatchers.IO) { fetch(m) } }
-        set(m, if (result.isSuccess) State.Ready else State.Failed(result.exceptionOrNull()?.message ?: "Download failed"))
-        result.isSuccess
-    }
+    /**
+     * Downloads, checks and unpacks [m] (once at a time; at once if it's already there). True when it's ready.
+     * The download runs on the store's own scope: closing the sheet that started it (and so cancelling the caller)
+     * leaves it going, and its state ends up Ready, not "failed", when it finishes (2026-10-20: Sing's engine had
+     * downloaded, but Settings still offered to download it).
+     */
+    suspend fun download(m: Model): Boolean = work.async {
+        locks.getValue(m).withLock {
+            if (ready(m)) return@withLock true.also { set(m, State.Ready) }
+            set(m, State.Downloading(0f))
+            val result = runCatching { fetch(m) }
+            set(m, if (ready(m)) State.Ready else State.Failed(result.exceptionOrNull()?.message ?: "Download failed"))
+            ready(m)
+        }
+    }.await()
+
+    private val work = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Removes [m] from the phone (Settings, to free the space). */
     fun delete(m: Model) {

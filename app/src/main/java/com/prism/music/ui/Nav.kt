@@ -73,8 +73,36 @@ object Routes {
 
 /** Everything a screen needs to move around the app. */
 class Navigator(val nav: NavController, val openPlayer: () -> Unit, private val playMix: (PlaylistItem) -> Unit = {}) {
-    fun go(route: String) = nav.navigate(route) { launchSingleTop = true }
+    /**
+     * Opens [route] on top. Only the very page that's showing is not opened twice (a double tap): launchSingleTop alone
+     * compared the destination ("artist/{id}"), so a similar artist, another album or Licenses from About replaced the
+     * page it was opened from, and Back skipped it.
+     */
+    fun go(route: String) {
+        if (currentRoute() == normalized(route)) return
+        nav.navigate(route)
+    }
+
+    /** The page showing, as the route that opened it (its pattern filled in with its arguments). */
+    private fun currentRoute(): String? {
+        val e = nav.currentBackStackEntry ?: return null
+        val pattern = e.destination.route ?: return null
+        // Android's (ICU) regex wants the closing brace escaped too.
+        val filled = ARGUMENT.replace(pattern) { m ->
+            @Suppress("DEPRECATION")
+            e.arguments?.get(m.groupValues[1])?.toString()?.let(Uri::encode) ?: ""
+        }
+        return normalized(filled)
+    }
     fun back() = nav.popBackStack()
+
+    /** Without empty query arguments ("settings/about?find=" is "settings/about"). */
+    private fun normalized(route: String) = route.replace(EMPTY_QUERY, "").replace("?&", "?").removeSuffix("?")
+
+    private companion object {
+        val ARGUMENT = Regex("\\{([^\\}]+)\\}")
+        val EMPTY_QUERY = Regex("[?&][^=&?]+=(?=&|$)")
+    }
 
     fun open(item: BrowseItem, onSong: (SongItem) -> Unit) {
         when (item) {

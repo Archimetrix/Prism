@@ -237,7 +237,11 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                         }
                         else -> {
                             if (failed != null) Text("Couldn't download it: ${failed.message}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            PrismTextButton(onClick = { scope.launch { if (sing.downloadEngine()) { sing.setOn(true); SingUi.panel = true; onDismiss() } } }) { Text(if (failed != null) "Try again" else "Download and turn on") }
+                            Spacer(Modifier.height(4.dp))
+                            com.prism.music.ui.components.PrismButton(
+                                onClick = { scope.launch { if (sing.downloadEngine()) { sing.setOn(true); SingUi.panel = true; onDismiss() } } },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(if (failed != null) "Try again" else "Download and turn on") }
                         }
                     }
                 }

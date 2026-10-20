@@ -81,6 +81,21 @@ class StreamAndVideoChoiceTest {
     }
 
     @Test
+    fun bassBoostedAndRetunedCopiesAreNeverTheVideo() {
+        // "Bohemian Rhapsody" (2026-10-20): YouTube linked no video and the search's only exact-length upload naming
+        // Queen was a bass-boosted copy, which Prism then played as the song's video.
+        val song = Song("BSTsnWoslP4", "Bohemian Rhapsody", listOf(ArtistRef("Queen")), durationSec = 355)
+        val videos = listOf(
+            video("Bohemian Rhapsody (Live At Wembley Stadium / Saturday 12th July 1986)", "Queen", 360, "live"),
+            video("Queen - Bohemian Rhapsody (Lyrics)", "7clouds Rock", 355, "lyrics"),
+            video("(25-70Hz) Queen - Bohemian Rhapsody (Rebassed by Justin)", "Rebassed by Justin", 355, "rebassed"),
+            video("Queen - Bohemian Rhapsody 432hz", "Hertz Patrol", 356, "432"),
+            video("Queen - Bohemian Rhapsody", "Bass Boosted Nation", 355, "channel"),
+        )
+        assertNull(MusicVideoMatch.pick(song, videos))
+    }
+
+    @Test
     fun aLabelsUploadOfTheSameRecordingCounts() {
         val song = Song("s2", "Some Single", listOf(ArtistRef("New Band")), durationSec = 200)
         val videos = listOf(

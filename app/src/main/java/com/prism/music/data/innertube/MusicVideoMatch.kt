@@ -29,7 +29,13 @@ object MusicVideoMatch {
         fun lengthWithin(v: Song, s: Int) = song.durationSec == 0 || v.durationSec == 0 || abs(v.durationSec - song.durationSec) <= s
         fun has(words: List<Regex>, text: String) = words.any { it.containsMatchIn(text) && !it.containsMatchIn(songWords) }
 
-        val candidates = videos.filter { v -> norm(v.title).contains(title) && !has(NEVER, v.title.lowercase()) }
+        // The channel counts too ("Rebassed by Justin" posts nothing but bass-boosted copies), unless it's the artist's
+        // own (The Piano Guys).
+        fun ownChannel(v: Song) = v.artists.any { a -> officialChannel(norm(a.name)).let { ch -> ch.isNotBlank() && ch in artists } }
+        val candidates = videos.filter { v ->
+            norm(v.title).contains(title) && !has(NEVER, v.title.lowercase()) &&
+                (ownChannel(v) || !has(NEVER, v.artists.joinToString(" ") { it.name.lowercase() }))
+        }
         // The artist's own upload first.
         val artistIds = song.artists.mapNotNull { it.id }.toSet()
         candidates.firstOrNull { v ->
@@ -66,6 +72,11 @@ object MusicVideoMatch {
         "lyric", "lyrics", "letra", "letras", "paroles", "testo", "traducida", "traducción", "sub español", "subtitulad", "перевод", "текст",
         "karaoke", "instrumental", "reaction", "tutorial", "lesson", "guitar", "piano", "drum", "bass", "slowed", "sped up", "nightcore",
         "8d", "fan made", "fanmade", "remix", "highlights", "edit audio", "official audio", "audio oficial", "audio only",
+        "rebassed", "bass boosted", "bassboosted", "boosted", "reverb", "daycore", "speed up", "1 hour", "10 hours", "loop",
+        "mashup", "parody", "ai cover",
+    ) + listOf(
+        // A frequency in the title ("(25-70Hz)", "432hz") marks a re-tuned or bass-boosted copy.
+        Regex("(?<![\\p{L}])\\d+\\s?hz(?![\\p{L}])"),
     )
 
     /** Another take on the song: fine when the song is that take itself. */

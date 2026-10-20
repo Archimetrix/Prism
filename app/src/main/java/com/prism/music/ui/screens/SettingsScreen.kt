@@ -1255,6 +1255,7 @@ private fun SingSettings() {
     val s = LocalAppSettings.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val states by c.models.states.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { c.models.refresh() }
     val runtime = com.prism.music.data.ModelStore.Model.singRuntime()
     val model = com.prism.music.data.ModelStore.Model.SING_MODEL
     var used by remember { mutableStateOf(c.sing.store.bytes()) }

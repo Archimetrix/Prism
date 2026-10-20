@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,7 +80,8 @@ class Sing(private val c: AppContainer) : VocalStemProcessor.Source {
     /** Downloads the engine and the model (about 50 MB, once). */
     suspend fun downloadEngine(): Boolean {
         val runtime = ModelStore.Model.singRuntime() ?: return false
-        return c.models.download(runtime) && c.models.download(ModelStore.Model.SING_MODEL)
+        // Both parts on Sing's own scope, so closing the sheet after the first doesn't leave the second undownloaded.
+        return scope.async { c.models.download(runtime) && c.models.download(ModelStore.Model.SING_MODEL) }.await()
     }
 
     /** Settings → Lyrics → Sing → "Get songs ready while Sing is off": songs are separated ahead with Sing off too. */

@@ -141,6 +141,47 @@ private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float) {
 
 private fun argb(r: Int, g: Int, b: Int) = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
 
+/**
+ * The player's type is always white, so a pale cover (A Night at the Opera, most white sleeves) can't give a pale
+ * backdrop: each cell's lightness comes down until its luminance is under [CEILING], hue and saturation kept.
+ */
+internal fun ceiled(hsl: FloatArray): Int {
+    var c = ColorUtils.HSLToColor(hsl)
+    if (ColorUtils.calculateLuminance(c) <= CEILING) return c
+    var lo = 0f; var hi = hsl[2]
+    repeat(12) {
+        val mid = (lo + hi) / 2
+        if (ColorUtils.calculateLuminance(ColorUtils.HSLToColor(floatArrayOf(hsl[0], hsl[1], mid))) > CEILING) hi = mid else lo = mid
+    }
+    c = ColorUtils.HSLToColor(floatArrayOf(hsl[0], hsl[1], lo))
+    return c
+}
+
+/** White over this luminance (before the backdrop's own darkening) reads at about 4.5:1 or better. */
+internal const val CEILING = 0.18
+
+/** The blurred cover gets at least a third black on top, which takes 0.40 down to about 0.16. */
+internal const val BLUR_CEILING = 0.40
+
+/** Darkens [bmp]'s pixels brighter than [ceiling] (relative luminance) to it, keeping their hue; in place. */
+internal fun capLuminance(bmp: Bitmap, ceiling: Double): Bitmap {
+    val out = if (bmp.isMutable) bmp else bmp.copy(Bitmap.Config.ARGB_8888, true)
+    val w = out.width; val h = out.height
+    val px = IntArray(w * h)
+    out.getPixels(px, 0, w, 0, 0, w, h)
+    for (i in px.indices) {
+        val p = px[i]
+        val lum = ColorUtils.calculateLuminance(p)
+        if (lum <= ceiling) continue
+        // Luminance goes roughly with the 2.2th power of the channels.
+        val k = Math.pow(ceiling / lum, 1 / 2.2).toFloat()
+        fun ch(sh: Int) = (((p shr sh) and 0xFF) * k).roundToInt().coerceIn(0, 255)
+        px[i] = (p and 0xFF000000.toInt()) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+    }
+    out.setPixels(px, 0, w, 0, 0, w, h)
+    return out
+}
+
 private fun meshOf(src: Bitmap, seed: Int): ArtworkMesh? {
     val w = src.width
     val h = src.height
@@ -167,7 +208,7 @@ private fun meshOf(src: Bitmap, seed: Int): ArtworkMesh? {
         ColorUtils.colorToHSL(argb((r[i] / c).toInt(), (g[i] / c).toInt(), (b[i] / c).toInt()), hsl)
         hsl[1] = (hsl[1] * VIBRANCE).coerceAtMost(1f)
         hsl[2] = hsl[2].coerceAtLeast(FLOOR)
-        ColorUtils.HSLToColor(hsl)
+        ceiled(hsl)
     }
     // Shift (and maybe mirror) every row below the seam row so the backdrop never
     // reads as a reflection of the cover, while keeping each cell's neighbours.
@@ -207,7 +248,7 @@ fun rememberFullArtworkBlur(url: String?): ImageBitmap? {
     LaunchedEffect(url) {
         if (url == null || image != null) return@LaunchedEffect
         val bmp = runCatching { decodeSmall(context, url, 128) }.getOrNull() ?: return@LaunchedEffect
-        val blurred = withContext(Dispatchers.Default) { boxBlur(bmp, 3) }.asImageBitmap()
+        val blurred = withContext(Dispatchers.Default) { capLuminance(boxBlur(bmp, 3), BLUR_CEILING) }.asImageBitmap()
         blurCache[url] = blurred
         image = blurred
     }

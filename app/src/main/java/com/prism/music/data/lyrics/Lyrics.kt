@@ -201,12 +201,43 @@ private val creditLine = Regex(
 private fun String.decodeEntities(): String = replace("&amp;", "&").replace("&apos;", "'").replace("&#39;", "'")
     .replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ")
 
+/** Telling editions of a song apart by their titles. */
+object Editions {
+    private val words = listOf(
+        // Not "version" or "remaster" on their own: "Taylor's Version" and a remaster keep the song's timing.
+        "single version", "single edit", "radio edit", "radio version", "edit", "live", "remix", "extended",
+        "acoustic", "instrumental", "demo", "short version", "long version", "club mix", "unplugged", "sped up", "slowed",
+    )
+
+    /** The words in brackets or after " - " that name an edition ("Single Version", "Live at Wembley"). */
+    private fun marks(title: String): Set<String> {
+        val t = title.lowercase()
+        val tails = Regex("[(\\[]([^)\\]]*)[)\\]]").findAll(t).map { it.groupValues[1] } + t.substringAfter(" - ", "")
+        val tail = tails.joinToString(" ")
+        return words.filter { Regex("(?<![\\p{L}])${Regex.escape(it)}(?![\\p{L}])").containsMatchIn(tail) }.toSet()
+    }
+
+    /**
+     * Whether [found] (a lyric file's own title) names an edition the song [wanted] isn't, like KuGou's
+     * "Thriller(Single Version)" for the album's "Thriller". Unknown titles pass.
+     */
+    fun otherEdition(found: String?, wanted: String): Boolean {
+        if (found.isNullOrBlank()) return false
+        val want = marks(wanted)
+        return marks(found).any { m -> m !in want && want.none { it.contains(m) || m.contains(it) } }
+    }
+}
+
 object Lrc {
     private val tag = Regex("\\[(\\d{1,3}):(\\d{1,2})(?:[.:](\\d{1,3}))?]")
     private val meta = Regex("^\\[(ar|ti|al|by|offset|length|re|ve|id|au|la|tool|#):.*]$", RegexOption.IGNORE_CASE)
     private val offsetTag = Regex("^\\[offset:\\s*([+-]?\\d+)\\s*]$", RegexOption.IGNORE_CASE)
 
     fun isLrc(text: String) = tag.containsMatchIn(text)
+
+    /** An ID tag's value ("[ti:Thriller(Single Version)]" → "Thriller(Single Version)"), or null. */
+    fun metaTag(text: String, name: String): String? =
+        Regex("^\\[${Regex.escape(name)}:(.*)]\\s*$", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)).find(text)?.groupValues?.get(1)?.trim()
 
     fun parse(text: String): List<LyricLine> {
         val raw = mutableListOf<Pair<Long, String>>()
@@ -649,19 +680,25 @@ class LyricsRepository(
         // KuGou matches "Artist - Title" far more often than the other way round.
         val candidates = listOf("${song.primaryArtist} - ${cleanTitle(song.title)}", "${cleanTitle(song.title)} - ${song.primaryArtist}")
             .firstNotNullOfOrNull { (getJson(search(it)).field("candidates") as? JsonArray)?.takeIf { c -> c.isNotEmpty() } } ?: return null
-        val best = candidates.minByOrNull {
-            abs((it.str("duration")?.toLongOrNull() ?: 0L) - song.durationSec * 1000L)
-        }?.takeIf { lengthFits(song, it.str("duration")?.toDoubleOrNull()?.div(1000)) } ?: return null
-        val id = best.str("id") ?: return null
-        val key = best.str("accesskey") ?: return null
-        fun download(fmt: String) = "https://lyrics.kugou.com/download".toHttpUrl().newBuilder()
-            .addQueryParameter("fmt", fmt).addQueryParameter("charset", "utf8").addQueryParameter("client", "pc")
-            .addQueryParameter("ver", "1").addQueryParameter("id", id).addQueryParameter("accesskey", key).build()
-        // Word-by-word KRC first, line-timed LRC as the fallback.
-        getJson(download("krc")).str("content")?.let(WordFormat::decodeKrc)?.takeIf { it.contains(Regex("\\[\\d+,\\d+]<")) }
-            ?.let { return WordFormat.wrap(WordFormat.Kind.KRC, it) }
-        val content = getJson(download("lrc")).str("content") ?: return null
-        return String(java.util.Base64.getMimeDecoder().decode(content), Charsets.UTF_8)
+        val fitting = candidates.filter { lengthFits(song, it.str("duration")?.toDoubleOrNull()?.div(1000)) }
+            .sortedBy { abs((it.str("duration")?.toLongOrNull() ?: 0L) - song.durationSec * 1000L) }
+        // KuGou lists some edits under the album's length: "Thriller" (5:57) came back as "[ti:Thriller(Single Version)]",
+        // every line 45 s early. The lyrics' own title says which edition they are; another one is passed over.
+        for (best in fitting.take(4)) {
+            val id = best.str("id") ?: continue
+            val key = best.str("accesskey") ?: continue
+            fun download(fmt: String) = "https://lyrics.kugou.com/download".toHttpUrl().newBuilder()
+                .addQueryParameter("fmt", fmt).addQueryParameter("charset", "utf8").addQueryParameter("client", "pc")
+                .addQueryParameter("ver", "1").addQueryParameter("id", id).addQueryParameter("accesskey", key).build()
+            // Word-by-word KRC first, line-timed LRC as the fallback.
+            val text = getJson(download("krc")).str("content")?.let(WordFormat::decodeKrc)?.takeIf { it.contains(Regex("\\[\\d+,\\d+]<")) }
+                ?.let { WordFormat.wrap(WordFormat.Kind.KRC, it) }
+                ?: getJson(download("lrc")).str("content")?.let { String(java.util.Base64.getMimeDecoder().decode(it), Charsets.UTF_8) }
+                ?: continue
+            if (Editions.otherEdition(Lrc.metaTag(text, "ti"), song.title)) continue
+            return text
+        }
+        return null
     }
 
     /** Plain lyrics with [Verse]/[Chorus] headers from Genius. */
@@ -797,6 +834,8 @@ class LyricsRepository(
                 !cached.content.startsWith(WordFormat.PREFIX)
             // Answers from before the length check ([lengthFits]) may be another edit's timings: asked again once.
             val recheck = (source in LENGTH_CHECKED && cached.fetchedAt < LENGTH_CHECK_SINCE) ||
+                // KuGou's lyrics for another edition of the song (its own title says so), saved before that was checked.
+                (source == LyricsSource.KUGOU && Editions.otherEdition(Lrc.metaTag(cached.content, "ti"), song.title)) ||
                 // YouTube Music's plain text, saved before its synced lyrics were asked for: asked again once.
                 (source == LyricsSource.YTMUSIC && cached.fetchedAt < YT_SYNCED_SINCE && !Lrc.isLrc(cached.content))
             if (cached.content.isNotEmpty() && !upgrade && !recheck) return@withContext build(source, cached.content)
@@ -895,6 +934,7 @@ class LyricsRepository(
     private suspend fun saved(song: Song): Lyrics? = withContext(Dispatchers.IO) {
         val s = settings()
         val rows = dao.allFor(song.id).associateBy { it.source }
+            .filterNot { (src, row) -> src == LyricsSource.KUGOU.name && Editions.otherEdition(Lrc.metaTag(row.content, "ti"), song.title) }
         // Genius's text (or another saved uncensored one), if it's saved, fills in starred-out words offline too.
         val reference = if (!s.skipCensored) null else REFERENCE_SOURCES.firstNotNullOfOrNull { src ->
             rows[src.name]?.let { build(src, it.content) }?.takeIf { !it.censored }?.plain

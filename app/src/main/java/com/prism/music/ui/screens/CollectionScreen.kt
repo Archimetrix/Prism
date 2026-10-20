@@ -1180,7 +1180,8 @@ fun DownloadQueueStatus(unfinished: Collection<com.prism.music.download.Download
     val queued = unfinished.count { it.state == Download.STATE_QUEUED }
     if (waiting && queued > 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text("$queued waiting for Wi-Fi", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-        PrismTextButton(onClick = { c.settings.setDownloadWifiOnly(false) }) { Text("Use mobile data") }
+        // It switches the setting off for good (Settings → Downloads & storage), so it says so.
+        PrismTextButton(onClick = { c.settings.setDownloadWifiOnly(false) }) { Text("Turn off Wi-Fi only") }
     }
     if (failed > 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(if (failed == 1) "1 download failed" else "$failed downloads failed", style = MaterialTheme.typography.labelMedium, color = scheme.error)
