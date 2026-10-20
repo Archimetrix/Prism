@@ -13,7 +13,7 @@
 
 **[⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)** · [Release notes](../../releases/latest) · [▶ Watch the showcase (1:55)](promo/prism-showcase.mp4)
 
-**New in [1.7](../../releases/tag/v1.7.0):** Sing (karaoke with the song's own music), Made for you (Daily Mixes, Release Radar, Smart Shuffle), DJ mode, Blend, song recognition, Prism Connect (speakers and TVs, a browser remote, handoff), Rewind every year, headphone correction, romanized lyrics, jump to the best part, and tablet and landscape layouts.
+**New in [1.7](../../releases/tag/v1.7.0):** a whole new look, Sing (karaoke with the song's own music), Made for you (Daily Mixes, Release Radar, Smart Shuffle), DJ mode, Blend, song recognition, Prism Connect (speakers and TVs, a browser remote, handoff), Rewind every year, headphone correction, romanized lyrics, jump to the best part, and tablet and landscape layouts.
 
 <img src="docs/screenshots/home-dark.jpg" width="22%" alt="Home">
 <img src="docs/screenshots/player.jpg" width="22%" alt="Now playing">
@@ -54,6 +54,7 @@ Updating works the same way: install the new APK over the old one, and your down
 ## Features
 
 ### New in 1.7
+- **A new look.** Colour from what's playing under frosted glass, with Prism's split light running through it (what's playing, progress, the Play ring, Settings' sections), the Outfit font, and every icon, the app icon and the widgets redrawn. Synced lyrics thicken word by word as they're sung.
 - **Sing.** The microphone button by the lyrics takes the singer's voice out of the song as it plays, worked out on your phone (Deezer's Spleeter, a one-time ~50 MB download). Leave a little of the lead voice in, and move the key up or down.
 - **Made for you.** Up to six Daily Mixes grouped by what goes together, a time-of-day mix, and Release Radar (new albums, singles and EPs from your artists, with their release dates), on Home and in Android Auto. Pick artists you like to start them off.
 - **Smart Shuffle** slips recommendations into a playlist or album as it plays; **exclusions** keep an artist out, or keep a playlist out of your taste.
