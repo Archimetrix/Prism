@@ -429,9 +429,10 @@ data class AppSettings(
     val playerBackground: PlayerBackground = PlayerBackground.MESH,
     /** 0..1: how much of the player's background shows through its darkening (blurred cover and your background). */
     val playerBackdropShow: Float = 0.35f,
-    val playerArtCorners: Int = 8,
+    val playerArtCorners: Int = 3,
     val coverSize: CoverSize = CoverSize.STANDARD,
-    val transportStyle: TransportStyle = TransportStyle.BUTTON,
+    // Spectrum (1.7): the play button is a thin ring.
+    val transportStyle: TransportStyle = TransportStyle.OUTLINE,
     val scrubberStyle: ScrubberStyle = ScrubberStyle.HAIRLINE,
     val artShrinkOnPause: Boolean = true,
     val showOutputDevice: Boolean = true,

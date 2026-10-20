@@ -1,6 +1,8 @@
 package com.prism.music.ui.player
 
 import com.prism.music.ui.theme.withLyricsFont
+import kotlin.math.roundToInt
+import androidx.compose.ui.unit.em
 import com.prism.music.ui.theme.PrismIcons
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
@@ -500,6 +502,64 @@ fun SweptLine(
     }
 }
 
+/** Weights of [WeightSweptLine]: words still to come, and sung ones; the word being sung moves between them. */
+private const val LIGHT_WEIGHT = 300
+private const val SUNG_WEIGHT = 500
+private const val WEIGHT_STEP = 20
+private const val WEIGHT_STEPS = (SUNG_WEIGHT - LIGHT_WEIGHT) / WEIGHT_STEP
+
+/**
+ * For [word] in [style] (Prism's axis family), at each weight step from Light to Medium: the letter spacing (em) that
+ * brings it back to its Light width. [fontPx] is the style's font size in pixels.
+ */
+internal fun weightSpacing(measurer: androidx.compose.ui.text.TextMeasurer, word: String, style: TextStyle, fontPx: Float): FloatArray {
+    if (word.isEmpty()) return FloatArray(WEIGHT_STEPS + 1)
+    fun width(weight: Int) = measurer.measure(word, style.copy(fontWeight = FontWeight(weight), letterSpacing = 0.em)).size.width
+    val light = width(LIGHT_WEIGHT)
+    return FloatArray(WEIGHT_STEPS + 1) { k -> if (k == 0) 0f else (light - width(LIGHT_WEIGHT + k * WEIGHT_STEP)).toFloat() / word.length / fontPx }
+}
+
+/**
+ * Spectrum's karaoke line (1.7): set light, and each word grows from Light to Medium on Prism's typeface's weight axis
+ * as it's sung, brightening as it goes, instead of a light wiping through it. A heavier word is wider, so each word
+ * gives that width back as letter spacing: the line never shifts. Needs [AppFonts.prismAxis] (the lyrics in Prism's
+ * own font); other fonts use [SweptLine].
+ */
+@Composable
+fun WeightSweptLine(line: LyricLine, clock: State<Long>, style: TextStyle, modifier: Modifier = Modifier) {
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val axisStyle = style.copy(fontFamily = com.prism.music.ui.theme.AppFonts.prismAxis, fontWeight = FontWeight(LIGHT_WEIGHT))
+    val fontPx = with(androidx.compose.ui.platform.LocalDensity.current) { style.fontSize.toPx() }
+    // For each word, at each weight step: the letter spacing (em) that brings it back to its light width.
+    val spacing = remember(line, axisStyle, fontPx) { line.words.map { w -> weightSpacing(measurer, w.text.trimEnd(), axisStyle, fontPx) } }
+    // Each word's weight step and brightness (0–10), recomposing only when one of them changes.
+    val marks by remember(line) {
+        derivedStateOf {
+            val now = clock.value
+            line.words.map { w ->
+                val f = when {
+                    now >= w.endMs -> 1f
+                    now < w.startMs -> 0f
+                    else -> ((now - w.startMs).toFloat() / (w.endMs - w.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
+                }
+                (f * WEIGHT_STEPS).roundToInt() to (f * 10).roundToInt()
+            }
+        }
+    }
+    val text = androidx.compose.ui.text.buildAnnotatedString {
+        line.words.forEachIndexed { i, w ->
+            val (step, lit) = marks[i]
+            val color = Color.White.copy(alpha = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * lit / 10f)
+            val core = w.text.trimEnd()
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = FontWeight(LIGHT_WEIGHT + step * WEIGHT_STEP), letterSpacing = (spacing[i].getOrElse(step) { 0f }).em))
+            append(core)
+            pop()
+            append(w.text.substring(core.length))
+        }
+    }
+    Text(text, modifier, style = axisStyle)
+}
+
 /**
  * Shows the player's controls on a drag down and hides them on a drag up, once per drag. Showing or hiding them
  * resizes the list under the finger, which reads as a drag the other way: allowed to switch again within the same
@@ -604,6 +664,10 @@ fun LyricsPanel(
 
     val canBlur = Build.VERSION.SDK_INT >= 31 && settings.lyricsBlur
     val scale = settings.lyricsScale
+    // The sung word's weight moves along Prism's typeface's axis: only when the lyrics are in it.
+    val axisLyrics = com.prism.music.ui.theme.LocalLyricsFont.current == null &&
+        settings.fontChoice == com.prism.music.data.prefs.FontChoice.PRISM ||
+        settings.lyricsFont == com.prism.music.data.prefs.FontChoice.PRISM.name
     Box(modifier) {
     LazyColumn(
         state = listState,
@@ -623,9 +687,9 @@ fun LyricsPanel(
                 Box(Modifier.padding(top = if (index == 0) 6.dp else 24.dp, bottom = 8.dp)) {
                     Text(
                         line.text.trim('[', ']').uppercase(),
-                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold, fontSize = 11.5.sp),
-                        color = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.14f)).padding(horizontal = 11.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.3.sp),
+                        color = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp),
                     )
                 }
                 return@itemsIndexed
@@ -653,7 +717,8 @@ fun LyricsPanel(
             val rtl = remember(shown) { isRtl(shown.text) }
             val style = (if (synced) TextStyle(fontSize = (34 * scale).sp, lineHeight = (41 * scale).sp) else TextStyle(fontSize = (30 * scale).sp, lineHeight = (38 * scale).sp))
                 .copy(
-                    fontWeight = FontWeight.ExtraBold,
+                    // Spectrum: light lines; the line being sung (line-timed) firms up to Medium.
+                    fontWeight = if (isActive && !shown.isWordSynced) FontWeight.Medium else FontWeight.Light,
                     // The lyrics font when one is picked (Settings → Appearance → Text), else the app's.
                     fontFamily = com.prism.music.ui.theme.LocalLyricsFont.current ?: MaterialTheme.typography.bodyLarge.fontFamily,
                     textAlign = when { line.alignEnd -> TextAlign.End; centred -> TextAlign.Center; else -> TextAlign.Start },
@@ -678,14 +743,15 @@ fun LyricsPanel(
                 val lineAlpha = if (synced && !isActive) alpha * 0.55f else alpha
                 Column(Modifier.fillMaxWidth()) {
                     if (isActive && shown.isWordSynced) {
-                        SweptLine(shown, clock, style, Modifier.fillMaxWidth())
+                        if (axisLyrics) WeightSweptLine(shown, clock, style, Modifier.fillMaxWidth())
+                        else SweptLine(shown, clock, style.copy(fontWeight = FontWeight.Medium), Modifier.fillMaxWidth())
                     } else {
                         Text(shown.text, style = style, color = Color.White.copy(alpha = lineAlpha), modifier = Modifier.fillMaxWidth())
                     }
                     // "Under each line": the line in Latin letters, smaller, lit word by word with it.
                     if (!romanInstead && romanLine != null) {
                         val romanStyle = style.copy(
-                            fontSize = style.fontSize * 0.56f, lineHeight = style.lineHeight * 0.62f, fontWeight = FontWeight.Bold,
+                            fontSize = style.fontSize * 0.56f, lineHeight = style.lineHeight * 0.62f, fontWeight = FontWeight.Normal,
                             // Under a right-to-left line it keeps to that line's side.
                             textAlign = if (rtl && !centred) TextAlign.End else style.textAlign,
                             textDirection = androidx.compose.ui.text.style.TextDirection.Ltr,
@@ -695,14 +761,14 @@ fun LyricsPanel(
                     }
                     // Background vocals, smaller under the line, lighting up word by word in their own time (#66).
                     shown.backgroundLine?.let { bg ->
-                        val bgStyle = style.copy(fontSize = style.fontSize * 0.6f, lineHeight = style.lineHeight * 0.64f, fontWeight = FontWeight.Bold)
+                        val bgStyle = style.copy(fontSize = style.fontSize * 0.6f, lineHeight = style.lineHeight * 0.64f, fontWeight = FontWeight.Normal)
                         if (isActive) SweptLine(bg, clock, bgStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = UNSUNG_ALPHA * 0.8f)
                         else Text(bg.text, style = bgStyle, color = Color.White.copy(alpha = lineAlpha * 0.75f), modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
                     }
                     translations?.getOrNull(index)?.takeUnless { it.equals(line.text.trim(), ignoreCase = true) }?.let { t ->
                         Text(
                             t,
-                            style = style.copy(fontSize = style.fontSize * 0.52f, lineHeight = style.lineHeight * 0.56f, fontWeight = FontWeight.SemiBold),
+                            style = style.copy(fontSize = style.fontSize * 0.52f, lineHeight = style.lineHeight * 0.56f, fontWeight = FontWeight.Normal),
                             color = Color.White.copy(alpha = (if (isActive) 0.75f else lineAlpha * 0.8f)),
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         )
@@ -826,7 +892,7 @@ fun LyricsProviderSheet(state: LyricsState, onDismiss: () -> Unit) {
     // The same frosted sheet as the player's ⋯ menu it opens from.
     com.prism.music.ui.components.ActionSheet(state.song.thumbnail, onDismiss) { close ->
         Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Lyrics source", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("Lyrics source", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             // Up top, where it can't scroll out of reach.
             state.source?.let {
                 com.prism.music.ui.components.PrismChip(false, { state.redownload(); close {} }, "Re-download", icon = PrismIcons.Refresh)

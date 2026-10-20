@@ -506,10 +506,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 Box(
                     Modifier.align(Alignment.TopCenter)
                         .offset { IntOffset(0, lerp(6.dp, (DISMISS_STRIP - 5.dp) / 2, p()).roundToPx()) }
-                        .size(38.dp, 5.dp)
-                        .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color.White.copy(alpha = 0.70f)),
+                        .size(32.dp, 3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color.White.copy(alpha = 0.45f)),
                 )
                 if (collapse.value < 0.999f && settings.showPlayingFrom && originAlbum != null) PlaybackOriginCaption(
                     // The song's own album, which needn't be what's playing (a playlist, a radio): not "Playing from".
@@ -635,8 +634,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         ) {
                             val scrolls = collapse.value < 0.01f && !covered
                             PlayerMarquee(
-                                // The title leads, the artist under it a size smaller (#41): they were both 20 sp.
-                                song.title, MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp), Color.White, scrolls,
+                                // The title leads, the artist under it a size smaller (#41). Spectrum: large and light.
+                                song.title, MaterialTheme.typography.headlineSmall, Color.White, scrolls,
                                 Modifier.clickable(enabled = song.album?.id != null) { song.album?.id?.let { onCollapse(); nav.go(Routes.album(it)) } },
                             )
                             // With more than one artist, the name asks which one to open (#42).
@@ -645,7 +644,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             var pickArtist by remember(song.id) { mutableStateOf(false) }
                             Box {
                                 PlayerMarquee(
-                                    song.artistText, MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.W500, fontSize = 17.sp, lineHeight = 22.sp), Color.White.copy(alpha = 0.6f), scrolls,
+                                    song.artistText, MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 22.sp), Color.White.copy(alpha = 0.6f), scrolls,
                                     Modifier.clickable(enabled = linked.isNotEmpty()) {
                                         if (linked.size > 1) pickArtist = true else linked.firstOrNull()?.let { onCollapse(); nav.go(Routes.artist(it)) }
                                     },

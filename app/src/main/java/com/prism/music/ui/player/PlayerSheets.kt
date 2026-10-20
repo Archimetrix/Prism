@@ -126,7 +126,7 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
     // The same frosted sheet as the player's ⋯ menu it opens from.
     com.prism.music.ui.components.ActionSheet(song?.thumbnail, onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp)) {
-            Text("Lyrics timing", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("Lyrics timing", style = MaterialTheme.typography.titleLarge)
             Text(
                 if (videoMode) "For this song's music video" else "For this song",
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
@@ -180,7 +180,7 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
 
 @Composable
 private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.10f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+    Column(modifier.clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
         Text(label, color = Color.White.copy(alpha = 0.55f), style = MaterialTheme.typography.labelSmall)
         Text(value, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 2)
     }

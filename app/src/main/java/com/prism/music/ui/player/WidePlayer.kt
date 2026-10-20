@@ -6,6 +6,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -283,18 +284,18 @@ private fun WideCover(
 @Composable
 private fun PaneTabs(pane: PlayerPane, onPane: (PlayerPane) -> Unit, modifier: Modifier) {
     val haptics = rememberHaptics()
-    Row(modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.10f)).padding(3.dp)) {
+    Row(modifier.clip(RoundedCornerShape(3.dp)).border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(3.dp)).padding(2.dp)) {
         PlayerPane.entries.forEach { p ->
             val on = p == pane
             Box(
-                Modifier.clip(RoundedCornerShape(50))
-                    .background(if (on) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+                Modifier.clip(RoundedCornerShape(2.dp))
+                    .background(if (on) Color.White else Color.Transparent)
                     .clickable(onClickLabel = p.label) { haptics.tick(); onPane(p) }
                     .padding(horizontal = 16.dp, vertical = 7.dp),
             ) {
                 Text(
-                    p.label, color = Color.White.copy(alpha = if (on) 1f else 0.65f),
-                    style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                    p.label, color = if (on) Color(0xFF060609) else Color.White.copy(alpha = 0.65f),
+                    style = MaterialTheme.typography.labelLarge,
                 )
             }
         }

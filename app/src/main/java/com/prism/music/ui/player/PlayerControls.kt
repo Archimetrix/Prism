@@ -32,6 +32,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -120,8 +122,19 @@ fun ThinSlider(
     secondary: Float = 0f,
     /** Draw a round knob at the current value. */
     thumb: Boolean = false,
+    /** Spectrum: the played part in the split light (the scrubber), rather than white. */
+    spectrum: Boolean = false,
+    /** Points (0–1) marked with a tick (the best part); dragging across one gives a haptic step. */
+    marks: List<Float> = emptyList(),
 ) {
     var dragging by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
+    val marksNow by androidx.compose.runtime.rememberUpdatedState(marks)
+    var last by remember { mutableFloatStateOf(-1f) }
+    fun crossed(v: Float) {
+        if (last >= 0f && marksNow.any { m -> (last < m) != (v < m) }) haptics.tick()
+        last = v
+    }
     // The gesture below runs for the slider's whole life; without these it kept the first callbacks, which
     // seeked with the duration of the song that was playing when the player opened (a longer or shorter song
     // later landed in the wrong place).
@@ -140,13 +153,14 @@ fun ThinSlider(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     dragging = true
-                    onChange((down.position.x / size.width).coerceIn(0f, 1f))
+                    last = -1f
+                    (down.position.x / size.width).coerceIn(0f, 1f).let { crossed(it); onChange(it) }
                     while (true) {
                         val event = awaitPointerEvent()
                         val p = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (!p.pressed) { p.consume(); break }
                         if (p.positionChanged()) {
-                            onChange((p.position.x / size.width).coerceIn(0f, 1f))
+                            (p.position.x / size.width).coerceIn(0f, 1f).let { crossed(it); onChange(it) }
                             p.consume()
                         }
                     }
@@ -158,14 +172,21 @@ fun ThinSlider(
     ) {
         Canvas(Modifier.fillMaxWidth().height(height)) {
             val r = CornerRadius(size.height / 2f)
-            drawRoundRect(Color.White.copy(alpha = 0.26f), cornerRadius = r)
+            drawRoundRect(Color.White.copy(alpha = 0.20f), cornerRadius = r)
             if (secondary > 0f) drawRoundRect(Color.White.copy(alpha = 0.12f), size = Size(size.width * secondary.coerceIn(0f, 1f), size.height), cornerRadius = r)
             val filled = size.width * value.coerceIn(0f, 1f)
-            if (filled > 0f) drawRoundRect(
-                Color.White.copy(alpha = 0.92f),
-                size = Size(filled.coerceAtLeast(size.height).coerceAtMost(size.width), size.height),
-                cornerRadius = r,
-            )
+            val played = Size(filled.coerceAtLeast(size.height).coerceAtMost(size.width), size.height)
+            if (filled > 0f) {
+                if (spectrum) drawRoundRect(
+                    Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors.toTypedArray(), startX = 0f, endX = size.width),
+                    size = played, cornerRadius = r,
+                ) else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
+            }
+            // Ticks stand a little above and below the line.
+            marks.forEach { m ->
+                val x = size.width * m.coerceIn(0f, 1f)
+                drawLine(Color.White.copy(alpha = 0.75f), Offset(x, -3.dp.toPx()), Offset(x, size.height + 3.dp.toPx()), 1.5.dp.toPx(), StrokeCap.Round)
+            }
             if (thumb) {
                 val knob = (if (dragging) 9.dp else 7.dp).toPx()
                 drawCircle(Color.Black.copy(alpha = 0.18f), knob + 1.5f, Offset(filled.coerceIn(knob, size.width - knob), size.height / 2 + 1f))
@@ -188,7 +209,7 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(7.dp).background(Color(0xFFFF4D4D), androidx.compose.foundation.shape.CircleShape))
                     Spacer(Modifier.width(6.dp))
-                    Text("LIVE", style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                    Text("LIVE", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
                 }
                 centerLabel()
             }
@@ -202,21 +223,30 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
     // The song's length or the time left (#82): tapping the time switches, and it stays that way.
     val showLength = LocalAppSettings.current.showTrackLength
     val c = LocalContainer.current
+    // The best part's place on the bar (it's given in the lyrics' timeline, shifted from the song's by the timing offset).
+    val best by c.bestParts.current.collectAsState()
+    val shift by pc.lyricShift.collectAsState()
+    val bestMark = best?.takeIf { it.songId == current?.id && LocalAppSettings.current.bestPartButton }
+        ?.startMs?.let { ((it - shift).toFloat() / duration).takeIf { f -> f in 0.01f..0.99f } }
+    val times = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
     Column(Modifier.fillMaxWidth()) {
+        // Spectrum: a thin line, the played part in the split light.
         ThinSlider(
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
-            idleHeight = when (style) { ScrubberStyle.HAIRLINE -> 7.dp; ScrubberStyle.BOLD -> 11.dp; ScrubberStyle.THUMB -> 4.dp },
-            activeHeight = when (style) { ScrubberStyle.HAIRLINE -> 12.dp; ScrubberStyle.BOLD -> 16.dp; ScrubberStyle.THUMB -> 6.dp },
+            idleHeight = when (style) { ScrubberStyle.HAIRLINE -> 3.dp; ScrubberStyle.BOLD -> 7.dp; ScrubberStyle.THUMB -> 3.dp },
+            activeHeight = when (style) { ScrubberStyle.HAIRLINE -> 7.dp; ScrubberStyle.BOLD -> 12.dp; ScrubberStyle.THUMB -> 5.dp },
             thumb = style == ScrubberStyle.THUMB,
+            spectrum = true,
+            marks = listOfNotNull(bestMark),
         )
         Box(Modifier.fillMaxWidth().offset(y = (-9).dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatTime((shown * duration).toLong()), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f))
+                Text(formatTime((shown * duration).toLong()), style = times, color = Color.White.copy(alpha = 0.55f))
                 Text(
-                    if (showLength) formatTime(duration) else "-" + formatTime(duration - (shown * duration).toLong()),
-                    style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f),
+                    if (showLength) formatTime(duration) else "−" + formatTime(duration - (shown * duration).toLong()),
+                    style = times, color = Color.White.copy(alpha = 0.55f),
                     modifier = Modifier
                         .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
                         .clickable(onClickLabel = if (showLength) "Show time left" else "Show song length") { c.settings.setShowTrackLength(!showLength) },
@@ -248,15 +278,17 @@ fun BoxScope.BestPartChip(): Boolean {
     val at = rememberPosition(fast = false) + shift
     if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
     val haptics = rememberHaptics()
+    // Spectrum: a hairline tag, matching the tick on the bar.
+    val tag = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
     Row(
-        Modifier.align(Alignment.Center).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
+        Modifier.align(Alignment.Center).clip(tag).border(1.dp, Color.White.copy(alpha = 0.35f), tag)
             .clickable(onClickLabel = "Skip to the best part") { haptics.tick(); pc.seekToLyric(start) }
-            .padding(horizontal = 12.dp, vertical = 3.dp),
+            .padding(horizontal = 10.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(PrismIcons.FlameFilled, null, tint = Color.White, modifier = Modifier.size(14.dp))
+        Icon(PrismIcons.Flame, null, tint = Color.White, modifier = Modifier.size(13.dp))
         Spacer(Modifier.width(5.dp))
-        Text("Best part", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("Best part", style = MaterialTheme.typography.labelMedium, color = Color.White)
     }
     return true
 }
@@ -354,14 +386,15 @@ private fun PlayDisc(isPlaying: Boolean, isLoading: Boolean, filled: Boolean, si
             Modifier.size(size).clip(CircleShape)
                 .then(
                     if (filled) Modifier.background(Color.White)
-                    else Modifier.background(Color.White.copy(alpha = 0.10f)).border(2.dp, Color.White.copy(alpha = 0.85f), CircleShape)
+                    // Spectrum's play button: a thin ring, nothing inside it but the glyph.
+                    else Modifier.border(1.5.dp, Color.White.copy(alpha = 0.9f), CircleShape)
                 ),
             contentAlignment = Alignment.Center,
         ) {
             val tint = if (filled) Color.Black else Color.White
-            if (isLoading) CircularProgressIndicator(color = tint, strokeWidth = 3.dp, modifier = Modifier.size(size * 0.42f))
+            if (isLoading) CircularProgressIndicator(color = tint, strokeWidth = 1.5.dp, modifier = Modifier.size(size * 0.42f))
             else Crossfade(isPlaying, animationSpec = tween(160), label = "playDisc") { p ->
-                Icon(if (p) PrismIcons.Pause else PrismIcons.Play, if (p) "Pause" else "Play", tint = tint, modifier = Modifier.size(size * 0.56f))
+                Icon(if (p) PrismIcons.Pause else PrismIcons.Play, if (p) "Pause" else "Play", tint = tint, modifier = Modifier.size(size * (if (filled) 0.56f else 0.46f)))
             }
         }
     }
@@ -531,14 +564,15 @@ fun PlayerActionRow(
                 } else if (!settings.showVideoSwitch) {
                     // Settings → Player → "Song / Video switch" off: audio only, lyrics and queue keep their places.
                     Spacer(Modifier.size(1.dp))
-                } else Pill {
-                    PillSegment(PrismIcons.Song, "Song", !videoMode && !videoLoading) { if (videoMode || videoLoading) onVideoMode(false) }
-                    PillDivider()
+                } else {
+                    // Spectrum: one Video toggle instead of a Song / Video capsule. On (marked) plays the music video;
+                    // tapping again goes back to the song.
                     PillSegment(
-                        PrismIcons.Video, if (videoAvailable) "Music video" else "No music video for this song",
-                        videoMode || videoLoading, enabled = videoAvailable || videoMode, loading = videoLoading,
+                        PrismIcons.Video,
+                        when { videoMode -> "Back to the song"; videoAvailable -> "Music video"; else -> "No music video for this song" },
+                        videoMode || videoLoading, enabled = videoAvailable || videoMode, loading = videoLoading, width = BOTTOM_ACTION_SIZE,
                     ) {
-                        if (!videoMode && !videoLoading) onVideoMode(true)
+                        if (videoMode || videoLoading) onVideoMode(false) else onVideoMode(true)
                     }
                 }
             }
@@ -547,11 +581,11 @@ fun PlayerActionRow(
     }
 }
 
+/** A group of bottom-row glyphs (shuffle, repeat, autoplay while the queue is up): Spectrum keeps them out of a capsule. */
 @Composable
 private fun Pill(content: @Composable RowScope.() -> Unit) {
     Row(
-        Modifier.height(BOTTOM_ACTION_SIZE).clip(CircleShape).background(Color.White.copy(alpha = 0.12f))
-            .animateContentSize(spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)),
+        Modifier.height(BOTTOM_ACTION_SIZE).animateContentSize(spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow)),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
@@ -559,7 +593,17 @@ private fun Pill(content: @Composable RowScope.() -> Unit) {
 
 @Composable
 private fun PillDivider() {
-    Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.20f)))
+    Spacer(Modifier.width(4.dp))
+}
+
+/** The mark under a bottom-row glyph that's on (lyrics open, video playing, shuffle on): a short line of split light. */
+@Composable
+private fun BoxScope.OnMark(on: Boolean) {
+    val shown by animateFloatAsState(if (on) 1f else 0f, tween(com.prism.music.ui.theme.PrismTokens.Motion.STANDARD), label = "onMark")
+    if (shown > 0f) Box(
+        Modifier.align(Alignment.BottomCenter).padding(bottom = 3.dp).size(width = 14.dp * shown, height = 2.dp)
+            .clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrum),
+    )
 }
 
 @Composable
@@ -576,16 +620,17 @@ private fun PillSegment(
     val haptics = rememberHaptics()
     Box(
         Modifier.width(width).height(BOTTOM_ACTION_SIZE)
-            .background(if (highlighted) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+            .semantics { selected = highlighted }
             .clickable(remember { MutableInteractionSource() }, indication = null, enabled = enabled) { haptics.tick(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        val tint = Color.White.copy(alpha = when { !enabled -> 0.25f; highlighted -> 1f; else -> 0.75f })
+        val tint = Color.White.copy(alpha = when { !enabled -> 0.25f; highlighted -> 1f; else -> 0.7f })
         Crossfade(Triple(icon, label, loading), animationSpec = tween(200), label = "segment") { (ic, lb, busy) ->
-            if (busy) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+            if (busy) CircularProgressIndicator(color = Color.White, strokeWidth = 1.5.dp, modifier = Modifier.size(20.dp))
             else if (ic != null) Icon(ic, description, tint = tint, modifier = Modifier.size(24.dp))
-            else if (lb != null) Text(lb, color = tint, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            else if (lb != null) Text(lb, color = tint, fontSize = 17.sp, fontWeight = FontWeight.Medium)
         }
+        OnMark(highlighted && enabled)
     }
 }
 
@@ -594,25 +639,26 @@ private fun BottomGlyph(icon: ImageVector, description: String, highlighted: Boo
     val haptics = rememberHaptics()
     Box(
         Modifier.size(BOTTOM_ACTION_SIZE).clip(CircleShape)
-            .background(if (highlighted) Color.White.copy(alpha = 0.20f) else Color.Transparent)
+            .semantics { selected = highlighted }
             .clickable(remember { MutableInteractionSource() }, indication = null) { haptics.tick(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, description, tint = Color.White.copy(alpha = if (highlighted) 1f else 0.75f), modifier = Modifier.size(26.dp))
+        Icon(icon, description, tint = Color.White.copy(alpha = if (highlighted) 1f else 0.7f), modifier = Modifier.size(25.dp))
+        OnMark(highlighted)
     }
 }
 
-/** Translucent circular button beside the credits (like, menu). */
+/** A bare button beside the credits (like, menu): Spectrum keeps them out of discs; [active] (liked) in full white. */
 @Composable
 fun CircleGlyph(icon: ImageVector, description: String, active: Boolean = false, onClick: () -> Unit) {
-    val disc by animateFloatAsState(if (active) 0.34f else 0.18f, label = "disc")
+    val ink by animateFloatAsState(if (active) 1f else 0.8f, label = "glyphInk")
     val haptics = rememberHaptics()
     Box(
-        Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = disc))
-            .clickable(remember { MutableInteractionSource() }, indication = null) { haptics.click(); onClick() },
+        Modifier.size(40.dp).clip(CircleShape)
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = description) { haptics.click(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Crossfade(icon, animationSpec = tween(180), label = "glyph") { Icon(it, description, tint = Color.White, modifier = Modifier.size(19.dp)) }
+        Crossfade(icon, animationSpec = tween(180), label = "glyph") { Icon(it, description, tint = Color.White.copy(alpha = ink), modifier = Modifier.size(24.dp)) }
     }
 }
 
@@ -958,11 +1004,10 @@ fun QualityLabel(modifier: Modifier = Modifier, selected: Boolean = false, onCli
     if (text.isBlank()) return
     Text(
         text,
-        style = MaterialTheme.typography.labelSmall,
+        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
         color = Color.White.copy(alpha = if (selected) 0.95f else 0.55f),
-        fontWeight = FontWeight.SemiBold,
-        modifier = modifier.clip(CircleShape)
-            .background(Color.White.copy(alpha = if (selected) 0.16f else 0f))
+        modifier = modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(3.dp))
+            .background(Color.White.copy(alpha = if (selected) 0.14f else 0f))
             .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }

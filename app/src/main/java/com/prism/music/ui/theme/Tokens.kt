@@ -88,6 +88,16 @@ object AppFonts {
         })
     }
 
+    /**
+     * Prism's typeface at every 20 along its weight axis, 200–700: for text whose weight moves smoothly (the lyric being
+     * sung thickens as it's sung). A family picks its nearest weight, so it holds the in-between ones too.
+     */
+    val prismAxis: FontFamily by lazy {
+        FontFamily((200..700 step 20).map { w ->
+            Font(com.prism.music.R.font.outfit, FontWeight(w), FontStyle.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(w)))
+        })
+    }
+
     private val sansFlex = arrayOf("/product/fonts/GoogleSansFlex-Regular.ttf", "/system/fonts/GoogleSansFlex-Regular.ttf")
     private val googleSans = arrayOf("/product/fonts/GoogleSans-Regular.ttf", "/system/fonts/GoogleSans-Regular.ttf")
     private val robotoFlex = arrayOf("/system/fonts/RobotoFlex-Regular.ttf")

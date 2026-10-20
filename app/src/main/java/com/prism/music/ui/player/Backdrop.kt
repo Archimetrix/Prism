@@ -48,7 +48,7 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-val PlayerFallbackBackdrop = Color(0xFF121212)
+val PlayerFallbackBackdrop = Color(0xFF060609)
 
 /** The cover reduced to a tiny, smoothly interpolated colour field. */
 @Immutable
@@ -126,7 +126,8 @@ fun ArtworkMeshBackdrop(mesh: ArtworkMesh?, modifier: Modifier = Modifier, seam:
         val seamY = seam.toPx().coerceIn(0f, size.height)
         shown?.let { drawMesh(it, seamY, 1f) }
         incoming?.let { drawMesh(it, seamY, fade.value) }
-        drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.06f), Color.Black.copy(alpha = 0.30f))))
+        // Spectrum (1.7): a deeper, calmer field, darkest under the controls, so the white type sits on quiet ground.
+        drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.16f), 0.55f to Color.Black.copy(alpha = 0.34f), 1f to Color.Black.copy(alpha = 0.58f)))
     }
 }
 

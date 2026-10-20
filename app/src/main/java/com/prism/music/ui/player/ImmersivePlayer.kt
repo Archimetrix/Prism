@@ -335,7 +335,7 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
     val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
     val synced = lines.any { it.timeMs >= 0 }
     val lineStyle = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold,
+        fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.Medium,
         textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
     ).withLyricsFont()
     if (lines.isEmpty() || !synced) {
@@ -368,7 +368,7 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
             }
             // Romanized "under each line": the Latin spelling, smaller, under the big line.
             if (!instead && line != null) roman?.getOrNull(i)?.let { r ->
-                val romanStyle = lineStyle.copy(fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, textDirection = TextDirection.Ltr)
+                val romanStyle = lineStyle.copy(fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Normal, textDirection = TextDirection.Ltr)
                 Spacer(Modifier.height(6.dp))
                 if (r.isWordSynced) SweptLine(r, clock, romanStyle, Modifier.fillMaxWidth(), maxLines = 3, dimAlpha = 0.45f)
                 else Text(r.text, style = romanStyle, color = Color.White.copy(alpha = 0.85f), maxLines = 3, modifier = Modifier.fillMaxWidth())
@@ -379,7 +379,7 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
                 Text(
                     n.text, color = Color.White.copy(alpha = 0.55f), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
+                        fontWeight = FontWeight.Normal, textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -393,13 +393,13 @@ private fun TitleCard(song: Song) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             song.title, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, shadow = lineShadow),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Normal, textAlign = TextAlign.Center, shadow = lineShadow),
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(6.dp))
         Text(
             song.artistText, color = Color.White.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, shadow = lineShadow),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal, textAlign = TextAlign.Center, shadow = lineShadow),
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -497,7 +497,7 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
     val index by remember(lines) { derivedStateOf { lines.indexAtOrBefore(clock.value) } }
     val list = rememberLazyListState()
     val style = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.ExtraBold,
+        fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Medium,
         textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
     ).withLyricsFont()
     LaunchedEffect(lines, index) {
@@ -539,7 +539,7 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
                             else -> Text(line.text, style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
                         }
                         if (!instead && !line.isGap) roman?.getOrNull(i)?.let { r ->
-                            val romanStyle = style.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, textDirection = TextDirection.Ltr)
+                            val romanStyle = style.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Normal, textDirection = TextDirection.Ltr)
                             if (current && r.isWordSynced) SweptLine(r, clock, romanStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = 0.45f)
                             else Text(r.text, style = romanStyle, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
                         }

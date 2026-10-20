@@ -87,7 +87,7 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                 Icon(PrismIcons.MicFilled, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Sing", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Sing", style = MaterialTheme.typography.titleLarge)
                     Text("The song's own music, with the voice taken out", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (ready) PrismSwitch(on, { sing.setOn(it) })
