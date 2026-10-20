@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,7 +28,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -322,7 +322,7 @@ fun LocalMusicScreen(bottomPadding: Dp) {
         when {
             !allowed -> Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 EmptyState(PrismIcons.Phone, "Your music files", "Play the songs on your phone (MP3, M4A, FLAC, OGG, WAV…) in Prism. They stay where they are; Prism only reads them.")
-                Button(onClick = { allow.launch(LocalLossless.permission) }) { Text("Allow access to music files") }
+                PrismButton(onClick = { allow.launch(LocalLossless.permission) }) { Text("Allow access to music files") }
             }
             tracks.isEmpty() -> Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (scanned) EmptyState(PrismIcons.Phone, "No music files found", "Songs you copy onto your phone, or download with another app, show up here.")

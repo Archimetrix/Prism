@@ -1,5 +1,8 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismTextButton
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -41,16 +44,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -173,8 +173,8 @@ fun BlendsScreen(bottomPadding: Dp) {
             onDismissRequest = { c.blends.pending.value = null },
             title = { Text(if (friend != null) "Blend with ${friend.name}?" else "Not a Blend code") },
             text = { Text(if (friend != null) "Prism makes a playlist from your tastes together, on this phone. Only your code (what's under \"What you share\") goes to them, if you send it back." else "That message didn't hold a Prism Blend code.") },
-            confirmButton = { if (friend != null) TextButton({ c.blends.pending.value = null; take(p) }) { Text("Make the Blend") } },
-            dismissButton = { TextButton({ c.blends.pending.value = null }) { Text("Not now") } },
+            confirmButton = { if (friend != null) PrismTextButton({ c.blends.pending.value = null; take(p) }) { Text("Make the Blend") } },
+            dismissButton = { PrismTextButton({ c.blends.pending.value = null }) { Text("Not now") } },
         )
     }
 
@@ -190,13 +190,13 @@ fun BlendsScreen(bottomPadding: Dp) {
                 OutlinedTextField(
                     name, { name = it.take(30) }, Modifier.fillMaxWidth(), singleLine = true,
                     label = { Text("Your name in Blends") },
-                    trailingIcon = { if (name != c.blends.myName) TextButton({ c.blends.myName = name; nameVersion++ }) { Text("Save") } },
+                    trailingIcon = { if (name != c.blends.myName) PrismTextButton({ c.blends.myName = name; nameVersion++ }) { Text("Save") } },
                 )
                 Spacer(Modifier.height(12.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ nav.go(Routes.BLEND_SCAN) }) { Icon(PrismIcons.Camera, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Scan a code") }
-                    OutlinedButton({ code?.let { shareCodeText(context, it, name) } }, enabled = code != null) { Icon(PrismIcons.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send my code") }
-                    OutlinedButton({
+                    PrismButton({ nav.go(Routes.BLEND_SCAN) }) { Icon(PrismIcons.Camera, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Scan a code") }
+                    PrismOutlinedButton({ code?.let { shareCodeText(context, it, name) } }, enabled = code != null) { Icon(PrismIcons.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Send my code") }
+                    PrismOutlinedButton({
                         val t = clipboard.getText()?.text
                         if (t.isNullOrBlank()) Toast.makeText(context, "Copy a friend's code first", Toast.LENGTH_SHORT).show() else take(t)
                     }) { Text("Paste a code") }
@@ -318,8 +318,8 @@ fun BlendScreen(who: String, bottomPadding: Dp) {
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button({ c.player.playQueue(songs, 0, source) }, Modifier.weight(1f)) { Icon(PrismIcons.Play, null); Spacer(Modifier.width(6.dp)); Text("Play") }
-                    OutlinedButton({ c.player.playQueue(songs, 0, source, shuffle = true) }, Modifier.weight(1f)) { Icon(PrismIcons.Shuffle, null); Spacer(Modifier.width(6.dp)); Text("Shuffle") }
+                    PrismButton({ c.player.playQueue(songs, 0, source) }, Modifier.weight(1f)) { Icon(PrismIcons.Play, null); Spacer(Modifier.width(6.dp)); Text("Play") }
+                    PrismOutlinedButton({ c.player.playQueue(songs, 0, source, shuffle = true) }, Modifier.weight(1f)) { Icon(PrismIcons.Shuffle, null); Spacer(Modifier.width(6.dp)); Text("Shuffle") }
                 }
             }
         }
@@ -366,7 +366,7 @@ private fun BlendCardDialog(blend: Blend, me: TasteCode, friend: TasteCode, onDi
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton({
+            PrismTextButton({
                 scope.launch {
                     val ok = shareLayer(context, layer, "prism-blend.png", "Our Blend on Prism: ${blend.match}% taste match", "Share your Blend")
                     if (!ok) Toast.makeText(context, "Couldn't make the picture", Toast.LENGTH_SHORT).show()
@@ -374,7 +374,7 @@ private fun BlendCardDialog(blend: Blend, me: TasteCode, friend: TasteCode, onDi
                 }
             }) { Text("Share") }
         },
-        dismissButton = { TextButton(onDismiss) { Text("Cancel") } },
+        dismissButton = { PrismTextButton(onDismiss) { Text("Cancel") } },
         text = {
             Column(
                 Modifier.fillMaxWidth().aspectRatio(9f / 16f).recordInto(layer).clip(RoundedCornerShape(16.dp))
@@ -422,7 +422,7 @@ fun BlendScanScreen(onCode: (String) -> Unit) {
         if (granted) CameraScanner(onCode) else Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Prism needs the camera to scan a Blend code", color = Color.White, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
-            Button({ ask.launch(Manifest.permission.CAMERA) }) { Text("Allow the camera") }
+            PrismButton({ ask.launch(Manifest.permission.CAMERA) }) { Text("Allow the camera") }
         }
         Row(Modifier.statusBarsPadding().padding(12.dp)) { RoundAction(PrismIcons.ArrowBack, "Back", glass = true) { nav.back() } }
         Text(

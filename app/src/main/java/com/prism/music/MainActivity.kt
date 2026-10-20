@@ -123,6 +123,10 @@ import com.prism.music.ui.theme.LocalHazeState
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.ui.theme.PrismTheme
 import com.prism.music.ui.theme.ScreenBackdrop
+import com.prism.music.ui.theme.hairline
+import com.prism.music.ui.theme.ink3
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.semantics.selected
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.Dispatchers
@@ -511,6 +515,7 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         composable(Routes.CATALOGUE) { ScreenBackdrop(BackdropScreen.HOME) { CatalogueScreen(bottomPadding) } }
                         composable(Routes.MOODS) { ScreenBackdrop(BackdropScreen.SEARCH) { com.prism.music.ui.screens.MoodsScreen(bottomPadding) } }
                         composable(Routes.IMPORT) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.ImportScreen(bottomPadding) } }
+                        composable(Routes.DESIGN_GALLERY) { ScreenBackdrop(BackdropScreen.SETTINGS) { com.prism.music.ui.components.DesignGallery(bottomPadding) } }
                         composable(Routes.TOGETHER) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.TogetherScreen(bottomPadding) } }
                         composable(Routes.PODCASTS) { ScreenBackdrop(BackdropScreen.LIBRARY) { com.prism.music.ui.screens.PodcastsScreen(bottomPadding) } }
                         composable("podcast/{id}", listOf(navArgument("id") { type = NavType.StringType })) {
@@ -596,8 +601,10 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             TogetherPill(together, Modifier.padding(bottom = 8.dp)) { navigator.go(Routes.TOGETHER) }
                         }
                         AnimatedVisibility(song != null && !playerOpen, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                            // Spectrum's bar (the Card style over the docked tab bar) sits right on the tab bar, edge to edge.
+                            val flush = docked && settings.miniPlayerStyle == MiniPlayerStyle.CARD && !(settings.liquidGlass || settings.frostedGlass)
                             MiniPlayer(
-                                Modifier.padding(bottom = 8.dp).then(if (docked) Modifier.padding(horizontal = 10.dp) else Modifier),
+                                if (flush) Modifier else Modifier.padding(bottom = 8.dp).then(if (docked) Modifier.padding(horizontal = 10.dp) else Modifier),
                             ) { playerOpen = true }
                         }
                         TabBar(tabs, route, barT, settings, selectTab)
@@ -709,15 +716,22 @@ private fun TabBar(tabs: List<Tab>, route: String?, compact: Float, settings: Ap
                 }
             }
         }
+        // Spectrum's bar (1.7): flat, a hairline on top, the split-light line over the current tab. Glass, if it's on.
         NavBarStyle.DOCKED -> {
-            GlassSurface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp), elevation = 4.dp) {
+            val scheme = MaterialTheme.colorScheme
+            val row: @Composable () -> Unit = {
                 Row(
-                    Modifier.fillMaxWidth().navigationBarsPadding().height(lerp(62.dp, 50.dp, compact)).padding(horizontal = 8.dp, vertical = 6.dp),
+                    Modifier.fillMaxWidth().navigationBarsPadding().height(lerp(60.dp, 48.dp, compact)).padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    tabs.forEach { tab -> TabItem(tab, isSelected(tab, route), settings.navLabels, compact, Modifier.weight(1f).fillMaxHeight()) { onSelect(tab.route) } }
+                    tabs.forEach { tab -> TabItem(tab, isSelected(tab, route), settings.navLabels, compact, Modifier.weight(1f).fillMaxHeight(), line = true) { onSelect(tab.route) } }
                 }
             }
+            if (settings.liquidGlass || settings.frostedGlass) GlassSurface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(0.dp), elevation = 0.dp) { row() }
+            else Box(
+                Modifier.fillMaxWidth().background(scheme.background)
+                    .drawBehind { drawLine(scheme.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx() * 0.75f) },
+            ) { row() }
         }
         NavBarStyle.MINIMAL -> {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -731,28 +745,44 @@ private fun TabBar(tabs: List<Tab>, route: String?, compact: Float, settings: Ap
     }
 }
 
+/**
+ * One tab: ink when it's the current one, quiet otherwise. [line]: Spectrum's mark, the split-light line along the
+ * top of the current tab, instead of a tinted capsule behind it.
+ */
 @Composable
-private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Float, modifier: Modifier, onClick: () -> Unit) {
+private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Float, modifier: Modifier, line: Boolean = false, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val fg = if (selected) scheme.primary else scheme.onSurfaceVariant
-    val indicator by animateColorAsState(if (selected) scheme.primary.copy(alpha = 0.16f) else Color.Transparent, label = "tab")
+    val fg by animateColorAsState(if (selected) scheme.onSurface else scheme.ink3, label = "tabInk")
+    val indicator by animateColorAsState(if (selected && !line) scheme.onSurface.copy(alpha = 0.08f) else Color.Transparent, label = "tab")
+    val mark by animateFloatAsState(if (selected && line) 1f else 0f, tween(com.prism.music.ui.theme.PrismTokens.Motion.STANDARD), label = "tabLine")
     val click = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = tab.label, onClick = onClick)
+        .semantics { this.selected = selected }
     val icon = if (selected) tab.selectedIcon else tab.icon
+    val spectrumLine = Modifier.drawBehind {
+        if (mark > 0f) {
+            val w = 28.dp.toPx() * mark
+            val x = (size.width - w) / 2
+            drawRect(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors.toTypedArray(), startX = x, endX = x + w),
+                Offset(x, 0f), androidx.compose.ui.geometry.Size(w, 2.dp.toPx()),
+            )
+        }
+    }
     when (labels) {
         NavLabels.ALWAYS -> Column(
-            modifier.clip(RoundedCornerShape(28.dp)).background(indicator).then(click),
+            modifier.then(spectrumLine).clip(RoundedCornerShape(4.dp)).background(indicator).then(click),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(icon, tab.label, tint = fg, modifier = Modifier.size(24.dp))
             if (compact < 0.98f) Text(
-                tab.label, color = fg, style = MaterialTheme.typography.labelSmall, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                tab.label, color = fg, style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
-                modifier = Modifier.height(lerp(16.dp, 0.dp, compact)).graphicsLayer { alpha = (1f - compact * 1.6f).coerceIn(0f, 1f) },
+                modifier = Modifier.padding(top = 2.dp).height(lerp(16.dp, 0.dp, compact)).graphicsLayer { alpha = (1f - compact * 1.6f).coerceIn(0f, 1f) },
             )
         }
         // The picked tab grows into a capsule with its name beside the icon.
-        NavLabels.SELECTED -> Box(modifier.then(click), contentAlignment = Alignment.Center) {
+        NavLabels.SELECTED -> Box(modifier.then(spectrumLine).then(click), contentAlignment = Alignment.Center) {
             Row(
                 Modifier.height(40.dp).clip(CircleShape).background(indicator).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -766,7 +796,7 @@ private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Flo
                 }
             }
         }
-        NavLabels.NEVER -> Box(modifier.then(click), contentAlignment = Alignment.Center) {
+        NavLabels.NEVER -> Box(modifier.then(spectrumLine).then(click), contentAlignment = Alignment.Center) {
             Box(Modifier.size(52.dp, 40.dp).clip(CircleShape).background(indicator), contentAlignment = Alignment.Center) {
                 Icon(icon, tab.label, tint = fg, modifier = Modifier.size(24.dp))
             }

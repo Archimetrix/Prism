@@ -37,15 +37,18 @@ data class PrismUi(
     /** Vertical room designed at [base] for "Comfortable". */
     fun gap(base: Dp): Dp = base * density
 
-    val tile: RoundedCornerShape get() = shape(16.dp)
-    val card: RoundedCornerShape get() = shape(22.dp)
-    val art: RoundedCornerShape get() = shape(12.dp)
-    val smallArt: RoundedCornerShape get() = shape(9.dp)
+    // Spectrum's corners (1.7 redesign): nearly square. The Corners setting still scales them until it's decided
+    // whether it stays.
+    val tile: RoundedCornerShape get() = shape(3.dp)
+    val card: RoundedCornerShape get() = shape(3.dp)
+    val art: RoundedCornerShape get() = shape(2.dp)
+    val smallArt: RoundedCornerShape get() = shape(2.dp)
 
+    /** Material's components (dialogs, sheets, menus, text fields) take these: small corners, sheets a little rounder. */
     val materialShapes: Shapes
         get() = Shapes(
-            extraSmall = shape(4.dp), small = shape(8.dp), medium = shape(12.dp),
-            large = shape(18.dp), extraLarge = shape(28.dp),
+            extraSmall = shape(2.dp), small = shape(3.dp), medium = shape(4.dp),
+            large = shape(6.dp), extraLarge = shape(10.dp),
         )
 
     companion object {

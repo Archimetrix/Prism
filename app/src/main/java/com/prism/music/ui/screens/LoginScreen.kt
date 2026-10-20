@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -29,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -38,7 +39,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -143,7 +143,7 @@ fun LoginScreen(onDone: () -> Unit, onBack: () -> Unit, addAccount: Boolean = fa
         TopAppBar(
             title = { Text("Sign in to YouTube Music") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(PrismIcons.ArrowBack, "Back") } },
-            actions = { TextButton(onClick = { pasteDialog = true }) { Text("Use cookie") } },
+            actions = { PrismTextButton(onClick = { pasteDialog = true }) { Text("Use cookie") } },
         )
         if (finishing) {
             Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -234,9 +234,9 @@ fun LoginScreen(onDone: () -> Unit, onBack: () -> Unit, addAccount: Boolean = fa
                 }
             },
             confirmButton = {
-                TextButton(enabled = text.contains("SAPISID"), onClick = { pasteDialog = false; complete(text.trim()) }) { Text("Sign in") }
+                PrismTextButton(enabled = text.contains("SAPISID"), onClick = { pasteDialog = false; complete(text.trim()) }) { Text("Sign in") }
             },
-            dismissButton = { TextButton(onClick = { pasteDialog = false }) { Text("Cancel") } },
+            dismissButton = { PrismTextButton(onClick = { pasteDialog = false }) { Text("Cancel") } },
         )
     }
 }
@@ -360,7 +360,7 @@ fun DiscordLoginScreen(onBack: () -> Unit) {
                         Text(why, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.height(20.dp))
-                    Button(onClick = { failed = null; progress = 0f; web?.loadUrl(DISCORD_LOGIN_URL) }) { Text("Try again") }
+                    PrismButton(onClick = { failed = null; progress = 0f; web?.loadUrl(DISCORD_LOGIN_URL) }) { Text("Try again") }
                 }
             }
         }
@@ -445,10 +445,10 @@ fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
             Feature(PrismIcons.Download, "Smart downloads & offline liked songs")
             Feature(PrismIcons.Palette, "Make it yours: fonts, layout, player & more")
             Spacer(Modifier.height(32.dp))
-            Button(onClick = onSignIn, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
+            PrismButton(onClick = onSignIn, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
                 Text("Sign in with Google", style = MaterialTheme.typography.titleMedium)
             }
-            TextButton(onClick = onSkip, Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            PrismTextButton(onClick = onSkip, Modifier.fillMaxWidth().padding(top = 6.dp)) {
                 Text("Continue without an account", color = Color.White.copy(alpha = 0.8f))
             }
             WelcomeRestoreButton()

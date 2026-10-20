@@ -442,7 +442,8 @@ data class AppSettings(
     /** Playlist pages open with their picture edge to edge, like an artist page. */
     val playlistHeroCover: Boolean = true,
     /** Artist, album and playlist pages sit on frosted glass made from their picture (Apple Music's look). */
-    val frostedPages: Boolean = true,
+    // Off from 1.7 (Spectrum: flat pages, the colour in the artwork); an opt-in until the owner decides it stays.
+    val frostedPages: Boolean = false,
     val replayThemeColors: Boolean = false,
 ) {
     val isLoggedIn: Boolean get() = cookie.contains("SAPISID")

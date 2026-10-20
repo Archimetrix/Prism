@@ -8,7 +8,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,8 +51,8 @@ fun HandoffDialogs() {
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { handoff.submitCode(code) }, enabled = code.length == 6) { Text("Pair") } },
-            dismissButton = { TextButton(onClick = { handoff.submitCode(null) }) { Text("Cancel") } },
+            confirmButton = { PrismTextButton(onClick = { handoff.submitCode(code) }, enabled = code.length == 6) { Text("Pair") } },
+            dismissButton = { PrismTextButton(onClick = { handoff.submitCode(null) }) { Text("Cancel") } },
         )
     }
     shown?.let { s ->
@@ -72,7 +71,7 @@ fun HandoffDialogs() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 14.dp))
                 }
             },
-            confirmButton = { TextButton(onClick = { handoff.hideCode() }) { Text("Not now") } },
+            confirmButton = { PrismTextButton(onClick = { handoff.hideCode() }) { Text("Not now") } },
         )
     }
 }

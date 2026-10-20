@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.data.friendlyMessage
 import android.text.format.DateUtils
@@ -14,12 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -75,12 +75,12 @@ fun LikedPlaylistSheet(art: String?, onDismiss: () -> Unit) {
             title = { Text("Delete the playlist?") },
             text = { Text("\"${title ?: "The playlist"}\" will be deleted from your YouTube Music account. Your liked songs stay liked.") },
             confirmButton = {
-                TextButton(onClick = {
+                PrismTextButton(onClick = {
                     confirmDelete = false
                     scope.launch { mirror.stop(delete = true).onFailure { toast("Couldn't delete it: ${it.friendlyMessage()}") } }
                 }) { Text("Delete", color = scheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { PrismTextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
     }
 
@@ -104,7 +104,7 @@ fun LikedPlaylistSheet(art: String?, onDismiss: () -> Unit) {
                 )
                 OutlinedTextField(name, { name = it.take(150) }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Segmented(listOf("PRIVATE", "UNLISTED", "PUBLIC"), privacy, { when (it) { "PRIVATE" -> "Private"; "UNLISTED" -> "Unlisted"; else -> "Public" } }) { privacy = it }
-                Button(
+                PrismButton(
                     onClick = {
                         making = true
                         scope.launch {

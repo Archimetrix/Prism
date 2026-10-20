@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.data.friendlyMessage
 import androidx.compose.foundation.background
@@ -28,8 +30,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -209,7 +209,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (!settings.isLoggedIn) {
                             EmptyState(PrismIcons.LibraryFilled, "Sign in to sync your library", "Your playlists, albums, artists and likes from YouTube Music will appear here.")
-                            Button(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
+                            PrismButton(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
                         } else {
                             EmptyState(PrismIcons.LibraryFilled, "Nothing here yet", "Like or download songs, or star artists, and they'll show up here.")
                         }
@@ -236,7 +236,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                         if (!settings.isLoggedIn) item(span = { GridItemSpan(maxLineSpan) }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 EmptyState(PrismIcons.LibraryFilled, "Sign in to sync your playlists", "Your YouTube Music playlists will appear here.")
-                                Button(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
+                                PrismButton(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
                             }
                         }
                         if (myPlaylists.size > 1) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -322,7 +322,7 @@ fun LibraryScreen(bottomPadding: Dp) {
             title = { Text("Delete playlist?") },
             text = { Text("\"${p.title}\" will be deleted from your YouTube Music account. If it's someone else's playlist, it's only removed from your library.") },
             confirmButton = {
-                TextButton(onClick = {
+                PrismTextButton(onClick = {
                     deleting = null
                     scope.launch {
                         c.library.deletePlaylist(p).onFailure {
@@ -331,7 +331,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                     }
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            dismissButton = { PrismTextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
     }
 }

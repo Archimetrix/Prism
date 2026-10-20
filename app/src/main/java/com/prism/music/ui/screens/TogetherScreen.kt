@@ -1,5 +1,9 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismFilledTonalButton
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,16 +20,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -147,8 +147,8 @@ private fun JoinDialog(name: String, askAddress: Boolean, onDismiss: () -> Unit,
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onJoin(address, code) }, enabled = code.length == 4 && (!askAddress || address.isNotBlank())) { Text("Join") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { PrismTextButton(onClick = { onJoin(address, code) }, enabled = code.length == 4 && (!askAddress || address.isNotBlank())) { Text("Join") } },
+        dismissButton = { PrismTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -197,10 +197,10 @@ private fun Hosting(s: TogetherState.Hosting) {
             Toggle("Guests can control playback", "Play, pause and skip from their phones too. They can always add songs.", s.guestsControl) { c.together.setGuestsControl(it) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilledTonalButton(onClick = { nav.go(Routes.SEARCH) }, Modifier.weight(1f)) {
+            PrismFilledTonalButton(onClick = { nav.go(Routes.SEARCH) }, Modifier.weight(1f)) {
                 Icon(PrismIcons.Search, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Find songs")
             }
-            OutlinedButton(onClick = { c.together.leave() }, Modifier.weight(1f)) { Text("End session") }
+            PrismOutlinedButton(onClick = { c.together.leave() }, Modifier.weight(1f)) { Text("End session") }
         }
     }
 }
@@ -230,10 +230,10 @@ private fun GuestView(s: TogetherState.Guest) {
         }
         Note("Add songs from any song's ⋯ menu: they go to ${s.hostName}'s queue.")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { nav.go(Routes.SEARCH) }, Modifier.weight(1f)) {
+            PrismButton(onClick = { nav.go(Routes.SEARCH) }, Modifier.weight(1f)) {
                 Icon(PrismIcons.Search, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add songs")
             }
-            OutlinedButton(onClick = { c.together.leave() }, Modifier.weight(1f)) { Text("Leave") }
+            PrismOutlinedButton(onClick = { c.together.leave() }, Modifier.weight(1f)) { Text("Leave") }
         }
     }
 }
@@ -299,7 +299,7 @@ private fun BigCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = ink)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = ink.copy(alpha = 0.85f))
         Spacer(Modifier.height(14.dp))
-        Button(onClick = onClick) { Text(action) }
+        PrismButton(onClick = onClick) { Text(action) }
     }
 }
 

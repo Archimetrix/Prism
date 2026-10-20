@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -23,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -250,8 +250,8 @@ fun PodcastScreen(id: String, bottomPadding: Dp) {
                 if (next != null && show != null) item(key = "more") {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         if (loadingMore) LoadingState()
-                        else TextButton(onClick = {
-                            val token = next ?: return@TextButton
+                        else PrismTextButton(onClick = {
+                            val token = next ?: return@PrismTextButton
                             loadingMore = true
                             scope.launch {
                                 runCatching { c.ytm.podcastEpisodes(token, show) }

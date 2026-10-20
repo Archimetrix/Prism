@@ -1,5 +1,8 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismTextButton
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,12 +21,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -129,11 +129,11 @@ private fun RecognizeCard(denied: Boolean, onListen: () -> Unit, onOpen: (String
                     }
                     Spacer(Modifier.height(20.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (song != null) Button({ close { c.player.playSingle(song) } }, Modifier.weight(1f)) {
+                        if (song != null) PrismButton({ close { c.player.playSingle(song) } }, Modifier.weight(1f)) {
                             Icon(PrismIcons.Play, null); Spacer(Modifier.width(6.dp)); Text("Play")
                         }
                         // With a song: it plays and Prism opens on the player; without one, on the Recognized list.
-                        OutlinedButton({
+                        PrismOutlinedButton({
                             close {
                                 if (song != null) c.player.playSingle(song)
                                 onOpen(if (song != null) "prism://player" else "prism://recognized")
@@ -146,7 +146,7 @@ private fun RecognizeCard(denied: Boolean, onListen: () -> Unit, onOpen: (String
                         "Not found on YouTube Music", Modifier.padding(top = 8.dp),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TextButton({ c.recognizer.reset(); onListen() }) { Text("Listen again") }
+                    PrismTextButton({ c.recognizer.reset(); onListen() }) { Text("Listen again") }
                 }
                 else -> {
                     val listening = s as? Recognizer.State.Listening

@@ -1,11 +1,11 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismSwitch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +36,7 @@ fun SoundSettings(onOpenEq: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(s.spatial, { c.settings.setSpatial(it) })
+        PrismSwitch(s.spatial, { c.settings.setSpatial(it) })
     }
     var amount by remember { mutableFloatStateOf(s.spatialAmount) }
     LaunchedEffect(s.spatialAmount) { amount = s.spatialAmount }
@@ -46,7 +46,7 @@ fun SoundSettings(onOpenEq: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = if (s.spatial) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Slider(amount, { amount = it }, enabled = s.spatial, valueRange = 0.1f..1f, onValueChangeFinished = { c.settings.setSpatialAmount(amount) })
+        PrismSlider(amount, { amount = it }, enabled = s.spatial, valueRange = 0.1f..1f, onValueChangeFinished = { c.settings.setSpatialAmount(amount) })
     }
     Item(
         "Equalizer",

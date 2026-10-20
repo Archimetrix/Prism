@@ -88,7 +88,7 @@ object SettingsIndex {
         SettingEntry(L, "Tabs", "Tabs", "tab bar order home search library replay settings local files"),
         SettingEntry(L, "Tabs", "Open Prism on", "start tab first screen"),
         SettingEntry(L, "Mini player", "Mini player", "style card slim pill"),
-        SettingEntry(L, "Mini player", "Previous & next buttons", "skip"),
+        SettingEntry(L, "Mini player", "Next button", "skip previous"),
         SettingEntry(L, "Mini player", "Progress"),
         SettingEntry(L, "Pages", "Spacing", "density compact"),
         SettingEntry(L, "Pages", "Page titles"),

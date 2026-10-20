@@ -1,5 +1,9 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismSwitch
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,16 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -87,12 +87,12 @@ fun rememberBackupFlow(onDone: (Boolean) -> Unit = {}): () -> Unit {
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Switch(withDownloads, { withDownloads = it })
+                        PrismSwitch(withDownloads, { withDownloads = it })
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { asking = false; save.launch(backupName()) }) { Text("Choose where") } },
-            dismissButton = { TextButton(onClick = { asking = false }) { Text("Cancel") } },
+            confirmButton = { PrismTextButton(onClick = { asking = false; save.launch(backupName()) }) { Text("Choose where") } },
+            dismissButton = { PrismTextButton(onClick = { asking = false }) { Text("Cancel") } },
         )
     }
     if (busy) WorkingDialog("Backing up…")
@@ -114,7 +114,7 @@ fun rememberRestoreFlow(): () -> Unit {
             title = { Text("Restore this backup?") },
             text = { Text("Prism's library, history and settings on this phone are replaced with the backup's, then Prism restarts.") },
             confirmButton = {
-                TextButton(onClick = {
+                PrismTextButton(onClick = {
                     picked = null
                     busy = true
                     scope.launch {
@@ -126,7 +126,7 @@ fun rememberRestoreFlow(): () -> Unit {
                     }
                 }) { Text("Restore") }
             },
-            dismissButton = { TextButton(onClick = { picked = null }) { Text("Cancel") } },
+            dismissButton = { PrismTextButton(onClick = { picked = null }) { Text("Cancel") } },
         )
     }
     if (busy) WorkingDialog("Restoring…")
@@ -163,7 +163,7 @@ fun BackupGroup() {
 @Composable
 fun WelcomeRestoreButton() {
     val restore = rememberRestoreFlow()
-    TextButton(onClick = restore, Modifier.fillMaxWidth()) { Text("Restore from a backup", color = Color.White.copy(alpha = 0.8f)) }
+    PrismTextButton(onClick = restore, Modifier.fillMaxWidth()) { Text("Restore from a backup", color = Color.White.copy(alpha = 0.8f)) }
 }
 
 /**
@@ -218,7 +218,7 @@ private fun Step(n: Int, title: String, detail: String, done: Boolean, enabled: 
         }
         Spacer(Modifier.width(12.dp))
         if (done) Icon(PrismIcons.Check, "Done", tint = MaterialTheme.colorScheme.primary)
-        else if (n == 3) Button(onClick = onClick, enabled = enabled) { Text("Uninstall") }
-        else OutlinedButton(onClick = onClick, enabled = enabled) { Text(if (n == 1) "Back up" else "Save") }
+        else if (n == 3) PrismButton(onClick = onClick, enabled = enabled) { Text("Uninstall") }
+        else PrismOutlinedButton(onClick = onClick, enabled = enabled) { Text(if (n == 1) "Back up" else "Save") }
     }
 }

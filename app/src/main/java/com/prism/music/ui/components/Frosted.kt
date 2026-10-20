@@ -324,27 +324,26 @@ fun Modifier.pane(shape: Shape, fallback: Color = Color.Unspecified): Modifier {
         return clip(shape).background(frostFill())
             .border(0.7.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.16f else 0.7f), Color.White.copy(alpha = 0.02f))), shape)
     }
-    return clip(shape).background(if (fallback != Color.Unspecified) fallback else MaterialTheme.colorScheme.surfaceContainerHigh)
+    // Spectrum: a flat, slightly raised surface with a hairline edge.
+    val scheme = MaterialTheme.colorScheme
+    return clip(shape).background(if (fallback != Color.Unspecified) fallback else scheme.surfaceContainerLow)
+        .border(1.dp, scheme.onSurface.copy(alpha = 0.08f), shape)
 }
 
 /**
- * The fill of a feature card (a session code, the account, a call to action): frosted glass on a
- * frosted page, the accent's gradient elsewhere. Text on it uses [featureInk].
+ * The fill of a feature card (a session code, the account, a call to action): frosted glass on a frosted page; a
+ * plain [pane] elsewhere (Spectrum keeps colour for the artwork). Text on it uses [featureInk].
  */
 @Composable
-fun Modifier.featurePane(shape: Shape): Modifier {
-    if (LocalFrosted.current) return pane(shape)
-    val scheme = MaterialTheme.colorScheme
-    return clip(shape).background(Brush.linearGradient(listOf(scheme.primaryContainer, scheme.tertiaryContainer)))
-}
+fun Modifier.featurePane(shape: Shape): Modifier = pane(shape)
 
 /** Text and icons on a [featurePane]. */
 @Composable
-fun featureInk(): Color = if (LocalFrosted.current) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer
+fun featureInk(): Color = MaterialTheme.colorScheme.onSurface
 
-/** A quiet fill for small controls (chips, round buttons): frosted on a frosted page, [fallback] elsewhere. */
+/** A quiet fill for small controls: frosted on a frosted page, a faint ink tint (or [fallback]) elsewhere. */
 @Composable
-fun quietFill(fallback: Color = MaterialTheme.colorScheme.surfaceContainerHigh): Color =
+fun quietFill(fallback: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)): Color =
     if (LocalFrosted.current) frostFill(1.4f) else fallback
 
 /**

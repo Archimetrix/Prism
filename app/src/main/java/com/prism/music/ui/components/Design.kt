@@ -59,6 +59,12 @@ import com.prism.music.ui.LocalNavigator
 import com.prism.music.ui.theme.GlassSurface
 import com.prism.music.ui.theme.LocalIsDark
 import com.prism.music.ui.theme.LocalUi
+import com.prism.music.ui.theme.hairline
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.em
 
 /** The style for big page titles, following the Title size setting. */
 @Composable
@@ -100,18 +106,16 @@ fun ScreenHeader(
 @Composable
 fun FloatingDisc(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.BoxScope.(ink: Color) -> Unit) {
     val dark = LocalIsDark.current
-    val fill = if (dark) Color(0xFF1B1B1F).copy(alpha = 0.78f) else Color.White.copy(alpha = 0.90f)
-    val ink = if (dark) Color.White else Color(0xFF111114)
-    Box(
-        modifier.size(42.dp)
-            .shadow(6.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
-            .clip(CircleShape).background(fill)
-            .border(0.7.dp, if (dark) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.08f), CircleShape),
-        contentAlignment = Alignment.Center,
-    ) { content(ink) }
+    // Spectrum: flat, no shadow or rim; just enough fill to read over a photo.
+    val fill = if (dark) Color(0xFF060609).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.82f)
+    val ink = if (dark) Color.White else Color(0xFF0A0A10)
+    Box(modifier.size(40.dp).clip(CircleShape).background(fill), contentAlignment = Alignment.Center) { content(ink) }
 }
 
-/** A round, quiet action for headers: tonal by default, or a floating disc ([FloatingDisc]) when it floats over content. */
+/**
+ * A header action: a bare icon (Spectrum keeps buttons out of boxes) with a full 44 dp target, or a floating disc
+ * ([FloatingDisc]) when it floats over a photo or artwork.
+ */
 @Composable
 fun RoundAction(icon: ImageVector, description: String, modifier: Modifier = Modifier, glass: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
@@ -122,13 +126,10 @@ fun RoundAction(icon: ImageVector, description: String, modifier: Modifier = Mod
             }
         }
     } else {
-        // On a frosted page: a round of frosted glass, like the artist page's buttons.
-        val edge = if (LocalFrosted.current) Modifier.border(0.7.dp, Color.White.copy(alpha = if (LocalIsDark.current) 0.14f else 0.6f), CircleShape) else Modifier
         Box(
-            modifier.size(42.dp).clip(CircleShape).background(quietFill()).then(edge)
-                .clickable(enabled = enabled, onClickLabel = description, onClick = onClick),
+            modifier.size(44.dp).clip(CircleShape).clickable(enabled = enabled, onClickLabel = description, onClick = onClick),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, description, Modifier.size(22.dp), tint = tint) }
+        ) { Icon(icon, description, Modifier.size(24.dp), tint = tint) }
     }
 }
 
@@ -178,16 +179,19 @@ fun SubPage(
             content()
         }
         if (melts) TopScrollEdge({ bar }, 60.dp)
+        // Spectrum: the bar turns solid with a hairline once the title has scrolled under it; Back is a bare arrow.
+        val line = scheme.hairline
         Box(
             Modifier.fillMaxWidth()
-                .background(if (melts) Color.Transparent else scheme.surface.copy(alpha = 0.92f * bar))
+                .background(if (melts) Color.Transparent else scheme.background.copy(alpha = 0.96f * bar))
+                .drawBehind { if (!melts && bar > 0f) drawLine(line.copy(alpha = line.alpha * bar), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx() * 0.75f) }
                 .statusBarsPadding()
-                .height(60.dp),
+                .height(56.dp),
         ) {
-            if (showBack) RoundAction(PrismIcons.ArrowBack, "Back", Modifier.align(Alignment.CenterStart).padding(start = 12.dp), glass = true) { nav.back() }
+            if (showBack) RoundAction(PrismIcons.ArrowBack, "Back", Modifier.align(Alignment.CenterStart).padding(start = 8.dp)) { nav.back() }
             Text(
                 title, Modifier.align(Alignment.Center).padding(horizontal = 72.dp).graphicsLayer { alpha = bar },
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Row(
                 Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
@@ -197,15 +201,18 @@ fun SubPage(
     }
 }
 
-/** A pill-shaped choice: solid when picked, quiet otherwise ([idle], or the theme's container colour). */
+/** A choice: ink-filled when picked, a hairline outline otherwise ([idle] fills it instead, where a page asks). */
 @Composable
 fun PrismChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, idle: Color = Color.Unspecified) {
     val scheme = MaterialTheme.colorScheme
     val ui = LocalUi.current
-    val bg by animateColorAsState(if (selected) scheme.onSurface else if (idle != Color.Unspecified) idle else quietFill(), tween(180), label = "chipBg")
+    val bg by animateColorAsState(if (selected) scheme.onSurface else if (idle != Color.Unspecified) idle else Color.Transparent, tween(180), label = "chipBg")
     val fg by animateColorAsState(if (selected) scheme.surface else scheme.onSurface, tween(180), label = "chipFg")
+    val edge = scheme.onSurface.copy(alpha = if (selected || idle != Color.Unspecified) 0f else 0.20f)
     Row(
-        modifier.height(36.dp).clip(ui.shape(18.dp)).background(bg).clickable(onClick = onClick).padding(horizontal = 14.dp),
+        modifier.height(34.dp).clip(ui.tile).background(bg).border(1.dp, edge, ui.tile)
+            .semantics { this.selected = selected }
+            .clickable(onClick = onClick).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
@@ -228,31 +235,27 @@ fun <T> ChipRow(
     }
 }
 
-/** Two to four options side by side in one capsule; the picked one is lifted out. */
+/** Two to four options side by side in one hairline box; the picked one is filled with ink. */
 @Composable
 fun <T> Segmented(options: List<T>, selected: T, label: (T) -> String, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val ui = LocalUi.current
-    val frosted = LocalFrosted.current
-    val dark = LocalIsDark.current
-    val picked = if (frosted) (if (dark) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.95f)) else scheme.surface
     Row(
-        modifier.fillMaxWidth().height(42.dp).clip(ui.shape(21.dp))
-            .background(if (frosted) frostFill(1.2f) else scheme.surfaceContainerHighest.copy(alpha = 0.7f)).padding(3.dp),
+        modifier.fillMaxWidth().height(40.dp).clip(ui.tile).border(1.dp, scheme.onSurface.copy(alpha = 0.20f), ui.tile).padding(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         options.forEach { o ->
             val on = o == selected
-            val bg by animateColorAsState(if (on) picked else Color.Transparent, tween(180), label = "seg")
+            val bg by animateColorAsState(if (on) scheme.onSurface else Color.Transparent, tween(180), label = "seg")
+            val fg by animateColorAsState(if (on) scheme.surface else scheme.onSurfaceVariant, tween(180), label = "segInk")
             Box(
-                Modifier.weight(1f).fillMaxHeight().clip(ui.shape(18.dp)).background(bg).clickable { onSelect(o) },
+                Modifier.weight(1f).fillMaxHeight().clip(ui.smallArt).background(bg)
+                    .semantics { this.selected = on }.clickable { onSelect(o) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     label(o), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
-                    fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 6.dp),
+                    color = fg, modifier = Modifier.padding(horizontal = 6.dp),
                 )
             }
         }
@@ -268,11 +271,11 @@ fun <T> ChoiceFlow(options: List<T>, selected: (T) -> Boolean, label: (T) -> Str
     }
 }
 
-/** A small uppercase label over a group. */
+/** A small uppercase label over a group: the overline style, widely spaced, quiet. */
 @Composable
 fun Eyebrow(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Text(
-        text.uppercase(), modifier, style = MaterialTheme.typography.labelMedium.copy(letterSpacing = MaterialTheme.typography.labelMedium.letterSpacing * 1.6f),
-        color = color, fontWeight = FontWeight.SemiBold, maxLines = 1,
+        text.uppercase(), modifier, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.1.em),
+        color = color, maxLines = 1,
     )
 }

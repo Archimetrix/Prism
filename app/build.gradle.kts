@@ -182,6 +182,11 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze-glass:2.0.1")
 
     testImplementation("junit:junit:4.13.2")
+    // Draws composables on the PC (DesignGalleryTest: the redesign's components, light and dark), Apache-2.0, test-only;
+    // the manifest piece is debug-only (it registers the empty activity tests draw in).
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     // Renders the backgrounds to PNGs on the PC (BackdropRenderTest), with Robolectric's real graphics.
     testImplementation("org.robolectric:robolectric:4.14.1")
 }

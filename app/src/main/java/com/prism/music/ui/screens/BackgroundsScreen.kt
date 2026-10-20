@@ -1,5 +1,8 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismSwitch
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -36,10 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -115,7 +115,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
                             Text("Same on every screen", style = MaterialTheme.typography.bodyLarge)
                             Text("Home, Search, Library, Replay and Settings", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Switch(everywhere, { everywhere = it })
+                        PrismSwitch(everywhere, { everywhere = it })
                     }
                     if (!everywhere) LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowItems(BackdropScreen.entries) { sc ->
@@ -187,15 +187,15 @@ fun BackgroundsScreen(bottomPadding: Dp) {
                 Column(Modifier.padding(top = 8.dp).pane(ui.card, MaterialTheme.colorScheme.surfaceContainer).padding(16.dp)) {
                     Text("Softness", style = MaterialTheme.typography.bodyLarge)
                     Text("How much the theme colour washes over the background, for easier reading", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Slider(dim, { dim = it }, valueRange = 0f..0.8f, onValueChangeFinished = { c.settings.setBackdropDim(dim) })
+                    PrismSlider(dim, { dim = it }, valueRange = 0f..0.8f, onValueChangeFinished = { c.settings.setBackdropDim(dim) })
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Gentle motion", style = MaterialTheme.typography.bodyLarge)
                             Text("Colour fields drift, waves roll and ripples spread, slowly", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Switch(s.backdropMotion, { c.settings.setBackdropMotion(it) })
+                        PrismSwitch(s.backdropMotion, { c.settings.setBackdropMotion(it) })
                     }
-                    if (s.backdrops.isNotEmpty()) TextButton(onClick = { c.settings.setBackdrops(emptyMap()) }, Modifier.align(Alignment.End)) { Text("Reset all to default") }
+                    if (s.backdrops.isNotEmpty()) PrismTextButton(onClick = { c.settings.setBackdrops(emptyMap()) }, Modifier.align(Alignment.End)) { Text("Reset all to default") }
                 }
             }
     }

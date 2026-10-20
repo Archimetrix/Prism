@@ -1,5 +1,8 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,13 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -73,7 +73,7 @@ fun ImportScreen(bottomPadding: Dp) {
             item {
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                     EmptyState(PrismIcons.PlaylistAdd, "Sign in to import playlists", "Imported playlists go to your YouTube Music account, then show up in Prism.")
-                    Button(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
+                    PrismButton(onClick = { nav.go(Routes.LOGIN) }) { Icon(PrismIcons.Login, null); Spacer(Modifier.width(8.dp)); Text("Sign in") }
                 }
             }
             return@SubPage
@@ -85,9 +85,9 @@ fun ImportScreen(bottomPadding: Dp) {
                         "It's the same service YouTube Music's own app uses for transfers.",
                     style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                 )
-                Button(onClick = { open("/spotify-to-youtube-music") }, Modifier.fillMaxWidth()) { Text("From Spotify") }
-                Button(onClick = { open("/apple-music-to-youtube-music") }, Modifier.fillMaxWidth()) { Text("From Apple Music") }
-                OutlinedButton(onClick = { open("") }, Modifier.fillMaxWidth()) {
+                PrismButton(onClick = { open("/spotify-to-youtube-music") }, Modifier.fillMaxWidth()) { Text("From Spotify") }
+                PrismButton(onClick = { open("/apple-music-to-youtube-music") }, Modifier.fillMaxWidth()) { Text("From Apple Music") }
+                PrismOutlinedButton(onClick = { open("") }, Modifier.fillMaxWidth()) {
                     Text("From another service or a file"); Spacer(Modifier.width(8.dp)); Icon(PrismIcons.OpenInNew, null, Modifier.size(18.dp))
                 }
                 Spacer(Modifier.size(4.dp))
@@ -99,7 +99,7 @@ fun ImportScreen(bottomPadding: Dp) {
                         "3. When the transfer finishes, come back here. Prism syncs your library and the playlists appear under Library → Playlists.",
                     style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
                 )
-                TextButton(onClick = { scope.launch { c.library.sync() } }, enabled = sync != SyncState.SYNCING) {
+                PrismTextButton(onClick = { scope.launch { c.library.sync() } }, enabled = sync != SyncState.SYNCING) {
                     if (sync == SyncState.SYNCING) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     else Icon(PrismIcons.Sync, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))

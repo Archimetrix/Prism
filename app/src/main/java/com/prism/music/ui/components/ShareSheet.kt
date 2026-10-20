@@ -30,7 +30,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -179,7 +178,7 @@ private fun PrivateNotice(changing: Boolean, onMakeShareable: () -> Unit) {
             Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
         if (changing) CircularProgressIndicator(Modifier.padding(horizontal = 14.dp).size(18.dp), strokeWidth = 2.dp)
-        else TextButton(onClick = onMakeShareable) { Text("Make unlisted") }
+        else PrismTextButton(onClick = onMakeShareable) { Text("Make unlisted") }
     }
 }
 

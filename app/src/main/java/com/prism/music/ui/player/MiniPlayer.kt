@@ -57,6 +57,8 @@ import com.prism.music.ui.theme.GlassSurface
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.LocalUi
+import com.prism.music.ui.theme.hairline
+import androidx.compose.ui.draw.drawBehind
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -79,17 +81,34 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     if (menu) com.prism.music.ui.components.SongActionsSheet(s) { menu = false }
 
+    // Card is Spectrum's bar (1.7): flat, edge to edge over the tab bar, the split-light progress line along its top.
+    val bar = style == MiniPlayerStyle.CARD
     val height = when (style) { MiniPlayerStyle.CARD -> 64.dp; MiniPlayerStyle.SLIM -> 54.dp; MiniPlayerStyle.PILL -> 56.dp }
     val shape = when (style) {
-        MiniPlayerStyle.CARD -> ui.shape(22.dp)
+        MiniPlayerStyle.CARD -> ui.card
         MiniPlayerStyle.SLIM -> ui.shape(16.dp)
         MiniPlayerStyle.PILL -> RoundedCornerShape(50)
     }
-    val artSize = when (style) { MiniPlayerStyle.CARD -> 48.dp; MiniPlayerStyle.SLIM -> 40.dp; MiniPlayerStyle.PILL -> 44.dp }
-    val artShape = if (style == MiniPlayerStyle.PILL) CircleShape else ui.shape(if (style == MiniPlayerStyle.SLIM) 9.dp else 12.dp)
+    val artSize = when (style) { MiniPlayerStyle.CARD -> 44.dp; MiniPlayerStyle.SLIM -> 40.dp; MiniPlayerStyle.PILL -> 44.dp }
+    val artShape = if (style == MiniPlayerStyle.PILL) CircleShape else if (bar) ui.smallArt else ui.shape(9.dp)
     val fraction = (position.toFloat() / pc.duration.coerceAtLeast(1)).coerceIn(0f, 1f)
+    val glass = settings.liquidGlass || settings.frostedGlass
+    val surface: @Composable (Modifier, @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) -> Unit = { m, content ->
+        if (bar && !glass) Box(
+            m.clip(shape).background(scheme.surfaceContainerLow)
+                .drawBehind {
+                    drawLine(scheme.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx() * 0.75f)
+                    if (settings.miniProgress == MiniProgress.LINE && fraction > 0f) drawRect(
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors.toTypedArray(), startX = 0f, endX = size.width),
+                        Offset(0f, 0f), androidx.compose.ui.geometry.Size(size.width * fraction, 2.dp.toPx()),
+                    )
+                },
+            content = content,
+        )
+        else GlassSurface(m, shape = shape, content = content)
+    }
 
-    GlassSurface(
+    surface(
         modifier
             .fillMaxWidth()
             .height(height)
@@ -134,7 +153,6 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                     scope.launch { drag.snapTo(after) }
                 }
             },
-        shape = shape,
     ) {
         // Fill: the played part of the song tints the whole card.
         if (settings.miniProgress == MiniProgress.FILL) Box(
@@ -143,7 +161,7 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
         Row(
             // Holding it brings up the song's actions (like, add to playlist, share…) without opening the player.
             Modifier.fillMaxSize().combinedClickable(onClick = onOpen, onLongClick = { haptics.click(); menu = true })
-                .padding(start = if (style == MiniPlayerStyle.PILL) 6.dp else 8.dp, end = if (style == MiniPlayerStyle.PILL) 8.dp else 4.dp),
+                .padding(start = if (style == MiniPlayerStyle.PILL) 6.dp else if (bar) 16.dp else 8.dp, end = if (style == MiniPlayerStyle.PILL) 8.dp else if (bar) 8.dp else 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Artwork(s.thumbnail, Modifier.size(artSize), artShape, size = 226)
@@ -155,15 +173,12 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                 label = "mini",
             ) { song ->
                 Column {
-                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                     if (style != MiniPlayerStyle.SLIM || song.artistText.isNotBlank()) Text(
                         song.artistText, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                     )
                 }
-            }
-            if (settings.miniSkipButtons && style == MiniPlayerStyle.CARD) {
-                IconButton(onClick = { haptics.click(); pc.previous() }, modifier = Modifier.size(40.dp)) { Icon(PrismIcons.Previous, "Previous") }
             }
             if (style == MiniPlayerStyle.PILL) {
                 Box(
@@ -172,14 +187,14 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                 ) { Icon(if (playing) PrismIcons.Pause else PrismIcons.Play, "Play/pause", Modifier.size(24.dp), tint = scheme.surface) }
             } else {
                 IconButton(onClick = { haptics.click(); pc.togglePlay() }, modifier = Modifier.size(44.dp)) {
-                    Icon(if (playing) PrismIcons.Pause else PrismIcons.Play, "Play/pause", Modifier.size(if (style == MiniPlayerStyle.SLIM) 26.dp else 30.dp))
+                    Icon(if (playing) PrismIcons.Pause else PrismIcons.Play, "Play/pause", Modifier.size(if (style == MiniPlayerStyle.SLIM) 26.dp else 28.dp))
                 }
             }
             if (settings.miniSkipButtons) {
                 IconButton(onClick = { haptics.click(); pc.next() }, modifier = Modifier.size(40.dp)) { Icon(PrismIcons.Next, "Next") }
             }
         }
-        if (settings.miniProgress == MiniProgress.LINE) {
+        if (settings.miniProgress == MiniProgress.LINE && !(bar && !glass)) {
             Canvas(Modifier.fillMaxWidth().height(2.dp).align(Alignment.BottomCenter).padding(horizontal = if (style == MiniPlayerStyle.PILL) 28.dp else 18.dp)) {
                 drawLine(scheme.onSurface.copy(alpha = 0.12f), Offset(0f, 0f), Offset(size.width, 0f), 4f, StrokeCap.Round)
                 drawLine(scheme.primary, Offset(0f, 0f), Offset(size.width * fraction, 0f), 4f, StrokeCap.Round)

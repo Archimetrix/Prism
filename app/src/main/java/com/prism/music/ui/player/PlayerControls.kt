@@ -812,7 +812,7 @@ private fun PrismDevices() {
                     style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            androidx.compose.material3.TextButton(onClick = { handoff.bringFrom(d) }, enabled = busy == null) {
+            com.prism.music.ui.components.PrismTextButton(onClick = { handoff.bringFrom(d) }, enabled = busy == null) {
                 Text("Bring here", color = Color.White)
             }
         }

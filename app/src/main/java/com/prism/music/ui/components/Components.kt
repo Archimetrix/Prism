@@ -34,14 +34,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -78,6 +76,9 @@ import com.prism.music.data.model.hiRes
 import com.prism.music.ui.LocalNavigator
 import com.prism.music.ui.Routes
 import com.prism.music.ui.theme.LocalContainer
+import com.prism.music.ui.theme.hairline
+import com.prism.music.ui.theme.ink3
+import androidx.compose.foundation.border
 import kotlinx.coroutines.launch
 
 @Composable
@@ -92,10 +93,11 @@ fun Artwork(
     Box(
         modifier
             .clip(shape)
-            .background(Brush.linearGradient(listOf(scheme.primaryContainer, scheme.tertiaryContainer))),
+            // Spectrum: a flat tile with a quiet icon until the picture arrives (colour belongs to the artwork).
+            .background(scheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(placeholderIcon, null, tint = scheme.onPrimaryContainer.copy(alpha = 0.5f), modifier = Modifier.fillMaxSize(0.38f))
+        Icon(placeholderIcon, null, tint = scheme.onSurface.copy(alpha = 0.28f), modifier = Modifier.fillMaxSize(0.36f))
         if (url != null) AsyncImage(
             model = hiRes(url, size),
             contentDescription = null,
@@ -154,73 +156,97 @@ fun SongRow(
     val downloads by c.downloads.downloads.collectAsState()
     val videos by c.downloads.videos.collectAsState()
     var menu by remember { mutableStateOf(false) }
+    val done = androidx.media3.exoplayer.offline.Download.STATE_COMPLETED
+    SongRowLayout(
+        song, modifier, index, playing, trailingInfo, starred,
+        liked = song.id in liked, downloaded = downloads[song.id]?.state == done, videoSaved = videos[song.id]?.state == done,
+        onLongClick = onLongClick ?: { menu = true }, onMore = { menu = true }, onClick = onClick,
+    )
+    if (menu) SongActionsSheet(song, extraActions) { menu = false }
+}
+
+/** [SongRow]'s look, given what it shows (so it can be drawn without the app around it: the Design gallery, tests). */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SongRowLayout(
+    song: Song,
+    modifier: Modifier = Modifier,
+    index: Int? = null,
+    playing: Boolean = false,
+    trailingInfo: String? = null,
+    starred: Boolean = false,
+    liked: Boolean = false,
+    downloaded: Boolean = false,
+    videoSaved: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    onMore: () -> Unit = {},
+    onClick: () -> Unit = {},
+) {
     val scheme = MaterialTheme.colorScheme
     val ui = com.prism.music.ui.theme.LocalUi.current
     val art = ui.smallArt
     Row(
         modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick ?: { menu = true })
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(start = 16.dp, end = 4.dp, top = ui.gap(6.dp), bottom = ui.gap(6.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (index != null) {
             Row(Modifier.width(38.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (starred) Icon(PrismIcons.StarFilled, "Popular", Modifier.size(12.dp), tint = scheme.primary)
-                else Spacer(Modifier.width(12.dp))
+                if (starred) Icon(PrismIcons.StarFilled, "Popular", Modifier.size(11.dp), tint = scheme.ink3)
+                else Spacer(Modifier.width(11.dp))
                 Spacer(Modifier.width(3.dp))
                 Text(
-                    "$index", style = MaterialTheme.typography.bodyMedium,
-                    color = if (playing) scheme.primary else scheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold,
+                    "$index", style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                    color = if (playing) scheme.onSurface else scheme.ink3,
                 )
             }
         }
-        Box {
-            Artwork(song.thumbnail, Modifier.size(50.dp), art, size = 226)
-            if (playing) Box(
-                Modifier.size(50.dp).clip(art).background(Color.Black.copy(alpha = 0.45f)),
-                contentAlignment = Alignment.Center,
-            ) { PlayingBars(Modifier.size(20.dp)) }
-        }
+        Artwork(song.thumbnail, Modifier.size(48.dp), art, size = 226)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
+            // Spectrum: the playing song is marked by weight and the split-light bars, not by colour.
             Text(
                 song.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold,
-                color = if (playing) scheme.primary else scheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge, fontWeight = if (playing) FontWeight.Medium else FontWeight.Normal,
+                color = scheme.onSurface,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (song.explicit) Icon(PrismIcons.Explicit, null, Modifier.size(14.dp).padding(end = 2.dp), tint = scheme.onSurfaceVariant)
-                if (downloads[song.id]?.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED) {
-                    Icon(PrismIcons.DownloadDone, null, Modifier.size(14.dp).padding(end = 3.dp), tint = scheme.primary)
-                }
-                if (videos[song.id]?.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED) {
-                    Icon(PrismIcons.Video, "Video saved", Modifier.size(14.dp).padding(end = 3.dp), tint = scheme.primary)
-                }
+                val mark = Modifier.size(13.dp).padding(end = 3.dp)
+                if (song.explicit) Icon(PrismIcons.Explicit, "Explicit", mark, tint = scheme.ink3)
+                if (liked) Icon(PrismIcons.HeartFilled, "Liked", mark, tint = scheme.ink3)
+                if (downloaded) Icon(PrismIcons.DownloadDone, "Downloaded", mark, tint = scheme.ink3)
+                if (videoSaved) Icon(PrismIcons.Video, "Video saved", mark, tint = scheme.ink3)
                 Text(
-                    listOfNotNull(song.artistText, trailingInfo ?: song.album?.title).joinToString(" • "),
+                    listOfNotNull(song.artistText, trailingInfo ?: song.album?.title).joinToString(" · "),
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
             }
         }
-        if (song.id in liked) Icon(PrismIcons.HeartFilled, null, Modifier.size(15.dp), tint = scheme.primary)
-        IconButton(onClick = { menu = true }) { Icon(PrismIcons.More, "More", tint = scheme.onSurfaceVariant.copy(alpha = 0.8f)) }
+        if (playing) PlayingBars(Modifier.padding(start = 8.dp).size(13.dp, 14.dp), spectrum = true)
+        IconButton(onClick = onMore) { Icon(PrismIcons.More, "More", Modifier.size(20.dp), tint = scheme.ink3) }
     }
-    if (menu) SongActionsSheet(song, extraActions) { menu = false }
 }
 
+/**
+ * Three bouncing bars: what's playing. [spectrum]: Spectrum's mark, the bars in the split light (red, green, violet)
+ * instead of [color]. Still with reduced motion.
+ */
 @Composable
-fun PlayingBars(modifier: Modifier = Modifier, color: Color = Color.White) {
+fun PlayingBars(modifier: Modifier = Modifier, color: Color = Color.White, spectrum: Boolean = false) {
+    val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
     val t = rememberInfiniteTransition(label = "bars")
     val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "a")
     val b by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "b")
     val d by t.animateFloat(0.5f, 0.9f, infiniteRepeatable(tween(370), RepeatMode.Reverse), label = "d")
+    val colors = if (spectrum) listOf(Color(0xFFFF6B5E), Color(0xFF3DDC97), Color(0xFF7C8CFF)) else listOf(color, color, color)
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
-        listOf(a, b, d).forEach { h ->
+        listOf(a, b, d).forEachIndexed { i, h ->
             Box(Modifier.weight(1f).fillMaxSize().graphicsLayer {
-                scaleY = h; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
-            }.clip(RoundedCornerShape(2.dp)).background(color))
+                scaleY = if (still) listOf(0.6f, 1f, 0.75f)[i] else h; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+            }.clip(RoundedCornerShape(1.dp)).background(colors[i]))
         }
     }
 }
@@ -270,16 +296,15 @@ fun ItemCard(item: BrowseItem, modifier: Modifier = Modifier, width: Dp = Dp.Uns
 fun MoodTile(item: MoodItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val color = Color(item.color or 0xFF000000)
     val ui = com.prism.music.ui.theme.LocalUi.current
+    // Spectrum: the mood's own colour, flat, its name set light; a typographic tile rather than a gradient block.
     Box(
         modifier
             .clip(ui.tile)
-            .background(Brush.linearGradient(listOf(color, color.copy(alpha = 0.55f).compositeOverBlack())))
+            .background(color.copy(alpha = 0.85f).compositeOverBlack())
             .clickable(onClick = onClick),
     ) {
-        // A soft sheen in the corner keeps flat colours from looking like plain blocks.
-        Box(Modifier.matchParentSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent), radius = 260f, center = androidx.compose.ui.geometry.Offset(0f, 0f))))
         Text(
-            item.title, color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), maxLines = 2,
+            item.title, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2,
             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
         )
     }
@@ -300,17 +325,18 @@ fun ItemCarousel(items: List<BrowseItem>, onClick: (BrowseItem) -> Unit, cardWid
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().padding(56.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(Modifier.size(32.dp), strokeWidth = 3.dp, strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
+        CircularProgressIndicator(
+            Modifier.size(28.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), strokeWidth = 1.5.dp,
+            trackColor = MaterialTheme.colorScheme.hairline, strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+        )
     }
 }
 
+/** Something didn't load: a quiet icon, one plain line, and one way to try again. */
 @Composable
 fun ErrorState(message: String, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
     Column(modifier.fillMaxWidth().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier.size(64.dp).clip(CircleShape).background(quietFill()),
-            contentAlignment = Alignment.Center,
-        ) { Icon(PrismIcons.CloudOff, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Icon(PrismIcons.CloudOff, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.ink3)
         Spacer(Modifier.height(14.dp))
         Text(
             message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -318,21 +344,18 @@ fun ErrorState(message: String, modifier: Modifier = Modifier, onRetry: (() -> U
         )
         if (onRetry != null) {
             Spacer(Modifier.height(16.dp))
-            FilledTonalButton(onClick = onRetry) { Text("Try again") }
+            PrismOutlinedButton(onClick = onRetry) { Text("Try again") }
         }
     }
 }
 
+/** Nothing here yet: a quiet icon, a light title and what to do about it. */
 @Composable
 fun EmptyState(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 36.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier.size(76.dp).clip(com.prism.music.ui.theme.LocalUi.current.shape(26.dp))
-                .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.tertiaryContainer))),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, Modifier.size(34.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-        Spacer(Modifier.height(18.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Icon(icon, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.ink3)
+        Spacer(Modifier.height(16.dp))
+        Text(title, style = MaterialTheme.typography.titleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(6.dp))
         Text(
             body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -351,9 +374,12 @@ fun MarqueeText(text: String, modifier: Modifier = Modifier, style: androidx.com
 fun SearchField(query: String, hint: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, container: Color = Color.Unspecified) {
     val scheme = MaterialTheme.colorScheme
     val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val ui = com.prism.music.ui.theme.LocalUi.current
+    // Spectrum: a hairline box (or the page's [container] fill).
     Row(
-        modifier.fillMaxWidth().height(46.dp).clip(com.prism.music.ui.theme.LocalUi.current.shape(23.dp))
-            .background(if (container != Color.Unspecified) container else quietFill()).padding(start = 14.dp, end = 4.dp),
+        modifier.fillMaxWidth().height(46.dp).clip(ui.tile)
+            .then(if (container != Color.Unspecified) Modifier.background(container) else Modifier.border(1.dp, scheme.onSurface.copy(alpha = 0.14f), ui.tile))
+            .padding(start = 14.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(PrismIcons.Search, null, Modifier.size(20.dp), tint = scheme.onSurfaceVariant)
@@ -633,8 +659,8 @@ fun NewPlaylistDialog(onDismiss: () -> Unit, onCreate: (name: String, privacy: S
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onCreate(name.trim(), privacy) }, enabled = name.isNotBlank()) { Text("Create") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { PrismTextButton(onClick = { onCreate(name.trim(), privacy) }, enabled = name.isNotBlank()) { Text("Create") } },
+        dismissButton = { PrismTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 

@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismFilledTonalButton
 import com.prism.music.ui.theme.PrismIcons
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
@@ -27,8 +29,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.collectAsState
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -207,10 +207,10 @@ fun ReplayScreen(bottomPadding: Dp) {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val songs = remember(d) { d.top250.map { it.toSong() } }
                 val replaySource = QueueSource(QueueKind.REPLAY, "Replay · ${period.label}")
-                Button(onClick = { c.player.playQueue(songs, 0, replaySource) }, Modifier.weight(1f).height(48.dp)) {
+                PrismButton(onClick = { c.player.playQueue(songs, 0, replaySource) }, Modifier.weight(1f).height(48.dp)) {
                     Icon(PrismIcons.Play, null); Spacer(Modifier.width(6.dp)); Text("Play")
                 }
-                FilledTonalButton(onClick = { c.player.playQueue(songs, 0, replaySource, shuffle = true) }, Modifier.weight(1f).height(48.dp)) {
+                PrismFilledTonalButton(onClick = { c.player.playQueue(songs, 0, replaySource, shuffle = true) }, Modifier.weight(1f).height(48.dp)) {
                     Icon(PrismIcons.Shuffle, null); Spacer(Modifier.width(6.dp)); Text("Shuffle")
                 }
                 if (c.settings.current.isLoggedIn) androidx.compose.material3.FilledTonalIconButton(

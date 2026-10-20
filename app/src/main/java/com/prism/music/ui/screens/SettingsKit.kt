@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismSwitch
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,8 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,15 +37,20 @@ import com.prism.music.ui.components.Eyebrow
 import com.prism.music.ui.components.Segmented
 import com.prism.music.ui.components.pane
 import com.prism.music.ui.theme.LocalUi
+import com.prism.music.ui.theme.hairline
+import com.prism.music.ui.theme.ink3
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.draw.drawBehind
 
 /** The group a Settings search result opened its page at (#73): it scrolls into view and glows for a moment. */
 val LocalSettingsFind = androidx.compose.runtime.compositionLocalOf<String?> { null }
 
-/** A titled card of settings rows (a pane of frosted glass on a frosted page). */
+/** A titled run of settings rows: a small label, then the rows between two hairlines (no card, Spectrum). */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
     val ui = LocalUi.current
+    val line = MaterialTheme.colorScheme.hairline
     val found = title.isNotBlank() && LocalSettingsFind.current == title
     val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val glow = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -60,14 +65,16 @@ fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
         glow.animateTo(0f, androidx.compose.animation.core.tween(800))
     }
     Column(Modifier.then(if (found) Modifier.bringIntoViewRequester(requester) else Modifier)) {
-        if (title.isNotBlank()) Eyebrow(title, Modifier.padding(start = 8.dp, bottom = 8.dp))
+        if (title.isNotBlank()) Eyebrow(title, Modifier.padding(start = 16.dp, bottom = 6.dp))
         Column(
-            Modifier.fillMaxWidth().pane(ui.card, MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.94f))
-                .then(
-                    if (glow.value > 0f) Modifier.border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = glow.value), ui.card)
-                    else Modifier
-                )
-                .padding(vertical = ui.gap(6.dp)),
+            Modifier.fillMaxWidth()
+                .drawBehind {
+                    val w = 1.dp.toPx() * 0.75f
+                    drawLine(line, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), w)
+                    drawLine(line, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), w)
+                }
+                .then(if (glow.value > 0f) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f * glow.value)) else Modifier)
+                .padding(vertical = ui.gap(4.dp)),
             content = content,
         )
     }
@@ -94,20 +101,19 @@ fun Note(text: String) {
 @Composable
 fun Toggle(title: String, subtitle: String?, checked: Boolean, icon: ImageVector? = null, onChange: (Boolean) -> Unit) {
     val ui = LocalUi.current
+    // The whole row is the switch (one target for TalkBack too); the switch itself only shows the state.
     Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 16.dp, vertical = ui.gap(12.dp)),
+        Modifier.fillMaxWidth().toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange)
+            .padding(horizontal = 16.dp, vertical = ui.gap(12.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(16.dp)) }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(title, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(12.dp))
-        Switch(
-            checked, onChange,
-            colors = SwitchDefaults.colors(uncheckedBorderColor = Color.Transparent, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-        )
+        PrismSwitch(checked, null)
     }
 }
 
@@ -120,7 +126,7 @@ fun Item(title: String, subtitle: String?, onClick: () -> Unit, icon: ImageVecto
     ) {
         if (icon != null) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(16.dp)) }
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(title, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         trailing?.invoke()
@@ -141,12 +147,12 @@ fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolea
         Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(18.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Text(title, style = MaterialTheme.typography.bodyLarge)
             if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             // What to do first (a search result hidden behind another switch).
             if (!hint.isNullOrBlank()) Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
-        Icon(PrismIcons.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+        Icon(PrismIcons.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.ink3)
     }
 }
 
@@ -174,9 +180,9 @@ fun SliderSetting(
     LaunchedEffect(value) { v = value }
     Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Text(valueText(v), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text(valueText(v), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Slider(v, { v = it }, enabled = enabled, valueRange = range, steps = steps, onValueChangeFinished = { onSave(v) })
+        PrismSlider(v, { v = it }, enabled = enabled, valueRange = range, steps = steps, onValueChangeFinished = { onSave(v) })
     }
 }

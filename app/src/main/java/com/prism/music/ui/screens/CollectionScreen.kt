@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.data.friendlyMessage
 import android.widget.Toast
@@ -43,7 +44,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -416,8 +416,8 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             onDismissRequest = { confirm = null },
             title = { Text("Delete downloads") },
             text = { Text(text) },
-            confirmButton = { TextButton(onClick = { action(); confirm = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+            confirmButton = { PrismTextButton(onClick = { action(); confirm = null }) { Text("Delete") } },
+            dismissButton = { PrismTextButton(onClick = { confirm = null }) { Text("Cancel") } },
         )
     }
     var coverSheet by remember { mutableStateOf(false) }
@@ -684,7 +684,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
         title = { Text("Delete playlist?") },
         text = { Text("\"$title\" will be deleted from your YouTube Music account.") },
         confirmButton = {
-            TextButton(onClick = {
+            PrismTextButton(onClick = {
                 deleting = false
                 scope.launch {
                     c.library.deletePlaylist(PlaylistItem(page.id, title, "", page.thumbnail))
@@ -693,7 +693,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 }
             }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
         },
-        dismissButton = { TextButton(onClick = { deleting = false }) { Text("Cancel") } },
+        dismissButton = { PrismTextButton(onClick = { deleting = false }) { Text("Cancel") } },
     )
     if (sharing) ShareSheet(shareTarget()) { sharing = false }
 }
@@ -1024,8 +1024,8 @@ private fun EditPlaylistDialog(title: String, description: String, privacy: Stri
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(t.trim().ifBlank { title }, d.trim(), p) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { PrismTextButton(onClick = { onSave(t.trim().ifBlank { title }, d.trim(), p) }) { Text("Save") } },
+        dismissButton = { PrismTextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -1132,7 +1132,7 @@ private fun DownloadsInfo(songs: List<Song>, ask: (String, () -> Unit) -> Unit) 
         }
         if (active.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Downloading ${active.size}…", style = MaterialTheme.typography.labelMedium, color = scheme.primary)
-            TextButton(onClick = { ask("Cancel ${active.size} downloads that haven't finished?") { c.downloads.removeMany(active.keys) } }) { Text("Cancel") }
+            PrismTextButton(onClick = { ask("Cancel ${active.size} downloads that haven't finished?") { c.downloads.removeMany(active.keys) } }) { Text("Cancel") }
         }
         val unfinished = remember(all) { all.values.filter { it.state != Download.STATE_COMPLETED } }
         if (unfinished.isNotEmpty()) DownloadQueueStatus(unfinished)
@@ -1161,11 +1161,11 @@ fun DownloadQueueStatus(unfinished: Collection<com.prism.music.download.Download
     val queued = unfinished.count { it.state == Download.STATE_QUEUED }
     if (waiting && queued > 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text("$queued waiting for Wi-Fi", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-        TextButton(onClick = { c.settings.setDownloadWifiOnly(false) }) { Text("Use mobile data") }
+        PrismTextButton(onClick = { c.settings.setDownloadWifiOnly(false) }) { Text("Use mobile data") }
     }
     if (failed > 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(if (failed == 1) "1 download failed" else "$failed downloads failed", style = MaterialTheme.typography.labelMedium, color = scheme.error)
-        TextButton(onClick = { c.downloads.retryFailed() }) { Text("Try again") }
+        PrismTextButton(onClick = { c.downloads.retryFailed() }) { Text("Try again") }
     }
 }
 

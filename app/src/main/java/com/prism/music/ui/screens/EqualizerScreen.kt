@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismSwitch
 import android.content.Intent
 import android.media.audiofx.AudioEffect
 import android.widget.Toast
@@ -21,13 +23,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -70,7 +69,7 @@ fun EqualizerScreen(bottomPadding: Dp) {
         "Equalizer", bottomPadding,
         subtitle = if (eq.enabled) "On · ${eq.preset}" else "Off",
         horizontalPadding = 16.dp, spacing = 22.dp,
-        actions = { Switch(eq.enabled, { update(eq.copy(enabled = it)) }) },
+        actions = { PrismSwitch(eq.enabled, { update(eq.copy(enabled = it)) }) },
     ) {
             // Correction for the headphones themselves comes first (it's applied first, and it's on its own switch).
             item { HeadphoneCorrection() }
@@ -99,7 +98,7 @@ fun EqualizerScreen(bottomPadding: Dp) {
                 Group("Prism Spatial") {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Text("Software spatial audio", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                        Switch(s.spatial, { c.settings.setSpatial(it) })
+                        PrismSwitch(s.spatial, { c.settings.setSpatial(it) })
                     }
                     if (s.spatial) SliderRow("Intensity", "${(s.spatialAmount * 100).toInt()}%", s.spatialAmount, 0.1f..1f) { c.settings.setSpatialAmount(it) }
                 }
@@ -114,7 +113,7 @@ private fun SliderRow(title: String, value: String, v: Float, range: ClosedFloat
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
-        Slider(v, onChange, valueRange = range)
+        PrismSlider(v, onChange, valueRange = range)
     }
 }
 

@@ -1,5 +1,7 @@
 package com.prism.music.ui.player
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismTextButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,7 +36,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import com.prism.music.playback.VideoSyncState
 import com.prism.music.ui.theme.LocalContainer
@@ -150,8 +150,8 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
                 Text("Later", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                 Text("Earlier", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
             }
-            Slider(offset / 1000f, { pc.setLyricOffset((it * 10).roundToInt() * 100L) }, valueRange = -10f..10f)
-            if (offset != 0L) TextButton(onClick = { pc.setLyricOffset(0) }, Modifier.align(Alignment.End)) { Text("Reset") }
+            PrismSlider(offset / 1000f, { pc.setLyricOffset((it * 10).roundToInt() * 100L) }, valueRange = -10f..10f)
+            if (offset != 0L) PrismTextButton(onClick = { pc.setLyricOffset(0) }, Modifier.align(Alignment.End)) { Text("Reset") }
             if (videoMode) {
                 Spacer(Modifier.height(10.dp))
                 Text("Music video", style = MaterialTheme.typography.titleSmall)
@@ -169,7 +169,7 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                 )
                 if (sync is VideoSyncState.Synced || sync == VideoSyncState.Unmatched) {
-                    TextButton(onClick = { pc.resyncVideo() }) {
+                    PrismTextButton(onClick = { pc.resyncVideo() }) {
                         Text(if (sync == VideoSyncState.Unmatched) "Try again" else "Match again")
                     }
                 }
@@ -206,9 +206,9 @@ fun SleepTimerDialog(onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { PrismTextButton(onClick = onDismiss) { Text("Close") } },
         dismissButton = if (sleepAt > 0 || endOfSong) ({
-            TextButton(onClick = { pc.setSleepTimer(0); pc.setSleepEndOfSong(false); onDismiss() }) { Text("Turn off") }
+            PrismTextButton(onClick = { pc.setSleepTimer(0); pc.setSleepEndOfSong(false); onDismiss() }) { Text("Turn off") }
         }) else null,
     )
 }

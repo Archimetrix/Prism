@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismTextButton
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,9 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -107,7 +107,7 @@ fun HeadphoneCorrection() {
             }
             else -> {
                 Item(binding.profile.name, "${out.name} · ${binding.profile.source.ifBlank { "AutoEq" }}", onClick = { picking = true }) {
-                    TextButton(onClick = { hq.unbind(out.key) }) { Text("Remove") }
+                    PrismTextButton(onClick = { hq.unbind(out.key) }) { Text("Remove") }
                 }
                 CorrectionCurve(binding.profile, binding.strength, Modifier.fillMaxWidth().height(150.dp).padding(horizontal = 16.dp, vertical = 6.dp))
                 var strength by remember(out.key) { mutableFloatStateOf(binding.strength) }
@@ -116,7 +116,7 @@ fun HeadphoneCorrection() {
                         Text("Strength", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                         Text("${(strength * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
-                    Slider(strength, { strength = it }, valueRange = 0f..1f, onValueChangeFinished = { hq.setStrength(out.key, strength) })
+                    PrismSlider(strength, { strength = it }, valueRange = 0f..1f, onValueChangeFinished = { hq.setStrength(out.key, strength) })
                 }
             }
         }
@@ -125,7 +125,7 @@ fun HeadphoneCorrection() {
         })
         // Corrections picked for other headphones, so they can be removed while those aren't connected.
         bindings.filterKeys { it != out?.key }.forEach { (key, b) ->
-            Item(b.deviceName, b.profile.name, onClick = {}) { TextButton(onClick = { hq.unbind(key) }) { Text("Remove") } }
+            Item(b.deviceName, b.profile.name, onClick = {}) { PrismTextButton(onClick = { hq.unbind(key) }) { Text("Remove") } }
         }
         Note("Corrections come from the AutoEq project (Jaakko Pasanen, MIT licence), from measurements by oratory1990, crinacle and others. Only the headphone's name is looked up, on GitHub.")
     }

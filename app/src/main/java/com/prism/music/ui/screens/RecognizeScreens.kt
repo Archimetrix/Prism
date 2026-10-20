@@ -1,5 +1,9 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismSwitch
+import com.prism.music.ui.components.PrismTextButton
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,13 +30,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -110,7 +110,7 @@ fun RecognizeScreen(autoStart: Boolean, bottomPadding: Dp) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 RoundAction(PrismIcons.ArrowBack, "Back", glass = true) { nav.back() }
                 Spacer(Modifier.weight(1f))
-                TextButton({ nav.go(Routes.RECOGNIZED) }) { Text("Recognized songs") }
+                PrismTextButton({ nav.go(Routes.RECOGNIZED) }) { Text("Recognized songs") }
             }
             Spacer(Modifier.weight(0.6f))
             when (val s = state) {
@@ -148,7 +148,7 @@ fun RecognizeScreen(autoStart: Boolean, bottomPadding: Dp) {
                                 Text("Pause Prism while listening", style = MaterialTheme.typography.bodyLarge)
                                 Text("Off, it can recognize what Prism itself is playing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Switch(pausePrism, { pausePrism = it })
+                            PrismSwitch(pausePrism, { pausePrism = it })
                         }
                     }
                 }
@@ -195,22 +195,22 @@ private fun FoundCard(r: RecognitionEntity, song: Song?) {
         Spacer(Modifier.height(20.dp))
         if (song != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button({ c.player.playSingle(song); nav.openPlayer() }) { Icon(PrismIcons.Play, null); Spacer(Modifier.width(6.dp)); Text("Play") }
+                PrismButton({ c.player.playSingle(song); nav.openPlayer() }) { Icon(PrismIcons.Play, null); Spacer(Modifier.width(6.dp)); Text("Play") }
                 val isLiked = song.id in liked
-                OutlinedButton({ c.library.toggleLike(song) }) {
+                PrismOutlinedButton({ c.library.toggleLike(song) }) {
                     Icon(if (isLiked) PrismIcons.HeartFilled else PrismIcons.Heart, null); Spacer(Modifier.width(6.dp)); Text(if (isLiked) "Liked" else "Like")
                 }
             }
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                song.album?.id?.let { album -> TextButton({ nav.go(Routes.album(album)) }) { Text("Album") } }
-                TextButton({ c.player.playSingle(song); nav.openPlayer() }) { Text("Lyrics") }
-                TextButton({ c.recognizer.reset() }) { Text("Again") }
+                song.album?.id?.let { album -> PrismTextButton({ nav.go(Routes.album(album)) }) { Text("Album") } }
+                PrismTextButton({ c.player.playSingle(song); nav.openPlayer() }) { Text("Lyrics") }
+                PrismTextButton({ c.recognizer.reset() }) { Text("Again") }
             }
         } else {
             Text("Not found on YouTube Music", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton({ nav.go(Routes.SEARCH) }) { Text("Search for it") }
-            TextButton({ c.recognizer.reset() }) { Text("Again") }
+            PrismTextButton({ nav.go(Routes.SEARCH) }) { Text("Search for it") }
+            PrismTextButton({ c.recognizer.reset() }) { Text("Again") }
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismOutlinedButton
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import android.os.Build
 import android.webkit.CookieManager
@@ -29,10 +32,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -287,6 +287,10 @@ private fun SettingsPage(
                     Item("Your data stays here", "History, Replay and settings live only on this phone. Prism has no server.", onClick = {})
                     CheckForUpdates()
                     Item("Open-source licenses", "Prism is GPL-3.0-or-later · the libraries it's built with", onClick = { nav.go(Routes.settings(SettingsSection.LICENSES.key)) }) { Chevron() }
+                    // Debug builds only, so it's left out of Settings search (named title: SettingsIndexTest skips it).
+                    if (com.prism.music.BuildConfig.DEBUG) Item(
+                        title = "Design gallery", subtitle = "Every component of the redesign, in each state", onClick = { nav.go(Routes.DESIGN_GALLERY) },
+                    ) { Chevron() }
                 }
                 DiagnosticsGroup()
                 }
@@ -340,7 +344,7 @@ private fun ContentCountrySetting() {
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } },
+            confirmButton = { PrismTextButton(onClick = { picking = false }) { Text("Cancel") } },
         )
     }
 }
@@ -461,7 +465,7 @@ private fun AccountCard() {
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
-        if (s.isLoggedIn) OutlinedButton(onClick = {
+        if (s.isLoggedIn) PrismOutlinedButton(onClick = {
             c.settings.logout()
             // The account's library kept for offline goes with it.
             c.library.forgetAccount()
@@ -471,10 +475,10 @@ private fun AccountCard() {
     }
     // Another channel of the same Google account (brand accounts), or another Google account altogether.
     if (s.isLoggedIn) Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 8.dp)) {
-        TextButton(onClick = { switching = true }) {
+        PrismTextButton(onClick = { switching = true }) {
             Icon(PrismIcons.Person, null, Modifier.size(18.dp), tint = ink); Spacer(Modifier.width(6.dp)); Text("Switch account", color = ink)
         }
-        TextButton(onClick = { nav.go(Routes.LOGIN_ADD) }) {
+        PrismTextButton(onClick = { nav.go(Routes.LOGIN_ADD) }) {
             Icon(PrismIcons.Add, null, Modifier.size(18.dp), tint = ink); Spacer(Modifier.width(6.dp)); Text("Add a Google account", color = ink)
         }
     }
@@ -833,15 +837,15 @@ private fun ShapeSettings() {
 private fun ResetLook() {
     val prefs = LocalContainer.current.settings
     var ask by remember { mutableStateOf(false) }
-    TextButton(onClick = { ask = true }, Modifier.fillMaxWidth()) {
+    PrismTextButton(onClick = { ask = true }, Modifier.fillMaxWidth()) {
         Icon(PrismIcons.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Reset look & layout to defaults")
     }
     if (ask) androidx.compose.material3.AlertDialog(
         onDismissRequest = { ask = false },
         title = { Text("Reset look & layout?") },
         text = { Text("Font, text size, corners, spacing, navigation bar, tabs, mini player and player style go back to how Prism ships. Your colours, backgrounds and everything else stay as they are.") },
-        confirmButton = { TextButton(onClick = { prefs.resetLook(); ask = false }) { Text("Reset") } },
-        dismissButton = { TextButton(onClick = { ask = false }) { Text("Cancel") } },
+        confirmButton = { PrismTextButton(onClick = { prefs.resetLook(); ask = false }) { Text("Reset") } },
+        dismissButton = { PrismTextButton(onClick = { ask = false }) { Text("Cancel") } },
     )
 }
 
@@ -867,7 +871,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation()
                 val prefs = LocalContainer.current.settings
                 Group("Mini player") {
                     Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
-                    Toggle("Previous & next buttons", "Swiping the mini player sideways changes songs either way", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
+                    Toggle("Next button", "Swiping the mini player sideways changes songs either way", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
                     Label("Progress")
                     Chips(MiniProgress.entries, s.miniProgress, { it.label }) { prefs.setMiniProgress(it) }
                 }
@@ -1325,7 +1329,7 @@ private fun LyricsSettings() {
                         Text(src.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     // Turned off, a source is never asked (#51); at least one stays on.
-                    androidx.compose.material3.Switch(
+                    com.prism.music.ui.components.PrismSwitch(
                         on, { v -> prefs.setLyricsOff(if (v) s.lyricsOff - src else s.lyricsOff + src) },
                         enabled = !on || s.lyricsOrder.count { it !in s.lyricsOff } > 1,
                         modifier = Modifier.scale(0.8f),
@@ -1407,7 +1411,7 @@ private fun DownloadSettings() {
                         (pickBytes + cacheBytes) / 1_073_741_824.0, pickBytes / 1_073_741_824.0, cacheBytes / 1_073_741_824.0,
                     )
             )
-            Slider(
+            PrismSlider(
                 i, { i = it }, Modifier.padding(horizontal = 16.dp), valueRange = 0f..sizes.lastIndex.toFloat(), steps = sizes.size - 2,
                 onValueChangeFinished = {
                     prefs.setOfflineGb(gb)
@@ -1495,7 +1499,7 @@ private fun AccentPicker(current: Int, onPick: (Int) -> Unit) {
                 Brush.horizontalGradient((0..6).map { Color(ColorUtils.HSLToColor(floatArrayOf(it * 60f, 0.75f, 0.6f))) })
             )
         )
-        Slider(hue, { hue = it }, valueRange = 0f..359f, onValueChangeFinished = {
+        PrismSlider(hue, { hue = it }, valueRange = 0f..359f, onValueChangeFinished = {
             onPick(ColorUtils.HSLToColor(floatArrayOf(hue, 0.72f, 0.6f)))
         })
     }

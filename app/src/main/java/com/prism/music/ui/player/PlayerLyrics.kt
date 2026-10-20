@@ -923,11 +923,11 @@ private fun SearchAsPane(state: LyricsState, sources: List<LyricsSource>, onSear
             )
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (current != null) androidx.compose.material3.TextButton(onClick = {
+                if (current != null) com.prism.music.ui.components.PrismTextButton(onClick = {
                     state.searchAgainAs("", "", sources); onSearched()
                 }) { Text("Use the song's own") }
                 Spacer(Modifier.weight(1f))
-                androidx.compose.material3.Button(enabled = title.isNotBlank(), onClick = {
+                com.prism.music.ui.components.PrismButton(enabled = title.isNotBlank(), onClick = {
                     state.searchAgainAs(title, artist, sources); onSearched()
                 }) { Text("Search") }
             }

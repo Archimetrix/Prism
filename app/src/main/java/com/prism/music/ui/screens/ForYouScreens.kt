@@ -1,5 +1,7 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.PrismButton
+import com.prism.music.ui.components.PrismTextButton
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,13 +32,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -375,7 +375,7 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (!onboarding) RoundAction(PrismIcons.ArrowBack, "Back", glass = true) { nav.back() }
             Spacer(Modifier.weight(1f))
-            if (onboarding) TextButton({ finish() }) { Text("Skip") }
+            if (onboarding) PrismTextButton({ finish() }) { Text("Skip") }
         }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Text("Pick artists you like", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -427,7 +427,7 @@ fun PickArtistsScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Unit
             }
         }
         val count = favorites.size
-        Button({ finish() }, Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+        PrismButton({ finish() }, Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
             Text(if (count == 0) "Done" else "Done · $count ${if (count == 1) "artist" else "artists"}")
         }
     }
@@ -491,7 +491,7 @@ fun ExclusionsScreen(bottomPadding: Dp) {
                     Artwork(e.thumbnail, Modifier.size(44.dp), if (title.startsWith("Artists")) CircleShape else LocalUi.current.art, placeholderIcon = PrismIcons.Song)
                     Spacer(Modifier.width(12.dp))
                     Text(e.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    TextButton({ bring(e) }) { Text("Bring back") }
+                    PrismTextButton({ bring(e) }) { Text("Bring back") }
                 }
             }
         }

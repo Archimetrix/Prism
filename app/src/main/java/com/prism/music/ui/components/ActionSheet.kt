@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalIsDark
 import com.prism.music.ui.theme.LocalUi
+import com.prism.music.ui.theme.hairline
 
 /**
  * One choice in an [ActionSheet], as a tile ([QuickActions]) or a row ([ActionGroup]).
@@ -91,8 +92,8 @@ fun ActionSheet(
                     // extra rows) didn't follow the finger when pulled down, and stuck. Longer menus scroll inside.
                     val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.86f
                     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())) {
-                        Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp), contentAlignment = Alignment.Center) {
-                            Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)))
+                        Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 14.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(32.dp, 3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)))
                         }
                         content(close)
                         Spacer(Modifier.height(22.dp))
@@ -116,70 +117,69 @@ fun ActionHeader(
     placeholderIcon: ImageVector = PrismIcons.Song,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Artwork(art, Modifier.size(64.dp), shape, size = 544, placeholderIcon = placeholderIcon)
+    Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Artwork(art, Modifier.size(56.dp), shape, size = 544, placeholderIcon = placeholderIcon)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!subtitle.isNullOrBlank()) Text(
-                subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+        Spacer(Modifier.width(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, content = actions)
     }
 }
 
-/** A round frosted button for the header; [active] fills it with the accent (a liked heart). */
+/**
+ * A bare icon button for the header (Spectrum: no disc). [active] (a liked heart) shows in full ink; the caller passes
+ * the icon's selected twin (HeartFilled) for it.
+ */
 @Composable
 fun SheetIconButton(icon: ImageVector, description: String, active: Boolean = false, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val edge = if (LocalFrosted.current) Modifier.border(0.7.dp, Color.White.copy(alpha = if (LocalIsDark.current) 0.14f else 0.6f), CircleShape) else Modifier
     Box(
-        Modifier.size(42.dp).clip(CircleShape).background(if (active) scheme.primary else quietFill()).then(edge)
-            .clickable(onClickLabel = description, onClick = onClick),
+        Modifier.size(44.dp).clip(CircleShape).clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, description, Modifier.size(21.dp), tint = if (active) scheme.onPrimary else scheme.onSurface) }
+    ) { Icon(icon, description, Modifier.size(23.dp), tint = if (active) scheme.onSurface else scheme.onSurfaceVariant) }
 }
 
-/** The sheet's main actions as a row of frosted tiles, icon over label. */
+/** The sheet's main actions: plain icons over their labels in one row, with a hairline under them. */
 @Composable
 fun QuickActions(items: List<ActionItem>, onPick: (ActionItem) -> Unit) {
     if (items.isEmpty()) return
-    val ui = LocalUi.current
     val scheme = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         items.forEach { a ->
-            val tint = if (a.active) scheme.primary else scheme.onSurface
+            val tint = if (a.active) scheme.onSurface else scheme.onSurfaceVariant
             Column(
-                Modifier.weight(1f).height(74.dp).pane(ui.shape(16.dp)).clickable(onClickLabel = a.label) { onPick(a) }
-                    .padding(horizontal = 4.dp, vertical = 10.dp),
+                Modifier.weight(1f).height(72.dp).clip(LocalUi.current.tile).clickable(onClickLabel = a.label) { onPick(a) }
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(a.icon, null, Modifier.size(23.dp), tint = tint)
+                Icon(a.icon, null, Modifier.size(24.dp), tint = tint)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     a.value ?: a.label, style = MaterialTheme.typography.labelMedium, color = tint,
-                    fontWeight = if (a.active) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                 )
             }
         }
     }
+    HorizontalDivider(Modifier.padding(top = 6.dp), color = scheme.hairline)
 }
 
-/** A titled pane of rows, like a settings group. */
+/** A titled run of rows, like a settings group: no card, hairlines between rows. */
 @Composable
 fun ActionGroup(title: String?, items: List<ActionItem>, onPick: (ActionItem) -> Unit) {
     if (items.isEmpty()) return
-    val ui = LocalUi.current
-    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp)) {
-        if (title != null) Eyebrow(title, Modifier.padding(start = 8.dp, bottom = 8.dp))
-        Column(Modifier.fillMaxWidth().pane(ui.card, MaterialTheme.colorScheme.surfaceContainerHigh)) {
+    Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+        if (title != null) Eyebrow(title, Modifier.padding(start = 20.dp, bottom = 4.dp))
+        Column(Modifier.fillMaxWidth()) {
             items.forEachIndexed { i, a ->
-                if (i > 0) HorizontalDivider(Modifier.padding(start = 54.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                if (i > 0) HorizontalDivider(Modifier.padding(start = 58.dp), color = MaterialTheme.colorScheme.hairline)
                 ActionRow(a) { onPick(a) }
             }
         }
@@ -194,21 +194,21 @@ private fun ActionRow(a: ActionItem, onClick: () -> Unit) {
         else -> scheme.onSurface
     }
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 13.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             a.icon, null, Modifier.size(22.dp),
-            tint = when { a.danger -> scheme.error; a.active -> scheme.primary; else -> scheme.onSurfaceVariant },
+            tint = when { a.danger -> scheme.error; a.active -> scheme.onSurface; else -> scheme.onSurfaceVariant },
         )
         Spacer(Modifier.width(16.dp))
         Text(
-            a.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
+            a.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
             color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
         if (a.value != null) Text(
             a.value, style = MaterialTheme.typography.bodyMedium, maxLines = 1,
-            color = if (a.active) scheme.primary else scheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp),
-        ) else if (a.active) Icon(PrismIcons.Check, null, Modifier.size(20.dp), tint = scheme.primary)
+            color = if (a.active) scheme.onSurface else scheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp),
+        ) else if (a.active) Icon(PrismIcons.Check, null, Modifier.size(20.dp), tint = scheme.onSurface)
     }
 }

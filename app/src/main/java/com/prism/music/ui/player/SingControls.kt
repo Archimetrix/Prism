@@ -1,5 +1,8 @@
 package com.prism.music.ui.player
 
+import com.prism.music.ui.components.PrismSlider
+import com.prism.music.ui.components.PrismSwitch
+import com.prism.music.ui.components.PrismTextButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,10 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,7 +90,7 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                     Text("Sing", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("The song's own music, with the voice taken out", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (ready) Switch(on, { sing.setOn(it) })
+                if (ready) PrismSwitch(on, { sing.setOn(it) })
             }
             Spacer(Modifier.height(16.dp))
             when {
@@ -109,7 +109,7 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                         }
                         else -> {
                             if (failed != null) Text("Couldn't download it: ${failed.message}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = { scope.launch { if (sing.downloadEngine()) sing.setOn(true) } }) { Text(if (failed != null) "Try again" else "Download and turn on") }
+                            PrismTextButton(onClick = { scope.launch { if (sing.downloadEngine()) sing.setOn(true) } }) { Text(if (failed != null) "Try again" else "Download and turn on") }
                         }
                     }
                 }
@@ -129,14 +129,14 @@ fun SingSheet(song: Song, onDismiss: () -> Unit) {
                         Text("Lead voice", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                         Text(if (level <= 0.005f) "None" else "${(level * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
-                    Slider(level, { sing.setLevel(it) }, enabled = on, valueRange = 0f..1f)
+                    PrismSlider(level, { sing.setLevel(it) }, enabled = on, valueRange = 0f..1f)
                     Text("Keep a little of it in to sing along with, or none for karaoke. Backing vocals go with it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(14.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Key", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                        TextButton(onClick = { sing.setSemitones(semitones - 1) }, enabled = on && semitones > -6) { Text("−", style = MaterialTheme.typography.titleLarge) }
+                        PrismTextButton(onClick = { sing.setSemitones(semitones - 1) }, enabled = on && semitones > -6) { Text("−", style = MaterialTheme.typography.titleLarge) }
                         Text(if (semitones == 0) "Original" else "%+d".format(semitones), Modifier.width(72.dp), style = MaterialTheme.typography.titleMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        TextButton(onClick = { sing.setSemitones(semitones + 1) }, enabled = on && semitones < 6) { Text("+", style = MaterialTheme.typography.titleLarge) }
+                        PrismTextButton(onClick = { sing.setSemitones(semitones + 1) }, enabled = on && semitones < 6) { Text("+", style = MaterialTheme.typography.titleLarge) }
                     }
                     Text("Moves the song up or down to suit your voice (the tempo stays).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
