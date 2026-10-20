@@ -185,6 +185,25 @@ private val saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSatura
 private val greyscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 /**
+ * The Ambient frost's tone: the cover's colours kept, its brightness held to a deep tint on dark pages and a pale one on
+ * light pages, so the page's text (and its secondary text, on panes too) reads at 4.5:1 or better whatever the cover:
+ * a white or yellow cover no longer lights a dark page up behind white text, nor a black one a light page behind dark
+ * text (AmbientContrastTest). [saturation] 0 is White light's greys.
+ */
+private fun ambientTone(dark: Boolean, saturation: Float): ColorFilter {
+    val k = if (dark) 0.22f else 0.17f
+    val off = if (dark) 0f else (1f - k) * 255f
+    val tone = ColorMatrix(floatArrayOf(k, 0f, 0f, 0f, off, 0f, k, 0f, 0f, off, 0f, 0f, k, 0f, off, 0f, 0f, 0f, 1f, 0f))
+    // Applied after the saturation (the tone's matrix times it).
+    tone.timesAssign(ColorMatrix().apply { setToSaturation(saturation) })
+    return ColorFilter.colorMatrix(tone)
+}
+private val ambientDark = ambientTone(dark = true, saturation = 1.35f)
+private val ambientLight = ambientTone(dark = false, saturation = 1.35f)
+private val ambientDarkGrey = ambientTone(dark = true, saturation = 0f)
+private val ambientLightGrey = ambientTone(dark = false, saturation = 0f)
+
+/**
  * A frosted page backdrop, after Apple Music's artist pages: [frost] (the hero picture, blurred)
  * sits exactly under the hero, which dissolves into it, and its foot then flows down the page,
  * settling into a tint of the picture. [heroScroll] is how far the hero has scrolled (px); the
@@ -200,6 +219,8 @@ fun FrostedBackdrop(
     parallax: Float = 0.5f,
     /** The picture's colours carry on down the page ([ArtPalette.field]), for artist, album and playlist pages (#47). */
     bleed: Boolean = false,
+    /** The Ambient background of the app's own pages: its brightness held so their text reads ([ambientTone]). */
+    ambient: Boolean = false,
 ) {
     val dark = LocalIsDark.current
     val settings = LocalAppSettings.current
@@ -211,7 +232,7 @@ fun FrostedBackdrop(
     val grainBrush = remember { ShaderBrush(ImageShader(grain, TileMode.Repeated, TileMode.Repeated)) }
     val mono = com.prism.music.ui.theme.PrismTokens.white
     Canvas(modifier.fillMaxSize()) {
-        drawFrostedBackdrop(frost?.image, shown, palette, bg, heroHeight.toPx(), heroScroll(), parallax, dark, pureBlack, bleed, mono)
+        drawFrostedBackdrop(frost?.image, shown, palette, bg, heroHeight.toPx(), heroScroll(), parallax, dark, pureBlack, bleed, mono, ambient)
         drawRect(grainBrush, alpha = if (dark) 0.5f else 0.35f)
     }
 }
@@ -224,8 +245,13 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
     img: ImageBitmap?, shown: Float, palette: ArtPalette?, bg: Color, heroPx: Float, heroScroll: Float, parallax: Float, dark: Boolean, pureBlack: Boolean,
     bleed: Boolean,
     mono: Boolean = false,
+    /** The Ambient background behind the app's own pages (no hero photo above it). */
+    ambient: Boolean = false,
 ) {
-        val filter = if (mono) greyscale else saturate
+        // Below the picture, where a page's text sits, the frost is always held to the theme's tone (as the whole Ambient
+        // background is); under the picture itself (which dissolves into it) it keeps the picture's full colour.
+        val toned = if (dark) (if (mono) ambientDarkGrey else ambientDark) else (if (mono) ambientLightGrey else ambientLight)
+        val filter = if (ambient) toned else if (mono) greyscale else saturate
         @Suppress("NAME_SHADOWING") val palette = if (mono) palette?.grey() else palette
         val w = size.width
         val scroll = heroScroll.coerceIn(0f, heroPx)
@@ -245,6 +271,24 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
             val srcSize = IntSize(sw.roundToInt().coerceAtLeast(1), sh.roundToInt().coerceAtLeast(1))
             if (heroBottom > 0f) clipRect(bottom = heroBottom) {
                 drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = filter, filterQuality = FilterQuality.Low)
+                // The toned frost below the picture comes in gradually over the picture's lower part (where the picture
+                // itself fades out), so there's no line where it ends: drawn into its own layer, faded in by a gradient.
+                if (!ambient) {
+                    val band = heroPx * 0.45f
+                    // On whole pixels, so the layer's edge doesn't show as a line.
+                    val bandTop = kotlin.math.floor(heroBottom - band).coerceAtLeast(0f)
+                    val area = androidx.compose.ui.geometry.Rect(0f, bandTop, kotlin.math.ceil(w), kotlin.math.ceil(heroBottom))
+                    drawContext.canvas.saveLayer(area, androidx.compose.ui.graphics.Paint())
+                    drawImage(
+                        img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()),
+                        alpha = shown, colorFilter = toned, filterQuality = FilterQuality.Low,
+                    )
+                    drawRect(
+                        Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = bandTop, endY = area.bottom),
+                        topLeft = Offset(0f, area.top), size = androidx.compose.ui.geometry.Size(w, area.height), blendMode = BlendMode.DstIn,
+                    )
+                    drawContext.canvas.restore()
+                }
             }
             val from = heroBottom.coerceAtLeast(0f)
             val below = (size.height - from).roundToInt()
@@ -253,7 +297,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
                 // flow on down the page where they are in the picture, rather than as streaks or a flat colour…
                 if (below > 0) clipRect(top = from) {
                     scale(1f, -1f, pivot = Offset(0f, from)) {
-                        drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = filter, filterQuality = FilterQuality.Low)
+                        drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = toned, filterQuality = FilterQuality.Low)
                     }
                 }
                 // …then settle into the picture's main colour by the reflection's end, a little deeper toward the bottom.
@@ -276,7 +320,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
                 if (below > 0) drawImage(
                     img, IntOffset(sx, (row - 1).coerceAtLeast(0)), IntSize(srcSize.width, 1),
                     IntOffset(0, from.roundToInt()), IntSize(w.roundToInt(), below),
-                    alpha = shown, colorFilter = filter, filterQuality = FilterQuality.Low,
+                    alpha = shown, colorFilter = toned, filterQuality = FilterQuality.Low,
                 )
                 // …and settle into the page's tint further down.
                 drawRect(
@@ -310,7 +354,7 @@ fun AmbientFrost(modifier: Modifier = Modifier) {
     val url = current?.thumbnail ?: recent.firstOrNull()?.thumbnail
     val frost = rememberFrost(url)
     val palette = rememberArtPalette(url)
-    FrostedBackdrop(frost, palette, AmbientFrostHeight, { 0f }, modifier, parallax = 0f)
+    FrostedBackdrop(frost, palette, AmbientFrostHeight, { 0f }, modifier, parallax = 0f, ambient = true)
 }
 
 /** How much of the top of a page the ambient frost's picture covers before it runs down the page. */

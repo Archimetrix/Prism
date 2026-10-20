@@ -131,6 +131,10 @@ fun PlayerOptionsSheet(
         com.prism.music.ui.components.videoDownloadAction(song, videos[song.id]),
         ActionItem(PrismIcons.Groups, "Listen together", value = if (inSession) "On" else null, active = inSession) { onCollapse(); nav.go(Routes.TOGETHER) },
         ActionItem(PrismIcons.Stats, "Stats for nerds", active = statsShown, onClick = onToggleStats),
+        // Where Best part takes you in this song (also: hold the Best part button).
+        if (song.isLive) null else ActionItem(
+            PrismIcons.Flame, "Your best part", value = c.bestParts.mine(song.id)?.let { "%d:%02d".format(it / 60_000, it / 1000 % 60) },
+        ) { BestPartEditor.open = true },
         // Playback diagnostics are on (Settings → About): the listener marks the moment they heard a stutter.
         if (!c.settings.flow.collectAsState().value.audioDiagnostics) null else ActionItem(PrismIcons.Info, "Mark a stutter") {
             val at = c.player.position
@@ -167,7 +171,9 @@ fun PlayerOptionsSheet(
         // A file on the phone: no radio, download, YouTube playlist or music video.
         QuickActions(if (song.isLocal) quick.filter { it.label == "Sleep" } else quick) { runAction(it, close) }
         ActionGroup("Lyrics", lyrics) { runAction(it, close) }
-        ActionGroup("Player", if (song.isLocal) player.filter { it.label == "Stats for nerds" || it.label == "Immersive mode" || it.label == "Mark a stutter" } else player) { runAction(it, close) }
+        // The player's settings, one tap away (Settings → Player).
+        val settingsRow = ActionItem(PrismIcons.Settings, "Player settings") { onCollapse(); nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.PLAYER.key)) }
+        ActionGroup("Player", (if (song.isLocal) player.filter { it.label == "Stats for nerds" || it.label == "Immersive mode" || it.label == "Mark a stutter" || it.label == "Your best part" } else player) + settingsRow) { runAction(it, close) }
         ActionGroup("More", go) { runAction(it, close) }
     }
 }

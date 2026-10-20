@@ -1591,6 +1591,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
         ): ListenableFuture<List<MediaItem>> = scope.future {
             mediaItems.flatMap { item ->
                 if (item.mediaId.startsWith(MediaTree.SHUFFLE)) tree.shuffleSongs(item.mediaId)?.second.orEmpty().shuffled().map { it.toMediaItem() }
+                else if (item.mediaId.startsWith(MediaTree.DJ)) tree.shuffleSongs(item.mediaId)?.second.orEmpty().map { it.toMediaItem() }
                 else listOfNotNull((item.toSong() ?: tree.song(item.mediaId, item))?.toMediaItem())
             }
         }
@@ -1626,6 +1627,24 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
                     player.shuffleModeEnabled = true
                     // Shuffled here too, so each "Shuffle play" is a new order rather than the player's last one.
                     return@future MediaSession.MediaItemsWithStartPosition(list.shuffled().map { it.toMediaItem() }, 0, C.TIME_UNSET)
+                }
+            }
+            // "Play as a DJ set" at the top of a list: from the first song, then in the order that blends best (DJ mode,
+            // switched on once the songs are in, as the phone's "Play as a DJ set" does).
+            if (single != null && single.mediaId.startsWith(MediaTree.DJ)) {
+                tree.shuffleSongs(single.mediaId)?.takeIf { it.second.size > 1 }?.let { (title, list) ->
+                    c.queue.source.value = QueueSource(QueueKind.PLAYLIST, title)
+                    c.queue.autoplayStart.value = -1
+                    c.dj.setOn(false)
+                    player.shuffleModeEnabled = false
+                    val first = list.first().id
+                    scope.launch {
+                        kotlinx.coroutines.withTimeoutOrNull(5_000) {
+                            while (player.currentMediaItem?.mediaId != first) kotlinx.coroutines.delay(100)
+                        } ?: return@launch
+                        c.dj.setOn(true)
+                    }
+                    return@future MediaSession.MediaItemsWithStartPosition(list.map { it.toMediaItem() }, 0, C.TIME_UNSET)
                 }
             }
             // One song tapped in a list: play the list from that song.

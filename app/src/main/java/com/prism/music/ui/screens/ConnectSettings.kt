@@ -31,20 +31,20 @@ fun ConnectSettings() {
     val clipboard = LocalClipboardManager.current
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Group("Speakers & TVs") {
-            Note(
-                "Tap the line under the player's controls (where it says which device is playing) and pick a speaker, TV or " +
-                    "receiver under Speakers & TVs. It has to be on this Wi-Fi, with Google Cast (Chromecast, Google TV, " +
-                    "speakers with Cast built in) or DLNA / UPnP on (sometimes called media sharing, or a media renderer). " +
-                    "Your queue, lyrics and controls stay on the phone; the phone's volume keys " +
-                    "set its volume. The equalizer, Crossfade, Sing and videos are the phone's own, so they're off while casting."
+            Item(
+                "Play on a speaker or TV", "Pick it from the device line on the player",
+                info = "Tap the line under the player's controls (it says which device is playing) and pick a speaker, TV or receiver. " +
+                    "It has to be on this Wi-Fi with Google Cast (Chromecast, Google TV, speakers with Cast built in) or DLNA / UPnP " +
+                    "(sometimes called media sharing). Your queue, lyrics and controls stay on the phone, and its volume keys set the " +
+                    "speaker's volume. The equalizer, Crossfade, Sing and videos are the phone's own, so they're off while casting.",
+                onClick = {},
             )
         }
 
         Group("Control from a browser") {
             Toggle(
-                "Control from a browser",
-                "Play, search and see the queue and lyrics from a computer or tablet on this Wi-Fi",
-                s.webRemote,
+                "Control from a browser", "From a computer or tablet on this Wi-Fi", s.webRemote,
+                info = "Play, search, and see the queue and lyrics. Only browsers on this Wi-Fi that type a code shown here get in, and only while Prism is open or playing. Nothing goes through the internet.",
             ) { c.settings.setWebRemote(it) }
             if (s.webRemote) {
                 val remote = c.webRemote
@@ -64,7 +64,7 @@ fun ConnectSettings() {
                         }
                     },
                 ) { if (address != null) Icon(PrismIcons.Copy, "Copy", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Item("Pairing code", "${code.take(3)} ${code.drop(3)} · type it in the browser. Each code pairs one browser.", onClick = { remote.auth.newCode(); tick++ }) {
+                Item("Pairing code", "${code.take(3)} ${code.drop(3)} · one browser per code", onClick = { remote.auth.newCode(); tick++ }) {
                     Icon(PrismIcons.Refresh, "New code", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 browsers.forEach { b ->
@@ -74,20 +74,16 @@ fun ConnectSettings() {
                         }
                     }
                 }
-                if (browsers.size > 1) Item("Unpair all browsers", "They'll need a new code to get back in", onClick = { remote.auth.forgetAll(); tick++ })
-                Note(
-                    "Only browsers on this Wi-Fi that have typed a code shown here get in, and only while Prism is open or " +
-                        "playing. Nothing goes through the internet."
-                )
+                if (browsers.size > 1) Item("Unpair all browsers", "They'll need a new code", onClick = { remote.auth.forgetAll(); tick++ })
+
             }
         }
 
         Group("Handoff") {
             val handoff = c.handoff
             Toggle(
-                "Available for handoff",
-                "Other devices with Prism on this Wi-Fi can move what they're playing here, or bring it over from here",
-                s.handoffAvailable,
+                "Available for handoff", "Move music between your Prism devices", s.handoffAvailable,
+                info = "Other devices with Prism on this Wi-Fi can move what they're playing here, or bring it over. On the device that's playing, open the player's device list and pick this one under Prism devices (Prism has to be open or playing here). The first time, a code shows to type in.",
             ) { c.settings.setHandoffAvailable(it) }
             val shown by handoff.shownCode.collectAsState()
             shown?.let { Item("Pairing code", "${it.code.take(3)} ${it.code.drop(3)} · type it on ${it.from}", onClick = {}) }
@@ -99,11 +95,7 @@ fun ConnectSettings() {
                     }
                 }
             }
-            Note(
-                "To move music, open the player's device list on the device that's playing and pick another Prism under " +
-                    "Prism devices (it needs this switched on, and Prism open or playing there). The first time, that " +
-                    "device shows a code to type in."
-            )
+
         }
     }
 }

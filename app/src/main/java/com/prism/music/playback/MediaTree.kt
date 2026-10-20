@@ -40,6 +40,8 @@ class MediaTree(private val c: AppContainer) {
         /** Prism's own mixes (Daily Mixes, the time-of-day mix, Release Radar). */
         const val MADE_FOR_YOU = "foryou"
         const val SHUFFLE = "shuffle:"
+        /** "Play as a DJ set" at the top of a list: the list in the order that blends best, mixed (DJ mode). */
+        const val DJ = "dj:"
     }
 
     /** Every song handed out, so a mediaId coming back can be played. */
@@ -136,25 +138,28 @@ class MediaTree(private val c: AppContainer) {
 
     private fun songList(id: String, title: String, list: List<Song>): List<MediaItem> {
         folders[id] = title to list
-        // A "Shuffle play" row first, as in the phone app (the car has no shuffle-all button of its own).
-        val shuffle = if (list.size > 1) listOf(shuffleItem(id, list)) else emptyList()
-        return shuffle + list.map(::playable)
+        // "Shuffle play" and "Play as a DJ set" rows first, as in the phone app (the car has no buttons of its own for them).
+        val top = if (list.size > 1) listOf(
+            startItem(SHUFFLE, id, "Shuffle play", com.prism.music.data.model.songCount(list.size), com.prism.music.R.drawable.ic_auto_shuffle),
+            startItem(DJ, id, "Play as a DJ set", "In the order that blends best, mixed", com.prism.music.R.drawable.ic_auto_dj),
+        ) else emptyList()
+        return top + list.map(::playable)
     }
 
-    private fun shuffleItem(folderId: String, list: List<Song>) = MediaItem.Builder().setMediaId("$SHUFFLE$folderId").setMediaMetadata(
+    private fun startItem(prefix: String, folderId: String, title: String, subtitle: String, icon: Int) = MediaItem.Builder().setMediaId("$prefix$folderId").setMediaMetadata(
         MediaMetadata.Builder()
-            .setTitle("Shuffle play")
-            .setSubtitle(com.prism.music.data.model.songCount(list.size))
-            .setArtworkUri(Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/${com.prism.music.R.drawable.ic_auto_shuffle}"))
+            .setTitle(title)
+            .setSubtitle(subtitle)
+            .setArtworkUri(Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/$icon"))
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .build()
     ).build()
 
-    /** The songs behind a "Shuffle play" row, loading the folder again if it's not to hand. */
+    /** The songs behind a "Shuffle play" or "Play as a DJ set" row, loading the folder again if it's not to hand. */
     suspend fun shuffleSongs(mediaId: String): Pair<String, List<Song>>? {
-        val folderId = mediaId.removePrefix(SHUFFLE)
+        val folderId = mediaId.removePrefix(SHUFFLE).removePrefix(DJ)
         folders[folderId]?.let { return it }
         children(folderId)
         return folders[folderId]

@@ -345,6 +345,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         if (showSleep) SleepTimerDialog { showSleep = false }
         if (showTiming) LyricsTimingSheet { showTiming = false }
         if (showSing) SingSheet(song) { showSing = false }
+        // Held Best part button, or ⋯ → Your best part.
+        if (BestPartEditor.open) BestPartSheet { BestPartEditor.open = false }
     }
 
     // ------------------------------------------------ Immersive mode (⋯ menu): the cover fills the screen, lyrics over it

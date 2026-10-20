@@ -484,10 +484,10 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
                 (item is SongItem && source.kind == QueueKind.SINGLE && source.seedId == item.id && index == 0)
             )
         val playing = mine && isPlaying
-        // The play disc, ringed in split light like the player's.
+        // The play disc, edged in split light like the player's (one ring, no gap).
         Box(
-            Modifier.size(56.dp).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape).padding(5.dp)
-                .clip(CircleShape).background(scheme.onSurface).clickable { if (mine) c.player.togglePlay() else onPlay() },
+            Modifier.size(50.dp).clip(CircleShape).background(scheme.onSurface)
+                .border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape).clickable { if (mine) c.player.togglePlay() else onPlay() },
             contentAlignment = Alignment.Center,
         ) {
             Icon(if (playing) PrismIcons.Pause else PrismIcons.Play, if (playing) "Pause" else "Play", Modifier.size(22.dp), tint = scheme.surface)

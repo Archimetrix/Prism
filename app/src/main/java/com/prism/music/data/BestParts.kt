@@ -20,7 +20,29 @@ class BestParts(private val c: AppContainer) {
      * The playing song's: its heat curve (if YouTube has one), where its best part starts (if it has one), and how far
      * into the song that became known ([knownAtMs]: the player's button stays up a while from then).
      */
-    data class Current(val songId: String, val heat: Heatmap?, val startMs: Long?, val knownAtMs: Long = 0)
+    data class Current(val songId: String, val heat: Heatmap?, val startMs: Long?, val knownAtMs: Long = 0, val mine: Boolean = false)
+
+    /**
+     * Best parts the listener set themselves (hold the player's Best part button, or ⋯ → Your best part): song id → ms
+     * in the song's own (lyrics') timeline. They win over the heat curve and the chorus everywhere a best part is used.
+     */
+    private val minePrefs by lazy { c.app.getSharedPreferences("best_part_mine", android.content.Context.MODE_PRIVATE) }
+
+    /** The listener's own best part for [songId], if they set one. */
+    fun mine(songId: String): Long? = minePrefs.getLong(songId, -1L).takeIf { it >= 0 }
+
+    /** Sets (or with null, clears) the listener's own best part for [song]; the player picks it up at once. */
+    suspend fun setMine(song: Song, ms: Long?) {
+        minePrefs.edit().apply { if (ms == null) remove(song.id) else putLong(song.id, ms.coerceAtLeast(0)) }.apply()
+        val now = _current.value?.takeIf { it.songId == song.id } ?: return
+        _current.value = now.copy(startMs = ms ?: startFor(song, now.heat, own = false), mine = ms != null)
+    }
+
+    /** Where [song]'s best part would be without the listener's own (the most replayed part, or the chorus). */
+    suspend fun automaticMs(song: Song): Long? {
+        val heat = if (hasHeat(song)) heatmap(song.id, fetch = false) else null
+        return startFor(song, heat, own = false)
+    }
 
     private val _current = MutableStateFlow<Current?>(null)
     val current: StateFlow<Current?> = _current
@@ -62,7 +84,8 @@ class BestParts(private val c: AppContainer) {
         return startFor(song, heat)
     }
 
-    private suspend fun startFor(song: Song, heat: Heatmap?): Long? {
+    private suspend fun startFor(song: Song, heat: Heatmap?, own: Boolean = true): Long? {
+        if (own) mine(song.id)?.let { return it }
         val duration = song.durationSec * 1000L
         val lines = runCatching { c.lyrics.best(song, fetch = false)?.takeIf { it.synced }?.lines }.getOrNull().orEmpty()
         val raw = heat?.let { BestPart.peakMs(it, duration) } ?: BestPart.chorusMs(lines, duration) ?: return null
@@ -76,7 +99,7 @@ class BestParts(private val c: AppContainer) {
      * first seconds, so for those songs it hardly ever appeared. One request (~0.5 MB), beside a song loading whole.
      */
     suspend fun onSongStarted(song: Song) {
-        _current.value = Current(song.id, memory[song.id], null)
+        _current.value = Current(song.id, memory[song.id], mine(song.id), mine = mine(song.id) != null)
         val heat = if (hasHeat(song)) {
             heatmap(song.id, fetch = false) ?: if (c.dataSaving()) null else {
                 // Its own start first: the moment sound comes out (or 3 s, whichever's sooner).
@@ -85,7 +108,7 @@ class BestParts(private val c: AppContainer) {
             }
         } else null
         if (_current.value?.songId != song.id) return
-        _current.value = Current(song.id, heat, startFor(song, heat), knownAtMs = c.player.position)
+        _current.value = Current(song.id, heat, startFor(song, heat), knownAtMs = c.player.position, mine = mine(song.id) != null)
     }
 
     /** A coming song's curve, fetched while this one plays (not with data saver on mobile data). */
@@ -99,7 +122,7 @@ class BestParts(private val c: AppContainer) {
     suspend fun refine(song: Song) {
         val now = _current.value?.takeIf { it.songId == song.id } ?: return
         val start = startFor(song, now.heat)
-        if (_current.value?.songId == song.id) _current.value = now.copy(startMs = start)
+        if (_current.value?.songId == song.id) _current.value = now.copy(startMs = start, mine = mine(song.id) != null)
     }
 
     private companion object {

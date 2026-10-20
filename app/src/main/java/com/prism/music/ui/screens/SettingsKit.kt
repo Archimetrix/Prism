@@ -41,6 +41,9 @@ import com.prism.music.ui.theme.hairline
 import com.prism.music.ui.theme.ink3
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 
 /** The group a Settings search result opened its page at (#73): it scrolls into view and glows for a moment. */
 val LocalSettingsFind = androidx.compose.runtime.compositionLocalOf<String?> { null }
@@ -93,38 +96,82 @@ fun Note(text: String) {
     )
 }
 
+/**
+ * A setting's title and its one short line, plus (with [info]) a small ⓘ that opens the full explanation underneath:
+ * how it works, what it uses, what leaves the phone. Settings read at a glance; the detail is one tap away.
+ */
 @Composable
-fun Toggle(title: String, subtitle: String?, checked: Boolean, icon: ImageVector? = null, onChange: (Boolean) -> Unit) {
+private fun ColumnScope.SettingText(title: String, subtitle: String?, info: String?) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable(title) { androidx.compose.runtime.mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f, fill = false))
+        if (info != null) Icon(
+            PrismIcons.Info, if (open) "Hide details" else "More about $title",
+            Modifier.padding(start = 6.dp).size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .clickable { open = !open }.padding(6.dp),
+            tint = if (open) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.ink3,
+        )
+    }
+    if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    androidx.compose.animation.AnimatedVisibility(open && info != null) {
+        Text(
+            info.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+@Composable
+fun Toggle(title: String, subtitle: String?, checked: Boolean, icon: ImageVector? = null, info: String? = null, onChange: (Boolean) -> Unit) {
     val ui = LocalUi.current
     // The whole row is the switch (one target for TalkBack too); the switch itself only shows the state.
     Row(
         Modifier.fillMaxWidth().toggleable(checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange)
-            .padding(horizontal = 16.dp, vertical = ui.gap(12.dp)),
+            .padding(horizontal = 16.dp, vertical = ui.gap(13.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(16.dp)) }
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Column(Modifier.weight(1f)) { SettingText(title, subtitle, info) }
         Spacer(Modifier.width(12.dp))
         PrismSwitch(checked, null)
     }
 }
 
 @Composable
-fun Item(title: String, subtitle: String?, onClick: () -> Unit, icon: ImageVector? = null, trailing: (@Composable () -> Unit)? = null) {
+fun Item(title: String, subtitle: String?, onClick: () -> Unit, icon: ImageVector? = null, info: String? = null, trailing: (@Composable () -> Unit)? = null) {
     val ui = LocalUi.current
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = ui.gap(14.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(16.dp)) }
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Column(Modifier.weight(1f)) { SettingText(title, subtitle, info) }
         trailing?.invoke()
+    }
+}
+
+/** One thing that can be shown or hidden, for [ShowChips]. */
+class ShowOption(val label: String, val on: Boolean, val onChange: (Boolean) -> Unit)
+
+/**
+ * Several things to show or hide (what's on the player), as chips that tick on and off, instead of a long run of
+ * switches: the whole set reads at a glance.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun ShowChips(options: List<ShowOption>) {
+    androidx.compose.foundation.layout.FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { o ->
+            com.prism.music.ui.components.PrismChip(
+                o.on, { o.onChange(!o.on) }, o.label,
+                icon = if (o.on) PrismIcons.Check else null,
+                modifier = androidx.compose.ui.Modifier.semantics { role = androidx.compose.ui.semantics.Role.Checkbox; stateDescription = if (o.on) "Shown" else "Hidden" },
+            )
+        }
     }
 }
 
@@ -185,5 +232,29 @@ fun SliderSetting(
             Text(valueText(v), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         PrismSlider(v, { v = it }, enabled = enabled, valueRange = range, steps = steps, onValueChangeFinished = { onSave(v) })
+    }
+}
+
+/**
+ * A round tick: filled in ink with a check when on, an empty hairline circle when off (the Tabs list). The 48 dp row
+ * around it is the target.
+ */
+@Composable
+fun PrismCheck(checked: Boolean, enabled: Boolean = true, label: String, onChange: (Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    androidx.compose.foundation.layout.Box(
+        Modifier.size(48.dp).toggleable(checked, enabled = enabled, role = androidx.compose.ui.semantics.Role.Checkbox, onValueChange = onChange),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.size(22.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .then(
+                    if (checked) Modifier.background(scheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f))
+                    else Modifier.border(1.5.dp, scheme.onSurface.copy(alpha = if (enabled) 0.35f else 0.15f), androidx.compose.foundation.shape.CircleShape)
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) Icon(PrismIcons.Check, label, Modifier.size(14.dp), tint = scheme.surface)
+        }
     }
 }

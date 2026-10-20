@@ -1,5 +1,7 @@
 package com.prism.music.ui.player
 
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import com.prism.music.ui.components.PrismSlider
 import com.prism.music.ui.components.PrismTextButton
 import androidx.compose.foundation.background
@@ -173,6 +175,78 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
                         Text(if (sync == VideoSyncState.Unmatched) "Try again" else "Match again")
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * "Your best part": where this song's best part starts, set by the listener. Opens at their own (or the most replayed
+ * part, or where the song is now); pick it on the bar, nudge it, hear it, save it. Saved, it's what the Best part button,
+ * "Play from the best part", Rewind and Blend previews use for this song. Times are in the song's own (lyrics') timeline.
+ */
+@Composable
+fun BestPartSheet(onDismiss: () -> Unit) {
+    val c = LocalContainer.current
+    val pc = c.player
+    val song by pc.currentSong.collectAsState()
+    val s = song ?: run { onDismiss(); return }
+    val current by c.bestParts.current.collectAsState()
+    val scheme = MaterialTheme.colorScheme
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val duration = (s.durationSec * 1000L).coerceAtLeast(1L)
+    val mine = remember(s.id) { c.bestParts.mine(s.id) }
+    var auto by remember(s.id) { mutableStateOf<Long?>(null) }
+    LaunchedEffect(s.id) { auto = c.bestParts.automaticMs(s) }
+    var at by remember(s.id) {
+        mutableStateOf((mine ?: current?.takeIf { it.songId == s.id }?.startMs ?: pc.lyricPosition).coerceIn(0L, duration))
+    }
+    fun fmt(ms: Long) = "%d:%02d".format(ms / 60_000, ms / 1000 % 60)
+    fun set(ms: Long) { at = ms.coerceIn(0L, duration - 1_000L) }
+    com.prism.music.ui.components.ActionSheet(s.thumbnail, onDismiss) {
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp)) {
+            Text("Your best part", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Where Best part takes you in this song, and where it starts in Rewind and Blend",
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(fmt(at), style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"), modifier = Modifier.align(Alignment.CenterHorizontally))
+            // Where it'd be without the listener's own: looked up, or (until then) what the player already has.
+            val automatic = auto ?: current?.takeIf { it.songId == s.id && !it.mine }?.startMs
+            Text(
+                when {
+                    automatic != null && kotlin.math.abs(at - automatic) < 1_000 -> "The part people replay most"
+                    mine != null && at == mine -> "Your pick"
+                    else -> "Pick a moment on the bar"
+                },
+                style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Spacer(Modifier.height(8.dp))
+            PrismSlider(at.toFloat() / duration, { set((it * duration).toLong()) })
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(-5_000L to "−5 s", 5_000L to "+5 s").forEach { (d, label) ->
+                    Text(
+                        label, style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(com.prism.music.ui.components.quietFill())
+                            .clickable { set(at + d) }.padding(horizontal = 16.dp, vertical = 9.dp),
+                    )
+                }
+                val now = pc.lyricPosition
+                Text(
+                    "Now · ${fmt(now)}", style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(com.prism.music.ui.components.quietFill())
+                        .clickable { set(pc.lyricPosition) }.padding(horizontal = 16.dp, vertical = 9.dp),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                PrismTextButton(onClick = { pc.seekToLyric(at) }) { Text("Listen from here") }
+                Spacer(Modifier.weight(1f))
+                com.prism.music.ui.components.PrismButton(onClick = { scope.launch { c.bestParts.setMine(s, at); onDismiss() } }) { Text("Save") }
+            }
+            if (mine != null) PrismTextButton(onClick = { scope.launch { c.bestParts.setMine(s, null); onDismiss() } }) {
+                Text(if (auto != null) "Back to the part people replay most" else "Forget my best part")
             }
         }
     }

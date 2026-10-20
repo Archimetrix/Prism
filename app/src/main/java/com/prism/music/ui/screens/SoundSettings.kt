@@ -21,36 +21,20 @@ import com.prism.music.ui.theme.LocalContainer
 
 /**
  * Prism Spatial (a software spatializer, so it works without Dolby Atmos or
- * spatial-audio hardware) and the equalizer — all sound settings live here.
+ * spatial-audio hardware) and the equalizer, at the foot of Playback & sound's Sound group.
  */
 @Composable
 fun SoundSettings(onOpenEq: () -> Unit) {
     val c = LocalContainer.current
     val s = LocalAppSettings.current
-
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text("Prism Spatial", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Software spatial audio for any phone and any headphones: a wider stage, sound placed outside your head, and a sense of room. Built into Prism, so it doesn't need Dolby Atmos or spatial audio hardware.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        PrismSwitch(s.spatial, { c.settings.setSpatial(it) })
-    }
-    var amount by remember { mutableFloatStateOf(s.spatialAmount) }
-    LaunchedEffect(s.spatialAmount) { amount = s.spatialAmount }
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        Text(
-            "Intensity · ${(amount * 100).toInt()}%",
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (s.spatial) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        PrismSlider(amount, { amount = it }, enabled = s.spatial, valueRange = 0.1f..1f, onValueChangeFinished = { c.settings.setSpatialAmount(amount) })
-    }
+    Toggle(
+        "Prism Spatial", "Wider sound for any headphones", s.spatial,
+        info = "Software spatial audio: a wider stage, sound placed outside your head and a sense of room. Built into Prism, so it needs no Dolby Atmos or spatial audio hardware.",
+    ) { c.settings.setSpatial(it) }
+    if (s.spatial) SliderSetting("Intensity", s.spatialAmount, 0.1f..1f, { "${(it * 100).toInt()}%" }) { c.settings.setSpatialAmount(it) }
     Item(
         "Equalizer",
-        if (s.eq.enabled) "On · ${s.eq.preset}" else "Off · 10-band EQ, bass boost, loudness",
+        if (s.eq.enabled) "On · ${s.eq.preset}" else "10 bands, bass boost, headphone correction",
         onClick = onOpenEq,
-    )
+    ) { Chevron() }
 }

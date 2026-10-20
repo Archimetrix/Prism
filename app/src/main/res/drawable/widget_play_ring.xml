@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Play on Prism's widgets, as in the app: a white disc inside a thin ring of split light. -->
+<!-- Play on Prism's widgets, as in the app: a white disc edged with a thin ring of split light (no gap). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="52dp"
@@ -23,5 +23,5 @@
     </path>
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M26,5a21,21 0,1 1,0 42a21,21 0,1 1,0 -42z" />
+        android:pathData="M26,2.5a23.5,23.5 0,1 1,0 47a23.5,23.5 0,1 1,0 -47z" />
 </vector>

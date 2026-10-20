@@ -154,8 +154,8 @@ fun BackupGroup() {
     val backup = rememberBackupFlow()
     val restore = rememberRestoreFlow()
     Group("Backup") {
-        Item("Back up", "Save your library, Replay, settings and sign-in to a file", onClick = backup)
-        Item("Restore from a backup", "Replaces what's on this phone, then restarts Prism", onClick = restore)
+        Item("Back up", "Library, Replay, settings and sign-in, to a file", onClick = backup)
+        Item("Restore from a backup", "Replaces what's here, then restarts", onClick = restore)
     }
 }
 

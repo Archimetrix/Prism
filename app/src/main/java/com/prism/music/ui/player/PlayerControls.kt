@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -278,19 +279,28 @@ fun BoxScope.BestPartChip(): Boolean {
     val at = rememberPosition(fast = false) + shift
     if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
     val haptics = rememberHaptics()
-    // Spectrum: a hairline tag, matching the tick on the bar.
+    // A quiet tag: a whisper of glass and soft white, nothing that competes with the song. Held, it opens "Your best
+    // part" to set the listener's own.
     val tag = CircleShape
     Row(
-        Modifier.align(Alignment.Center).clip(tag).background(Color.White.copy(alpha = 0.12f)).border(1.2.dp, com.prism.music.ui.theme.PrismTokens.spectrum, tag)
-            .clickable(onClickLabel = "Skip to the best part") { haptics.tick(); pc.seekToLyric(start) }
+        Modifier.align(Alignment.Center).clip(tag).background(Color.White.copy(alpha = 0.07f))
+            .combinedClickable(
+                onClickLabel = "Skip to the best part", onLongClickLabel = "Set your own best part",
+                onLongClick = { haptics.tick(); BestPartEditor.open = true },
+            ) { haptics.tick(); pc.seekToLyric(start) }
             .padding(horizontal = 10.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(PrismIcons.Flame, null, tint = Color.White, modifier = Modifier.size(13.dp))
+        Icon(if (now.mine) PrismIcons.FlameFilled else PrismIcons.Flame, null, tint = Color.White.copy(alpha = 0.62f), modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(5.dp))
-        Text("Best part", style = MaterialTheme.typography.labelMedium, color = Color.White)
+        Text(if (now.mine) "Your best part" else "Best part", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.72f))
     }
     return true
+}
+
+/** Whether the "Your best part" sheet is open (the Best part button held, or ⋯ → Your best part). */
+object BestPartEditor {
+    var open by mutableStateOf(false)
 }
 
 /** When the player's "Best part" button is up. */
@@ -373,26 +383,22 @@ private fun ModeGlyph(icon: ImageVector, description: String, active: Boolean, b
     }
 }
 
-/** Play / pause in a white disc ([filled]) or a ring. */
+/**
+ * Play / pause in a white disc ([filled]) or on glass, edged with one ring of split light: the disc's own edge, so
+ * there's never a second ring or a gap that reads as one.
+ */
 @Composable
 private fun PlayDisc(isPlaying: Boolean, isLoading: Boolean, filled: Boolean, size: Dp, onClick: () -> Unit) {
     val haptics = rememberHaptics()
     val pressed = remember { MutableInteractionSource() }
     Box(
-        Modifier.size(size + 14.dp).clickable(pressed, indication = null) { haptics.click(); onClick() }
-            // Aura × Spectrum: a ring of split light round the play button, a little out from it.
-            .drawBehind {
-                val w = 2.dp.toPx()
-                drawCircle(com.prism.music.ui.theme.PrismTokens.spectrumRing(center), radius = size.toPx() / 2 + 6.dp.toPx(), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
-            },
+        Modifier.size(size + 14.dp).clickable(pressed, indication = null) { haptics.click(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier.size(size).clip(CircleShape)
-                .then(
-                    if (filled) Modifier.background(Color.White)
-                    else Modifier.background(Color.White.copy(alpha = 0.10f)).border(1.5.dp, Color.White.copy(alpha = 0.9f), CircleShape)
-                ),
+                .background(if (filled) Color.White else Color.White.copy(alpha = 0.10f))
+                .border(2.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             val tint = if (filled) Color.Black else Color.White
