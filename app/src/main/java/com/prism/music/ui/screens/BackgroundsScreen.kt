@@ -105,7 +105,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
     val ui = com.prism.music.ui.theme.LocalUi.current
     com.prism.music.ui.components.SubPage(
         "Backgrounds", bottomPadding,
-        subtitle = "Ready-made designs or your own photo",
+        subtitle = "Colour from what's playing, ready-made designs or your own photo",
         horizontalPadding = 16.dp, spacing = 12.dp,
     ) {
             item {
@@ -134,7 +134,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
             com.prism.music.ui.theme.BackdropGroup.entries.forEach { group ->
             if (group != com.prism.music.ui.theme.BackdropGroup.YOURS) item(key = "g:${group.name}") {
                 Column(Modifier.padding(start = 8.dp, top = 8.dp)) {
-                    Text(group.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(group.label, style = MaterialTheme.typography.titleLarge)
                     Text(
                         when (group) {
                             com.prism.music.ui.theme.BackdropGroup.COLOUR -> "Glowing in dark mode, soft pastels in light mode"
@@ -151,8 +151,12 @@ fun BackgroundsScreen(bottomPadding: Dp) {
                 val selected = style == currentStyle
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
-                        Modifier.fillMaxWidth().aspectRatio(0.62f).clip(ui.shape(18.dp))
-                            .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, ui.shape(18.dp))
+                        Modifier.fillMaxWidth().aspectRatio(0.62f).clip(ui.card)
+                            // The picked one is ringed in split light.
+                            .then(
+                                if (selected) Modifier.border(2.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.card)
+                                else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), ui.card)
+                            )
                             .clickable {
                                 when (style) {
                                     Backdrop.DEFAULT -> apply(null)
@@ -167,13 +171,14 @@ fun BackgroundsScreen(bottomPadding: Dp) {
                         // A hint of the screen on top, so the wash and contrast read true.
                         Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(Modifier.fillMaxWidth(0.6f).height(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)))
-                            repeat(3) { Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))) }
+                            // Glass panels, as the screens draw them over any background.
+                            repeat(3) { Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(com.prism.music.ui.components.frostFill(1.2f))) }
                         }
                         if (style == Backdrop.PHOTO && photo == null) Icon(PrismIcons.Photo, null, Modifier.size(30.dp), tint = MaterialTheme.colorScheme.onSurface)
                         if (selected) Box(
-                            Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                            Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp).clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrumRing()),
                             contentAlignment = Alignment.Center,
-                        ) { Icon(PrismIcons.Check, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary) }
+                        ) { Icon(PrismIcons.Check, null, Modifier.size(15.dp), tint = Color.White) }
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(style.label, style = MaterialTheme.typography.labelLarge)
@@ -195,7 +200,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
                         }
                         PrismSwitch(s.backdropMotion, { c.settings.setBackdropMotion(it) })
                     }
-                    if (s.backdrops.isNotEmpty()) PrismTextButton(onClick = { c.settings.setBackdrops(emptyMap()) }, Modifier.align(Alignment.End)) { Text("Reset all to default") }
+                    if (s.backdrops.isNotEmpty()) PrismTextButton(onClick = { c.settings.setBackdrops(emptyMap()) }, Modifier.align(Alignment.End)) { Text("Reset all to Ambient") }
                 }
             }
     }

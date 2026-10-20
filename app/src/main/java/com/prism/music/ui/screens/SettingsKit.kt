@@ -45,12 +45,11 @@ import androidx.compose.ui.draw.drawBehind
 /** The group a Settings search result opened its page at (#73): it scrolls into view and glows for a moment. */
 val LocalSettingsFind = androidx.compose.runtime.compositionLocalOf<String?> { null }
 
-/** A titled run of settings rows: a small label, then the rows between two hairlines (no card, Spectrum). */
+/** A titled card of settings rows: a small label, then the rows on a pane of glass. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
     val ui = LocalUi.current
-    val line = MaterialTheme.colorScheme.hairline
     val found = title.isNotBlank() && LocalSettingsFind.current == title
     val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val glow = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -65,16 +64,12 @@ fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
         glow.animateTo(0f, androidx.compose.animation.core.tween(800))
     }
     Column(Modifier.then(if (found) Modifier.bringIntoViewRequester(requester) else Modifier)) {
-        if (title.isNotBlank()) Eyebrow(title, Modifier.padding(start = 16.dp, bottom = 6.dp))
+        if (title.isNotBlank()) Eyebrow(title, Modifier.padding(start = 12.dp, bottom = 8.dp))
         Column(
-            Modifier.fillMaxWidth()
-                .drawBehind {
-                    val w = 1.dp.toPx() * 0.75f
-                    drawLine(line, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), w)
-                    drawLine(line, androidx.compose.ui.geometry.Offset(0f, size.height), androidx.compose.ui.geometry.Offset(size.width, size.height), w)
-                }
-                .then(if (glow.value > 0f) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f * glow.value)) else Modifier)
-                .padding(vertical = ui.gap(4.dp)),
+            Modifier.fillMaxWidth().pane(ui.card)
+                // A search result's group: ringed in split light for a moment.
+                .then(if (glow.value > 0.02f) Modifier.border((2.5f * glow.value).dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.card) else Modifier)
+                .padding(vertical = ui.gap(6.dp)),
             content = content,
         )
     }
@@ -133,19 +128,25 @@ fun Item(title: String, subtitle: String?, onClick: () -> Unit, icon: ImageVecto
     }
 }
 
-/** A row that opens another page: a plain line icon, title, summary, chevron. */
+/**
+ * A row that opens another page: an icon, title, summary, chevron. With a [hue] (Settings' sections, red to violet in
+ * the spectrum's order) the icon sits on a tile of that colour.
+ */
 @Composable
-fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolean = false, hint: String? = null, onClick: () -> Unit) {
+fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolean = false, hint: String? = null, hue: Color? = null, onClick: () -> Unit) {
     val ui = LocalUi.current
     Row(
         Modifier.fillMaxWidth()
             // The page open beside the list (wide windows) is marked.
-            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)) else Modifier)
-            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = ui.gap(12.dp)),
+            .then(if (selected) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)) else Modifier)
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = ui.gap(11.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(18.dp))
+        if (hue != null) androidx.compose.foundation.layout.Box(
+            Modifier.size(34.dp).clip(ui.smallArt).background(hue), contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, Modifier.size(20.dp), tint = Color.White) }
+        else Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(if (hue != null) 14.dp else 18.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)

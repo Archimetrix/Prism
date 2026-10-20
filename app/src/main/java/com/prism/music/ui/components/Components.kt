@@ -1,5 +1,8 @@
 package com.prism.music.ui.components
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.drawscope.rotate
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -206,10 +209,12 @@ fun SongRowLayout(
         Artwork(song.thumbnail, Modifier.size(48.dp), art, size = 226)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            // Spectrum: the playing song is marked by weight and the split-light bars, not by colour.
+            // The playing song's title is written in split light (deeper on light backgrounds), beside the spectrum bars.
+            val dark = com.prism.music.ui.theme.LocalIsDark.current
             Text(
                 song.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge, fontWeight = if (playing) FontWeight.Medium else FontWeight.Normal,
+                style = if (playing) MaterialTheme.typography.bodyLarge.copy(brush = com.prism.music.ui.theme.PrismTokens.spectrum(dark), fontWeight = FontWeight.Medium)
+                    else MaterialTheme.typography.bodyLarge,
                 color = scheme.onSurface,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -296,13 +301,14 @@ fun ItemCard(item: BrowseItem, modifier: Modifier = Modifier, width: Dp = Dp.Uns
 fun MoodTile(item: MoodItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val color = Color(item.color or 0xFF000000)
     val ui = com.prism.music.ui.theme.LocalUi.current
-    // Spectrum: the mood's own colour, flat, its name set light; a typographic tile rather than a gradient block.
+    // The mood's own colour, deepening across the tile, with a soft sheen; its name set light.
     Box(
         modifier
             .clip(ui.tile)
-            .background(color.copy(alpha = 0.85f).compositeOverBlack())
+            .background(Brush.linearGradient(listOf(color, color.copy(alpha = 0.55f).compositeOverBlack())))
             .clickable(onClick = onClick),
     ) {
+        Box(Modifier.matchParentSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.18f), Color.Transparent), radius = 260f, center = androidx.compose.ui.geometry.Offset(0f, 0f))))
         Text(
             item.title, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2,
             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
@@ -324,19 +330,36 @@ fun ItemCarousel(items: List<BrowseItem>, onClick: (BrowseItem) -> Unit, cardWid
 
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().padding(56.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(
-            Modifier.size(28.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), strokeWidth = 1.5.dp,
-            trackColor = MaterialTheme.colorScheme.hairline, strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
-        )
+    Box(modifier.fillMaxWidth().padding(56.dp), contentAlignment = Alignment.Center) { PrismSpinner(Modifier.size(30.dp)) }
+}
+
+/** Loading: an arc of split light going round. */
+@Composable
+fun PrismSpinner(modifier: Modifier = Modifier, stroke: androidx.compose.ui.unit.Dp = 2.5.dp) {
+    val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
+    val turn by rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = androidx.compose.animation.core.LinearEasing)), label = "turn")
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    androidx.compose.foundation.Canvas(modifier.then(Modifier.semantics { contentDescription = "Loading" })) {
+        val w = stroke.toPx()
+        val inset = w / 2
+        val arc = androidx.compose.ui.geometry.Size(size.width - w, size.height - w)
+        drawArc(track, 0f, 360f, false, androidx.compose.ui.geometry.Offset(inset, inset), arc, style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+        rotate(if (still) 0f else turn) {
+            drawArc(
+                com.prism.music.ui.theme.PrismTokens.spectrumRing(center), -90f, 270f, false, androidx.compose.ui.geometry.Offset(inset, inset), arc,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+            )
+        }
     }
 }
 
-/** Something didn't load: a quiet icon, one plain line, and one way to try again. */
+/** Something didn't load: a quiet icon on glass, one plain line, and one way to try again. */
 @Composable
 fun ErrorState(message: String, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
     Column(modifier.fillMaxWidth().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(PrismIcons.CloudOff, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.ink3)
+        Box(Modifier.size(64.dp).clip(CircleShape).background(glassFill(1.4f)).border(1.dp, glassEdge(), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(PrismIcons.CloudOff, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Spacer(Modifier.height(14.dp))
         Text(
             message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -349,12 +372,14 @@ fun ErrorState(message: String, modifier: Modifier = Modifier, onRetry: (() -> U
     }
 }
 
-/** Nothing here yet: a quiet icon, a light title and what to do about it. */
+/** Nothing here yet: the icon on a round of glass ringed in split light, a light title and what to do about it. */
 @Composable
 fun EmptyState(icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 40.dp, vertical = 36.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.ink3)
-        Spacer(Modifier.height(16.dp))
+        Box(Modifier.size(76.dp).clip(CircleShape).background(glassFill(1.4f)).spectrumRing(CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurface)
+        }
+        Spacer(Modifier.height(18.dp))
         Text(title, style = MaterialTheme.typography.titleLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(6.dp))
         Text(
@@ -374,12 +399,11 @@ fun MarqueeText(text: String, modifier: Modifier = Modifier, style: androidx.com
 fun SearchField(query: String, hint: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, container: Color = Color.Unspecified) {
     val scheme = MaterialTheme.colorScheme
     val focus = androidx.compose.ui.platform.LocalFocusManager.current
-    val ui = com.prism.music.ui.theme.LocalUi.current
-    // Spectrum: a hairline box (or the page's [container] fill).
+    // A glass pill (or the page's [container] fill).
     Row(
-        modifier.fillMaxWidth().height(46.dp).clip(ui.tile)
-            .then(if (container != Color.Unspecified) Modifier.background(container) else Modifier.border(1.dp, scheme.onSurface.copy(alpha = 0.14f), ui.tile))
-            .padding(start = 14.dp, end = 4.dp),
+        modifier.fillMaxWidth().height(48.dp).clip(CircleShape)
+            .background(if (container != Color.Unspecified) container else glassFill(1.4f)).border(1.dp, glassEdge(), CircleShape)
+            .padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(PrismIcons.Search, null, Modifier.size(20.dp), tint = scheme.onSurfaceVariant)

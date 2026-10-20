@@ -75,10 +75,14 @@ enum class Backdrop(
     val dark: List<Long> = emptyList(),
     val light: List<Long> = emptyList(),
 ) {
-    DEFAULT("Default", BackdropKind.SPECIAL, BackdropGroup.YOURS),
+    /** Ambient: frost from what's playing (Aura × Spectrum's own look), or the plain page with frosted pages off. */
+    DEFAULT("Ambient", BackdropKind.SPECIAL, BackdropGroup.YOURS),
     ARTWORK("Now playing", BackdropKind.SPECIAL, BackdropGroup.YOURS),
     PHOTO("Your photo", BackdropKind.SPECIAL, BackdropGroup.YOURS),
 
+    /** The prism's split light as three slow fields: red, green and violet (1.7). */
+    SPECTRUM("Spectrum", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+        listOf(0xFF0B0910, 0xFFFF4D5E, 0xFF3DDC97, 0xFF7C5CFF), listOf(0xFFF8F5F9, 0xFFFF9AA6, 0xFF8FE5C0, 0xFFBBA9FF)),
     AURORA("Aurora", BackdropKind.FIELDS, BackdropGroup.COLOUR,
         listOf(0xFF07122A, 0xFF2EE59D, 0xFF7C5CFF, 0xFF00C2FF), listOf(0xFFEEF6F5, 0xFF7FE6BE, 0xFFB3A3FF, 0xFF8ADDFF)),
     PRISM("Prism", BackdropKind.FIELDS, BackdropGroup.COLOUR,
@@ -172,7 +176,8 @@ fun ScreenBackdrop(screen: BackdropScreen, content: @Composable BoxScope.() -> U
         if (style != Backdrop.DEFAULT || frosted) draw(Modifier.fillMaxSize())
         // The background reaches under the navigation rail (wide windows); the page itself starts beside it.
         Box(Modifier.fillMaxSize().padding(start = LocalChromeStart.current)) {
-            CompositionLocalProvider(LocalFrosted provides frosted, LocalPageBackdrop provides page, LocalChromeStart provides 0.dp) { content() }
+            // Over any background (the ambient frost or a picked one), the page's panels and buttons are glass.
+            CompositionLocalProvider(LocalFrosted provides (frosted || style != Backdrop.DEFAULT), LocalPageBackdrop provides page, LocalChromeStart provides 0.dp) { content() }
         }
     }
 }

@@ -11,11 +11,12 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Prism's 1.7 look, "Spectrum": a monochrome interface whose one colour is a thin line of split light (the prism). The
- * line marks four things only: what's playing, the current tab, progress, and covers Prism makes. Everything else
- * takes its colour from the artwork, through [readableOn] so it stays legible.
+ * Prism's 1.7 look, "Aura × Spectrum": Aura's ambient colour from the playing cover, frosted glass and soft corners,
+ * with the split light (the prism) running through it: what to continue, progress, where you are, what's playing, the
+ * play ring, Prism's own covers, switches, Settings' sections. Other colour comes from the artwork, through
+ * [readableOn] so it stays legible.
  *
- * Screens read these tokens instead of literal values; the design proposal is `.claude/redesign-1.7.html`.
+ * Screens read these tokens instead of literal values; the approved proposal is `.claude/redesign-aura-spectrum.html`.
  */
 @Immutable
 object PrismTokens {
@@ -24,7 +25,27 @@ object PrismTokens {
         0.00f to Color(0xFFFF4D5E), 0.20f to Color(0xFFFF9F43), 0.38f to Color(0xFFFFD84D),
         0.56f to Color(0xFF3DDC97), 0.76f to Color(0xFF36B8FF), 1.00f to Color(0xFF7C5CFF),
     )
+    /** The same, deeper, for text and thin lines on light backgrounds (the bright yellow doesn't read on white). */
+    val spectrumColorsDeep = listOf(
+        0.00f to Color(0xFFE23347), 0.20f to Color(0xFFE57A12), 0.38f to Color(0xFFC79A00),
+        0.56f to Color(0xFF15A86C), 0.76f to Color(0xFF1789D6), 1.00f to Color(0xFF6A44F0),
+    )
+    fun spectrumColors(dark: Boolean) = if (dark) spectrumColors else spectrumColorsDeep
     val spectrum: Brush = Brush.horizontalGradient(*spectrumColors.toTypedArray())
+    /** The split light across a width (for text and lines), deeper on light backgrounds. */
+    fun spectrum(dark: Boolean, startX: Float = 0f, endX: Float = Float.POSITIVE_INFINITY): Brush =
+        Brush.horizontalGradient(*spectrumColors(dark).toTypedArray(), startX = startX, endX = endX)
+    /** The split light round a circle (the play ring, Liked songs' cover, small dots), from red back to red. */
+    fun spectrumRing(center: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Unspecified): Brush =
+        Brush.sweepGradient(
+            listOf(Color(0xFFFF4D5E), Color(0xFFFF9F43), Color(0xFFFFD84D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF7C5CFF), Color(0xFFFF4D5E)),
+            center,
+        )
+    /** The spectrum's seven hues in order, one per Settings section (and a menu's quick actions). */
+    val hues = listOf(
+        Color(0xFFFF5A6A), Color(0xFFFF9F43), Color(0xFFF2C53D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF5A8BFF), Color(0xFF8B6CFF),
+    )
+    fun hue(i: Int): Color = hues[((i % hues.size) + hues.size) % hues.size]
 
     object Space {
         /** The screen's side margin. */
@@ -34,11 +55,11 @@ object PrismTokens {
         val section = 32.dp
     }
 
-    /** Spectrum's corners: nearly square. */
+    /** Aura's corners: soft. */
     object Radius {
-        val smallArt = 2.dp
-        val art = 2.dp
-        val large = 3.dp
+        val smallArt = 10.dp
+        val art = 14.dp
+        val large = 22.dp
     }
 
     /** Durations in ms; with reduced motion everything becomes a [QUICK] fade. */

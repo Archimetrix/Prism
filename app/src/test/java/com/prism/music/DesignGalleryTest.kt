@@ -34,10 +34,16 @@ import java.io.File
 class DesignGalleryTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun shoot(name: String, settings: AppSettings) {
+    /** [glass]: as the app draws it, on a background (the Spectrum fields here, standing in for the ambient frost). */
+    private fun shoot(name: String, settings: AppSettings, glass: Boolean = true) {
         compose.setContent {
             PrismTheme(settings, artworkColor = null) {
-                Box(Modifier.width(412.dp).background(MaterialTheme.colorScheme.background)) { DesignGalleryContent() }
+                Box(Modifier.width(412.dp).background(MaterialTheme.colorScheme.background)) {
+                    if (glass) com.prism.music.ui.theme.BackdropLayer(
+                        com.prism.music.ui.theme.Backdrop.SPECTRUM, null, 0.35f, motion = false, modifier = Modifier.matchParentSize(),
+                    )
+                    androidx.compose.runtime.CompositionLocalProvider(com.prism.music.ui.components.LocalFrosted provides glass) { DesignGalleryContent() }
+                }
             }
         }
         compose.waitForIdle()
@@ -49,4 +55,5 @@ class DesignGalleryTest {
     @Test fun dark() = shoot("gallery-dark", AppSettings(themeMode = ThemeMode.DARK))
     @Test fun light() = shoot("gallery-light", AppSettings(themeMode = ThemeMode.LIGHT))
     @Test fun lightPaleAccent() = shoot("gallery-light-yellow", AppSettings(themeMode = ThemeMode.LIGHT, accent = 0xFFFFE066.toInt()))
+    @Test fun darkPlainPage() = shoot("gallery-dark-plain", AppSettings(themeMode = ThemeMode.DARK), glass = false)
 }

@@ -106,16 +106,18 @@ fun ScreenHeader(
 @Composable
 fun FloatingDisc(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.BoxScope.(ink: Color) -> Unit) {
     val dark = LocalIsDark.current
-    // Spectrum: flat, no shadow or rim; just enough fill to read over a photo.
-    val fill = if (dark) Color(0xFF060609).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.82f)
-    val ink = if (dark) Color.White else Color(0xFF0A0A10)
-    Box(modifier.size(40.dp).clip(CircleShape).background(fill), contentAlignment = Alignment.Center) { content(ink) }
+    // A disc of glass that reads over any photo: dark glass with white ink, or milky white with near-black ink.
+    val fill = if (dark) Color(0xFF140E16).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.78f)
+    val ink = if (dark) Color.White else Color(0xFF1C1418)
+    Box(
+        modifier.size(42.dp)
+            .shadow(8.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.25f))
+            .clip(CircleShape).background(fill).border(1.dp, glassEdge(), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) { content(ink) }
 }
 
-/**
- * A header action: a bare icon (Spectrum keeps buttons out of boxes) with a full 44 dp target, or a floating disc
- * ([FloatingDisc]) when it floats over a photo or artwork.
- */
+/** A header action: a round of glass (a floating disc, [FloatingDisc], when it floats over a photo or artwork). */
 @Composable
 fun RoundAction(icon: ImageVector, description: String, modifier: Modifier = Modifier, glass: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
@@ -127,9 +129,10 @@ fun RoundAction(icon: ImageVector, description: String, modifier: Modifier = Mod
         }
     } else {
         Box(
-            modifier.size(44.dp).clip(CircleShape).clickable(enabled = enabled, onClickLabel = description, onClick = onClick),
+            modifier.size(42.dp).clip(CircleShape).background(glassFill(1.4f)).border(1.dp, glassEdge(), CircleShape)
+                .clickable(enabled = enabled, onClickLabel = description, onClick = onClick),
             contentAlignment = Alignment.Center,
-        ) { Icon(icon, description, Modifier.size(24.dp), tint = tint) }
+        ) { Icon(icon, description, Modifier.size(22.dp), tint = tint) }
     }
 }
 
@@ -179,16 +182,14 @@ fun SubPage(
             content()
         }
         if (melts) TopScrollEdge({ bar }, 60.dp)
-        // Spectrum: the bar turns solid with a hairline once the title has scrolled under it; Back is a bare arrow.
-        val line = scheme.hairline
+        // On the ambient frost the content melts away under the bar; on a plain page the bar turns solid once scrolled.
         Box(
             Modifier.fillMaxWidth()
-                .background(if (melts) Color.Transparent else scheme.background.copy(alpha = 0.96f * bar))
-                .drawBehind { if (!melts && bar > 0f) drawLine(line.copy(alpha = line.alpha * bar), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx() * 0.75f) }
+                .background(if (melts) Color.Transparent else scheme.surface.copy(alpha = 0.92f * bar))
                 .statusBarsPadding()
-                .height(56.dp),
+                .height(60.dp),
         ) {
-            if (showBack) RoundAction(PrismIcons.ArrowBack, "Back", Modifier.align(Alignment.CenterStart).padding(start = 8.dp)) { nav.back() }
+            if (showBack) RoundAction(PrismIcons.ArrowBack, "Back", Modifier.align(Alignment.CenterStart).padding(start = 12.dp), glass = true) { nav.back() }
             Text(
                 title, Modifier.align(Alignment.Center).padding(horizontal = 72.dp).graphicsLayer { alpha = bar },
                 style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -201,18 +202,19 @@ fun SubPage(
     }
 }
 
-/** A choice: ink-filled when picked, a hairline outline otherwise ([idle] fills it instead, where a page asks). */
+/** A choice: a glass pill, lifted and ringed in split light when picked ([idle] fills an unpicked one, where asked). */
 @Composable
 fun PrismChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, idle: Color = Color.Unspecified) {
     val scheme = MaterialTheme.colorScheme
-    val ui = LocalUi.current
-    val bg by animateColorAsState(if (selected) scheme.onSurface else if (idle != Color.Unspecified) idle else Color.Transparent, tween(180), label = "chipBg")
-    val fg by animateColorAsState(if (selected) scheme.surface else scheme.onSurface, tween(180), label = "chipFg")
-    val edge = scheme.onSurface.copy(alpha = if (selected || idle != Color.Unspecified) 0f else 0.20f)
+    val quiet = glassFill(1.2f)
+    val lifted = glassFill(2.6f)
+    val bg by animateColorAsState(if (selected) lifted else if (idle != Color.Unspecified) idle else quiet, tween(180), label = "chipBg")
+    val fg by animateColorAsState(if (selected) scheme.onSurface else scheme.onSurfaceVariant, tween(180), label = "chipFg")
     Row(
-        modifier.height(34.dp).clip(ui.tile).background(bg).border(1.dp, edge, ui.tile)
+        modifier.height(36.dp).clip(CircleShape).background(bg)
+            .then(if (selected) Modifier.spectrumRing(CircleShape) else Modifier.border(1.dp, glassEdge(), CircleShape))
             .semantics { this.selected = selected }
-            .clickable(onClick = onClick).padding(horizontal = 14.dp),
+            .clickable(onClick = onClick).padding(horizontal = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
@@ -235,21 +237,22 @@ fun <T> ChipRow(
     }
 }
 
-/** Two to four options side by side in one hairline box; the picked one is filled with ink. */
+/** Two to four options side by side in one glass capsule; the picked one is lifted out and ringed in split light. */
 @Composable
 fun <T> Segmented(options: List<T>, selected: T, label: (T) -> String, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val ui = LocalUi.current
+    val lifted = glassFill(3f)
     Row(
-        modifier.fillMaxWidth().height(40.dp).clip(ui.tile).border(1.dp, scheme.onSurface.copy(alpha = 0.20f), ui.tile).padding(2.dp),
+        modifier.fillMaxWidth().height(44.dp).clip(CircleShape).background(glassFill(1.2f)).border(1.dp, glassEdge(), CircleShape).padding(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         options.forEach { o ->
             val on = o == selected
-            val bg by animateColorAsState(if (on) scheme.onSurface else Color.Transparent, tween(180), label = "seg")
-            val fg by animateColorAsState(if (on) scheme.surface else scheme.onSurfaceVariant, tween(180), label = "segInk")
+            val bg by animateColorAsState(if (on) lifted else Color.Transparent, tween(180), label = "seg")
+            val fg by animateColorAsState(if (on) scheme.onSurface else scheme.onSurfaceVariant, tween(180), label = "segInk")
             Box(
-                Modifier.weight(1f).fillMaxHeight().clip(ui.smallArt).background(bg)
+                Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(bg)
+                    .then(if (on) Modifier.spectrumRing(CircleShape, 1.2.dp) else Modifier)
                     .semantics { this.selected = on }.clickable { onSelect(o) },
                 contentAlignment = Alignment.Center,
             ) {

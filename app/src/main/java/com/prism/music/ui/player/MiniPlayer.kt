@@ -93,6 +93,7 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     val artShape = if (style == MiniPlayerStyle.PILL) CircleShape else if (bar) ui.smallArt else ui.shape(9.dp)
     val fraction = (position.toFloat() / pc.duration.coerceAtLeast(1)).coerceIn(0f, 1f)
     val glass = settings.liquidGlass || settings.frostedGlass
+    val dark = com.prism.music.ui.theme.LocalIsDark.current
     val surface: @Composable (Modifier, @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) -> Unit = { m, content ->
         if (bar && !glass) Box(
             m.clip(shape).background(scheme.surfaceContainerLow)
@@ -196,8 +197,11 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
         }
         if (settings.miniProgress == MiniProgress.LINE && !(bar && !glass)) {
             Canvas(Modifier.fillMaxWidth().height(2.dp).align(Alignment.BottomCenter).padding(horizontal = if (style == MiniPlayerStyle.PILL) 28.dp else 18.dp)) {
-                drawLine(scheme.onSurface.copy(alpha = 0.12f), Offset(0f, 0f), Offset(size.width, 0f), 4f, StrokeCap.Round)
-                drawLine(scheme.primary, Offset(0f, 0f), Offset(size.width * fraction, 0f), 4f, StrokeCap.Round)
+                drawLine(scheme.onSurface.copy(alpha = 0.12f), Offset(0f, 0f), Offset(size.width, 0f), 2.5.dp.toPx(), StrokeCap.Round)
+                // Progress in split light (deeper on light glass).
+                if (fraction > 0f) drawLine(
+                    com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width), Offset(0f, 0f), Offset(size.width * fraction, 0f), 2.5.dp.toPx(), StrokeCap.Round,
+                )
             }
         }
     }

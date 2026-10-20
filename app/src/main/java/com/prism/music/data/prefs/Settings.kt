@@ -227,11 +227,13 @@ data class AppSettings(
     val liquidGlass: Boolean = false,
     val glassKind: GlassKind = GlassKind.REGULAR,
     /** Blurred, non-refractive glass. Mutually exclusive with Liquid Glass. */
-    val frostedGlass: Boolean = false,
+    // Aura × Spectrum (1.7): floating glass (tab bar, mini player) blurs what's behind it.
+    val frostedGlass: Boolean = true,
     /** Taps and swipes on player controls give a little buzz. */
     val haptics: Boolean = true,
     /** Artwork runs edge to edge at the top of the player, dissolving into the backdrop. */
-    val fullBleedArtwork: Boolean = true,
+    // Aura × Spectrum: the cover framed, with a glow of its own colour.
+    val fullBleedArtwork: Boolean = false,
     /** Immersive mode (the player's ⋯ menu): the cover fills the screen, lyrics play over it, everything else hides. */
     val immersivePlayer: Boolean = false,
     val immersiveArt: ImmersiveArt = ImmersiveArt.ZOOMED,
@@ -413,7 +415,8 @@ data class AppSettings(
     val cardSize: CardSize = CardSize.MEDIUM,
     val reduceMotion: Boolean = false,
     // Navigation
-    val navStyle: NavBarStyle = NavBarStyle.DOCKED,
+    // Aura × Spectrum: a floating glass capsule.
+    val navStyle: NavBarStyle = NavBarStyle.FLOATING,
     val navLabels: NavLabels = NavLabels.ALWAYS,
     val navHideOnScroll: Boolean = true,
     val navTabs: List<NavTab> = listOf(NavTab.HOME, NavTab.LIBRARY, NavTab.SEARCH, NavTab.REPLAY),
@@ -429,10 +432,10 @@ data class AppSettings(
     val playerBackground: PlayerBackground = PlayerBackground.MESH,
     /** 0..1: how much of the player's background shows through its darkening (blurred cover and your background). */
     val playerBackdropShow: Float = 0.35f,
-    val playerArtCorners: Int = 3,
+    val playerArtCorners: Int = 20,
     val coverSize: CoverSize = CoverSize.STANDARD,
-    // Spectrum (1.7): the play button is a thin ring.
-    val transportStyle: TransportStyle = TransportStyle.OUTLINE,
+    // Aura × Spectrum (1.7): a solid play button, ringed in split light.
+    val transportStyle: TransportStyle = TransportStyle.BUTTON,
     val scrubberStyle: ScrubberStyle = ScrubberStyle.HAIRLINE,
     val artShrinkOnPause: Boolean = true,
     val showOutputDevice: Boolean = true,
@@ -443,8 +446,8 @@ data class AppSettings(
     /** Playlist pages open with their picture edge to edge, like an artist page. */
     val playlistHeroCover: Boolean = true,
     /** Artist, album and playlist pages sit on frosted glass made from their picture (Apple Music's look). */
-    // Off from 1.7 (Spectrum: flat pages, the colour in the artwork); an opt-in until the owner decides it stays.
-    val frostedPages: Boolean = false,
+    // Aura × Spectrum (1.7): ambient colour from what's playing behind every page.
+    val frostedPages: Boolean = true,
     val replayThemeColors: Boolean = false,
 ) {
     val isLoggedIn: Boolean get() = cookie.contains("SAPISID")

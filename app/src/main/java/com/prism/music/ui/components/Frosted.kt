@@ -324,16 +324,13 @@ fun Modifier.pane(shape: Shape, fallback: Color = Color.Unspecified): Modifier {
         return clip(shape).background(frostFill())
             .border(0.7.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.16f else 0.7f), Color.White.copy(alpha = 0.02f))), shape)
     }
-    // Spectrum: a flat, slightly raised surface with a hairline edge.
+    // On a plain page (frosted pages off): a soft card with the same light top edge.
     val scheme = MaterialTheme.colorScheme
-    return clip(shape).background(if (fallback != Color.Unspecified) fallback else scheme.surfaceContainerLow)
-        .border(1.dp, scheme.onSurface.copy(alpha = 0.08f), shape)
+    return clip(shape).background(if (fallback != Color.Unspecified) fallback else scheme.surfaceContainerHigh)
+        .border(1.dp, glassEdge(), shape)
 }
 
-/**
- * The fill of a feature card (a session code, the account, a call to action): frosted glass on a frosted page; a
- * plain [pane] elsewhere (Spectrum keeps colour for the artwork). Text on it uses [featureInk].
- */
+/** The fill of a feature card (a session code, the account, a call to action): a [pane]. Text on it uses [featureInk]. */
 @Composable
 fun Modifier.featurePane(shape: Shape): Modifier = pane(shape)
 

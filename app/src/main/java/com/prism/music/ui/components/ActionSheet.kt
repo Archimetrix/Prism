@@ -93,7 +93,7 @@ fun ActionSheet(
                     val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.86f
                     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState())) {
                         Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 14.dp), contentAlignment = Alignment.Center) {
-                            Box(Modifier.size(32.dp, 3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)))
+                            Box(Modifier.size(36.dp, 4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)))
                         }
                         content(close)
                         Spacer(Modifier.height(22.dp))
@@ -132,54 +132,60 @@ fun ActionHeader(
     }
 }
 
-/**
- * A bare icon button for the header (Spectrum: no disc). [active] (a liked heart) shows in full ink; the caller passes
- * the icon's selected twin (HeartFilled) for it.
- */
+/** A round glass button for the header; [active] (a liked heart, its filled twin passed in) shows in full ink. */
 @Composable
 fun SheetIconButton(icon: ImageVector, description: String, active: Boolean = false, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Box(
-        Modifier.size(44.dp).clip(CircleShape).clickable(onClickLabel = description, onClick = onClick),
+        Modifier.padding(start = 6.dp).size(42.dp).clip(CircleShape).background(glassFill(1.4f)).border(1.dp, glassEdge(), CircleShape)
+            .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, description, Modifier.size(23.dp), tint = if (active) scheme.onSurface else scheme.onSurfaceVariant) }
+    ) { Icon(icon, description, Modifier.size(21.dp), tint = if (active) scheme.onSurface else scheme.onSurfaceVariant) }
 }
 
-/** The sheet's main actions: plain icons over their labels in one row, with a hairline under them. */
+/**
+ * The sheet's main actions in one row, each on a round tile tinted with one of the spectrum's hues (red, yellow, blue,
+ * violet for four), its label under it.
+ */
 @Composable
 fun QuickActions(items: List<ActionItem>, onPick: (ActionItem) -> Unit) {
     if (items.isEmpty()) return
     val scheme = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-        items.forEach { a ->
-            val tint = if (a.active) scheme.onSurface else scheme.onSurfaceVariant
+    val step = if (items.size <= 4) 2 else 1
+    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
+        items.forEachIndexed { i, a ->
+            val hue = com.prism.music.ui.theme.PrismTokens.hue(i * step)
             Column(
-                Modifier.weight(1f).height(72.dp).clip(LocalUi.current.tile).clickable(onClickLabel = a.label) { onPick(a) }
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                Modifier.weight(1f).clip(LocalUi.current.tile).clickable(onClickLabel = a.label) { onPick(a) }
+                    .padding(horizontal = 4.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(a.icon, null, Modifier.size(24.dp), tint = tint)
-                Spacer(Modifier.height(6.dp))
+                Box(
+                    Modifier.size(46.dp).clip(CircleShape).background(hue.copy(alpha = if (a.active) 0.42f else 0.22f))
+                        .then(if (a.active) Modifier.spectrumRing(CircleShape) else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(a.icon, null, Modifier.size(23.dp), tint = if (com.prism.music.ui.theme.LocalIsDark.current) hue else hue.copy(red = hue.red * 0.75f, green = hue.green * 0.75f, blue = hue.blue * 0.75f)) }
+                Spacer(Modifier.height(7.dp))
                 Text(
-                    a.value ?: a.label, style = MaterialTheme.typography.labelMedium, color = tint,
+                    a.value ?: a.label, style = MaterialTheme.typography.labelMedium, color = if (a.active) scheme.onSurface else scheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
                 )
             }
         }
     }
-    HorizontalDivider(Modifier.padding(top = 6.dp), color = scheme.hairline)
 }
 
-/** A titled run of rows, like a settings group: no card, hairlines between rows. */
+/** A titled pane of glass with rows in it, like a settings group. */
 @Composable
 fun ActionGroup(title: String?, items: List<ActionItem>, onPick: (ActionItem) -> Unit) {
     if (items.isEmpty()) return
-    Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
-        if (title != null) Eyebrow(title, Modifier.padding(start = 20.dp, bottom = 4.dp))
-        Column(Modifier.fillMaxWidth()) {
+    val ui = LocalUi.current
+    Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp)) {
+        if (title != null) Eyebrow(title, Modifier.padding(start = 8.dp, bottom = 8.dp))
+        Column(Modifier.fillMaxWidth().pane(ui.card)) {
             items.forEachIndexed { i, a ->
-                if (i > 0) HorizontalDivider(Modifier.padding(start = 58.dp), color = MaterialTheme.colorScheme.hairline)
+                if (i > 0) HorizontalDivider(Modifier.padding(start = 54.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f))
                 ActionRow(a) { onPick(a) }
             }
         }
@@ -194,7 +200,7 @@ private fun ActionRow(a: ActionItem, onClick: () -> Unit) {
         else -> scheme.onSurface
     }
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 14.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(

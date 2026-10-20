@@ -126,6 +126,7 @@ import com.prism.music.ui.theme.ScreenBackdrop
 import com.prism.music.ui.theme.hairline
 import com.prism.music.ui.theme.ink3
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.semantics.selected
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -753,24 +754,30 @@ private fun TabBar(tabs: List<Tab>, route: String?, compact: Float, settings: Ap
 private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Float, modifier: Modifier, line: Boolean = false, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val fg by animateColorAsState(if (selected) scheme.onSurface else scheme.ink3, label = "tabInk")
-    val indicator by animateColorAsState(if (selected && !line) scheme.onSurface.copy(alpha = 0.08f) else Color.Transparent, label = "tab")
-    val mark by animateFloatAsState(if (selected && line) 1f else 0f, tween(com.prism.music.ui.theme.PrismTokens.Motion.STANDARD), label = "tabLine")
+    // Aura × Spectrum: the current tab is lifted on the glass, with a short line of split light under it.
+    val lifted = com.prism.music.ui.components.frostFill(2.6f)
+    val indicator by animateColorAsState(if (selected && !line) lifted else Color.Transparent, label = "tab")
+    val mark by animateFloatAsState(if (selected) 1f else 0f, tween(com.prism.music.ui.theme.PrismTokens.Motion.STANDARD), label = "tabLine")
+    val dark = com.prism.music.ui.theme.LocalIsDark.current
     val click = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = tab.label, onClick = onClick)
         .semantics { this.selected = selected }
     val icon = if (selected) tab.selectedIcon else tab.icon
-    val spectrumLine = Modifier.drawBehind {
+    val spectrumLine = Modifier.drawWithContent {
+        drawContent()
         if (mark > 0f) {
-            val w = 28.dp.toPx() * mark
+            // Docked: a longer line along the top; floating: a short one under the label.
+            val w = (if (line) 28.dp else 16.dp).toPx() * mark
             val x = (size.width - w) / 2
-            drawRect(
-                androidx.compose.ui.graphics.Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors.toTypedArray(), startX = x, endX = x + w),
-                Offset(x, 0f), androidx.compose.ui.geometry.Size(w, 2.dp.toPx()),
+            val y = if (line) 0f else size.height - 5.dp.toPx()
+            drawRoundRect(
+                com.prism.music.ui.theme.PrismTokens.spectrum(dark, x, x + w),
+                Offset(x, y), androidx.compose.ui.geometry.Size(w, 2.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(1.dp.toPx()),
             )
         }
     }
     when (labels) {
         NavLabels.ALWAYS -> Column(
-            modifier.then(spectrumLine).clip(RoundedCornerShape(4.dp)).background(indicator).then(click),
+            modifier.clip(RoundedCornerShape(26.dp)).background(indicator).then(spectrumLine).then(click),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
