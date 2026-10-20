@@ -154,12 +154,38 @@ fun BlendsScreen(bottomPadding: Dp) {
     val mine by produceState<TasteCode?>(null, nameVersion) { value = withContext(Dispatchers.IO) { c.blends.myCode() } }
     val code = remember(mine) { mine?.let(BlendCode::encode) }
     var showShared by remember { mutableStateOf(false) }
+    // While the code shows, the phone that scans it can send its own straight back over Wi-Fi (BlendExchange): the
+    // QR code then also says where to, with a one-time key.
+    val qr by produceState<String?>(null, code) { value = code?.let { withContext(Dispatchers.IO) { c.blendExchange.open(it) } } }
+    DisposableEffect(Unit) { onDispose { c.blendExchange.close() } }
+    LaunchedEffect(Unit) {
+        c.blendExchange.made.collect { r ->
+            Toast.makeText(context, "${r.name} scanned your code: your Blend is made", Toast.LENGTH_LONG).show()
+            nav.go(Routes.blend(r.who))
+        }
+    }
 
     fun take(text: String) = scope.launch {
         when (val r = c.blends.import(text)) {
             is Blends.Import.Added -> {
                 Toast.makeText(context, if (r.updated) "${r.name}'s Blend is up to date" else "Blend with ${r.name} made", Toast.LENGTH_SHORT).show()
                 nav.go(Routes.blend(r.who))
+                // Their phone gets the Blend too: this phone's code, as stored with the Blend, goes back to the one shown.
+                val myCode = c.blends.get(r.who)?.myCode
+                if (myCode != null && com.prism.music.data.blend.BlendExchange.parseHint(text) != null) c.scope.launch {
+                    val back = c.blendExchange.sendBack(text, myCode)
+                    if (back is com.prism.music.data.blend.BlendExchange.SendBack.Done) c.blends.markOnBothPhones(r.who)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            context,
+                            when (back) {
+                                is com.prism.music.data.blend.BlendExchange.SendBack.Done -> "Made on ${back.name}'s phone too"
+                                else -> "Couldn't reach ${r.name}'s phone (on another Wi-Fi?). Let them scan your code to have it too."
+                            },
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
             }
             Blends.Import.Yours -> Toast.makeText(context, "That's your own code", Toast.LENGTH_SHORT).show()
             Blends.Import.NotACode -> Toast.makeText(context, "That isn't a Prism Blend code", Toast.LENGTH_SHORT).show()
@@ -172,7 +198,16 @@ fun BlendsScreen(bottomPadding: Dp) {
         AlertDialog(
             onDismissRequest = { c.blends.pending.value = null },
             title = { Text(if (friend != null) "Blend with ${friend.name}?" else "Not a Blend code") },
-            text = { Text(if (friend != null) "Prism makes a playlist from your tastes together, on this phone. Only your code (what's under \"What you share\") goes to them, if you send it back." else "That message didn't hold a Prism Blend code.") },
+            text = {
+                Text(
+                    when {
+                        friend == null -> "That message didn't hold a Prism Blend code."
+                        com.prism.music.data.blend.BlendExchange.parseHint(p) != null ->
+                            "Prism makes a playlist from your tastes together. Your code (what's under \"What you share\") goes straight back to their phone over Wi-Fi, so you both have it."
+                        else -> "Prism makes a playlist from your tastes together, on this phone. Only your code (what's under \"What you share\") goes to them, if you send it back."
+                    },
+                )
+            },
             confirmButton = { if (friend != null) PrismTextButton({ c.blends.pending.value = null; take(p) }) { Text("Make the Blend") } },
             dismissButton = { PrismTextButton({ c.blends.pending.value = null }) { Text("Not now") } },
         )
@@ -182,10 +217,15 @@ fun BlendsScreen(bottomPadding: Dp) {
         item("code") {
             Column(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.widthIn(max = 340.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(10.dp), contentAlignment = Alignment.Center) {
-                    if (code == null) CircularProgressIndicator(color = Color.Black) else QrCode(code, Modifier.fillMaxSize())
+                    val shown = qr
+                    if (shown == null) CircularProgressIndicator(color = Color.Black) else QrCode(shown, Modifier.fillMaxSize())
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("Your code: let a friend scan it in Prism", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (qr?.contains(com.prism.music.data.blend.BlendExchange.HINT) == true) "Let a friend scan it in Prism: on the same Wi-Fi, you both get the Blend at once"
+                    else "Your code: let a friend scan it in Prism",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+                )
                 Spacer(Modifier.height(12.dp))
                 com.prism.music.ui.components.PrismTextField(
                     name, { name = it.take(30) }, Modifier.fillMaxWidth(), singleLine = true,
@@ -313,7 +353,8 @@ fun BlendScreen(who: String, bottomPadding: Dp) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "Send your code back so ${friend.name}'s Blend is the same as yours.", style = MaterialTheme.typography.bodySmall,
+                    if (c.blends.onBothPhones(who)) "On both phones: you and ${friend.name} have the same Blend."
+                    else "Send your code back so ${friend.name}'s Blend is the same as yours.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
                 )
                 Spacer(Modifier.height(12.dp))
@@ -462,7 +503,8 @@ private fun CameraScanner(onCode: (String) -> Unit) {
                 val text = runCatching { reader.decode(BinaryBitmap(HybridBinarizer(source)), hints).text }.getOrNull()
                 reader.reset()
                 val code = BlendCode.findIn(text)
-                if (code != null && done.compareAndSet(false, true)) view.post { onCode(code) }
+                // The whole text: besides the code, a QR code shown in Prism says how to send one back (BlendExchange).
+                if (code != null && done.compareAndSet(false, true)) view.post { onCode(text ?: code) }
             } finally {
                 image.close()
             }

@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -189,7 +190,7 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
             layout.forEach { cfg ->
                 item(key = cfg.key) {
                     when (cfg.key) {
-                        HomeSections.GREETING -> GreetingSection(recent)
+                        HomeSections.GREETING -> GreetingSection(cfg, recent)
                         HomeSections.QUICK_PICKS -> {
                             // When YouTube serves no picks, songs like your latest play stand in (from its radio, less
                             // what you've just heard). Your recent plays themselves never do: that's Recently played.
@@ -209,13 +210,16 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                         HomeSections.SPEED_DIAL -> SpeedDialSection(cfg, dialItems, openItem)
                         HomeSections.MADE_FOR_YOU -> MadeForYouSection(cfg)
                         HomeSections.NEW_RELEASES -> NewReleasesSection(cfg)
-                        HomeSections.REPLAY -> ReplayTeaser()
-                        HomeSections.GENRES -> TopGenresSection()
+                        HomeSections.REPLAY -> ReplayTeaser(cfg)
+                        HomeSections.GENRES -> TopGenresSection(cfg)
                         HomeSections.MOODS -> {
                             val m = (moods.state as? Load.Ok)?.value?.picks?.take(12)
                             if (!m.isNullOrEmpty()) {
                                 SectionHeader(cfg.title, strapline = "Picked for you", onMore = { nav.go(Routes.MOODS) })
-                                LazyHorizontalGrid(
+                                if (cfg.style != SectionStyle.GRID) StyledEntries(cfg.style, m.map { mood ->
+                                    val col = Color(mood.color or 0xFF000000).lit()
+                                    HomeEntry(mood.id + mood.params, mood.title, fill = Brush.linearGradient(listOf(col, col.copy(alpha = 0.6f).compositeOver(Color.Black))), onFill = true, icon = PrismIcons.Mood) { openItem(mood) }
+                                }) else LazyHorizontalGrid(
                                     GridCells.Fixed(2), Modifier.height(150.dp),
                                     contentPadding = PaddingValues(horizontal = 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -398,7 +402,7 @@ private fun UpdateBanner() {
 }
 
 @Composable
-private fun GreetingSection(recent: List<Song>) {
+private fun GreetingSection(cfg: HomeSectionConfig, recent: List<Song>) {
     val nav = LocalNavigator.current
     val c = LocalContainer.current
     val settings = LocalAppSettings.current
@@ -438,6 +442,21 @@ private fun GreetingSection(recent: List<Song>) {
     if (tiles.isEmpty()) return
     val ui = com.prism.music.ui.theme.LocalUi.current
     val scheme = MaterialTheme.colorScheme
+    // Spotlight (the default) is the two-column tiles below; the other styles show the same shortcuts their way.
+    if (cfg.style != SectionStyle.HERO) {
+        Spacer(Modifier.height(ui.gap(12.dp)))
+        val glass = androidx.compose.ui.graphics.SolidColor(com.prism.music.ui.components.glassFill(2f))
+        StyledEntries(cfg.style, tiles.mapIndexed { i, t ->
+            HomeEntry(
+                "tile:$i:${t.title}", t.title, image = t.image, icon = t.icon,
+                fill = if (t.playable == Playable.Liked) com.prism.music.ui.theme.PrismTokens.spectrumRing() else glass,
+                onFill = t.playable == Playable.Liked,
+                onLongClick = t.playable?.let { p -> { menu(p) } }, onClick = t.onClick,
+            )
+        })
+        Spacer(Modifier.height(ui.gap(8.dp)))
+        return
+    }
     Column(Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         tiles.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -483,8 +502,10 @@ private fun SongSection(
     SectionHeader(title, strapline = strapline, onMore = onMore)
     when (cfg.style) {
         // Grid (#44): two rows of covers, where List is four rows of songs.
+        // One or two songs sit in a single row rather than a column of two.
         SectionStyle.GRID -> LazyHorizontalGrid(
-            GridCells.Fixed(2), Modifier.height(2 * 220.dp), contentPadding = PaddingValues(horizontal = 12.dp),
+            GridCells.Fixed(if (songs.size > 2) 2 else 1), Modifier.height(if (songs.size > 2) 2 * 212.dp else 212.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp),
         ) {
             items(songs.size) { i -> ItemCard(SongItem(songs[i]), width = 140.dp) { start(i) } }
         }
@@ -498,7 +519,7 @@ private fun SongSection(
                 },
             )
             LazyHorizontalGrid(
-                GridCells.Fixed(4), Modifier.height(4 * 64.dp),
+                GridCells.Fixed(songs.size.coerceIn(1, 4)), Modifier.height(64.dp * songs.size.coerceIn(1, 4)),
                 state = grid,
                 contentPadding = PaddingValues(horizontal = 4.dp),
                 flingBehavior = if (snap) snapping else androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior(),
@@ -521,20 +542,15 @@ private fun ShelfSection(cfg: HomeSectionConfig, shelf: Shelf, open: (BrowseItem
     val songs = shelf.items.filterIsInstance<SongItem>().map { it.song }
     val allSongs = songs.size == shelf.items.size
     when {
-        cfg.style == SectionStyle.HERO -> HeroRow(shelf.items, open)
         cfg.style == SectionStyle.LIST && allSongs -> LazyHorizontalGrid(
-            GridCells.Fixed(4), Modifier.height(4 * 64.dp), contentPadding = PaddingValues(horizontal = 4.dp),
+            GridCells.Fixed(songs.size.coerceIn(1, 4)), Modifier.height(64.dp * songs.size.coerceIn(1, 4)), contentPadding = PaddingValues(horizontal = 4.dp),
         ) {
             items(songs.size) { i ->
                 Box(Modifier.width(330.dp)) { SongRow(songs[i]) { c.player.playQueue(songs, i, QueueSource(QueueKind.OTHER, shelf.title)) } }
             }
         }
-        cfg.style == SectionStyle.GRID -> LazyHorizontalGrid(
-            GridCells.Fixed(2), Modifier.height(2 * 220.dp), contentPadding = PaddingValues(horizontal = 12.dp),
-        ) {
-            items(shelf.items) { item -> ItemCard(item, width = 140.dp) { open(item) } }
-        }
-        else -> ItemCarousel(shelf.items, open)
+        // Every style, for every kind of item (List used to fall back to a carousel unless they were all songs).
+        else -> StyledItems(cfg.style, shelf.items, open)
     }
 }
 
@@ -550,7 +566,8 @@ private fun SpeedDialSection(cfg: HomeSectionConfig, items: List<BrowseItem>, op
     when (cfg.style) {
         SectionStyle.CAROUSEL -> ItemCarousel(items, open)
         SectionStyle.HERO -> HeroRow(items, open)
-        else -> SpeedDialPages(items, open)
+        SectionStyle.LIST -> StyledItems(SectionStyle.LIST, items, open)
+        SectionStyle.GRID -> SpeedDialPages(items, open)
     }
 }
 
@@ -634,7 +651,7 @@ private fun SpeedDialTile(item: BrowseItem, modifier: Modifier, shape: androidx.
 }
 
 @Composable
-private fun HeroRow(items: List<BrowseItem>, open: (BrowseItem) -> Unit) {
+internal fun HeroRow(items: List<BrowseItem>, open: (BrowseItem) -> Unit) {
     val ui = com.prism.music.ui.theme.LocalUi.current
     val menu = rememberPlayMenu()
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -660,7 +677,7 @@ private fun HeroRow(items: List<BrowseItem>, open: (BrowseItem) -> Unit) {
 }
 
 @Composable
-private fun ReplayTeaser() {
+private fun ReplayTeaser(cfg: HomeSectionConfig) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
     val ms by produceState(-1L) {
@@ -673,6 +690,25 @@ private fun ReplayTeaser() {
     // Through December (once this year's Rewind has opened), the teaser is the Rewind's own card and opens its story.
     val rewind = remember { Calendar.getInstance().get(Calendar.MONTH) == Calendar.DECEMBER && c.rewind.isOpen(year) }
     val ui = com.prism.music.ui.theme.LocalUi.current
+    // Spotlight (the default) is the big card below; the other styles show the year so far as a few cards or rows:
+    // the time listened, the top song and the top artist, each opening Replay.
+    if (cfg.style != SectionStyle.HERO) {
+        val top by produceState<Pair<com.prism.music.data.db.SongPlays?, com.prism.music.data.db.ArtistPlays?>>(null to null) {
+            val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
+            val now = System.currentTimeMillis()
+            value = c.db.plays().topSongs(start, now, 1).firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull()
+        }
+        val open: () -> Unit = { if (rewind) c.rewindRequest.value = year; nav.go(Routes.REPLAY) }
+        val dark = com.prism.music.ui.theme.LocalIsDark.current
+        SectionHeader(if (rewind) "Rewind $year" else "Replay $year", strapline = "Your year so far", onMore = open)
+        StyledEntries(cfg.style, listOfNotNull(
+            HomeEntry("replay:time", total.full, if (rewind) "Your year in music" else "Listened this year", icon = PrismIcons.ReplayFilled,
+                fill = com.prism.music.ui.theme.PrismTokens.spectrum(dark), onFill = true, onClick = open),
+            top.first?.let { s -> HomeEntry("replay:song", s.title, "Your top song · ${s.artistName}", image = s.thumbnail, onClick = open) },
+            top.second?.let { a -> HomeEntry("replay:artist", a.artistName, "Your top artist", image = a.thumbnail, icon = PrismIcons.Person, onClick = open) },
+        ))
+        return
+    }
     // A card of glass ringed in split light, the time listened set large and light in the spectrum.
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     val scheme = MaterialTheme.colorScheme
@@ -700,7 +736,7 @@ private fun ReplayTeaser() {
 }
 
 @Composable
-private fun TopGenresSection() {
+private fun TopGenresSection(cfg: HomeSectionConfig) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
     val liked by c.library.liked.collectAsState()
@@ -714,6 +750,15 @@ private fun TopGenresSection() {
     SectionHeader("Your top genres", strapline = "From your liked songs")
     val palette = listOf(0xFF7C5CFF, 0xFFFF3B5C, 0xFF00B4D8, 0xFF2EC27E, 0xFFFF6B35, 0xFFE056FD, 0xFFFFB627, 0xFF3A86FF)
     val ui = com.prism.music.ui.theme.LocalUi.current
+    // Grid (the default) is the coloured tiles below; the other styles show the same genres their way.
+    if (cfg.style != SectionStyle.GRID) {
+        StyledEntries(cfg.style, genres.mapIndexed { i, (g, n) ->
+            val col = Color(palette[i % palette.size]).lit()
+            HomeEntry("genre:$g", g, com.prism.music.data.model.songCount(n), icon = PrismIcons.Category,
+                fill = Brush.linearGradient(listOf(col, col.copy(alpha = 0.6f).compositeOver(Color.Black))), onFill = true) { nav.go(Routes.liked(g)) }
+        })
+        return
+    }
     LazyHorizontalGrid(
         GridCells.Fixed(2), Modifier.height(140.dp), contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp),

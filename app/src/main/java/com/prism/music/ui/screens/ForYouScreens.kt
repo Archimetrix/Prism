@@ -159,6 +159,26 @@ fun MadeForYouSection(cfg: HomeSectionConfig) {
         return
     }
     SectionHeader(cfg.title, strapline = "Made on your phone from what you play")
+    // Carousel (the default) is the row of covers below; the other styles show the same mixes and Blends their way.
+    if (cfg.style != com.prism.music.data.prefs.SectionStyle.CAROUSEL) {
+        val playMix: (Mix) -> Unit = { mix ->
+            c.player.playQueue(mix.songs, 0, com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.PLAYLIST, mix.title, originId = mix.id))
+        }
+        StyledEntries(cfg.style, shown.map { mix ->
+            HomeEntry(
+                mix.id, mix.title, mix.subtitle,
+                art = { m -> MixCover(mix, m, showTitle = false) },
+                onLongClick = { playMix(mix) },
+            ) { nav.go(Routes.mix(mix.id)) }
+        } + blends.map { e ->
+            val match = c.blends.blendOf(e)?.match ?: 0
+            HomeEntry(
+                "blend:" + e.friendWho, "Blend · $match%", "You + ${e.friendName}",
+                fill = Brush.linearGradient(listOf(Color(0xFF6C5CE7), Color(0xFFE84393))), onFill = true, icon = PrismIcons.Blend,
+            ) { nav.go(Routes.blend(e.friendWho)) }
+        })
+        return
+    }
     val w = LocalUi.current.cardWidth
     LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items(shown, key = { it.id }) { mix ->
@@ -218,7 +238,7 @@ fun NewReleasesSection(cfg: HomeSectionConfig) {
         .collectAsState(initial = emptyList())
     if (releases.isEmpty()) return
     SectionHeader(cfg.title, strapline = "From artists you listen to", onMore = { nav.go(Routes.NEW_RELEASES) })
-    ItemCarousel(releases.take(15).map { it.asItem() }, { nav.go(Routes.album(it.id)) })
+    StyledItems(cfg.style, releases.take(15).map { it.asItem() }) { nav.go(Routes.album(it.id)) }
 }
 
 /** Release Radar's page: what's come out lately from the listener's artists. */

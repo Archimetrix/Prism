@@ -86,17 +86,28 @@ class Blends(private val c: AppContainer) {
         data object Yours : Import
     }
 
-    /** Takes a friend's code: a new Blend, or their newer code for one there already. */
-    suspend fun import(text: String): Import {
+    /**
+     * Takes a friend's code: a new Blend, or their newer code for one there already. [mine]: this phone's code as the
+     * friend got it (the QR code they scanned), so both phones make the very same Blend; else it's worked out now.
+     */
+    suspend fun import(text: String, mine: String? = null): Import {
         val code = BlendCode.findIn(text) ?: return Import.NotACode
         val friend = BlendCode.decode(code) ?: return Import.NotACode
         if (friend.who == myWho) return Import.Yours
         val old = c.db.blends().get(friend.who)
         val now = System.currentTimeMillis()
-        val mine = BlendCode.encode(myCode())
+        val shown = mine?.let(BlendCode::findIn)?.takeIf { BlendCode.decode(it)?.who == myWho }
+        val mineGiven = shown != null
+        val mine = shown ?: BlendCode.encode(myCode())
         c.db.blends().put(BlendEntity(friend.who, friend.name, code, mine, old?.createdAt ?: now, now))
+        // Sent back over Wi-Fi by the phone that scanned this one's code: it made the Blend from the same two.
+        if (mineGiven) markOnBothPhones(friend.who)
         return Import.Added(friend.who, friend.name, old != null)
     }
+
+    /** Both phones made this Blend from the same two codes ([BlendExchange]): nothing to send back. */
+    fun onBothPhones(who: String) = prefs.getBoolean("both:$who", false)
+    fun markOnBothPhones(who: String) = prefs.edit().putBoolean("both:$who", true).apply()
 
     suspend fun remove(who: String) = c.db.blends().delete(who)
 

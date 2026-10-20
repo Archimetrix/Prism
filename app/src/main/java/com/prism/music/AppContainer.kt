@@ -308,6 +308,8 @@ class AppContainer(val app: Application) {
     val forYou by lazy { com.prism.music.data.foryou.ForYou(this) }
     val releaseRadar by lazy { com.prism.music.data.foryou.ReleaseRadar(this) }
     val blends by lazy { com.prism.music.data.blend.Blends(this) }
+    /** Sends a Blend's other half back over Wi-Fi, so both phones have it ([com.prism.music.data.blend.BlendExchange]). */
+    val blendExchange by lazy { com.prism.music.data.blend.BlendExchange({ code, mine -> blends.import(code, mine) }, { blends.myName }) }
     val recognizer by lazy { com.prism.music.data.recognize.Recognizer(this) }
 
     /** Headphone correction (AutoEq profiles per headphones). */

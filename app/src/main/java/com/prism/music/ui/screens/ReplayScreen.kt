@@ -421,7 +421,7 @@ fun Modifier.toggleListenUnit(): Modifier {
  */
 class ListenTotal(val value: Long, val unit: String, val text: (Long) -> String) {
     /** The whole thing on one line: "1,204 minutes" / "20h 4m". */
-    val full: String get() = (text(value) + " " + unit).trim()
+    val full: String get() = (text(value) + " " + if (value == 1L && unit == "minutes") "minute" else unit).trim()
 }
 
 @Composable
