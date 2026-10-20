@@ -106,6 +106,8 @@ object Genres {
     fun normalize(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
         val l = raw.lowercase()
+        // Electronic, though they name hip-hop ("Chill Out/Trip-Hop/Lounge").
+        if ("trip-hop" in l || "trip hop" in l || "chill out" in l || "chillout" in l || "lounge" in l) return "Dance & electronic"
         for ((name, keys) in patterns) if (keys.any { it.containsMatchIn(l) }) return name
         return null
     }
@@ -179,8 +181,16 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
     private suspend fun deezerTrackGenre(song: Song): String? = deezer.withPermit {
         val q = "artist:\"${song.primaryArtist}\" track:\"${cleanTitle(song.title)}\""
         val search = getJson("https://api.deezer.com/search".toHttpUrl().newBuilder().addQueryParameter("q", q).addQueryParameter("limit", "5").build())
-        val data = search.field("data") as? JsonArray ?: return@withPermit null
-        val best = data.minByOrNull { abs((it.str("duration")?.toIntOrNull() ?: 0) - song.durationSec) } ?: return@withPermit null
+        // Its strict search finds nothing for some titles (quotes in them: "TEXAS HOLD 'EM"); a plain one, by this artist.
+        val data = (search.field("data") as? JsonArray)?.toList()?.ifEmpty { null }
+            ?: (getJson("https://api.deezer.com/search".toHttpUrl().newBuilder().addQueryParameter("q", "${song.primaryArtist} ${cleanTitle(song.title)}").addQueryParameter("limit", "8").build())
+                .field("data") as? JsonArray)?.toList()?.filter { key(it.field("artist").str("name") ?: "") == key(song.primaryArtist) }
+            ?: return@withPermit null
+        // The same song (its title starts the same), not just anything the artist's name finds; closest in length when known.
+        val title = key(cleanTitle(song.title))
+        val same = data.filter { key(cleanTitle(it.str("title") ?: "")).let { t -> t == title || t.startsWith("$title ") || title.startsWith("$t ") } }.ifEmpty { data }
+        val best = (if (song.durationSec > 0) same.minByOrNull { abs((it.str("duration")?.toIntOrNull() ?: 0) - song.durationSec) } else same.firstOrNull())
+            ?: return@withPermit null
         best.field("album").str("id")?.let { deezerAlbumGenre(it) }
     }
 
@@ -314,11 +324,137 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
         results.close()
     }
 
+    /** Until when iTunes said "too many" (403/429): nothing more is asked of it before then. */
+    @Volatile private var itunesResting = 0L
+
     private suspend fun itunes(url: okhttp3.HttpUrl): JsonElement? = itunesLock.withLock {
+        if (System.currentTimeMillis() < itunesResting) return@withLock null
         val wait = 3_100 - (System.currentTimeMillis() - lastItunes)
         if (wait > 0) delay(wait)
         lastItunes = System.currentTimeMillis()
-        getJson(url)
+        http.newCall(Request.Builder().url(url).header("User-Agent", "PrismMusic/1.0").build()).execute().use { r ->
+            if (r.code == 403 || r.code == 429) { itunesResting = System.currentTimeMillis() + 90_000; trace?.invoke("itunes rate-limited"); null }
+            else if (!r.isSuccessful) null
+            else InnerTube.json.parseToJsonElement(r.body.string())
+        }
+    }
+
+    // ---------------------------------------------------------------- Song genres from iTunes
+
+    private fun itunesSongsKey(name: String) = "it1:${key(name)}"
+
+    /**
+     * Up to 200 of an artist's songs on iTunes with Apple's genre for each (cleaned title key → raw genre), in one
+     * request, kept for good. Apple files each release in a genre of its own (Post Malone's country album as Country,
+     * a musical's songs as Musicals), so it's the closest Prism gets to a genre per song. Null if iTunes couldn't be
+     * asked (try again later); empty if it doesn't have the artist.
+     */
+    private suspend fun itunesArtistSongs(name: String): Map<String, String>? {
+        val k = itunesSongsKey(name)
+        dao.genre(k)?.let { return decodeSongs(it.genre) }
+        val url = "https://itunes.apple.com/search".toHttpUrl().newBuilder()
+            .addQueryParameter("term", name).addQueryParameter("media", "music").addQueryParameter("entity", "song")
+            .addQueryParameter("attribute", "artistTerm").addQueryParameter("limit", "200").build()
+        val results = runCatching { itunes(url) }.getOrNull()?.field("results") as? JsonArray ?: return null
+        val wanted = key(name)
+        // A song can be on several releases (a hit on its album, a soundtrack and a best-of): every genre it's filed under.
+        val songs = LinkedHashMap<String, MutableList<String>>()
+        results.forEach { r ->
+            val artist = key(r.str("artistName") ?: return@forEach)
+            // The artist themself (or with others: "Post Malone & Morgan Wallen"), not a namesake or a tribute act.
+            if (artist != wanted && !artist.startsWith("$wanted ") && !artist.contains(" $wanted")) return@forEach
+            val title = key(cleanTitle(r.str("trackName") ?: return@forEach))
+            val genre = r.str("primaryGenreName")?.takeIf { '\t' !in it && '|' !in it } ?: return@forEach
+            if (title.isNotBlank()) songs.getOrPut(title) { ArrayList() }.let { if (genre !in it) it += genre }
+        }
+        dao.putGenre(GenreEntity(k, songs.entries.joinToString("\n") { "${it.key}\t${it.value.joinToString("|")}" }, System.currentTimeMillis()))
+        trace?.invoke("itunes songs $name: ${songs.size}")
+        return songs.mapValues { it.value.joinToString("|") }
+    }
+
+    private fun decodeSongs(s: String?): Map<String, String> =
+        s.orEmpty().lineSequence().mapNotNull { l -> l.split('\t').takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
+
+    /** The artist's genre by Apple's count over their songs (each song's first genre, most common). */
+    private fun majority(songs: Map<String, String>): String? =
+        songs.values.mapNotNull { Genres.normalize(it.substringBefore('|')) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+
+    /** The categories Apple files [song] under (from its artist's songs on iTunes); empty if it isn't among them. */
+    private fun ownCategories(song: Song, songs: Map<String, String>): List<String> {
+        val t = key(cleanTitle(song.title))
+        if (t.isBlank()) return emptyList()
+        val raw = songs[t] ?: songs.entries.firstOrNull { (k, _) -> t.length >= 4 && (k.startsWith("$t ") || t.startsWith("$k ")) }?.value
+        return raw?.split('|')?.mapNotNull { Genres.normalize(it) }?.distinct().orEmpty()
+    }
+
+    /**
+     * [song]'s category from its artist's iTunes songs: its own (the artist's usual genre when it's filed under that
+     * among others, so "Lose Yourself" is Hip-hop rather than its soundtrack's genre), else the artist's usual one.
+     */
+    private fun fromItunes(song: Song, songs: Map<String, String>): String? {
+        if (songs.isEmpty()) return null
+        val major = majority(songs)
+        val own = ownCategories(song, songs)
+        return if (own.isEmpty()) major else if (major in own) major else own.first()
+    }
+
+    /**
+     * A song iTunes didn't list for its artist: its own release on Deezer can still say it's something else (a country
+     * single by a rapper). Deezer files broadly, so its Pop and Rock don't overrule the artist's genre; anything more
+     * specific does. Null if Deezer couldn't be asked.
+     */
+    private suspend fun songOffList(song: Song, major: String?): String? {
+        val raw = runCatching { deezerTrackGenre(song) }.getOrNull() ?: return null
+        val found = raw.split(" / ").mapNotNull { Genres.normalize(it) }.distinct()
+        val first = found.firstOrNull() ?: return major
+        return when {
+            major == null || first == major -> first
+            first == "Pop" || first == "Rock" -> major
+            else -> first
+        }
+    }
+
+    /** [song]'s category given its artist's iTunes songs (asking Deezer about it if it isn't among them). */
+    private suspend fun songGenre(song: Song, songs: Map<String, String>): String? {
+        val own = ownCategories(song, songs)
+        val major = majority(songs)
+        if (own.isNotEmpty()) return if (major in own) major else own.first()
+        return songOffList(song, major) ?: major
+    }
+
+    // Artists waiting for their iTunes songs (asked one at a time, as iTunes allows about 20 requests a minute).
+    private val refineQueue = Channel<Pair<String, List<Song>>>(Channel.UNLIMITED)
+    private val queued = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val _refined = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 64)
+    /** An artist whose songs' genres were just made exact (lists showing them can read [cachedGenres] again). */
+    val refined: kotlinx.coroutines.flow.SharedFlow<String> = _refined
+
+    /** Starts the background refiner (the app's scope; tests ask inline instead). */
+    fun startRefining(scope: kotlinx.coroutines.CoroutineScope) {
+        scope.launch(Dispatchers.IO) {
+            for ((name, mine) in refineQueue) {
+                val songs = runCatching { itunesArtistSongs(name) }.getOrNull()
+                queued.remove(key(name))
+                if (songs == null) { delay(30_000); continue } // offline or resting: it's asked again when next needed
+                majority(songs)?.let { dao.putGenre(GenreEntity(exactArtistKey(name), it, System.currentTimeMillis())) }
+                // The listener's own songs by them, each settled (the ones iTunes didn't list are asked of Deezer).
+                if (songs.isNotEmpty()) for (s in mine) {
+                    val k = "song3:${s.id}"
+                    if (dao.genre(k) != null) continue
+                    runCatching { songGenre(s, songs) }.getOrNull()?.let { dao.putGenre(GenreEntity(k, it, System.currentTimeMillis())) }
+                }
+                _refined.tryEmit(name)
+            }
+        }
+    }
+
+    /**
+     * Has [name]'s songs looked up on iTunes in the background (and [mine], the listener's songs by them, settled one
+     * by one), unless that's done or under way.
+     */
+    fun refineLater(name: String, mine: List<Song> = emptyList()) {
+        if (name.isBlank()) return
+        if (queued.add(key(name))) refineQueue.trySend(name to mine)
     }
 
     private suspend fun itunesArtistGenre(name: String): String? {
@@ -330,9 +466,23 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
 
     private fun categoryOf(raw: String?): String? = raw?.split(" / ")?.firstNotNullOfOrNull { Genres.normalize(it) } ?: Genres.normalize(raw)
 
-    /** An artist's category, looked up once and cached. */
+    /** The artist's genre from Apple's count over their songs ([itunesArtistSongs]): the one Prism trusts most. */
+    private fun exactArtistKey(name: String) = "artist3:${key(name)}"
+
+    /**
+     * An artist's category: Apple's (by their songs on iTunes) once known; until then Deezer's, quickly, with the
+     * iTunes lookup queued in the background ([refineLater]). Cached.
+     */
     suspend fun artistGenre(name: String, relatedNames: (suspend () -> List<String>)? = null, force: Boolean = false): String? = withContext(Dispatchers.IO) {
         if (name.isBlank()) return@withContext null
+        dao.genre(exactArtistKey(name))?.genre?.let { return@withContext it }
+        dao.genre(itunesSongsKey(name))?.let { cached ->
+            majority(decodeSongs(cached.genre))?.let { g ->
+                dao.putGenre(GenreEntity(exactArtistKey(name), g, System.currentTimeMillis()))
+                return@withContext g
+            }
+        }
+        refineLater(name)
         val k = artistKey(name)
         if (!force) dao.genre(k)?.let { cached -> categoryOf(cached.genre)?.let { return@withContext it } }
         val t0 = System.currentTimeMillis()
@@ -351,16 +501,25 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
         g
     }
 
-    /** One song's category: its artist's (consistent across every list); a track search only fills in for unknown artists. */
-    suspend fun genreFor(song: Song): String? = withContext(Dispatchers.IO) {
-        val k = "song2:${song.id}"
+    /**
+     * One song's category: its own on iTunes (Apple files each release, so an artist's country album is Country), else
+     * its artist's usual one there; until the artist's iTunes songs are in, the artist's genre from Deezer stands in
+     * (and they're queued). [wait]: ask iTunes now rather than in the background (slow: it's paced).
+     */
+    suspend fun genreFor(song: Song, wait: Boolean = false): String? = withContext(Dispatchers.IO) {
+        val k = "song3:${song.id}"
         dao.genre(k)?.let { cached -> categoryOf(cached.genre)?.let { return@withContext it } }
         // A song without an artist (an untagged file) isn't guessed from its title alone: a search for "Track 01" or
         // a test tone finds some other song's genre.
         if (song.primaryArtist.isBlank()) return@withContext null
-        val g = artistGenre(song.primaryArtist) ?: runCatching { categoryOf(deezerTrackGenre(song)) }.getOrNull()
-        if (g != null) dao.putGenre(GenreEntity(k, g, System.currentTimeMillis()))
-        g
+        val songs = if (wait) runCatching { itunesArtistSongs(song.primaryArtist) }.getOrNull()
+        else dao.genre(itunesSongsKey(song.primaryArtist))?.let { decodeSongs(it.genre) }
+        songs?.takeIf { it.isNotEmpty() }?.let { songGenre(song, it) }?.let { g ->
+            dao.putGenre(GenreEntity(k, g, System.currentTimeMillis()))
+            return@withContext g
+        }
+        // Not on iTunes yet (or not at all): Deezer, by the artist, then by the song itself.
+        artistGenre(song.primaryArtist) ?: runCatching { categoryOf(deezerTrackGenre(song)) }.getOrNull()
     }
 
     /**
@@ -378,17 +537,29 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
         }
         trace?.invoke("refreshed ${found.get()} / ${artists.size} artists")
         if (artists.isNotEmpty() && found.get() < artists.size / 2) return@withContext false
+        // Older guesses (Deezer's by song, the first artist cache) go; iTunes' answers are kept.
         dao.clearGenresBefore(started)
         true
     }
 
-    /** Categories already known (song, then artist), without any network. */
+    /**
+     * Categories already known, without any network: a song's own (from iTunes), else its artist's songs on iTunes,
+     * else the artist's genre (Apple's, then Deezer's).
+     */
     suspend fun cachedGenres(songs: List<Song>): Map<String, String> = withContext(Dispatchers.IO) {
-        val bySong = songs.map { "song2:${it.id}" }.chunked(500).flatMap { dao.genres(it) }
-            .associate { it.key.removePrefix("song2:") to categoryOf(it.genre) }
-        val artistKeys = songs.map { artistKey(it.primaryArtist) }.distinct()
-        val byArtist = artistKeys.chunked(500).flatMap { dao.genres(it) }.associate { it.key to categoryOf(it.genre) }
-        songs.mapNotNull { s -> (bySong[s.id] ?: byArtist[artistKey(s.primaryArtist)])?.let { s.id to it } }.toMap()
+        val bySong = songs.map { "song3:${it.id}" }.chunked(500).flatMap { dao.genres(it) }
+            .associate { it.key.removePrefix("song3:") to categoryOf(it.genre) }
+        val artists = songs.map { it.primaryArtist }.filter { it.isNotBlank() }.distinct()
+        val itunesSongs = artists.map { itunesSongsKey(it) }.chunked(500).flatMap { dao.genres(it) }.associate { it.key to decodeSongs(it.genre) }
+        val keys = artists.flatMap { listOf(exactArtistKey(it), artistKey(it)) }
+        val byArtist = keys.chunked(500).flatMap { dao.genres(it) }.associate { it.key to categoryOf(it.genre) }
+        songs.mapNotNull { s ->
+            if (s.primaryArtist.isBlank()) return@mapNotNull bySong[s.id]?.let { s.id to it }
+            val g = bySong[s.id]
+                ?: itunesSongs[itunesSongsKey(s.primaryArtist)]?.let { fromItunes(s, it) }
+                ?: byArtist[exactArtistKey(s.primaryArtist)] ?: byArtist[artistKey(s.primaryArtist)]
+            g?.let { s.id to it }
+        }.toMap()
     }
 
     /**
@@ -399,6 +570,7 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
     suspend fun resolveGenres(
         songs: List<Song>,
         related: (suspend (Song) -> List<String>)? = null,
+        refineInline: Boolean = true,
         onBatch: (Map<String, String>) -> Unit,
     ) = coroutineScope {
         val known = cachedGenres(songs).toMutableMap()
@@ -428,6 +600,20 @@ class MetaRepository(private val http: OkHttpClient, private val dao: MetaDao) {
         if (missing.isNotEmpty()) {
             val fallback = known.values.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: "Pop"
             onBatch(missing.associate { it.id to fallback })
+        }
+        if (!refineInline) return@coroutineScope
+        // Then each song's own genre from iTunes, artist by artist (most songs first), as iTunes allows (~20 a minute).
+        val byArtist = songs.filter { it.primaryArtist.isNotBlank() }.groupBy { it.primaryArtist }.entries.sortedByDescending { it.value.size }
+        for ((artist, list) in byArtist) {
+            val cached = dao.genre(itunesSongsKey(artist)) != null
+            val its = runCatching { itunesArtistSongs(artist) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: continue
+            val changed = list.mapNotNull { s ->
+                val songKey = "song3:${s.id}"
+                val g = dao.genre(songKey)?.genre ?: songGenre(s, its)?.also { dao.putGenre(GenreEntity(songKey, it, System.currentTimeMillis())) }
+                g?.takeIf { it != known[s.id] }?.let { s.id to it }
+            }.toMap()
+            if (changed.isNotEmpty()) { known += changed; onBatch(changed) }
+            if (!cached) majority(its)?.let { dao.putGenre(GenreEntity(exactArtistKey(artist), it, System.currentTimeMillis())) }
         }
     }
 }

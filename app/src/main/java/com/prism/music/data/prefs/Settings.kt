@@ -179,6 +179,7 @@ object HomeSections {
     const val ON_REPEAT = "local:on_repeat"
     const val REPEAT_REWIND = "local:repeat_rewind"
     const val FORGOTTEN = "local:forgotten"
+    /** Was its own section ("Mixes from your music"); its mixes are in Made for you now ([mergeYourMixes]). */
     const val YOUR_MIXES = "local:your_mixes"
     const val YT_PREFIX = "yt:shelf:"
     /** GREETING's key predates the rename: the section is only the shortcut tiles. */
@@ -199,7 +200,6 @@ object HomeSections {
         HomeSectionConfig(DOWNLOADS, "Downloads", visible = false),
         HomeSectionConfig(SPEED_DIAL, "Speed dial", style = SectionStyle.GRID),
         HomeSectionConfig(ON_REPEAT, "On repeat"),
-        HomeSectionConfig(YOUR_MIXES, "Mixes from your music"),
         HomeSectionConfig(REPEAT_REWIND, "Repeat rewind"),
         HomeSectionConfig(FORGOTTEN, "Forgotten favourites"),
     )
@@ -212,7 +212,6 @@ object HomeSections {
         HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
         HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE),
         HomeSectionConfig(ON_REPEAT, "On repeat"),
-        HomeSectionConfig(YOUR_MIXES, "Mixes from your music"),
         HomeSectionConfig("${YT_PREFIX}mixed for you", "Mixed for you"),
     )
 
@@ -230,6 +229,17 @@ object HomeSections {
         val at = layout.indexOfFirst { it.key == after }.let { if (it < 0) layout.indexOfFirst { it.key == QUICK_PICKS } else it }
             .let { if (it < 0) minOf(1, layout.size) else it + 1 }
         return layout.toMutableList().apply { addAll(at, add) }
+    }
+
+    /**
+     * "Mixes from your music" is part of Made for you now: a layout with both keeps Made for you where it was; one with
+     * only the old section gets Made for you in its place (shown or hidden, in its style, as it was).
+     */
+    fun mergeYourMixes(layout: List<HomeSectionConfig>): List<HomeSectionConfig> {
+        val old = layout.indexOfFirst { it.key == YOUR_MIXES }
+        if (old < 0) return layout
+        if (layout.any { it.key == MADE_FOR_YOU }) return layout.filterNot { it.key == YOUR_MIXES }
+        return layout.toMutableList().apply { this[old] = this[old].copy(key = MADE_FOR_YOU, title = "Made for you") }
     }
 }
 
@@ -862,10 +872,12 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         // Made on the phone (1.7): On repeat and Mixes from your music, after Made for you.
         once("home_sections_local") {
             HomeSections.withNewSections(
-                it, listOf(HomeSectionConfig(HomeSections.ON_REPEAT, "On repeat"), HomeSectionConfig(HomeSections.YOUR_MIXES, "Mixes from your music")),
+                it, listOf(HomeSectionConfig(HomeSections.ON_REPEAT, "On repeat")),
                 after = HomeSections.MADE_FOR_YOU,
             )
         }
+        // Mixes from your music joined Made for you (1.7): one section.
+        once("home_mixes_merged") { HomeSections.mergeYourMixes(it) }
     }
 
     suspend fun saveAccount(cookie: String, visitorData: String, dataSyncId: String) = editNow {

@@ -55,6 +55,7 @@ import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.ui.theme.PrismTokens
+import com.prism.music.ui.theme.drawPrismAvatar
 import kotlinx.coroutines.launch
 
 /**
@@ -79,6 +80,10 @@ fun ProfilePicture(modifier: Modifier = Modifier, description: String = "Your ac
                     .memoryCacheKey("account#${p.picture}").diskCacheKey("account#${p.picture}").build(),
                 description, Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
             )
+            p != null && com.prism.music.ui.theme.PrismAvatar.of(p.avatar) != null -> {
+                val a = com.prism.music.ui.theme.PrismAvatar.of(p.avatar)!!
+                AvatarArt(a, Modifier.fillMaxSize().clearAndSetSemantics { contentDescription = description })
+            }
             p != null -> Text(
                 p.name.trim().take(1).uppercase(), Modifier.clearAndSetSemantics { contentDescription = description },
                 color = MaterialTheme.colorScheme.onSurface,
@@ -86,6 +91,50 @@ fun ProfilePicture(modifier: Modifier = Modifier, description: String = "Your ac
             )
             s.isLoggedIn && s.accountAvatar.isNotBlank() -> coil3.compose.AsyncImage(s.accountAvatar, description, Modifier.fillMaxSize())
             else -> Icon(PrismIcons.Person, description, Modifier.size(side * 0.52f), tint = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+/** One of Prism's own profile pictures, drawn at any size (clip it to a circle). */
+@Composable
+fun AvatarArt(avatar: com.prism.music.ui.theme.PrismAvatar, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier) { drawPrismAvatar(avatar) }
+}
+
+/**
+ * Prism's own pictures to pick from, after "Your photos": a row of small discs, the chosen one ringed in split light.
+ */
+@Composable
+private fun AvatarPicker(selected: String?, photoChosen: Boolean, onPhotos: () -> Unit, onPick: (com.prism.music.ui.theme.PrismAvatar) -> Unit) {
+    androidx.compose.foundation.lazy.LazyRow(
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item("photos") {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
+                Box(
+                    Modifier.size(56.dp).clip(CircleShape).background(com.prism.music.ui.components.glassFill(1.6f))
+                        .border(if (photoChosen) 2.dp else 1.dp, if (photoChosen) PrismTokens.spectrumRing() else com.prism.music.ui.components.glassEdge(), CircleShape)
+                        .clickable(onClickLabel = "Pick a photo") { onPhotos() },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(PrismIcons.Photo, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface) }
+                Text("Photos", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+        items(com.prism.music.ui.theme.PrismAvatar.entries.size) { i ->
+            val a = com.prism.music.ui.theme.PrismAvatar.entries[i]
+            val on = a.id == selected
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
+                Box(
+                    Modifier.size(56.dp).then(if (on) Modifier.border(2.dp, PrismTokens.spectrumRing(), CircleShape).padding(4.dp) else Modifier)
+                        .clip(CircleShape).clickable(onClickLabel = a.label) { onPick(a) },
+                ) { AvatarArt(a, Modifier.fillMaxSize()) }
+                Text(
+                    a.label, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                    color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
     }
 }
@@ -107,9 +156,10 @@ fun PrismAccountScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Uni
     var bringing by remember { mutableStateOf<String?>(null) }
     // A picture picked before the account exists waits until it's made.
     var pendingPicture by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingAvatar by remember { mutableStateOf<com.prism.music.ui.theme.PrismAvatar?>(null) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        if (c.account.profile.value == null) pendingPicture = uri
+        if (c.account.profile.value == null) { pendingPicture = uri; pendingAvatar = null }
         else scope.launch { if (!c.account.setPicture(uri)) Toast.makeText(context, "Couldn't use that picture", Toast.LENGTH_SHORT).show() }
     }
     fun pickPicture() = pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -119,7 +169,9 @@ fun PrismAccountScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Uni
         c.account.create(name)
         scope.launch {
             pendingPicture?.let { c.account.setPicture(it) }
+            pendingAvatar?.let { c.account.setAvatar(it.id) }
             pendingPicture = null
+            pendingAvatar = null
             if (made) Toast.makeText(context, "Your Prism Account is ready", Toast.LENGTH_SHORT).show()
             if (made || onboarding) onDone()
         }
@@ -156,9 +208,11 @@ fun PrismAccountScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Uni
             // The picture: tap to pick one.
             Box(Modifier.size(132.dp).clip(CircleShape).clickable(onClickLabel = "Pick a picture") { pickPicture() }, contentAlignment = Alignment.Center) {
                 val pending = pendingPicture
+                val pendingArt = pendingAvatar
                 if (pending != null) coil3.compose.AsyncImage(
                     pending, "Your picture", Modifier.fillMaxSize().clip(CircleShape).border(1.5.dp, PrismTokens.spectrumRing(), CircleShape), contentScale = ContentScale.Crop,
-                ) else if (profile != null) ProfilePicture(Modifier.fillMaxSize())
+                ) else if (pendingArt != null) AvatarArt(pendingArt, Modifier.fillMaxSize().clip(CircleShape))
+                else if (profile != null) ProfilePicture(Modifier.fillMaxSize())
                 else Box(
                     Modifier.fillMaxSize().clip(CircleShape).background(com.prism.music.ui.components.glassFill(1.4f)).border(1.5.dp, PrismTokens.spectrumRing(), CircleShape),
                     contentAlignment = Alignment.Center,
@@ -167,11 +221,22 @@ fun PrismAccountScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Uni
                     else Icon(PrismIcons.Photo, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.padding(top = 6.dp)) {
-                PrismTextButton({ pickPicture() }) { Text(if (profile?.picture ?: 0 > 0 || pendingPicture != null) "Change picture" else "Add a picture") }
-                if ((profile?.picture ?: 0) > 0) PrismTextButton({ c.account.clearPicture() }) { Text("Remove") }
+            val hasPicture = (profile?.picture ?: 0) > 0 || profile?.avatar != null || pendingPicture != null || pendingAvatar != null
+            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp)) {
+                Text("Pick a picture", style = MaterialTheme.typography.titleSmall)
+                if (hasPicture) PrismTextButton({ pendingPicture = null; pendingAvatar = null; c.account.clearPicture() }) { Text("Use my initial") }
             }
-            Spacer(Modifier.height(12.dp))
+        }
+        // Full width, so the row of pictures runs to the screen's edges.
+        AvatarPicker(
+            selected = pendingAvatar?.id ?: profile?.avatar.takeIf { pendingPicture == null },
+            photoChosen = pendingPicture != null || (pendingAvatar == null && (profile?.picture ?: 0) > 0),
+            onPhotos = { pickPicture() },
+        ) { a ->
+            if (profile == null) { pendingAvatar = a; pendingPicture = null } else c.account.setAvatar(a.id)
+        }
+        Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(18.dp))
             com.prism.music.ui.components.PrismTextField(
                 name, { name = it.take(40) }, Modifier.fillMaxWidth(), singleLine = true,
                 label = { Text("Your name") },
@@ -183,7 +248,7 @@ fun PrismAccountScreen(onboarding: Boolean, bottomPadding: Dp, onDone: () -> Uni
             )
             Spacer(Modifier.height(22.dp))
             val changed = profile == null || name.trim() != profile?.name
-            PrismButton({ save() }, Modifier.fillMaxWidth().height(52.dp), enabled = changed || pendingPicture != null) {
+            PrismButton({ save() }, Modifier.fillMaxWidth().height(52.dp), enabled = changed || pendingPicture != null || pendingAvatar != null) {
                 Text(if (profile == null) "Make my account" else "Save")
             }
             if (onboarding) PrismTextButton(onDone, Modifier.fillMaxWidth().padding(top = 4.dp)) { Text("Skip for now") }

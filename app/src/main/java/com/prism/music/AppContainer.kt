@@ -290,6 +290,18 @@ class AppContainer(val app: Application) {
             }.getOrNull() ?: return@launch
             if (meta.refreshAll(songs)) migrations.edit().putBoolean("genres_refreshed_1", true).apply()
         }
+        // Songs' genres come from iTunes (each song's own, by its artist's songs there): the refiner asks for one artist
+        // at a time in the background, and the artists of the listener's own music are queued once, most played first.
+        meta.startRefining(scope)
+        if (!migrations.getBoolean("genres_itunes_1", false)) scope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(20_000)
+            val now = System.currentTimeMillis()
+            val played = runCatching { db.plays().topArtists(now - 365L * 86_400_000, now, 200).map { it.artistName } }.getOrDefault(emptyList())
+            val mine = runCatching { (db.songs().liked() + db.songs().recentFlow(300).first()).map { it.toSong() } }.getOrDefault(emptyList())
+                .filter { !it.isLocal && !it.isEpisode }.distinctBy { it.id }.groupBy { it.primaryArtist }
+            (played + mine.keys).filter { it.isNotBlank() }.distinct().forEach { meta.refineLater(it, mine[it].orEmpty()) }
+            migrations.edit().putBoolean("genres_itunes_1", true).apply()
+        }
     }
     val downloads by lazy { DownloadRepository(app, this, scope) }
     val covers by lazy { com.prism.music.data.PlaylistCovers(app) }

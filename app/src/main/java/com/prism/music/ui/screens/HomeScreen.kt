@@ -109,7 +109,7 @@ private val standInPicks = MutableStateFlow<List<Song>>(emptyList())
 private val speedDialMine = MutableStateFlow<List<BrowseItem>>(emptyList())
 /** The last lists and mixes made from your music, shown while the next are made. */
 private val lastYours = MutableStateFlow<com.prism.music.data.foryou.YourMusic.Sections?>(null)
-private val YOURS_KEYS = setOf(HomeSections.ON_REPEAT, HomeSections.REPEAT_REWIND, HomeSections.FORGOTTEN, HomeSections.YOUR_MIXES)
+private val YOURS_KEYS = setOf(HomeSections.ON_REPEAT, HomeSections.REPEAT_REWIND, HomeSections.FORGOTTEN, HomeSections.MADE_FOR_YOU)
 
 fun shelfKey(title: String) = HomeSections.YT_PREFIX + title.trim().lowercase()
 
@@ -226,14 +226,13 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                         HomeSections.ON_REPEAT -> yours?.onRepeat?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.title, "Your most played this month", it) }
                         HomeSections.REPEAT_REWIND -> yours?.repeatRewind?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.title, "What you used to play on repeat", it) }
                         HomeSections.FORGOTTEN -> yours?.forgotten?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.title, "Favourites you haven't played in a while", it) }
-                        HomeSections.YOUR_MIXES -> yours?.mixes?.takeIf { it.isNotEmpty() }?.let { YourMixesSection(cfg, it) }
                         HomeSections.DOWNLOADS -> {
                             val dls by c.downloads.downloads.collectAsState()
                             val songs = remember(dls) { c.downloads.completedSongs() }
                             if (songs.isNotEmpty()) SongSection(cfg, "Downloads", null, songs.take(20)) { nav.go(Routes.DOWNLOADS) }
                         }
                         HomeSections.SPEED_DIAL -> SpeedDialSection(cfg, if (online) dialItems else dialItems.filter { it is SongItem && c.availableOffline(it.id) }, openItem)
-                        HomeSections.MADE_FOR_YOU -> MadeForYouSection(cfg, offline = !online)
+                        HomeSections.MADE_FOR_YOU -> MadeForYouSection(cfg, offline = !online, yours = yours?.mixes.orEmpty())
                         HomeSections.NEW_RELEASES -> if (online) NewReleasesSection(cfg)
                         HomeSections.REPLAY -> ReplayTeaser(cfg)
                         HomeSections.GENRES -> TopGenresSection(cfg)

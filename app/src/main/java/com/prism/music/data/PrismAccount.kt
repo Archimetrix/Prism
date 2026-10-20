@@ -30,6 +30,8 @@ class PrismAccount(private val c: AppContainer) {
         val createdAt: Long,
         /** Moves on when the picture changes (so pictures showing it reload); 0 when there's none. */
         val picture: Long = 0,
+        /** One of Prism's own pictures ([com.prism.music.ui.theme.PrismAvatar] id), when no photo is picked. */
+        val avatar: String? = null,
         /** YouTube Music playlist id → the Prism playlist it was copied into. */
         val brought: Map<String, String> = emptyMap(),
         val broughtAt: Long = 0,
@@ -69,13 +71,20 @@ class PrismAccount(private val c: AppContainer) {
     suspend fun setPicture(uri: Uri): Boolean {
         val p = _profile.value ?: return false
         val ok = Pictures.saveSquare(c.app, uri, pictureFile, size = 720)
-        if (ok) write(p.copy(picture = System.currentTimeMillis()))
+        if (ok) write(p.copy(picture = System.currentTimeMillis(), avatar = null))
         return ok
+    }
+
+    /** One of Prism's own pictures instead of a photo (the photo, if any, goes). */
+    fun setAvatar(id: String) {
+        val p = _profile.value ?: return
+        pictureFile.delete()
+        write(p.copy(picture = 0, avatar = id))
     }
 
     fun clearPicture() {
         pictureFile.delete()
-        _profile.value?.let { write(it.copy(picture = 0)) }
+        _profile.value?.let { write(it.copy(picture = 0, avatar = null)) }
     }
 
     /** Removes the name and picture only: the music, likes, playlists and history on the phone stay. */

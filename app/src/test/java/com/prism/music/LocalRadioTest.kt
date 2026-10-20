@@ -80,4 +80,17 @@ class LocalRadioTest {
         assertEquals(listOf(HomeSections.QUICK_PICKS, HomeSections.MADE_FOR_YOU, HomeSections.ON_REPEAT, HomeSections.YOUR_MIXES, "x"), out.map { it.key })
         assertEquals(out, HomeSections.withNewSections(out, add, after = HomeSections.MADE_FOR_YOU))
     }
+
+    /** "Mixes from your music" is part of Made for you: one section, wherever the listener had it. */
+    @Test
+    fun yourMixesFoldIntoMadeForYou() {
+        val both = listOf(HomeSectionConfig(HomeSections.MADE_FOR_YOU, "Made for you"), HomeSectionConfig("x", "X"), HomeSectionConfig(HomeSections.YOUR_MIXES, "Mixes from your music"))
+        assertEquals(listOf(HomeSections.MADE_FOR_YOU, "x"), HomeSections.mergeYourMixes(both).map { it.key })
+        val onlyOld = listOf(HomeSectionConfig("x", "X"), HomeSectionConfig(HomeSections.YOUR_MIXES, "Mixes from your music", style = com.prism.music.data.prefs.SectionStyle.GRID))
+        val merged = HomeSections.mergeYourMixes(onlyOld)
+        assertEquals(listOf("x", HomeSections.MADE_FOR_YOU), merged.map { it.key })
+        assertEquals("Made for you", merged[1].title)
+        assertEquals(com.prism.music.data.prefs.SectionStyle.GRID, merged[1].style)
+        assertTrue(HomeSections.initial.none { it.key == HomeSections.YOUR_MIXES } && HomeSections.defaults.none { it.key == HomeSections.YOUR_MIXES })
+    }
 }

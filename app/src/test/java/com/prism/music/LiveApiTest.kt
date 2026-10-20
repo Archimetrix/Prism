@@ -329,6 +329,10 @@ class LiveApiTest {
             "Christian & Gospel" to "Christian & gospel", "Afrobeats" to "Pop", "Brazilian Music" to "Pop", "Asian Music" to "Pop", "Mandopop & cantopop" to "Pop",
             "Indian Music" to "Pop", "Bollywood & Indian" to "Pop", "Kids" to "Family", "Soul & Funk" to "R&B & soul", "Electro" to "Dance & electronic",
             "Trap" to "Hip-hop", "Punk" to "Rock", "Classical" to "Classical", "Jazz" to "Jazz", "Blues" to "Blues", "Folk" to "Folk & acoustic",
+            // iTunes' names (songs' genres come from there now) and Deezer's sub-genres.
+            "Musicals" to "Soundtracks & musicals", "Soundtrack" to "Soundtracks & musicals", "Christian" to "Christian & gospel",
+            "Children's Music" to "Family", "Metal" to "Metal", "Hard Rock" to "Rock", "Electronic" to "Dance & electronic",
+            "Urbano latino" to "Hip-hop", "Pop Latino" to "Pop", "Chill Out/Trip-Hop/Lounge" to "Dance & electronic", "Dancehall/Ragga" to "Reggae & caribbean",
         )
         cases.forEach { (raw, want) -> assertEquals("'$raw'", want, G.normalize(raw)) }
         listOf("Bollywood & Indian", "K-Pop", "Hip-hop en Español", "Afrobeats", "Regional Mexican", "Arabic", "Mandopop & Cantopop", "OPM").forEach {
