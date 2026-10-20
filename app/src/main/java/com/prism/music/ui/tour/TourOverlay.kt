@@ -146,7 +146,7 @@ private fun Opening(plan: TourPlan) {
     val (title, body) = when {
         !plan.full -> "What's new in Prism ${BuildConfig.VERSION_NAME}" to
             "${plan.steps.size} ${if (plan.steps.size == 1) "thing" else "things"} to know since you last looked, in about a minute."
-        plan.freshInstall -> "Welcome to Prism" to "Your YouTube Music, refracted. Here's a minute's tour of what it can do: swipe, or tap Start."
+        plan.freshInstall -> "Welcome to Prism" to "Your music, refracted. Here's a minute's tour of what it can do: swipe, or tap Start."
         else -> "Welcome to the new Prism" to "Prism ${BuildConfig.VERSION_NAME} is redrawn from the ground up and does more than ever. Here's a minute's tour: swipe, or tap Start."
     }
     PageColumn {

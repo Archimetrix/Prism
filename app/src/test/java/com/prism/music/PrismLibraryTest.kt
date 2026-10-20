@@ -56,4 +56,16 @@ class PrismLibraryTest {
         assertTrue(PrismLibrary(dir).isSaved("MPREb_2"))
         dir.deleteRecursively()
     }
+
+    /** A playlist copied from YouTube Music again is brought up to date: new songs in, removed ones out, no repeats. */
+    @Test
+    fun aCopiedPlaylistIsReplacedNotAddedTo() {
+        val dir = Files.createTempDirectory("prismlib").toFile()
+        val lib = PrismLibrary(dir)
+        val id = lib.create("Road trip", listOf(song("a"), song("b")), "From YouTube Music")
+        lib.replace(id, listOf(song("b"), song("c"), song("c")))
+        assertEquals(listOf("b", "c"), PrismLibrary(dir).list(id)!!.songs.map { it.id })
+        assertEquals("From YouTube Music", PrismLibrary(dir).list(id)!!.description)
+        dir.deleteRecursively()
+    }
 }

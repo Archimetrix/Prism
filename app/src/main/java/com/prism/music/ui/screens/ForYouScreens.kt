@@ -161,8 +161,8 @@ fun MadeForYouSection(cfg: HomeSectionConfig, offline: Boolean = false) {
         if (!offline) list.filter { it.songs.isNotEmpty() }
         else list.map { m -> m.copy(songs = m.songs.filter { c.availableOffline(it.id) }) }.filter { it.songs.size >= 5 }
     }
-    val blends by c.blends.blends.collectAsState(initial = emptyList())
-    if (shown.isEmpty() && blends.isEmpty()) {
+    // Blends live in Library → Blend (and their own pages), not here: Made for you is Prism's own mixes.
+    if (shown.isEmpty()) {
         // Nothing to make them from yet: a way to start.
         if (favorites.isEmpty() && recent.isEmpty()) {
             SectionHeader(cfg.title)
@@ -182,7 +182,7 @@ fun MadeForYouSection(cfg: HomeSectionConfig, offline: Boolean = false) {
         return
     }
     SectionHeader(cfg.title, strapline = "Made on your phone from what you play")
-    // Carousel (the default) is the row of covers below; the other styles show the same mixes and Blends their way.
+    // Carousel (the default) is the row of covers below; the other styles show the same mixes their way.
     if (cfg.style != com.prism.music.data.prefs.SectionStyle.CAROUSEL) {
         val playMix: (Mix) -> Unit = { mix ->
             c.player.playQueue(mix.songs, 0, com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.PLAYLIST, mix.title, originId = mix.id))
@@ -193,12 +193,6 @@ fun MadeForYouSection(cfg: HomeSectionConfig, offline: Boolean = false) {
                 art = { m -> MixCover(mix, m, showTitle = false) },
                 onLongClick = { playMix(mix) },
             ) { nav.go(Routes.mix(mix.id)) }
-        } + blends.map { e ->
-            val match = c.blends.blendOf(e)?.match ?: 0
-            HomeEntry(
-                "blend:" + e.friendWho, "Blend · $match%", "You + ${e.friendName}",
-                fill = Brush.linearGradient(listOf(Color(0xFF6C5CE7), Color(0xFFE84393))), onFill = true, icon = PrismIcons.Blend,
-            ) { nav.go(Routes.blend(e.friendWho)) }
         })
         return
     }
@@ -215,21 +209,6 @@ fun MadeForYouSection(cfg: HomeSectionConfig, offline: Boolean = false) {
                 MixCover(mix, Modifier.fillMaxWidth().aspectRatio(1f))
                 Spacer(Modifier.height(8.dp))
                 Text(mix.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        // Blends with friends, after Prism's own mixes.
-        items(blends, key = { "blend:" + it.friendWho }) { e ->
-            val match = remember(e) { c.blends.blendOf(e)?.match ?: 0 }
-            Column(Modifier.width(w).clip(LocalUi.current.tile).clickable { nav.go(Routes.blend(e.friendWho)) }.padding(4.dp)) {
-                Box(
-                    Modifier.fillMaxWidth().aspectRatio(1f).clip(LocalUi.current.art)
-                        .background(Brush.linearGradient(listOf(Color(0xFF6C5CE7), Color(0xFFE84393)))),
-                ) {
-                    Text("$match%", color = Color.White, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Medium), modifier = Modifier.align(Alignment.Center))
-                    Text("Blend", color = Color.White, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), modifier = Modifier.align(Alignment.BottomStart).padding(10.dp))
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("You + ${e.friendName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }

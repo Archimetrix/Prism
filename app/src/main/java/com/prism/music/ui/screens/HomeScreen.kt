@@ -54,6 +54,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
@@ -319,8 +321,10 @@ private fun HomeTopBar() {
         Column(Modifier.weight(1f)) {
             com.prism.music.ui.components.Eyebrow(today)
             Text(greeting, style = com.prism.music.ui.components.pageTitleStyle(), maxLines = 2)
-            if (settings.greetingShowName && settings.accountName.isNotBlank()) Text(
-                settings.accountName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            val profile by LocalContainer.current.account.profile.collectAsState()
+            val name = profile?.name ?: settings.accountName
+            if (settings.greetingShowName && name.isNotBlank()) Text(
+                name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // Settings, Home screen, Continue line hides it.
             if (settings.homeContinue) ContextLine()
@@ -334,14 +338,9 @@ private fun HomeTopBar() {
             com.prism.music.ui.components.RoundAction(PrismIcons.Customize, "Customize home") { nav.go(Routes.CATALOGUE) }
         }
         Spacer(Modifier.width(8.dp))
-        Box(
-            Modifier.size(42.dp).clip(CircleShape).background(com.prism.music.ui.components.glassFill(1.4f))
-                .border(1.dp, com.prism.music.ui.components.glassEdge(), CircleShape).clickable { nav.go(Routes.SETTINGS) },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (settings.accountAvatar.isNotBlank()) AsyncImage(settings.accountAvatar, "Account", Modifier.fillMaxSize())
-            else Icon(PrismIcons.Person, "Settings", Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface)
-        }
+        com.prism.music.ui.screens.ProfilePicture(
+            Modifier.size(42.dp).clickable(onClickLabel = "Settings") { nav.go(Routes.SETTINGS) }, description = "Settings",
+        )
     }
 }
 
@@ -749,29 +748,71 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         ))
         return
     }
-    // A card of glass ringed in split light, the time listened set large and light in the spectrum.
+    // Quiet glass with a hairline edge; the colour is a faint wash of split light from one corner, a short spectrum
+    // dash under the label, and the year's months as small bars in hue order (this month brightest). The time listened
+    // is set large and light in plain ink.
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     val scheme = MaterialTheme.colorScheme
+    val months by produceState<List<Long>>(emptyList()) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val now = Calendar.getInstance()
+            (0..now.get(Calendar.MONTH)).map { m ->
+                val from = Calendar.getInstance().apply { set(Calendar.MONTH, m); set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+                val to = (from.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                runCatching { c.db.plays().totalMs(from.timeInMillis, minOf(to.timeInMillis, System.currentTimeMillis())) }.getOrDefault(0L)
+            }
+        }
+    }
+    val hues = com.prism.music.ui.theme.PrismTokens.spectrumColors(dark).map { it.second }
+    val wash = if (dark) 0.16f else 0.10f
     Box(
-        Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)).fillMaxWidth().height(150.dp)
-            .pane(ui.card).border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum(dark), ui.card)
+        Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)).fillMaxWidth().height(156.dp)
+            .pane(ui.card).border(0.7.dp, com.prism.music.ui.components.glassEdge(), ui.card)
+            .drawBehind {
+                // Light through a prism landing on the card: three soft pools of colour fanning from the top-right corner.
+                listOf(0.0f to 0.62f, 0.5f to 0.48f, 1.0f to 0.34f).forEach { (t, r) ->
+                    val col = hues[(t * (hues.size - 1)).toInt()]
+                    drawCircle(
+                        Brush.radialGradient(listOf(col.copy(alpha = wash), Color.Transparent), center = Offset(size.width * (0.98f - t * 0.16f), size.height * (0.04f + t * 0.22f)), radius = size.width * r),
+                        radius = size.width * r, center = Offset(size.width * (0.98f - t * 0.16f), size.height * (0.04f + t * 0.22f)),
+                    )
+                }
+            }
             .clickable {
                 if (rewind) c.rewindRequest.value = year
                 nav.go(Routes.REPLAY)
             }
             .padding(22.dp),
     ) {
-        Column(Modifier.align(Alignment.BottomStart)) {
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(0.68f)) {
             com.prism.music.ui.components.Eyebrow(if (rewind) "Rewind $year" else "Replay $year")
-            val big = MaterialTheme.typography.displaySmall.copy(brush = com.prism.music.ui.theme.PrismTokens.spectrum(dark))
-            if (rewind) Text("Your year in music", style = big, maxLines = 1)
-            else Text(total.full, Modifier.toggleListenUnit(), style = big)
+            Box(Modifier.padding(top = 6.dp, bottom = 8.dp).size(28.dp, 2.dp).clip(CircleShape).background(com.prism.music.ui.theme.PrismTokens.spectrum(dark)))
+            val big = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraLight)
+            if (rewind) Text("Your year in music", style = big, color = scheme.onSurface, maxLines = 1)
+            else Text(total.full, Modifier.toggleListenUnit(), style = big, color = scheme.onSurface, maxLines = 1)
             Text(
-                if (rewind) "${total.full}. Your top songs and artists, your year in Prism, and more" else "See your top songs, artists and genres",
+                if (rewind) "${total.full}. Your top songs and artists, your year in Prism, and more" else "Your top songs, artists and genres",
                 color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 2,
             )
         }
-        Icon(if (rewind) PrismIcons.Play else PrismIcons.ReplayFilled, null, tint = scheme.onSurface, modifier = Modifier.align(Alignment.TopEnd))
+        // The year by month: one slim bar for each month so far, in hue order, the current one fully lit.
+        if (months.size >= 2 && !rewind) {
+            val most = months.max().coerceAtLeast(1L)
+            androidx.compose.foundation.Canvas(Modifier.align(Alignment.BottomEnd).size(width = (months.size * 7).dp, height = 54.dp)) {
+                val w = 3.dp.toPx()
+                val step = size.width / months.size
+                months.forEachIndexed { i, ms ->
+                    val h = (size.height * (ms.toFloat() / most)).coerceAtLeast(w)
+                    val col = hues[(i * (hues.size - 1)) / 11]
+                    val x = step * i + (step - w) / 2
+                    drawRoundRect(
+                        col.copy(alpha = if (i == months.lastIndex) 0.95f else 0.5f),
+                        topLeft = Offset(x, size.height - h), size = androidx.compose.ui.geometry.Size(w, h),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(w / 2),
+                    )
+                }
+            }
+        } else Icon(PrismIcons.Play, null, tint = scheme.onSurface, modifier = Modifier.align(Alignment.TopEnd))
     }
 }
 

@@ -350,7 +350,8 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
         val route = backStack?.destination?.route
         // The artist picker right after the welcome screen is part of setting up too: no tab bar or rail over it (its
         // Done button sat under the tab bar on phones, which it measures itself against when it's opened from Settings).
-        val onboardingPicker = route?.startsWith(Routes.PICK_ARTISTS) == true && backStack?.arguments?.getBoolean("onboarding") == true
+        val onboardingPicker = (route?.startsWith(Routes.PICK_ARTISTS) == true || route?.startsWith(Routes.ACCOUNT) == true) &&
+            backStack?.arguments?.getBoolean("onboarding") == true
         val showChrome = route != Routes.LOGIN && route != Routes.LOGIN_ADD && route != Routes.DISCORD_LOGIN && route != Routes.WELCOME && !onboardingPicker
         val tabs = settings.navTabs.map { it.tab() }
 
@@ -461,9 +462,22 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         composable(Routes.WELCOME) {
                             WelcomeScreen(
                                 onSignIn = { navController.navigate(Routes.LOGIN) },
-                                // Signed out: pick a few artists first, so the mixes and Release Radar have something to start from.
+                                // A Prism Account (on this phone), then a few artists, so the mixes and Release Radar have
+                                // something to start from.
+                                onAccount = { navController.navigate(Routes.ACCOUNT + "?onboarding=true") },
                                 onSkip = { navController.navigate(Routes.PICK_ARTISTS + "?onboarding=true") },
                             )
+                        }
+                        composable(
+                            Routes.ACCOUNT + "?onboarding={onboarding}",
+                            listOf(navArgument("onboarding") { type = NavType.BoolType; defaultValue = false }),
+                        ) {
+                            val onboarding = it.arguments?.getBoolean("onboarding") == true
+                            ScreenBackdrop(BackdropScreen.SETTINGS) {
+                                com.prism.music.ui.screens.PrismAccountScreen(onboarding, if (onboarding) 0.dp else bottomPadding) {
+                                    if (onboarding) navController.navigate(Routes.PICK_ARTISTS + "?onboarding=true") else navController.popBackStack()
+                                }
+                            }
                         }
                         composable(
                             Routes.PICK_ARTISTS + "?onboarding={onboarding}",

@@ -8,6 +8,9 @@ import com.prism.music.data.model.ArtistRef
 import com.prism.music.data.model.Song
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 import java.security.SecureRandom
 import kotlin.math.ln
 import kotlin.math.roundToInt
@@ -28,7 +31,7 @@ class Blends(private val c: AppContainer) {
 
     /** The name friends see (the account's first name until changed). */
     var myName: String
-        get() = prefs.getString(NAME, null) ?: c.settings.current.accountName.substringBefore(' ').ifBlank { "" }
+        get() = prefs.getString(NAME, null) ?: c.displayName(first = true)
         set(v) { prefs.edit().putString(NAME, v.trim().take(30)).apply() }
 
     val blends: Flow<List<BlendEntity>> = c.db.blends().allFlow()
@@ -109,7 +112,28 @@ class Blends(private val c: AppContainer) {
     fun onBothPhones(who: String) = prefs.getBoolean("both:$who", false)
     fun markOnBothPhones(who: String) = prefs.edit().putBoolean("both:$who", true).apply()
 
-    suspend fun remove(who: String) = c.db.blends().delete(who)
+    suspend fun remove(who: String) {
+        c.db.blends().delete(who)
+        clearCover(who)
+    }
+
+    // ------------------------------------------------------------ Covers
+
+    private val _coverStamp = MutableStateFlow(0)
+    /** Moves on whenever a Blend's own cover is set or cleared (so pictures showing it reload). */
+    val coverStamp: StateFlow<Int> = _coverStamp.asStateFlow()
+
+    /** The picture the listener picked for the Blend with [who] (it may not exist: then Prism draws one). */
+    fun coverFile(who: String): File = File(c.app.filesDir, "blends/" + who.filter { it.isLetterOrDigit() || it == '-' || it == '_' } + ".jpg")
+
+    /** Uses a picture from the photo picker as the Blend's cover, cut square. Only this phone sees it. */
+    suspend fun setCover(who: String, uri: android.net.Uri): Boolean =
+        com.prism.music.data.Pictures.saveSquare(c.app, uri, coverFile(who)).also { if (it) _coverStamp.value++ }
+
+    /** Back to the cover Prism draws. */
+    fun clearCover(who: String) {
+        if (coverFile(who).delete()) _coverStamp.value++
+    }
 
     suspend fun get(who: String) = c.db.blends().get(who)
 

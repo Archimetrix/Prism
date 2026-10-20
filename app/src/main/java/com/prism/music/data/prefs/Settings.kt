@@ -46,7 +46,7 @@ enum class LyricsSource(val label: String, val detail: String) {
     NETEASE("NetEase", "NetEase Cloud Music · word by word"),
     KUGOU("KuGou", "KuGou · word by word, many Asian songs"),
     UNISON("Unison", "Lyrics listeners submit · few songs so far"),
-    YTMUSIC("YouTube Music", "LyricFind, as on YouTube Music · lines or plain"),
+    YTMUSIC("Prism Music", "LyricFind · lines or plain"),
     GENIUS("Genius", "Plain text · also fills in starred-out words"),
 }
 
@@ -61,7 +61,7 @@ enum class HomeShortcut(val label: String) {
 data class PinnedPlaylist(val id: String, val title: String, val thumbnail: String? = null)
 
 /** Where Autoplay finds what to play next. */
-enum class AutoplaySource(val label: String) { MIXED("Both"), YOURS("Your music"), YOUTUBE("YouTube Music") }
+enum class AutoplaySource(val label: String) { MIXED("Both"), YOURS("Your music"), YOUTUBE("Prism Music") }
 
 enum class SectionStyle(val label: String) { CAROUSEL("Carousel"), GRID("Grid"), LIST("List"), HERO("Spotlight") }
 

@@ -78,6 +78,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -185,10 +186,10 @@ fun ThinSlider(
                     size = played, cornerRadius = r,
                 ) else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
             }
-            // Ticks stand a little above and below the line.
+            // Ticks: a faint hairline that stands just past the line, there if you look, never in the way.
             marks.forEach { m ->
                 val x = size.width * m.coerceIn(0f, 1f)
-                drawLine(Color.White.copy(alpha = 0.75f), Offset(x, -3.dp.toPx()), Offset(x, size.height + 3.dp.toPx()), 1.5.dp.toPx(), StrokeCap.Round)
+                drawLine(Color.White.copy(alpha = 0.34f), Offset(x, -1.5.dp.toPx()), Offset(x, size.height + 1.5.dp.toPx()), 1.dp.toPx(), StrokeCap.Round)
             }
             if (thumb) {
                 val knob = (if (dragging) 9.dp else 7.dp).toPx()
@@ -281,11 +282,13 @@ fun BoxScope.BestPartChip(): Boolean {
     val at = rememberPosition(fast = false) + shift
     if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
     val haptics = rememberHaptics()
-    // A quiet tag: a whisper of glass and soft white, nothing that competes with the song. Held, it opens "Your best
-    // part" to set the listener's own.
+    // A small glass tag in Prism's split light: a spectrum hairline round it, the flame and words lit in the spectrum.
+    // Held, it opens "Your best part" to set the listener's own.
     val tag = CircleShape
+    val light = com.prism.music.ui.theme.PrismTokens.spectrum
     Row(
-        Modifier.align(Alignment.Center).clip(tag).background(Color.White.copy(alpha = 0.07f))
+        Modifier.align(Alignment.Center).clip(tag).background(Color.White.copy(alpha = 0.08f))
+            .border(1.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), tag)
             .combinedClickable(
                 onClickLabel = "Skip to the best part", onLongClickLabel = "Set your own best part",
                 onLongClick = { haptics.tick(); BestPartEditor.open = true },
@@ -293,9 +296,14 @@ fun BoxScope.BestPartChip(): Boolean {
             .padding(horizontal = 10.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(if (now.mine) PrismIcons.FlameFilled else PrismIcons.Flame, null, tint = Color.White.copy(alpha = 0.62f), modifier = Modifier.size(12.dp))
+        Icon(
+            if (now.mine) PrismIcons.FlameFilled else PrismIcons.Flame, null, tint = Color.White,
+            modifier = Modifier.size(12.dp)
+                .graphicsLayer(compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen)
+                .drawWithContent { drawContent(); drawRect(light, blendMode = androidx.compose.ui.graphics.BlendMode.SrcIn) },
+        )
         Spacer(Modifier.width(5.dp))
-        Text(if (now.mine) "Your best part" else "Best part", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.72f))
+        Text(if (now.mine) "Your best part" else "Best part", style = MaterialTheme.typography.labelMedium.copy(brush = light))
     }
     return true
 }
@@ -744,7 +752,8 @@ fun OutputCaption() {
     val c = LocalContainer.current
     val settings by c.settings.flow.collectAsState()
     val preferred by c.player.preferredOutput.collectAsState()
-    val phoneName = settings.accountName.split(" ").firstOrNull()?.takeIf { it.isNotBlank() }?.let { "$it's Phone" } ?: "This Phone"
+    val profile by c.account.profile.collectAsState()
+    val phoneName = (profile?.name ?: settings.accountName).trim().split(" ").firstOrNull()?.takeIf { it.isNotBlank() }?.let { "$it's Phone" } ?: "This Phone"
     var current by remember { mutableStateOf(currentOutput(context, preferred)) }
     LaunchedEffect(preferred) {
         while (isActive) { current = currentOutput(context, preferred); delay(1500) }
@@ -893,7 +902,9 @@ fun OutputPickerSheet(phoneName: String, onDismiss: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        // No scroll of its own: the sheet already scrolls (a scroller inside a scroller is measured with no height
+        // limit, and Compose crashes on it).
+        Column(Modifier.padding(bottom = 24.dp)) {
             OutputGroup("This phone") {
                 options.forEach { d ->
                     val selected = castingTo == null && current?.id == d.id

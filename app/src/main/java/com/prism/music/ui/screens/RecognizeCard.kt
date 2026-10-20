@@ -143,7 +143,7 @@ private fun RecognizeCard(denied: Boolean, onListen: () -> Unit, onOpen: (String
                         }
                     }
                     if (song == null) Text(
-                        "Not found on YouTube Music", Modifier.padding(top = 8.dp),
+                        "Not found in Prism Music", Modifier.padding(top = 8.dp),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     PrismTextButton({ c.recognizer.reset(); onListen() }) { Text("Listen again") }

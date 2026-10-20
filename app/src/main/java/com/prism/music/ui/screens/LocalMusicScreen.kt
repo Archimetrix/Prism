@@ -344,7 +344,7 @@ fun LocalMusicScreen(bottomPadding: Dp) {
                         LocalSection.ALBUMS -> AlbumsPage(sortedAlbums(albums, orders.albums), bottomPadding, orders.albums, { saveOrders(orders.copy(albums = it)) }) { openAlbum = it.id }
                         LocalSection.ADDED_SONGS -> TrackList(addedSongs, "Recently added", bottomPadding)
                         LocalSection.ADDED_ALBUMS -> AlbumsPage(addedAlbums, bottomPadding) { openAlbum = it.id }
-                        LocalSection.DOWNLOADS -> if (downloads.isEmpty()) EmptyState(PrismIcons.DownloadDone, "No downloads yet", "Songs you download from YouTube Music show up here too.")
+                        LocalSection.DOWNLOADS -> if (downloads.isEmpty()) EmptyState(PrismIcons.DownloadDone, "No downloads yet", "Songs you download in Prism show up here too.")
                             else TrackList(downloads, "Downloads", bottomPadding)
                         null -> {}
                     }

@@ -209,7 +209,7 @@ private fun FoundCard(r: RecognitionEntity, song: Song?) {
                 PrismTextButton({ c.recognizer.reset() }) { Text("Again") }
             }
         } else {
-            Text("Not found on YouTube Music", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Not found in Prism Music", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             PrismTextButton({ nav.go(Routes.SEARCH) }) { Text("Search for it") }
             PrismTextButton({ c.recognizer.reset() }) { Text("Again") }
         }

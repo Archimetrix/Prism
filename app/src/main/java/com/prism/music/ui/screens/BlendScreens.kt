@@ -268,7 +268,7 @@ fun BlendsScreen(bottomPadding: Dp) {
                 Modifier.fillMaxWidth().clickable { nav.go(Routes.blend(e.friendWho)) }.padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BlendBadge(b?.match ?: 0, Modifier.size(52.dp))
+                BlendCover(e, Modifier.size(56.dp), small = true)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text("${c.blends.myName.ifBlank { "You" }} + ${e.friendName}", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -279,12 +279,80 @@ fun BlendsScreen(bottomPadding: Dp) {
     }
 }
 
-/** Two overlapping circles and the match: a Blend's picture. */
+/**
+ * A Blend's cover: the picture the listener picked for it, or Prism's own: two overlapping discs, each one person's
+ * top song in the Blend, ringed in Prism's split light on a dark ground lit softly where they meet, with the match in
+ * the corner. [small] drops the words for list-sized covers.
+ */
 @Composable
-fun BlendBadge(match: Int, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
-    Box(modifier.clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color(0xFF6C5CE7), Color(0xFFE84393)))), contentAlignment = Alignment.Center) {
-        Text("$match%", color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelLarge)
+fun BlendCover(e: com.prism.music.data.db.BlendEntity, modifier: Modifier = Modifier, small: Boolean = false) {
+    val c = LocalContainer.current
+    val stamp by c.blends.coverStamp.collectAsState()
+    val custom = remember(e.friendWho, stamp) { c.blends.coverFile(e.friendWho).takeIf { it.exists() } }
+    val blend = remember(e) { c.blends.blendOf(e) }
+    val shape = LocalUi.current.art
+    Box(modifier.clip(shape).background(Color(0xFF121017))) {
+        if (custom != null) {
+            coil3.compose.AsyncImage(
+                coil3.request.ImageRequest.Builder(LocalContext.current).data(custom).memoryCacheKey("${custom.path}#$stamp").diskCacheKey("${custom.path}#$stamp").build(),
+                contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize(),
+            )
+        } else {
+            val meFirst = blend?.people?.first?.who == c.blends.myWho
+            val mineFrom = if (meFirst) BlendSong.FIRST else BlendSong.SECOND
+            val theirsFrom = if (meFirst) BlendSong.SECOND else BlendSong.FIRST
+            val songs = blend?.songs.orEmpty()
+            val mine = (songs.firstOrNull { it.from == mineFrom } ?: songs.firstOrNull { it.from == BlendSong.BOTH })?.let { c.blends.songOf(it.song).thumbnail }
+            val theirs = (songs.firstOrNull { it.from == theirsFrom } ?: songs.lastOrNull { it.from == BlendSong.BOTH })?.let { c.blends.songOf(it.song).thumbnail }
+            // A soft glow of the split light where the two meet.
+            androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                val hues = com.prism.music.ui.theme.PrismTokens.spectrumColors.map { it.second }
+                drawRect(Brush.radialGradient(listOf(hues[hues.size / 2].copy(alpha = 0.30f), hues.first().copy(alpha = 0.10f), Color.Transparent), center = center.copy(y = size.height * 0.46f), radius = size.minDimension * 0.62f))
+            }
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.matchParentSize()) {
+                val d = maxWidth * 0.5f
+                val y = (maxHeight - d) / 2 - if (small) 0.dp else maxHeight * 0.05f
+                val edge = if (small) 1.dp else 1.5.dp
+                val me = blend?.people?.let { if (meFirst) it.first else it.second }
+                val friend = blend?.people?.let { if (meFirst) it.second else it.first }
+                val left = maxWidth * 0.15f
+                val right = maxWidth * 0.85f - d
+                // Each person's disc: their initial, under their top song's cover once it loads.
+                listOf(Triple(left, mine, me?.name), Triple(right, theirs, friend?.name)).forEach { (x, art, name) ->
+                    Box(
+                        Modifier.padding(start = x, top = y).size(d).clip(CircleShape).background(Color(0xFF26222F)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val initial = name?.trim()?.take(1)?.uppercase().orEmpty()
+                        if (initial.isNotEmpty()) Text(initial, color = Color.White.copy(alpha = 0.8f), fontSize = (d.value * 0.38f).sp, fontWeight = FontWeight.Light)
+                        else Icon(PrismIcons.Person, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(d * 0.4f))
+                        if (art != null) coil3.compose.AsyncImage(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    }
+                }
+                // Both rings on top, so they cross where the two tastes meet.
+                androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                    val r = d.toPx() / 2
+                    val cy = y.toPx() + r
+                    listOf(left.toPx() + r, right.toPx() + r).forEach { cx ->
+                        val center = androidx.compose.ui.geometry.Offset(cx, cy)
+                        drawCircle(com.prism.music.ui.theme.PrismTokens.spectrumRing(center), r - edge.toPx() / 2, center, style = androidx.compose.ui.graphics.drawscope.Stroke(edge.toPx()))
+                    }
+                }
+            }
+        }
+        val match = blend?.match ?: 0
+        // Small (a list row): the row's own text says the match.
+        if (!small) {
+            val scrim = Modifier.clip(CircleShape).background(Color.Black.copy(alpha = if (custom != null) 0.4f else 0f))
+            Text(
+                "BLEND", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelMedium, letterSpacing = 3.sp,
+                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp).then(scrim).padding(horizontal = if (custom != null) 8.dp else 0.dp, vertical = 2.dp),
+            )
+            Text(
+                "$match%", color = Color.White, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Light),
+                modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).then(scrim).padding(horizontal = if (custom != null) 8.dp else 0.dp),
+            )
+        }
     }
 }
 
@@ -317,6 +385,14 @@ fun BlendScreen(who: String, bottomPadding: Dp) {
     }
 
     if (card) BlendCardDialog(blend, me, friend) { card = false }
+    // A cover of the listener's own: any photo, from Android's photo picker (no permission asked), cut square.
+    val stamp by c.blends.coverStamp.collectAsState()
+    val hasOwnCover = remember(who, stamp) { c.blends.coverFile(who).exists() }
+    val pickCover = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            if (!c.blends.setCover(who, uri)) Toast.makeText(context, "Couldn't use that picture", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     SubPage(
         title, bottomPadding, subtitle = "${blend.match}% taste match",
@@ -325,6 +401,11 @@ fun BlendScreen(who: String, bottomPadding: Dp) {
                 RoundAction(PrismIcons.More, "More", glass = true) { menu = true }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem({ Text("Share as a picture") }, { menu = false; card = true }, leadingIcon = { Icon(PrismIcons.Share, null) })
+                    DropdownMenuItem({ Text(if (hasOwnCover) "Change the cover" else "Pick a cover") }, {
+                        menu = false
+                        pickCover.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }, leadingIcon = { Icon(PrismIcons.Photo, null) })
+                    if (hasOwnCover) DropdownMenuItem({ Text("Use Prism's cover") }, { menu = false; c.blends.clearCover(who) }, leadingIcon = { Icon(PrismIcons.Blend, null) })
                     DropdownMenuItem({ Text("Send my code back") }, { menu = false; shareCodeText(context, e.myCode, me.name) }, leadingIcon = { Icon(PrismIcons.Groups, null) })
                     if (c.settings.current.isLoggedIn) DropdownMenuItem({ Text("Save to YouTube Music") }, {
                         menu = false
@@ -344,6 +425,12 @@ fun BlendScreen(who: String, bottomPadding: Dp) {
     ) {
         item("top") {
             Column(Modifier.padding(horizontal = 20.dp)) {
+                BlendCover(
+                    e,
+                    Modifier.align(Alignment.CenterHorizontally).widthIn(max = 280.dp).fillMaxWidth(0.72f).aspectRatio(1f)
+                        .clickable(onClickLabel = "Pick a cover") { pickCover.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                )
+                Spacer(Modifier.height(16.dp))
                 if (blend.sharedArtists.isNotEmpty()) Text(
                     "You both play ${com.prism.music.data.foryou.MadeForYou.namesLine(blend.sharedArtists)}",
                     style = MaterialTheme.typography.bodyMedium,

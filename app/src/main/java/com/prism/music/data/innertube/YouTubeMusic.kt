@@ -332,7 +332,7 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
     suspend fun artist(browseId: String): ArtistPage {
         if (browseId.startsWith(ARTIST_BY_NAME)) {
             val name = browseId.removePrefix(ARTIST_BY_NAME)
-            return artist(artistIdByName(name) ?: throw java.io.IOException("Couldn't find $name on YouTube Music"))
+            return artist(artistIdByName(name) ?: throw java.io.IOException("Couldn't find $name in Prism Music"))
         }
         val res = browse(browseId)
         val header = res.findFirst("musicImmersiveHeaderRenderer") ?: res.findFirst("musicVisualHeaderRenderer")

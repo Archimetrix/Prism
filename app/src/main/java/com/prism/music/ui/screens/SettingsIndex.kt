@@ -56,6 +56,7 @@ object SettingsIndex {
     val entries: List<SettingEntry> = listOf(
         // The hub
         SettingEntry(null, "Account", "Account", "google youtube sign in sign out switch account add account"),
+        SettingEntry(null, "Account", "Prism Account", "profile name picture photo local on this phone copy library youtube playlists"),
         SettingEntry(DC, "Discord", "Show what you're playing", "discord rich presence status listening"),
         SettingEntry(DC, "Discord", "Sign out of Discord"),
         SettingEntry(DC, "Discord", "About this", "discord terms risk"),

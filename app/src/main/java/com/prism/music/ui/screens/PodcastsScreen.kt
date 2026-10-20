@@ -139,7 +139,7 @@ fun PodcastsScreen(bottomPadding: Dp) {
                 }
                 home.shelves.forEach { shelf -> shelfItems(shelf) { nav.open(it, onSong) } }
                 if (home.shelves.isEmpty() && home.yourShows.isEmpty()) item {
-                    EmptyState(PrismIcons.Podcasts, "No Podcasts page here", "YouTube Music doesn't show its Podcasts page in your country. Search can still find shows and episodes: search, then pick Podcasts or Episodes.")
+                    EmptyState(PrismIcons.Podcasts, "No Podcasts page here", "Prism Music's Podcasts page isn't offered in your country. Search can still find shows and episodes: search, then pick Podcasts or Episodes.")
                 }
             }
         }

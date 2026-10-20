@@ -101,7 +101,7 @@ object Tour {
         ),
         TourStep(
             V1_7, PrismIcons.Search, "Search and Recognize",
-            "Find anything on YouTube Music, or name the song playing around you.",
+            "Find anything in Prism Music, or name the song playing around you.",
             listOf(
                 "Filters for songs, videos, albums, artists, podcasts and live",
                 "\"On this phone\" searches your own music files",
@@ -116,6 +116,7 @@ object Tour {
             listOf(
                 "Liked songs, Downloads and the music files on your phone",
                 "Make playlists and save albums: without an account they're kept on this phone",
+                "A Prism Account (Settings, at the top) is your name and picture, all on this phone; it can keep a copy of your YouTube Music library",
                 "Blend makes a playlist of two tastes with a friend",
                 "Listen together plays in step with friends on the same Wi-Fi",
             ),

@@ -418,7 +418,7 @@ private val DISCORD_HOOK_JS = """
 """.trimIndent()
 
 @Composable
-fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
+fun WelcomeScreen(onSignIn: () -> Unit, onAccount: () -> Unit, onSkip: () -> Unit) {
     val t = rememberInfiniteTransition(label = "welcome")
     val a by t.animateFloat(0f, (Math.PI * 2).toFloat(), infiniteRepeatable(tween(16_000, easing = LinearEasing)), label = "a")
     Box(Modifier.fillMaxSize().background(Color(0xFF07060C))) {
@@ -437,7 +437,7 @@ fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
             verticalArrangement = Arrangement.Bottom,
         ) {
             Text("Prism", color = Color.White, style = MaterialTheme.typography.displayLarge)
-            Text("Your YouTube Music, refracted.", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.titleLarge)
+            Text("Your music, refracted.", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(28.dp))
             Feature(PrismIcons.Lyrics, "Karaoke lyrics, word by word, from ten sources")
             Feature(PrismIcons.Mic, "Sing: the song with its voice taken out")
@@ -446,11 +446,20 @@ fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
             Feature(PrismIcons.Recognize, "Name the song playing around you")
             Feature(PrismIcons.Replay, "Rewind: your year in music")
             Spacer(Modifier.height(32.dp))
-            PrismButton(onClick = onSignIn, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
-                Text("Sign in with Google", style = MaterialTheme.typography.titleMedium)
+            // A Prism Account first: it's all on this phone, no sign-in anywhere. Google's for the YouTube Music library.
+            PrismButton(onClick = onAccount, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
+                Text("Make a Prism Account", style = MaterialTheme.typography.titleMedium)
             }
-            PrismTextButton(onClick = onSkip, Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                Text("Continue without an account", color = Color.White.copy(alpha = 0.8f))
+            Text(
+                "Kept on this phone. No email, no password, no server.",
+                color = Color.White.copy(alpha = 0.62f), style = MaterialTheme.typography.bodySmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            )
+            com.prism.music.ui.components.PrismOutlinedButton(onClick = onSignIn, Modifier.fillMaxWidth().padding(top = 12.dp).height(52.dp), shape = RoundedCornerShape(18.dp)) {
+                Text("Sign in with Google", color = Color.White)
+            }
+            PrismTextButton(onClick = onSkip, Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                Text("Skip for now", color = Color.White.copy(alpha = 0.8f))
             }
             WelcomeRestoreButton()
         }

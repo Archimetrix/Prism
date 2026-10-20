@@ -152,7 +152,7 @@ fun DesignGalleryContent(modifier: Modifier = Modifier) {
             var q by remember { mutableStateOf("") }
             SearchField(q, "Search in playlist", { q = it }, Modifier.padding(horizontal = 16.dp))
             EmptyState(PrismIcons.Download, "Nothing downloaded yet", "Songs you download play without a connection.")
-            ErrorState("Couldn't reach YouTube Music. Check your connection.", onRetry = {})
+            ErrorState("Couldn't reach Prism Music. Check your connection.", onRetry = {})
             LoadingState()
         }
     }

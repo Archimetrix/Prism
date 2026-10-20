@@ -132,7 +132,7 @@ class WebRemote(private val app: Application, private val c: AppContainer) : Rem
     // ------------------------------------------------------------ What the page sees
 
     override fun phoneName(): String {
-        val who = c.settings.current.accountName.trim().substringBefore(' ')
+        val who = c.displayName(first = true)
         return if (who.isNotBlank()) "$who's ${Build.MODEL}" else Build.MODEL ?: "Prism"
     }
 

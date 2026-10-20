@@ -233,7 +233,7 @@ fun SearchScreen(bottomPadding: Dp) {
         }
 
         Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            com.prism.music.ui.components.PrismChip(!onPhone, { onPhone = false }, "YouTube Music", icon = PrismIcons.Globe)
+            com.prism.music.ui.components.PrismChip(!onPhone, { onPhone = false }, "Prism Music", icon = PrismIcons.Globe)
             com.prism.music.ui.components.PrismChip(onPhone, { onPhone = true }, "On this phone", icon = PrismIcons.Phone)
         }
         if (!onPhone) com.prism.music.ui.components.ChipRow(

@@ -45,6 +45,8 @@ object Routes {
     const val NEW_RELEASES = "new_releases"
     /** "Pick artists you like" (after the welcome screen, or Settings → Home screen → Your artists). */
     const val PICK_ARTISTS = "pick_artists"
+    /** The Prism Account: make one (after the welcome screen, or from Settings) or change it. */
+    const val ACCOUNT = "prism_account"
     const val EXCLUSIONS = "exclusions"
     /** Blend: your code, scanning a friend's, and your Blends. */
     const val BLENDS = "blends"

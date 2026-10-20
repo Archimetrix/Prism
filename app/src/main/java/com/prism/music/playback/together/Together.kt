@@ -78,7 +78,7 @@ class Together(private val app: Application, private val c: AppContainer) {
     private val nsd: NsdManager? by lazy { app.getSystemService(NsdManager::class.java) }
 
     /** How this phone introduces itself: the account's first name, or the phone's model. */
-    val myName: String get() = c.settings.current.accountName.trim().substringBefore(' ').ifBlank { Build.MODEL ?: "Prism" }
+    val myName: String get() = c.displayName(first = true).ifBlank { Build.MODEL ?: "Prism" }
 
     // ------------------------------------------------------------ Hosting
 

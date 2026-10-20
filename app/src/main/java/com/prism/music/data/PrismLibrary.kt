@@ -92,6 +92,9 @@ class PrismLibrary(private val dir: File) {
         l.copy(songs = songs.filter { it.id in ids }.distinctBy { it.id })
     }
 
+    /** Makes the playlist exactly [songs] (a copy brought up to date). */
+    fun replace(id: String, songs: List<Song>) = edit(id) { l -> l.copy(songs = songs.distinctBy { it.id }) }
+
     fun saveAlbum(album: SavedAlbum) = change { it.copy(albums = listOf(album) + it.albums.filterNot { a -> a.id == album.id }) }
     fun unsaveAlbum(id: String) = change { it.copy(albums = it.albums.filterNot { a -> a.id == id }) }
 

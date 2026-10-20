@@ -260,7 +260,7 @@ private fun SettingsPage(
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
                     Group("Home") {
                         Item("Customize Home", "Sections, shortcuts and greeting", onClick = { nav.go(Routes.CATALOGUE) }) { Chevron() }
-                        Toggle("Add new sections automatically", "New YouTube Music shelves appear on Home", s.autoAddSections) { c.settings.setAutoAddSections(it) }
+                        Toggle("Add new sections automatically", "New Prism Music shelves appear on Home", s.autoAddSections) { c.settings.setAutoAddSections(it) }
                         Toggle(
                             "Continue line", "\"Continue …\" under the greeting", s.homeContinue,
                             info = "The album you were last playing (or your Rewind, in December), under Home's greeting. Tap it to open.",
@@ -329,7 +329,7 @@ private fun ContentCountrySetting() {
         Item(
             "Content country",
             if (s.contentCountry.isBlank()) "Automatic (${if (phone.isBlank()) "United States" else countryName(phone)})" else countryName(s.contentCountry),
-            info = "If YouTube Music isn't available where you live, pick a country where it is. Restart Prism for playback to follow too. Songs a label blocks in your country still won't play: that's decided by your connection, not this setting.",
+            info = "If Prism Music isn't available where you live, pick a country where it is. Restart Prism for playback to follow too. Songs a label blocks in your country still won't play: that's decided by your connection, not this setting.",
             onClick = { picking = true },
         ) { Chevron() }
         Note("Home, charts and search follow this country")
@@ -447,36 +447,84 @@ private fun AccountCard() {
     val ink = com.prism.music.ui.components.featureInk()
     var switching by remember { mutableStateOf(false) }
     if (switching) AccountSwitcher { switching = false }
+    val profile by c.account.profile.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var confirmSignOut by remember { mutableStateOf(false) }
+    fun signOut() {
+        c.settings.logout()
+        // The account's library kept for offline goes with it (copies in Prism stay: they're the Prism Account's).
+        c.library.forgetAccount()
+        CookieManager.getInstance().removeAllCookies(null)
+    }
+    // With a Prism Account, signing out can keep the YouTube Music library in Prism first.
+    if (confirmSignOut) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { confirmSignOut = false },
+        title = { Text("Sign out of YouTube Music?") },
+        text = { Text("Keep a copy of its playlists, saved albums and artists in your Prism Account first? Liked songs, downloads and Replay stay either way.") },
+        confirmButton = {
+            PrismTextButton({
+                confirmSignOut = false
+                c.scope.launch {
+                    val r = runCatching { c.account.bringOver() }.getOrNull()
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        signOut()
+                        android.widget.Toast.makeText(context, if (r != null) "Signed out. ${r.playlists} playlists and ${r.albums} albums kept in Prism" else "Signed out", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }) { Text("Keep a copy") }
+        },
+        dismissButton = { PrismTextButton({ confirmSignOut = false; signOut() }) { Text("Just sign out") } },
+    )
     Column(Modifier.fillMaxWidth().featurePane(ui.card)) {
+    // The Prism Account: who the listener is in Prism, on this phone.
     Row(
-        Modifier.fillMaxWidth()
-            .then(if (s.isLoggedIn) Modifier else Modifier.clickable { nav.go(Routes.LOGIN) })
-            .padding(18.dp),
+        Modifier.fillMaxWidth().clickable { nav.go(Routes.ACCOUNT) }.padding(18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(56.dp).clip(CircleShape).background(if (frosted) com.prism.music.ui.components.frostFill(1.6f) else scheme.surface.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-            if (s.isLoggedIn && s.accountAvatar.isNotBlank()) AsyncImage(s.accountAvatar, null, Modifier.fillMaxSize())
-            else Icon(if (s.isLoggedIn) PrismIcons.Person else PrismIcons.Login, null, tint = if (frosted) scheme.primary else ink)
+        if (profile != null || s.isLoggedIn) com.prism.music.ui.screens.ProfilePicture(Modifier.size(56.dp))
+        else Box(Modifier.size(56.dp).clip(CircleShape).background(if (frosted) com.prism.music.ui.components.frostFill(1.6f) else scheme.surface.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+            Icon(PrismIcons.Add, null, tint = if (frosted) scheme.primary else ink)
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                if (s.isLoggedIn) s.accountName.ifBlank { "YouTube Music" } else "Sign in to YouTube Music",
+                profile?.name ?: "Make a Prism Account",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), color = ink,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
-                if (s.isLoggedIn) s.accountEmail.ifBlank { "Signed in" } else "Sync likes, playlists, history and recommendations",
+                if (profile != null) "Prism Account · on this phone" else "Your name and picture, kept on this phone. Nothing you have changes",
                 style = MaterialTheme.typography.bodySmall, color = ink.copy(alpha = 0.75f),
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
-        if (s.isLoggedIn) PrismOutlinedButton(onClick = {
-            c.settings.logout()
-            // The account's library kept for offline goes with it.
-            c.library.forgetAccount()
-            CookieManager.getInstance().removeAllCookies(null)
-        }) { Icon(PrismIcons.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Sign out") }
+        Icon(PrismIcons.ChevronRight, null, tint = ink)
+    }
+    // YouTube Music: optional, for the account's library, history and recommendations.
+    Row(
+        Modifier.fillMaxWidth()
+            .then(if (s.isLoggedIn) Modifier else Modifier.clickable { nav.go(Routes.LOGIN) })
+            .padding(start = 18.dp, end = 18.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(32.dp).clip(CircleShape).background(if (frosted) com.prism.music.ui.components.frostFill(1.6f) else scheme.surface.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+            if (s.isLoggedIn && s.accountAvatar.isNotBlank()) AsyncImage(s.accountAvatar, null, Modifier.fillMaxSize())
+            else Icon(PrismIcons.Login, null, Modifier.size(18.dp), tint = if (frosted) scheme.primary else ink)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (s.isLoggedIn) "YouTube Music · " + s.accountName.ifBlank { "signed in" } else "Sign in to YouTube Music",
+                style = MaterialTheme.typography.bodyMedium, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                if (s.isLoggedIn) s.accountEmail.ifBlank { "Signed in" } else "Optional: your library, history and recommendations",
+                style = MaterialTheme.typography.bodySmall, color = ink.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (s.isLoggedIn) PrismOutlinedButton(onClick = { if (profile != null) confirmSignOut = true else signOut() }) {
+            Icon(PrismIcons.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Sign out")
+        }
         else Icon(PrismIcons.ChevronRight, null, tint = ink)
     }
     // Another channel of the same Google account (brand accounts), or another Google account altogether.
@@ -1119,8 +1167,8 @@ private fun SoundPage() {
                 Note(
                     when (s.autoplaySource) {
                         com.prism.music.data.prefs.AutoplaySource.YOURS -> "Prism's own radio, picked on your phone from what you play, like and keep"
-                        com.prism.music.data.prefs.AutoplaySource.YOUTUBE -> "YouTube Music's radio, for songs you haven't heard"
-                        com.prism.music.data.prefs.AutoplaySource.MIXED -> "Mostly your music, with two new songs from YouTube Music in every five"
+                        com.prism.music.data.prefs.AutoplaySource.YOUTUBE -> "Prism Music's radio, for songs you haven't heard"
+                        com.prism.music.data.prefs.AutoplaySource.MIXED -> "Mostly your music, with two new songs from Prism Music in every five"
                     } + ". Offline, it's always your music.",
                 )
             }

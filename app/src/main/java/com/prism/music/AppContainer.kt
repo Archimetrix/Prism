@@ -260,6 +260,17 @@ class AppContainer(val app: Application) {
     val models = com.prism.music.data.ModelStore(app, http)
     /** Playlists and saved albums kept on the phone (no account needed). */
     val prismLibrary = com.prism.music.data.PrismLibrary(java.io.File(app.filesDir, "library"))
+    /** The listener's Prism Account: a name and picture kept on this phone ([com.prism.music.data.PrismAccount]). */
+    val account by lazy { com.prism.music.data.PrismAccount(this) }
+
+    /**
+     * What Prism calls the listener: their Prism Account's name, else their YouTube Music account's, else "".
+     * [first]: just the first name ("Sam's Phone").
+     */
+    fun displayName(first: Boolean = false): String {
+        val name = account.profile.value?.name?.takeIf { it.isNotBlank() } ?: settings.current.accountName
+        return if (first) name.trim().substringBefore(' ') else name.trim()
+    }
     /** Lyrics in Latin letters (Korean, Japanese, Chinese, Arabic, Hindi…). */
     val romanizer = com.prism.music.data.lyrics.Romanizer(
         http, db.romanized(), models, scope, app.getSharedPreferences("romanize_songs", android.content.Context.MODE_PRIVATE),

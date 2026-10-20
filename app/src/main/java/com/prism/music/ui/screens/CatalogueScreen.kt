@@ -206,10 +206,10 @@ fun CatalogueScreen(bottomPadding: Dp) {
         }
         item(key = "options") {
             Group("Options") {
-                Toggle("Add new sections automatically", "New shelves from YouTube Music appear at the bottom", settings.autoAddSections) { c.settings.setAutoAddSections(it) }
+                Toggle("Add new sections automatically", "New shelves from Prism Music appear at the bottom", settings.autoAddSections) { c.settings.setAutoAddSections(it) }
                 Toggle(
                     "Quick picks start a radio",
-                    if (settings.quickPicksRadio) "Tapping a pick plays it, then songs like it, as on YouTube Music" else "Tapping a pick plays Quick picks in order from it",
+                    if (settings.quickPicksRadio) "Tapping a pick plays it, then songs like it" else "Tapping a pick plays Quick picks in order from it",
                     settings.quickPicksRadio,
                 ) { c.settings.setQuickPicksRadio(it) }
                 Toggle("Customize button on Home", null, settings.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
@@ -319,10 +319,10 @@ private fun AddSectionSheet(available: List<HomeSectionConfig>, notLoaded: Boole
         LazyColumn(Modifier.padding(bottom = 24.dp)) {
             if (prism.isNotEmpty()) item { SheetLabel("From Prism") }
             items(prism, key = { it.key }) { cfg -> SheetRow(cfg.title) { onAdd(cfg); onDismiss() } }
-            item { SheetLabel("From YouTube Music") }
+            item { SheetLabel("From Prism Music") }
             if (youtube.isEmpty()) item {
                 Text(
-                    if (notLoaded) "Open Home once to load YouTube Music's sections" else "Everything's already on Home",
+                    if (notLoaded) "Open Home once to load Prism Music's sections" else "Everything's already on Home",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 )

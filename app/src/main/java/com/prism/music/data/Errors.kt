@@ -18,10 +18,10 @@ fun Throwable.friendlyMessage(fallback: String = "Something went wrong"): String
     return when {
         chain.any { it is UnknownHostException || it is ConnectException || it is NoRouteToHostException } ->
             "You're offline. Check your connection and try again."
-        chain.any { it is SocketTimeoutException } -> "YouTube Music took too long to answer. Try again."
+        chain.any { it is SocketTimeoutException } -> "Prism Music took too long to answer. Try again."
         chain.any { it is SSLException } -> "Couldn't connect securely. On public Wi-Fi or a VPN? Try another network."
         code == 429 -> "YouTube is limiting requests right now. Try again in a few minutes."
-        code != null && code >= 500 -> "YouTube Music is having trouble right now. Try again in a bit."
+        code != null && code >= 500 -> "Prism Music is having trouble right now. Try again in a bit."
         else -> chain.firstOrNull { it is StreamException || it is InnerTubeException }?.message?.takeIf { it.isNotBlank() }
             ?: chain.mapNotNull { it.message }.firstOrNull(::readable)
             ?: fallback

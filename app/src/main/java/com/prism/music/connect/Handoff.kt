@@ -74,7 +74,7 @@ class Handoff(private val app: Application, private val c: AppContainer) : Hando
     override val name: String
         get() {
             val label = runCatching { app.applicationInfo.loadLabel(app.packageManager).toString() }.getOrDefault("Prism")
-            val who = c.settings.current.accountName.trim().substringBefore(' ')
+            val who = c.displayName(first = true)
             val base = if (who.isNotBlank()) "$who's ${Build.MODEL}" else Build.MODEL ?: "Prism"
             // Two copies of Prism on one phone (a test copy beside the real one) need telling apart.
             return if (label != "Prism") "$base ($label)" else base
