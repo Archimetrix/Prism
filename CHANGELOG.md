@@ -2,6 +2,29 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.2 (unreleased)
+
+### New
+- **Pick any colour.** A new colour picker is used everywhere Prism asks for a colour. You can:
+  - pick on a colour wheel, or set exact RGB and HSL values;
+  - type or paste a colour code (#3A86FF);
+  - take a colour from what's playing, your wallpaper or any spot on a photo;
+  - star colours to keep them; your recent colours are kept too.
+
+  Before you use a colour, it shows how readable it is on dark and light pages.
+- **Your light.** The split light that runs through Prism (progress, rings, switches, what's playing) comes in 12 palettes: Prism, Sunset, Ocean, Aurora, Forest, Ember, Candy, Neon, Ice, Gold, Silver and a colour-blind-safe one. You can also build your own from 2 to 7 colours, and show any of them as hard bands like the logo's bars.
+- **More accent options.**
+  - The accent can be set in the Spectrum style too, not only in White light.
+  - **Exact shade** uses your colour just as picked, instead of Prism's own tones of it.
+  - Light mode can have an accent of its own.
+- **Background tint.** Pages can be neutral grey, tinted with the accent, or tinted with a colour of your own, with a strength slider.
+- **Contrast.** Choose Standard, Medium or High, for firmer secondary text, lines and accent.
+- **Cover colours.**
+  - With "Now playing" as the accent, you choose which of the cover's colours to use (vibrant, muted or main) and whether grey covers still give a colour ("Keep it lively").
+  - You also choose how the colour moves between songs: at once, a fade, a slow fade, or only when the album changes.
+- **Page colours.** Whether artist, album and playlist pages take their picture's colour is now its own switch. An artist's page can also have a colour you pick (⋯ → Page colour).
+- **Appearance is tidier.** Appearance now holds the theme and four pages: Colour (with a live preview at the top), Text, Icons & shapes, and Glass & backgrounds. Colour has its own "Reset colours".
+
 ## 1.7.1
 
 ### Fixed

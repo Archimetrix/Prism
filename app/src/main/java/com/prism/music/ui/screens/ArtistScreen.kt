@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.layout.ContentScale
@@ -250,7 +251,11 @@ private fun ArtistContent(page: ArtistPage, bottomPadding: Dp) {
     var pageHeight by remember { mutableStateOf(0.dp) }
     val statusTop = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-    ArtworkAccent(palette) {
+    var pageColor by remember { mutableStateOf(false) }
+    val ownColors by c.artistPrefs.colors.collectAsState()
+    val ownColor = ownColors[page.id]?.let { Color(it) }
+
+    ArtworkAccent(palette, override = ownColor) {
         Box(Modifier.fillMaxSize().onSizeChanged { with(density) { pageHeight = it.height.toDp(); pageWidth = it.width.toDp() } }) {
             FrostedBackdrop(frost, palette, heroHeight, heroScroll, bleed = true)
             LazyColumn(state = list, contentPadding = PaddingValues(bottom = bottomPadding + 32.dp)) {
@@ -292,11 +297,21 @@ private fun ArtistContent(page: ArtistPage, bottomPadding: Dp) {
             // Content melts away under the bar into the page's own frost.
             ScrollEdge({ solid }, statusTop + 60.dp + 34.dp, pageHeight) { m -> FrostedBackdrop(frost, palette, heroHeight, heroScroll, m, bleed = true) }
             TopBar(page, { solid }, hasMix = page.radioPlaylistId != null, favorite = favorite,
-                onMix = mix, onShare = { sharing = true }, onSignature = { showSignature = true }, onFavorite = toggleFavorite)
+                onMix = mix, onShare = { sharing = true }, onSignature = { showSignature = true }, onFavorite = toggleFavorite,
+                onColor = { pageColor = true })
         }
 
         if (showInfo) InfoSheet(page, genre, favorite, onFavorite = toggleFavorite, onShare = { showInfo = false; sharing = true }) { showInfo = false }
         if (showSignature) SignatureSheet(page, genre) { showSignature = false }
+    }
+    // The page's own colour (1.7.2): any colour, or back to the photo's.
+    if (pageColor) {
+        val fromPhoto = palette?.accent(dark)
+        com.prism.music.ui.components.ColorPickerSheet(
+            "${page.name}'s colour", (ownColor ?: fromPhoto ?: MaterialTheme.colorScheme.primary).toArgb(),
+            onDismiss = { pageColor = false },
+            reset = if (ownColor != null) "Use the photo's colour" to { c.artistPrefs.setColor(page.id, null) } else null,
+        ) { c.artistPrefs.setColor(page.id, it) }
     }
     if (sharing) ShareSheet(
         ShareTarget(page.name, page.subscribers.orEmpty(), "Artist", page.thumbnail, ShareLinks.artist(page.id), round = true),
@@ -410,6 +425,7 @@ private fun PlayCapsule(onClick: () -> Unit) {
 private fun TopBar(
     page: ArtistPage, solid: () -> Float,
     hasMix: Boolean, favorite: Boolean, onMix: () -> Unit, onShare: () -> Unit, onSignature: () -> Unit, onFavorite: () -> Unit,
+    onColor: () -> Unit,
 ) {
     val nav = LocalNavigator.current
     val view = LocalView.current
@@ -442,6 +458,7 @@ private fun TopBar(
                             leadingIcon = { Icon(if (favorite) PrismIcons.StarFilled else PrismIcons.Star, null) },
                         )
                         DropdownMenuItem({ Text("Signature style") }, { menu = false; onSignature() }, leadingIcon = { Icon(PrismIcons.Signature, null) })
+                        DropdownMenuItem({ Text("Page colour") }, { menu = false; onColor() }, leadingIcon = { Icon(PrismIcons.Palette, null) })
                         // Never in radios, autoplay, Smart Shuffle, mixes or Smart Downloads (Settings → Library & Replay → Exclusions).
                         val c = com.prism.music.ui.theme.LocalContainer.current
                         val excluded by c.exclusions.artists.collectAsState()

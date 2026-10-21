@@ -462,14 +462,20 @@ fun ScrollEdge(visible: () -> Float, height: Dp, pageHeight: Dp, backdrop: @Comp
  * links and playing marks wear the picture's colour.
  */
 @Composable
-fun ArtworkAccent(palette: ArtPalette?, content: @Composable () -> Unit) {
+fun ArtworkAccent(palette: ArtPalette?, override: Color? = null, content: @Composable () -> Unit) {
     val dark = LocalIsDark.current
     val scheme = MaterialTheme.colorScheme
+    // Appearance → Colour → "Pages take their picture's colour" (1.7.2); an artist's own colour (picked on their page)
+    // applies either way.
+    val pageColors = com.prism.music.ui.theme.LocalAppSettings.current.pageColors
     // Always the same composition shape, palette or not: switching between calling content() bare and inside
     // MaterialTheme threw the whole subtree away when the palette arrived — a menu sheet being swiped down
     // was rebuilt mid-gesture (stuttered, or popped back up after being flung away).
     // White light with a white accent keeps every page neutral, so the artwork's colour stays in the artwork.
-    val themed = if (palette == null || (com.prism.music.ui.theme.PrismTokens.white && com.prism.music.ui.theme.PrismTokens.whiteAccent == null)) scheme else {
+    val themed = if (override != null) {
+        val accent = com.prism.music.ui.theme.readableOn(override, scheme.background)
+        scheme.copy(primary = accent, onPrimary = if (accent.luminance() > 0.5f) Color.Black else Color.White, surfaceTint = accent)
+    } else if (palette == null || !pageColors || (com.prism.music.ui.theme.PrismTokens.white && com.prism.music.ui.theme.PrismTokens.whiteAccent == null)) scheme else {
         val accent = palette.accent(dark)
         val on = if (accent.luminance() > 0.5f) Color.Black else Color.White
         scheme.copy(primary = accent, onPrimary = on, surfaceTint = accent)

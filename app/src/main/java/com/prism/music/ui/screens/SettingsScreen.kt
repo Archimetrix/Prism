@@ -118,7 +118,12 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     DISCORD("discord", "Discord", PrismIcons.Groups),
     ABOUT("about", "About", PrismIcons.Info),
     /** Not on the hub: opened from About. */
-    LICENSES("licenses", "Open-source licenses", PrismIcons.Info);
+    LICENSES("licenses", "Open-source licenses", PrismIcons.Info),
+    /** Not on the hub: Appearance's own pages (1.7.2). */
+    COLOUR("colour", "Colour", PrismIcons.Palette),
+    TEXT("text", "Text", PrismIcons.Signature),
+    ICONS("icons", "Icons & shapes", PrismIcons.Category),
+    GLASS("glass", "Glass & backgrounds", PrismIcons.Photo);
 
     fun summary(s: AppSettings): String = when (this) {
         APPEARANCE -> listOf(s.themeMode.label + " theme", s.fontChoice.label + " font", when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }).joinToString(" · ")
@@ -133,6 +138,14 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         DISCORD -> if (s.discordPresence) "Showing what you play on your profile" else "Show what you're playing on your profile"
         ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates"
         LICENSES -> "GPL-3.0-or-later"
+        COLOUR -> listOfNotNull(
+            s.lightStyle.label,
+            if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) (com.prism.music.ui.theme.SpectrumPresets.preset(s.spectrumPreset)?.label ?: "Your own") + " light" else null,
+            when (s.colorSource) { ColorSource.CUSTOM -> com.prism.music.ui.theme.ColorMath.toHex(s.accent) + " accent"; ColorSource.ARTWORK -> "Accent from the cover"; ColorSource.DYNAMIC -> "Accent from the wallpaper" },
+        ).joinToString(" · ")
+        TEXT -> listOfNotNull(s.fontChoice.label + " font", if (s.textScale != 1f) "${(s.textScale * 100).roundToInt()}% size" else null).joinToString(" · ")
+        ICONS -> "Icon pack and weight, app icon, corners"
+        GLASS -> listOfNotNull(when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }, if (s.backdrops.isEmpty()) null else "Backgrounds", if (s.reduceMotion) "Reduced motion" else null).joinToString(" · ")
     }
 
     companion object { fun of(key: String?) = entries.firstOrNull { it.key == key } }
@@ -250,6 +263,12 @@ private fun SettingsPage(
                 }
             }
             SettingsSection.APPEARANCE -> appearance()
+            SettingsSection.COLOUR -> item(key = "colour") { ColourSettings() }
+            SettingsSection.TEXT -> item(key = "text") { TypeSettings() }
+            SettingsSection.ICONS -> item(key = "icons") {
+                Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings() }
+            }
+            SettingsSection.GLASS -> item(key = "glass") { GlassSettings() }
             SettingsSection.INTERFACE -> layoutAndNavigation()
             SettingsSection.PLAYER -> item { PlayerSettings() }
             SettingsSection.SOUND -> item { SoundPage() }
@@ -657,36 +676,25 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                     Toggle("Pure black", "AMOLED-friendly dark theme", s.pureBlack) { prefs.setPureBlack(it) }
                 }
             }
+            // Appearance's own pages (1.7.2): each short, each found by Settings search.
             Box {
                 val s = LocalAppSettings.current
-                val prefs = LocalContainer.current.settings
-                Group("Colour") {
-                    Label("Style")
-                    Chips(com.prism.music.data.prefs.LightStyle.entries, s.lightStyle, { it.label }) { prefs.setLightStyle(it) }
-                    Note(
-                        if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) "Neutral, with your accent colour; pick white for greys only"
-                        else "The split light runs through Prism"
-                    )
-                    // The accent only colours White light (Spectrum's colour is the split light), and the swatches only
-                    // matter when it's your own colour: Now playing and Wallpaper pick it themselves.
-                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) {
-                        Label("Accent")
-                        Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
-                        when (s.colorSource) {
-                            ColorSource.ARTWORK -> Note("Follows the cover of what's playing")
-                            ColorSource.DYNAMIC -> Note("Follows your wallpaper")
-                            else -> {
-                                Note("Pick an accent colour")
-                                AccentPicker(s.accent) { prefs.setAccent(it) }
-                            }
-                        }
+                val nav = LocalNavigator.current
+                Group("Look") {
+                    listOf(SettingsSection.COLOUR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
+                        NavRow(sec.icon, sec.title, sec.summary(s)) { nav.go(Routes.settings(sec.key)) }
                     }
                 }
             }
-            TypeSettings()
-            IconSettings()
-            AppIconSettings()
-            ShapeSettings()
+            ResetLook()
+        }
+    }
+}
+
+/** Appearance → Glass & backgrounds (1.7.2: its own page). */
+@Composable
+private fun GlassSettings() {
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Box {
                 val s = LocalAppSettings.current
                 val nav = LocalNavigator.current
@@ -710,7 +718,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                         Chips(GlassKind.entries, s.glassKind, { it.label }) { prefs.setGlassKind(it) }
                     }
                     Toggle("Frosted Glass", "Soft blur, no refraction", s.frostedGlass) { prefs.setFrostedGlass(it) }
-                    Toggle("Frosted pages", "Pages frosted with their picture", s.frostedPages, info = "Artist, album and playlist pages sit on frosted glass made from their picture and take its colour; Home, Library, Search and Settings sit on frost from what's playing.") { prefs.setFrostedPages(it) }
+                    Toggle("Frosted pages", "Pages frosted with their picture", s.frostedPages, info = "Artist, album and playlist pages sit on frosted glass made from their picture; Home, Library, Search and Settings sit on frost from what's playing. Whether pages take their picture's colour is under Colour.") { prefs.setFrostedPages(it) }
                 }
             }
             Box {
@@ -720,8 +728,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                     Toggle("Reduce motion", "Calmer, quicker animations", s.reduceMotion, info = "No drifting backgrounds, no artwork bounce, quicker transitions.") { prefs.setReduceMotion(it) }
                 }
             }
-            ResetLook()
-        }
     }
 }
 
@@ -1551,41 +1557,6 @@ private fun LibraryReplaySettings() {
             val nav = LocalNavigator.current
             Item("Exclusions", "What's kept out of your music", info = "Artists not to play, and playlists or songs left out of your taste.", onClick = { nav.go(Routes.EXCLUSIONS) }) { Chevron() }
         }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AccentPicker(current: Int, onPick: (Int) -> Unit) {
-    var hue by remember {
-        val hsl = FloatArray(3); ColorUtils.colorToHSL(current, hsl); mutableFloatStateOf(hsl[0])
-    }
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccentSwatches.forEach { col ->
-                val neutral = isNeutralSeed(col.toArgb())
-                // The old white (light grey) counts as the white swatch.
-                val sel = col.toArgb() == current || (neutral && isNeutralSeed(current))
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape).background(col)
-                        .border(
-                            if (sel) 3.dp else if (neutral) 1.dp else 0.dp,
-                            if (sel) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outlineVariant, CircleShape,
-                        )
-                        .clickable { onPick(col.toArgb()) },
-                    contentAlignment = Alignment.Center,
-                ) { if (sel) Icon(PrismIcons.Check, null, tint = if (neutral) Color.Black else Color.White, modifier = Modifier.size(18.dp)) }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Box(
-            Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(50)).background(
-                Brush.horizontalGradient((0..6).map { Color(ColorUtils.HSLToColor(floatArrayOf(it * 60f, 0.75f, 0.6f))) })
-            )
-        )
-        PrismSlider(hue, { hue = it }, valueRange = 0f..359f, onValueChangeFinished = {
-            onPick(ColorUtils.HSLToColor(floatArrayOf(hue, 0.72f, 0.6f)))
-        })
     }
 }
 

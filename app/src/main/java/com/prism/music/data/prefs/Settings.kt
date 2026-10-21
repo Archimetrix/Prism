@@ -28,6 +28,17 @@ enum class ColorSource(val label: String) { ARTWORK("Now playing"), DYNAMIC("Wal
 enum class GlassKind(val label: String) { REGULAR("Regular"), CLEAR("Clear") }
 /** Appearance → Colour → Style: the split light through the app, or white light (neutral greys and ink, no accent). */
 enum class LightStyle(val label: String) { SPECTRUM("Spectrum"), WHITE("White light") }
+/** Appearance → Colour → Background (1.7.2): how much colour the page itself carries. */
+enum class SurfaceTint(val label: String) {
+    /** As Prism always did: a hint of the accent in Spectrum, neutral in White light. */
+    AUTO("Automatic"), NEUTRAL("Neutral"), ACCENT("Accent"), CUSTOM("Your colour")
+}
+/** Appearance → Colour → Contrast (1.7.2): how firm secondary text, lines and the accent are. */
+enum class ContrastLevel(val label: String, val minRatio: Float) { STANDARD("Standard", 4.5f), MEDIUM("Medium", 6f), HIGH("High", 7.5f) }
+/** Which of the cover's colours "Now playing" takes. */
+enum class ArtworkSwatch(val label: String) { VIBRANT("Vibrant"), MUTED("Muted"), DOMINANT("Main colour") }
+/** How the "Now playing" colour moves between songs. */
+enum class ArtworkChange(val label: String, val ms: Int) { INSTANT("At once", 0), FADE("Fade", 900), SLOW("Slow fade", 2400), ALBUM("New albums only", 900) }
 enum class AudioQuality(val label: String) { HIGH("High"), NORMAL("Normal"), LOW("Low") }
 /** How lyrics show on Android Auto's player. */
 enum class CarLyricsStyle(val label: String, val detail: String) {
@@ -277,6 +288,26 @@ data class AppSettings(
     val colorSource: ColorSource = ColorSource.CUSTOM,
     val accent: Int = 0xFF3A86FF.toInt(),
     val lightStyle: LightStyle = LightStyle.SPECTRUM,
+    /** The accent as picked (true), or tuned by Prism for dark and light pages (false, as before 1.7.2). */
+    val accentExact: Boolean = false,
+    /** A different accent on light pages; 0 = the same as [accent]. */
+    val accentLight: Int = 0,
+    /** The split light's colours: a [com.prism.music.ui.theme.SpectrumPresets] key, or "CUSTOM" for [spectrumStops]. */
+    val spectrumPreset: String = "PRISM",
+    val spectrumStops: List<Int> = emptyList(),
+    /** The split light in hard bands (as the logo's bars) instead of a blend. */
+    val spectrumBands: Boolean = false,
+    val surfaceTint: SurfaceTint = SurfaceTint.AUTO,
+    /** 0 none … 1 Prism's usual hint … 3 strong. */
+    val surfaceTintStrength: Float = 1f,
+    val surfaceColor: Int = 0xFF3A86FF.toInt(),
+    val contrast: ContrastLevel = ContrastLevel.STANDARD,
+    val artworkSwatch: ArtworkSwatch = ArtworkSwatch.VIBRANT,
+    /** Keep the cover's colour lively (a floor on its saturation). */
+    val artworkVivid: Boolean = false,
+    val artworkChange: ArtworkChange = ArtworkChange.FADE,
+    /** Artist, album and playlist pages (and menus) take their picture's colour. */
+    val pageColors: Boolean = true,
     val liquidGlass: Boolean = false,
     val glassKind: GlassKind = GlassKind.REGULAR,
     /** Blurred, non-refractive glass. Mutually exclusive with Liquid Glass. */
@@ -541,6 +572,27 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val liquidGlass = booleanPreferencesKey("liquid_glass")
         val glassKind = stringPreferencesKey("glass_kind")
         val lightStyle = stringPreferencesKey("light_style")
+        val accentExact = booleanPreferencesKey("accent_exact")
+        val accentLight = intPreferencesKey("accent_light")
+        val spectrumPreset = stringPreferencesKey("spectrum_preset")
+        val spectrumStops = stringPreferencesKey("spectrum_stops")
+        val spectrumBands = booleanPreferencesKey("spectrum_bands")
+        val surfaceTint = stringPreferencesKey("surface_tint")
+        val surfaceTintStrength = floatPreferencesKey("surface_tint_strength")
+        val surfaceColor = intPreferencesKey("surface_color")
+        val contrast = stringPreferencesKey("contrast_level")
+        val artworkSwatch = stringPreferencesKey("artwork_swatch")
+        val artworkVivid = booleanPreferencesKey("artwork_vivid")
+        val artworkChange = stringPreferencesKey("artwork_change")
+        val pageColors = booleanPreferencesKey("page_colors")
+
+        /** Everything Appearance → Colour's "Reset colours" puts back. */
+        val colors: List<Preferences.Key<*>> by lazy {
+            listOf(
+                colorSource, accent, lightStyle, accentExact, accentLight, spectrumPreset, spectrumStops, spectrumBands,
+                surfaceTint, surfaceTintStrength, surfaceColor, contrast, artworkSwatch, artworkVivid, artworkChange, pageColors,
+            )
+        }
         val frostedGlass = booleanPreferencesKey("frosted_glass")
         val haptics = booleanPreferencesKey("haptics")
         val fullBleedArtwork = booleanPreferencesKey("full_bleed_artwork")
@@ -706,6 +758,19 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             liquidGlass = p[K.liquidGlass] ?: d.liquidGlass,
             glassKind = p.enum(K.glassKind, d.glassKind),
             lightStyle = p.enum(K.lightStyle, d.lightStyle),
+            accentExact = p[K.accentExact] ?: d.accentExact,
+            accentLight = p[K.accentLight] ?: d.accentLight,
+            spectrumPreset = p[K.spectrumPreset] ?: d.spectrumPreset,
+            spectrumStops = p[K.spectrumStops]?.split(',')?.mapNotNull { it.trim().toLongOrNull(16)?.toInt() } ?: d.spectrumStops,
+            spectrumBands = p[K.spectrumBands] ?: d.spectrumBands,
+            surfaceTint = p.enum(K.surfaceTint, d.surfaceTint),
+            surfaceTintStrength = p[K.surfaceTintStrength] ?: d.surfaceTintStrength,
+            surfaceColor = p[K.surfaceColor] ?: d.surfaceColor,
+            contrast = p.enum(K.contrast, d.contrast),
+            artworkSwatch = p.enum(K.artworkSwatch, d.artworkSwatch),
+            artworkVivid = p[K.artworkVivid] ?: d.artworkVivid,
+            artworkChange = p.enum(K.artworkChange, d.artworkChange),
+            pageColors = p[K.pageColors] ?: d.pageColors,
             frostedGlass = p[K.frostedGlass] ?: d.frostedGlass,
             haptics = p[K.haptics] ?: d.haptics,
             fullBleedArtwork = p[K.fullBleedArtwork] ?: d.fullBleedArtwork,
@@ -941,6 +1006,26 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setHaptics(v: Boolean) = edit { it[K.haptics] = v }
     fun setGlassKind(v: GlassKind) = edit { it[K.glassKind] = v.name }
     fun setLightStyle(v: LightStyle) = edit { it[K.lightStyle] = v.name }
+    fun setAccentExact(v: Boolean) = edit { it[K.accentExact] = v }
+    fun setAccentLight(v: Int) = edit { it[K.accentLight] = v }
+    fun setSpectrumPreset(v: String) = edit { it[K.spectrumPreset] = v }
+    /** Your own split light: its colours (2–7, in order) and, with them, the Custom preset. */
+    fun setSpectrumStops(v: List<Int>) = edit {
+        it[K.spectrumStops] = v.take(7).joinToString(",") { c -> "%08X".format(c) }
+        it[K.spectrumPreset] = "CUSTOM"
+    }
+    fun setSpectrumBands(v: Boolean) = edit { it[K.spectrumBands] = v }
+    fun setSurfaceTint(v: SurfaceTint) = edit { it[K.surfaceTint] = v.name }
+    fun setSurfaceTintStrength(v: Float) = edit { it[K.surfaceTintStrength] = v }
+    fun setSurfaceColor(v: Int) = edit { it[K.surfaceColor] = v; it[K.surfaceTint] = SurfaceTint.CUSTOM.name }
+    fun setContrast(v: ContrastLevel) = edit { it[K.contrast] = v.name }
+    fun setArtworkSwatch(v: ArtworkSwatch) = edit { it[K.artworkSwatch] = v.name }
+    fun setArtworkVivid(v: Boolean) = edit { it[K.artworkVivid] = v }
+    fun setArtworkChange(v: ArtworkChange) = edit { it[K.artworkChange] = v.name }
+    fun setPageColors(v: Boolean) = edit { it[K.pageColors] = v }
+    /** Appearance → Colour → Reset colours: style, accent, split light, background, contrast and cover colour as Prism ships. */
+    @Suppress("UNCHECKED_CAST")
+    fun resetColors() = edit { p -> K.colors.forEach { p.remove(it as Preferences.Key<Any>) } }
     fun setFullBleedArtwork(v: Boolean) = edit { it[K.fullBleedArtwork] = v }
     fun setImmersivePlayer(v: Boolean) = edit { it[K.immersivePlayer] = v }
     fun setImmersiveArt(v: ImmersiveArt) = edit { it[K.immersiveArt] = v.name }

@@ -284,17 +284,27 @@ private fun miniHeight(style: MiniPlayerStyle): Dp = when (style) {
 }
 
 @Composable
-private fun rememberArtworkColor(song: Song?): Color? {
+private fun rememberArtworkColor(song: Song?, settings: com.prism.music.data.prefs.AppSettings): Color? {
     val context = LocalContext.current
     var color by remember { mutableStateOf<Color?>(null) }
-    LaunchedEffect(song?.thumbnail) {
+    val swatch = settings.artworkSwatch
+    val vivid = settings.artworkVivid
+    // "New albums only" (1.7.2): songs from the same album keep the colour; otherwise every cover is looked at.
+    val key = if (settings.artworkChange == com.prism.music.data.prefs.ArtworkChange.ALBUM) song?.album?.id ?: song?.album?.title ?: song?.thumbnail else song?.thumbnail
+    LaunchedEffect(key, swatch, vivid) {
         val url = song?.thumbnail ?: return@LaunchedEffect
         color = withContext(Dispatchers.IO) {
             runCatching {
                 val req = ImageRequest.Builder(context).data(hiRes(url, 160)).allowHardware(false).build()
                 val bmp = (context.imageLoader.execute(req) as? SuccessResult)?.image?.toBitmap() ?: return@runCatching null
                 val p = Palette.from(bmp).generate()
-                (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch ?: p.mutedSwatch)?.rgb?.let { Color(it) }
+                val picked = when (swatch) {
+                    com.prism.music.data.prefs.ArtworkSwatch.VIBRANT -> p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch ?: p.mutedSwatch
+                    com.prism.music.data.prefs.ArtworkSwatch.MUTED -> p.mutedSwatch ?: p.lightMutedSwatch ?: p.darkMutedSwatch ?: p.dominantSwatch
+                    com.prism.music.data.prefs.ArtworkSwatch.DOMINANT -> p.dominantSwatch ?: p.vibrantSwatch ?: p.mutedSwatch
+                }?.rgb ?: return@runCatching null
+                // "Keep it lively": a floor on saturation, so a grey-ish cover still gives a colour.
+                Color(if (vivid) com.prism.music.ui.theme.ColorMath.toHsl(picked).let { h -> com.prism.music.ui.theme.ColorMath.fromHsl(h[0], h[1].coerceAtLeast(0.55f), h[2].coerceIn(0.35f, 0.7f)) } else picked)
             }.getOrNull()
         } ?: color
     }
@@ -306,7 +316,7 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
     val c = LocalContainer.current
     val settings by c.settings.flow.collectAsState()
     val song by c.player.currentSong.collectAsState()
-    val artColor = rememberArtworkColor(song)
+    val artColor = rememberArtworkColor(song, settings)
     val context = LocalContext.current
 
     PrismTheme(settings, artColor) {

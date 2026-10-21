@@ -38,20 +38,26 @@ object PrismTokens {
     var whiteAccent by mutableStateOf<Accent?>(null)
     private fun solid(c: Color) = listOf(0f to c, 1f to c)
 
-    private val splitColors = listOf(
-        0.00f to Color(0xFFFF4D5E), 0.20f to Color(0xFFFF9F43), 0.38f to Color(0xFFFFD84D),
-        0.56f to Color(0xFF3DDC97), 0.76f to Color(0xFF36B8FF), 1.00f to Color(0xFF7C5CFF),
-    )
-    private val splitColorsDeep = listOf(
-        0.00f to Color(0xFFE23347), 0.20f to Color(0xFFE57A12), 0.38f to Color(0xFFC79A00),
-        0.56f to Color(0xFF15A86C), 0.76f to Color(0xFF1789D6), 1.00f to Color(0xFF6A44F0),
-    )
+    /**
+     * Appearance → Colour → "Your light" (1.7.2): the split light's own colours, Prism's by default. Set by [PrismTheme]
+     * from the settings ([SpectrumPresets.light]); snapshot state, so everything drawn with it follows.
+     */
+    var light by mutableStateOf(SpectrumPresets.PRISM_LIGHT)
+
+    /**
+     * Appearance → Colour → Contrast (1.7.2): secondary text, quiet icons and hairlines are this much firmer
+     * (0 standard, 1 medium, 2 high). Set by [PrismTheme].
+     */
+    var contrast by mutableStateOf(0)
+
+    private val splitColors get() = light.colors
+    private val splitColorsDeep get() = light.deep
     // White light: a quiet grey sheen. Mid greys where the line must read on either theme (borders, fills under white
     // icons); near-white on dark pages and near-black on light ones where it carries text or a progress line.
     private val whiteColors = listOf(0.00f to Color(0xFF9C9CA4), 0.50f to Color(0xFF7E7E86), 1.00f to Color(0xFF9C9CA4))
     private val whiteOnDark = listOf(0.00f to Color(0xFFFFFFFF), 1.00f to Color(0xFFC6C6CC))
     private val whiteOnLight = listOf(0.00f to Color(0xFF141418), 1.00f to Color(0xFF55555D))
-    private val ringSplit = listOf(Color(0xFFFF4D5E), Color(0xFFFF9F43), Color(0xFFFFD84D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF7C5CFF), Color(0xFFFF4D5E))
+    private val ringSplit get() = light.ring
     private val ringWhite = listOf(Color(0xFF8E8E96), Color(0xFF64646C), Color(0xFF8E8E96), Color(0xFFB2B2B8), Color(0xFF8E8E96))
 
     /** The split light, red to violet (or White light's grey sheen). */
@@ -69,9 +75,7 @@ object PrismTokens {
     fun spectrumRing(center: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Unspecified): Brush =
         Brush.sweepGradient(if (white) whiteAccent?.let { listOf(it.now, it.now) } ?: ringWhite else ringSplit, center)
     /** The spectrum's seven hues in order, one per Settings section (and a menu's quick actions). */
-    private val splitHues = listOf(
-        Color(0xFFFF5A6A), Color(0xFFFF9F43), Color(0xFFF2C53D), Color(0xFF3DDC97), Color(0xFF36B8FF), Color(0xFF5A8BFF), Color(0xFF8B6CFF),
-    )
+    private val splitHues get() = light.hues
     /** White light's single tile colour: a grey white icons still read on. */
     private val whiteHue = Color(0xFF74747C)
     val hues: List<Color> get() = if (white) List(splitHues.size) { whiteHue } else splitHues
@@ -117,12 +121,104 @@ fun Color.lit(): Color {
     return Color.hsl(0f, 0f, (0.16f + l * 0.30f).coerceIn(0.16f, 0.40f), alpha)
 }
 
-/** Secondary text: 60% ink. */
-val ColorScheme.ink2: Color get() = onBackground.copy(alpha = 0.60f)
-/** Tertiary text and quiet icons: 38% ink. */
-val ColorScheme.ink3: Color get() = onBackground.copy(alpha = 0.38f)
+/** Secondary text: 60% ink (firmer with more contrast). */
+val ColorScheme.ink2: Color get() = onBackground.copy(alpha = floatArrayOf(0.60f, 0.72f, 0.84f)[PrismTokens.contrast.coerceIn(0, 2)])
+/** Tertiary text and quiet icons: 38% ink (firmer with more contrast). */
+val ColorScheme.ink3: Color get() = onBackground.copy(alpha = floatArrayOf(0.38f, 0.52f, 0.68f)[PrismTokens.contrast.coerceIn(0, 2)])
 /** Hairlines. */
-val ColorScheme.hairline: Color get() = onBackground.copy(alpha = 0.09f)
+val ColorScheme.hairline: Color get() = onBackground.copy(alpha = floatArrayOf(0.09f, 0.14f, 0.22f)[PrismTokens.contrast.coerceIn(0, 2)])
+
+/**
+ * The split light's colours (1.7.2): Prism's own, a preset, or the listener's. [Light] holds every form the tokens use:
+ * the run for dark pages ([Light.colors]), a deeper one for light pages ([Light.deep]), the closed ring, and seven tile
+ * hues white icons sit on.
+ */
+object SpectrumPresets {
+    class Preset(val key: String, val label: String, val colors: List<Color>)
+
+    class Light(
+        val colors: List<Pair<Float, Color>>,
+        val deep: List<Pair<Float, Color>>,
+        val ring: List<Color>,
+        val hues: List<Color>,
+    )
+
+    private fun c(vararg v: Long) = v.map { Color(it) }
+
+    /** Prism's own split light, exactly as 1.7 drew it. */
+    val PRISM_LIGHT = Light(
+        colors = listOf(
+            0.00f to Color(0xFFFF4D5E), 0.20f to Color(0xFFFF9F43), 0.38f to Color(0xFFFFD84D),
+            0.56f to Color(0xFF3DDC97), 0.76f to Color(0xFF36B8FF), 1.00f to Color(0xFF7C5CFF),
+        ),
+        deep = listOf(
+            0.00f to Color(0xFFE23347), 0.20f to Color(0xFFE57A12), 0.38f to Color(0xFFC79A00),
+            0.56f to Color(0xFF15A86C), 0.76f to Color(0xFF1789D6), 1.00f to Color(0xFF6A44F0),
+        ),
+        ring = c(0xFFFF4D5E, 0xFFFF9F43, 0xFFFFD84D, 0xFF3DDC97, 0xFF36B8FF, 0xFF7C5CFF, 0xFFFF4D5E),
+        hues = c(0xFFFF5A6A, 0xFFFF9F43, 0xFFF2C53D, 0xFF3DDC97, 0xFF36B8FF, 0xFF5A8BFF, 0xFF8B6CFF),
+    )
+
+    val all = listOf(
+        Preset("PRISM", "Prism", PRISM_LIGHT.colors.map { it.second }),
+        Preset("SUNSET", "Sunset", c(0xFFD4418E, 0xFFFF5F6D, 0xFFFF9966, 0xFFFFC371)),
+        Preset("OCEAN", "Ocean", c(0xFF2B59FF, 0xFF2FA8FF, 0xFF2BD9E8, 0xFF7CF5C8)),
+        Preset("AURORA", "Aurora", c(0xFF3DDC97, 0xFF36E2D2, 0xFF5A8BFF, 0xFFB15CFF)),
+        Preset("FOREST", "Forest", c(0xFFB8E986, 0xFF5FD38D, 0xFF2BB673, 0xFF1D9A8A)),
+        Preset("EMBER", "Ember", c(0xFFFF3D3D, 0xFFFF6D00, 0xFFFFAB00, 0xFFFFD54F)),
+        Preset("CANDY", "Candy", c(0xFFFF7EB3, 0xFFFFB86B, 0xFF7CE0FF, 0xFFB79CFF)),
+        Preset("NEON", "Neon", c(0xFFFF2E93, 0xFFFFE600, 0xFF00FFA3, 0xFF00D1FF, 0xFFB026FF)),
+        Preset("ICE", "Ice", c(0xFFE0F7FF, 0xFF9BE3FF, 0xFF5AB8FF, 0xFF8C9EFF)),
+        Preset("GOLD", "Gold", c(0xFFFFE29F, 0xFFFFC75F, 0xFFE8A33D, 0xFFFFD98E)),
+        Preset("SILVER", "Silver", c(0xFFF5F5F7, 0xFFB8B8C0, 0xFF8E8E96, 0xFFD6D6DC)),
+        // Okabe & Ito's palette: hues that stay apart for every common kind of colour blindness.
+        Preset("CLEAR", "Colour-blind safe", c(0xFFF0E442, 0xFFE69F00, 0xFFD55E00, 0xFFCC79A7, 0xFF0072B2, 0xFF56B4E9, 0xFF009E73)),
+    )
+
+    fun preset(key: String): Preset? = all.firstOrNull { it.key == key }
+
+    /** The colours [key] (or, for "CUSTOM", [stops]) stands for; Prism's when there's nothing usable. */
+    fun colorsFor(key: String, stops: List<Int>): List<Color> =
+        if (key == "CUSTOM" && stops.size >= 2) stops.map { Color(it) } else preset(key)?.colors ?: all.first().colors
+
+    private val darkPage = Color(0xFF0E0E12)
+    private val lightPage = Color(0xFFFAFAFB)
+
+    /**
+     * Everything the tokens need from [key]/[stops]. Prism's own, unbanded, is exactly 1.7's. Others: each colour lifted
+     * just enough to read as a line on dark pages, deepened on light ones (the bright yellow rule), and seven tile hues
+     * sampled along the run, kept dark enough for a white icon.
+     */
+    fun light(key: String, stops: List<Int>, bands: Boolean): Light {
+        val prism = key == "PRISM" || (key == "CUSTOM" && stops.size < 2) || (key != "CUSTOM" && preset(key) == null)
+        if (prism && !bands) return PRISM_LIGHT
+        val colors = colorsFor(key, stops)
+        val onDark = if (prism) PRISM_LIGHT.colors.map { it.second } else colors.map { readableOn(it, darkPage, 3f) }
+        val onLight = if (prism) PRISM_LIGHT.deep.map { it.second } else colors.map { readableOn(it, lightPage, 3f) }
+        fun run(list: List<Color>): List<Pair<Float, Color>> =
+            if (bands) list.flatMapIndexed { i, col -> listOf(i / list.size.toFloat() to col, (i + 1) / list.size.toFloat() to col) }
+            else list.mapIndexed { i, col -> i / (list.size - 1).toFloat() to col }
+        val hues = if (prism) PRISM_LIGHT.hues else (0 until 7).map { i -> forWhiteIcon(sample(onDark, i / 6f)) }
+        return Light(run(onDark), run(onLight), onDark + onDark.first(), hues)
+    }
+
+    /** The colour [t] (0…1) along an evenly spaced run. */
+    fun sample(list: List<Color>, t: Float): Color {
+        if (list.size == 1) return list.first()
+        val x = t.coerceIn(0f, 1f) * (list.size - 1)
+        val i = x.toInt().coerceAtMost(list.size - 2)
+        return androidx.compose.ui.graphics.lerp(list[i], list[i + 1], x - i)
+    }
+
+    /** Darkened (hue kept) until a white icon on it reads. */
+    private fun forWhiteIcon(c: Color): Color {
+        if (contrastRatio(Color.White, c) >= 2.4f) return c
+        val (h, s, l) = c.toHsl()
+        var lo = 0f; var hi = l
+        repeat(20) { val mid = (lo + hi) / 2f; if (contrastRatio(Color.White, Color.hsl(h, s, mid)) >= 2.4f) lo = mid else hi = mid }
+        return Color.hsl(h, s, lo)
+    }
+}
 
 // ---------------------------------------------------------------- Contrast guard
 

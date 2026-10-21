@@ -243,6 +243,8 @@ class AppContainer(val app: Application) {
     }
 
     val artistPrefs = com.prism.music.data.ArtistPrefs(app)
+    /** The colour picker's recent and starred colours. */
+    val savedColors = com.prism.music.data.prefs.SavedColors(app)
     /** Where each podcast episode was left off. */
     val episodes = com.prism.music.data.EpisodeProgress(app)
     val library = LibraryRepository(this)

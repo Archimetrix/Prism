@@ -104,20 +104,78 @@ private fun neutralScheme(dark: Boolean, pureBlack: Boolean): ColorScheme {
  * Builds a full Material 3 scheme from a single seed colour (tonal approximation), with the colours text and icons sit
  * on checked for contrast ([readableOn]): a pale yellow or neon cover can't give an accent you can't read.
  */
-fun schemeFromSeed(seed: Color, dark: Boolean, pureBlack: Boolean): ColorScheme {
+fun schemeFromSeed(seed: Color, dark: Boolean, pureBlack: Boolean, exact: Boolean = false, minRatio: Float = 4.5f): ColorScheme {
     val c = tonalScheme(seed, dark, pureBlack)
-    val primary = readableOn(c.primary, c.background)
+    // Exact (1.7.2): the accent as picked, only moved as far as it must to read on the page; otherwise Prism's tone of it.
+    val asPicked = exact && !isNeutralSeed(seed.toArgb())
+    val primary = readableOn(if (asPicked) seed.copy(alpha = 1f) else c.primary, c.background, minRatio)
+    val onPrimary = if (asPicked) inkOn(primary) else readableOn(c.onPrimary, primary)
     return c.copy(
         primary = primary, surfaceTint = primary,
-        onPrimary = readableOn(c.onPrimary, primary),
-        onPrimaryContainer = readableOn(c.onPrimaryContainer, c.primaryContainer),
-        secondary = readableOn(c.secondary, c.background),
-        onSecondaryContainer = readableOn(c.onSecondaryContainer, c.secondaryContainer),
-        tertiary = readableOn(c.tertiary, c.background),
-        onTertiaryContainer = readableOn(c.onTertiaryContainer, c.tertiaryContainer),
-        onSurfaceVariant = readableOn(c.onSurfaceVariant, c.background),
+        onPrimary = onPrimary,
+        onPrimaryContainer = readableOn(c.onPrimaryContainer, c.primaryContainer, minRatio),
+        secondary = readableOn(c.secondary, c.background, minRatio),
+        onSecondaryContainer = readableOn(c.onSecondaryContainer, c.secondaryContainer, minRatio),
+        tertiary = readableOn(c.tertiary, c.background, minRatio),
+        onTertiaryContainer = readableOn(c.onTertiaryContainer, c.tertiaryContainer, minRatio),
+        onSurfaceVariant = readableOn(c.onSurfaceVariant, c.background, minRatio),
     )
 }
+
+/** White or near-black, whichever reads better on [c]. */
+private fun inkOn(c: Color): Color =
+    if (contrastRatio(Color.White, c) >= contrastRatio(Color(0xFF111114), c)) Color.White else Color(0xFF111114)
+
+/**
+ * [scheme] with its page colours (background, surfaces, outlines, ink) rebuilt around hue [h] at [k] times Prism's usual
+ * tint (0 = neutral grey, 1 = the hint Spectrum always had, 3 = strong), keeping its accent colours. Appearance →
+ * Colour → Background (1.7.2).
+ */
+fun withSurfaces(scheme: ColorScheme, h: Float, k: Float, dark: Boolean, pureBlack: Boolean, minRatio: Float = 4.5f): ColorScheme {
+    val n = 0.10f * k
+    val c = if (dark) {
+        val bg = if (pureBlack) Color.Black else hsl(h, n * 1.4f, 0.055f)
+        scheme.copy(
+            background = bg, surface = bg, surfaceDim = bg,
+            onBackground = hsl(h, n, 0.93f), onSurface = hsl(h, n, 0.93f),
+            surfaceVariant = hsl(h, n * 1.5f, 0.20f), onSurfaceVariant = hsl(h, n * 1.2f, 0.74f),
+            inverseSurface = hsl(h, n, 0.92f), inverseOnSurface = hsl(h, n, 0.12f),
+            outline = hsl(h, n, 0.45f), outlineVariant = hsl(h, n, 0.26f),
+            surfaceBright = hsl(h, n * 1.4f, if (pureBlack) 0.16f else 0.20f),
+            surfaceContainerLowest = if (pureBlack) Color.Black else hsl(h, n * 1.4f, 0.04f),
+            surfaceContainerLow = hsl(h, n * 1.4f, if (pureBlack) 0.05f else 0.085f),
+            surfaceContainer = hsl(h, n * 1.4f, if (pureBlack) 0.07f else 0.105f),
+            surfaceContainerHigh = hsl(h, n * 1.4f, if (pureBlack) 0.10f else 0.135f),
+            surfaceContainerHighest = hsl(h, n * 1.4f, if (pureBlack) 0.13f else 0.165f),
+        )
+    } else {
+        val bg = hsl(h, 0.30f * k, 0.985f)
+        scheme.copy(
+            background = bg, surface = bg, surfaceBright = bg,
+            onBackground = hsl(h, n, 0.10f), onSurface = hsl(h, n, 0.10f),
+            surfaceVariant = hsl(h, 0.18f * k, 0.91f), onSurfaceVariant = hsl(h, n, 0.34f),
+            inverseSurface = hsl(h, n, 0.18f), inverseOnSurface = hsl(h, n, 0.95f),
+            outline = hsl(h, n, 0.52f), outlineVariant = hsl(h, n, 0.82f),
+            surfaceDim = hsl(h, 0.15f * k, 0.88f),
+            surfaceContainerLowest = Color.White, surfaceContainerLow = hsl(h, 0.30f * k, 0.965f),
+            surfaceContainer = hsl(h, 0.28f * k, 0.95f), surfaceContainerHigh = hsl(h, 0.25f * k, 0.93f),
+            surfaceContainerHighest = hsl(h, 0.22f * k, 0.905f),
+        )
+    }
+    return c.copy(
+        primary = readableOn(c.primary, c.background, minRatio),
+        onSurfaceVariant = readableOn(c.onSurfaceVariant, c.background, minRatio),
+    )
+}
+
+/** Appearance → Colour → Contrast above Standard: accent and secondary text firmed up against the page. */
+private fun firmed(s: ColorScheme, minRatio: Float): ColorScheme = s.copy(
+    primary = readableOn(s.primary, s.background, minRatio),
+    secondary = readableOn(s.secondary, s.background, minRatio),
+    tertiary = readableOn(s.tertiary, s.background, minRatio),
+    onSurfaceVariant = readableOn(s.onSurfaceVariant, s.background, minRatio),
+    outline = readableOn(s.outline, s.background, 3f),
+)
 
 private fun tonalScheme(seed: Color, dark: Boolean, pureBlack: Boolean): ColorScheme {
     if (isNeutralSeed(seed.toArgb())) return neutralScheme(dark, pureBlack)
@@ -256,28 +314,51 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     // it, so the first frame is already right.
     val white = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     if (PrismTokens.white != white) PrismTokens.white = white
+    // Your light (1.7.2): the split light's own colours, worked out once per change.
+    val light = remember(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands) {
+        SpectrumPresets.light(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands)
+    }
+    if (PrismTokens.light !== light) PrismTokens.light = light
+    val contrastStep = settings.contrast.ordinal
+    if (PrismTokens.contrast != contrastStep) PrismTokens.contrast = contrastStep
+    val minRatio = settings.contrast.minRatio
+    val custom = settings.colorSource == ColorSource.CUSTOM
+    // A different accent on light pages (1.7.2), when one's picked.
+    fun accentFor(d: Boolean) = Color(if (!d && custom && settings.accentLight != 0) settings.accentLight else settings.accent)
     val seedTarget = when (settings.colorSource) {
         ColorSource.ARTWORK -> artworkColor ?: Color(settings.accent)
-        else -> Color(settings.accent)
+        else -> accentFor(dark)
     }
-    val seed by animateColorAsState(seedTarget, tween(900), label = "seed")
+    val seed by animateColorAsState(seedTarget, tween(if (settings.colorSource == ColorSource.ARTWORK) settings.artworkChange.ms else 900), label = "seed")
     val dynamic = settings.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31
+    val exact = custom && settings.accentExact
     fun accentScheme(d: Boolean): ColorScheme =
         if (dynamic) (if (d) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context))
-        else schemeFromSeed(seed, d, settings.pureBlack)
-    val accented = remember(seed, dark, settings.pureBlack, dynamic) {
+        else schemeFromSeed(if (d == dark || !custom) seed else accentFor(d), d, settings.pureBlack, exact, minRatio)
+    val accented = remember(seed, dark, settings.pureBlack, dynamic, exact, minRatio, settings.accentLight) {
         accentScheme(dark).let { s -> if (dark && settings.pureBlack && dynamic) s.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else s }
     }
     val accentful = dynamic || !isNeutralSeed(seed.toArgb())
-    val scheme = if (!white) accented else remember(accented, dark, settings.pureBlack, accentful) {
-        val neutral = schemeFromSeed(Color.White, dark, settings.pureBlack)
+    val built = if (!white) accented else remember(accented, dark, settings.pureBlack, accentful, minRatio) {
+        val neutral = schemeFromSeed(Color.White, dark, settings.pureBlack, minRatio = minRatio)
         if (!accentful) neutral
         else neutral.copy(
             primary = accented.primary, onPrimary = accented.onPrimary, primaryContainer = accented.primaryContainer,
             onPrimaryContainer = accented.onPrimaryContainer, inversePrimary = accented.inversePrimary, surfaceTint = accented.primary,
         )
     }
-    val whiteAccent = if (!white || !accentful) null else remember(seed, dynamic, scheme.primary) {
+    // Appearance → Colour → Background (1.7.2): Automatic keeps what each style always had.
+    val tint = settings.surfaceTint
+    val scheme = remember(built, tint, settings.surfaceTintStrength, settings.surfaceColor, dark, settings.pureBlack, minRatio, seed) {
+        val s = when (tint) {
+            com.prism.music.data.prefs.SurfaceTint.AUTO -> built
+            com.prism.music.data.prefs.SurfaceTint.NEUTRAL -> withSurfaces(built, 0f, 0f, dark, settings.pureBlack, minRatio)
+            com.prism.music.data.prefs.SurfaceTint.ACCENT -> withSurfaces(built, seed.toHsl().first, settings.surfaceTintStrength, dark, settings.pureBlack, minRatio)
+            com.prism.music.data.prefs.SurfaceTint.CUSTOM -> withSurfaces(built, Color(settings.surfaceColor).toHsl().first, settings.surfaceTintStrength, dark, settings.pureBlack, minRatio)
+        }
+        if (minRatio > 4.5f) firmed(s, minRatio) else s
+    }
+    val whiteAccent = if (!white || !accentful) null else remember(seed, dynamic, scheme.primary, exact, minRatio, settings.accentLight) {
         PrismTokens.Accent(onDark = accentScheme(true).primary, onLight = accentScheme(false).primary, now = scheme.primary)
     }
     if (PrismTokens.whiteAccent?.now != whiteAccent?.now || (PrismTokens.whiteAccent == null) != (whiteAccent == null)) PrismTokens.whiteAccent = whiteAccent
