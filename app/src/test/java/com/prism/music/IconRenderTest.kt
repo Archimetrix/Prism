@@ -197,6 +197,8 @@ class IconRenderTest {
         val shapes = mapOf(
             "app-icon-circle-1600.png" to android.graphics.Path().apply { addCircle(px / 2f, px / 2f, px / 2f, android.graphics.Path.Direction.CW) },
             "app-icon-square-1600.png" to android.graphics.Path().apply { addRoundRect(0f, 0f, px.toFloat(), px.toFloat(), px * 0.225f, px * 0.225f, android.graphics.Path.Direction.CW) },
+            // Full bleed, for places that round it themselves (Discord's application icon, store listings).
+            "app-icon-full-1600.png" to android.graphics.Path().apply { addRect(0f, 0f, px.toFloat(), px.toFloat(), android.graphics.Path.Direction.CW) },
         )
         val dir = File("build/icon-previews").apply { mkdirs() }
         for ((name, clip) in shapes) {

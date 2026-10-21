@@ -259,7 +259,7 @@ class DiscordPresence(context: Context, http: OkHttpClient, private val scope: C
          * Prism's Discord application (Discord Developer Portal → New Application "Prism" → Application ID). It names
          * the activity and lets Discord show song covers; blank sends the status without a picture.
          */
-        const val APP_ID = ""
+        const val APP_ID = "1562457091980132382"
     }
 
     /** Back off (5 s, 10 s … up to 5 min) and connect again, while presence is on. */
