@@ -260,7 +260,7 @@ private fun SettingsPage(
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
                     Group("Home") {
                         Item("Customize Home", "Sections, shortcuts and greeting", onClick = { nav.go(Routes.CATALOGUE) }) { Chevron() }
-                        Toggle("Add new sections automatically", "New Prism Music shelves appear on Home", s.autoAddSections) { c.settings.setAutoAddSections(it) }
+                        Toggle("Add new sections automatically", "New YouTube Music shelves appear on Home", s.autoAddSections) { c.settings.setAutoAddSections(it) }
                         Toggle(
                             "Continue line", "\"Continue …\" under the greeting", s.homeContinue,
                             info = "The album you were last playing (or your Rewind, in December), under Home's greeting. Tap it to open.",
@@ -667,14 +667,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                         if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) "Neutral, with your accent colour; pick white for greys only"
                         else "The split light runs through Prism"
                     )
-                    Label("Accent")
-                    Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
-                    if (s.colorSource != ColorSource.DYNAMIC) {
-                        Note(
-                            if (s.colorSource == ColorSource.ARTWORK) "Follows the cover of what's playing"
-                            else "Pick an accent colour"
-                        )
-                        AccentPicker(s.accent) { prefs.setAccent(it) }
+                    // The accent only colours White light (Spectrum's colour is the split light), and the swatches only
+                    // matter when it's your own colour: Now playing and Wallpaper pick it themselves.
+                    if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) {
+                        Label("Accent")
+                        Chips(ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }, s.colorSource, { it.label }) { prefs.setColorSource(it) }
+                        when (s.colorSource) {
+                            ColorSource.ARTWORK -> Note("Follows the cover of what's playing")
+                            ColorSource.DYNAMIC -> Note("Follows your wallpaper")
+                            else -> {
+                                Note("Pick an accent colour")
+                                AccentPicker(s.accent) { prefs.setAccent(it) }
+                            }
+                        }
                     }
                 }
             }
@@ -945,7 +950,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation()
                 val prefs = LocalContainer.current.settings
                 Group("Mini player") {
                     Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
-                    Toggle("Next button", "Swiping changes songs either way", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
+                    Toggle("Previous button", "Swiping right goes back too", s.miniPrevButton) { prefs.setMiniPrevButton(it) }
+                    Toggle("Next button", "Swiping left skips too", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
                     Label("Progress")
                     Chips(MiniProgress.entries, s.miniProgress, { it.label }) { prefs.setMiniProgress(it) }
                 }
@@ -1304,9 +1310,9 @@ private fun JapaneseReadingData() {
         com.prism.music.data.ModelStore.State.Ready -> "On this phone, ${formatMb(c.models.sizeOnPhone(m))} · tap to remove"
         is com.prism.music.data.ModelStore.State.Downloading -> "Downloading… ${(state.fraction * 100).toInt()}%"
         is com.prism.music.data.ModelStore.State.Failed -> "Couldn't download it · tap to try again"
-        else -> "Better romaji for kanji · ${com.prism.music.data.ModelStore.Model.sizeText(m)}"
+        else -> "Only for Japanese songs · ${com.prism.music.data.ModelStore.Model.sizeText(m)}"
     }
-    Item("Japanese reading data", subtitle, info = "Readings for kanji, for proper romaji (\"kimi no na wa\"), downloaded once. Without it, Google spells kanji out.", onClick = {
+    Item("Japanese kanji readings", subtitle, info = "Only Japanese needs this: its kanji have several readings, so a dictionary picks the right one for romaji (\"kimi no na wa\"). Downloaded once. Other languages (Korean, Chinese, Russian, Hindi…) romanize without a download. Without it, Google spells kanji out.", onClick = {
         when (state) {
             com.prism.music.data.ModelStore.State.Ready -> c.models.delete(m)
             is com.prism.music.data.ModelStore.State.Downloading -> {}
@@ -1371,6 +1377,7 @@ private fun LyricsSettings() {
             Chips(LyricsAlign.entries, s.lyricsAlign, { it.label }) { prefs.setLyricsAlign(it) }
             SliderSetting("Text size", s.lyricsScale, 0.75f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsScale(it) }
             Toggle("Focus blur", "Lines away from the sung one soften", s.lyricsBlur) { prefs.setLyricsBlur(it) }
+            Toggle("Progress line", "Split light under the line being sung", s.lyricsProgressLine) { prefs.setLyricsProgressLine(it) }
         }
         Group("Language") {
             Toggle(

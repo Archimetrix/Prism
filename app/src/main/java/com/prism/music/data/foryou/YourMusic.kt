@@ -169,6 +169,71 @@ class YourMusic(private val c: AppContainer) {
         return out
     }
 
+    /**
+     * Quick picks made around the artists the listener plays: favourites by their top artists they haven't played for
+     * a few days, new songs from radios of their top three artists ([radioOf], none they've played), and [youtube]'s own
+     * picks when they're by artists the listener plays; taken in turn (two favourites, two new, one of YouTube's), no
+     * artist twice running and three at most. With too little history to go on, [youtube] as it is.
+     */
+    suspend fun quickPicks(youtube: List<Song>, radioOf: suspend (Song) -> List<Song>, count: Int = 20): List<Song> {
+        val s = snapshot()
+        val now = System.currentTimeMillis()
+        val recent = s.events.filter { now - it.timestamp < 90 * DAY }
+        if (recent.size < MIN_PICK_HISTORY) return youtube
+        // How much the listener plays each main artist: newer plays count more (halving every 30 days), likes add.
+        val aff = HashMap<String, Double>()
+        for (e in recent) {
+            val a = s.songs[e.songId]?.primaryArtist?.lowercase().orEmpty()
+            if (a.isNotBlank()) aff[a] = (aff[a] ?: 0.0) + Math.pow(0.5, (now - e.timestamp) / (30.0 * DAY))
+        }
+        s.liked.forEach { val a = it.primaryArtist.lowercase(); if (a.isNotBlank()) aff[a] = (aff[a] ?: 0.0) + 0.5 }
+        val top = aff.values.maxOrNull()?.takeIf { it > 0 } ?: return youtube
+        fun affinity(song: Song) = song.artists.maxOfOrNull { (aff[it.name.lowercase()] ?: 0.0) / top } ?: 0.0
+        val heardToday = s.events.filter { now - it.timestamp < DAY }.map { it.songId }.toSet()
+        val heardSongs = heardToday.mapNotNull { s.songs[it] }.map { LocalRadio.sameSong(it) }.toSet()
+        fun fresh(song: Song) = ok(song) && !song.isVideo && song.id !in heardToday && LocalRadio.sameSong(song) !in heardSongs
+        val day = LocalDate.now().toString()
+        fun j(id: String) = 0.85 + 0.3 * (((id + day).hashCode().toLong() and 0xffff) / 65535.0)
+
+        val last = s.events.groupBy { it.songId }.mapValues { (_, e) -> e.maxOf { it.timestamp } }
+        val favourites = s.songs.values
+            .filter { fresh(it) && (last[it.id] ?: 0) < now - 3 * DAY && affinity(it) > 0.15 && (it.durationSec == 0 || it.durationSec >= 60) }
+            .sortedByDescending { s.model.score(it) * j(it.id) }.distinctBy { LocalRadio.sameSong(it) }.take(count)
+        val topArtists = aff.entries.sortedByDescending { it.value }.take(3).map { it.key }
+        val seeds = topArtists.mapNotNull { a -> s.songs.values.filter { it.primaryArtist.equals(a, true) && !it.isVideo && !it.isLocal }.maxByOrNull { s.model.score(it) } }
+        val played = s.events.map { it.songId }.toSet()
+        val playedSongs = played.mapNotNull { s.songs[it] }.map { LocalRadio.sameSong(it) }.toSet()
+        val discovered = seeds.flatMap { seed -> runCatching { radioOf(seed) }.getOrDefault(emptyList()).filter { it.id != seed.id } }
+            .filter { fresh(it) && it.id !in played && LocalRadio.sameSong(it) !in playedSongs }
+            .distinctBy { LocalRadio.sameSong(it) }
+            .sortedByDescending { (0.6 + affinity(it)) * j(it.id) }
+        val fromYouTube = youtube.filter { fresh(it) && affinity(it) > 0.05 }
+
+        val pools = listOf(favourites.toMutableList(), discovered.toMutableList(), fromYouTube.toMutableList())
+        val turns = listOf(0, 1, 0, 1, 2)
+        val out = ArrayList<Song>()
+        val perArtist = HashMap<String, Int>()
+        val taken = HashSet<String>()
+        fun fits(song: Song): Boolean {
+            val a = song.primaryArtist.lowercase()
+            return LocalRadio.sameSong(song) !in taken && (perArtist[a] ?: 0) < 3 && (out.isEmpty() || out.last().primaryArtist.lowercase() != a || a.isBlank())
+        }
+        var turn = 0
+        while (out.size < count) {
+            val order = listOf(turns[turn % turns.size]) + (0..2).filter { it != turns[turn % turns.size] }
+            val pool = order.map { pools[it] }.firstOrNull { p -> p.any { fits(it) } } ?: break
+            val song = pool.first { fits(it) }
+            pool.remove(song)
+            out += song
+            taken += LocalRadio.sameSong(song)
+            song.primaryArtist.lowercase().let { perArtist[it] = (perArtist[it] ?: 0) + 1 }
+            turn++
+        }
+        // Still short (a new listener's few artists): YouTube's own fill the rest.
+        youtube.filter { fresh(it) && LocalRadio.sameSong(it) !in taken }.take(count - out.size).forEach { out += it }
+        return out
+    }
+
     /** Songs ready offline, most likely first: Quick picks' stand-in with no connection. */
     suspend fun offlinePicks(count: Int = 20): List<Song> {
         val s = snapshot()
@@ -190,6 +255,8 @@ class YourMusic(private val c: AppContainer) {
         private const val DAY = 86_400_000L
         private const val YEAR = 365 * DAY
         private const val MIN_LIST = 4
+        /** Plays in 90 days before Quick picks are made around the listener's artists. */
+        private const val MIN_PICK_HISTORY = 15
         private const val MIN_MIX = 8
         private const val MIX_SIZE = 40
         private val COLOURS = listOf(0xFF2E7D6B, 0xFF6A4C93, 0xFFB5523B, 0xFF1F6FB2, 0xFF8C6D1F, 0xFF9C3D6B).map { it.toInt() }

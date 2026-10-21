@@ -39,7 +39,8 @@ object Tour {
             V1_7, PrismIcons.Home, "Home",
             "Your starting point, made from what you play.",
             listOf(
-                "Quick picks: songs to start with, swipe across for more",
+                "The Replay card at the top: your year so far (pick its look in Settings → Home screen)",
+                "Quick picks: songs around the artists you play, swipe across for more",
                 "Made for you: Daily Mixes, your time-of-day mix and Release Radar",
                 "The grid button at the top arranges Home's sections",
                 "\"Continue …\" picks up the album you were in",
@@ -107,6 +108,7 @@ object Tour {
                 "\"On this phone\" searches your own music files",
                 "The waveform button in the search box listens for a song",
                 "Add the Recognize widget or Quick Settings tile to do it from anywhere",
+                "Podcasts (the button at the top of Home) has its own search for shows and episodes",
             ),
             listOf(PrismIcons.Recognize),
         ),
@@ -116,8 +118,8 @@ object Tour {
             listOf(
                 "Liked songs, Downloads and the music files on your phone",
                 "Make playlists and save albums: without an account they're kept on this phone",
-                "A Prism Account (Settings, at the top) is your name and picture, all on this phone; it can keep a copy of your YouTube Music library",
-                "Blend makes a playlist of two tastes with a friend",
+                "A Prism Account (Settings, at the top) is your name and picture (a photo or one of Prism's), all on this phone; it can keep a copy of your YouTube Music library",
+                "Blend makes a playlist of two tastes with a friend: scan each other's code and both phones get it",
                 "Listen together plays in step with friends on the same Wi-Fi",
             ),
             listOf(PrismIcons.Blend, PrismIcons.Groups),

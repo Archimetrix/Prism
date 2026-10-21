@@ -28,7 +28,7 @@ class ModelStore(private val context: Context, private val http: OkHttpClient) {
         /** Kuromoji's IPADIC dictionary (Apache-2.0 / IPADIC licence): readings for Japanese lyrics' kanji. */
         JAPANESE(
             "ja-ipadic", "ja-ipadic-0.9.0.zip",
-            "286c372433219548c20fed47f813a84b334a68a7eb694787369789d8008f0b2a", 13_331_021, "Japanese reading data", 33_443_143,
+            "286c372433219548c20fed47f813a84b334a68a7eb694787369789d8008f0b2a", 13_331_021, "Japanese kanji readings", 33_443_143,
         ),
         /** Deezer's Spleeter, 2 stems, as sherpa-onnx exported it (fp16): Sing's vocal separation. */
         SING_MODEL(

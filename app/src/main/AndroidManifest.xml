@@ -118,8 +118,71 @@
             </intent-filter>
         </activity>
 
+        <!-- The playback service, once per app icon (Android Auto shows the media service's icon); only the one for the
+             chosen icon is enabled (PlaybackServices.target). -->
         <service
             android:name=".playback.PlaybackService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceSpectrum"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_spectrum"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceSolid"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_solid"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceLight"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_light"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceWave"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_wave"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceMidnight"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_midnight"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

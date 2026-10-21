@@ -22,7 +22,7 @@ class VoicePlayActivity : Activity() {
         val query = intent?.getStringExtra(SearchManager.QUERY)?.trim().orEmpty()
             .ifEmpty { listOfNotNull(intent?.getStringExtra(MediaStore.EXTRA_MEDIA_TITLE), intent?.getStringExtra(MediaStore.EXTRA_MEDIA_ARTIST)).joinToString(" ") }
         val app = applicationContext
-        val future = MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackService::class.java))).buildAsync()
+        val future = MediaController.Builder(app, SessionToken(app, ComponentName(app, PlaybackServices.target(app)))).buildAsync()
         future.addListener({
             val controller = runCatching { future.get() }.getOrNull() ?: return@addListener
             val item = MediaItem.Builder()

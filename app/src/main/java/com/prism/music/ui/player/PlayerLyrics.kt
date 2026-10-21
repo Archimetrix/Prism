@@ -511,7 +511,10 @@ fun SweptLine(
  */
 @Composable
 fun LyricProgress(startMs: Long, endMs: Long, clock: State<Long>, origin: Float, modifier: Modifier = Modifier) {
+    // Settings → Lyrics → Progress line: off keeps its room (lines don't move), it just isn't drawn.
+    val show = com.prism.music.ui.theme.LocalAppSettings.current.lyricsProgressLine
     androidx.compose.foundation.Canvas(modifier.height(2.dp)) {
+        if (!show) return@Canvas
         val f = ((clock.value - startMs).toFloat() / (endMs - startMs)).coerceIn(0f, 1f)
         if (f <= 0f) return@Canvas
         // At most 70% of the width, so it reads as a mark under the words rather than a rule across the page.
@@ -837,8 +840,8 @@ fun LyricsPanel(
                 val scope = rememberCoroutineScope()
                 Text(
                     when (ja) {
-                        is com.prism.music.data.ModelStore.State.Downloading -> "Downloading Japanese reading data… ${(ja.fraction * 100).toInt()}%"
-                        is com.prism.music.data.ModelStore.State.Failed -> "Couldn't download the Japanese reading data. Tap to try again"
+                        is com.prism.music.data.ModelStore.State.Downloading -> "Downloading Japanese kanji readings… ${(ja.fraction * 100).toInt()}%"
+                        is com.prism.music.data.ModelStore.State.Failed -> "Couldn't download the Japanese kanji readings. Tap to try again"
                         else -> "Better romaji for Japanese: tap to download the reading data (13 MB)"
                     },
                     style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f),

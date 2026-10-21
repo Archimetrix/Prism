@@ -282,10 +282,9 @@ fun BoxScope.BestPartChip(): Boolean {
     val at = rememberPosition(fast = false) + shift
     if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
     val haptics = rememberHaptics()
-    // A small glass tag in Prism's split light: a spectrum hairline round it, the flame and words lit in the spectrum.
+    // A small glass tag with a hairline of split light round it; the flame and the words in plain white.
     // Held, it opens "Your best part" to set the listener's own.
     val tag = CircleShape
-    val light = com.prism.music.ui.theme.PrismTokens.spectrum
     Row(
         Modifier.align(Alignment.Center).clip(tag).background(Color.White.copy(alpha = 0.08f))
             .border(1.dp, com.prism.music.ui.theme.PrismTokens.spectrumRing(), tag)
@@ -296,14 +295,8 @@ fun BoxScope.BestPartChip(): Boolean {
             .padding(horizontal = 10.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            if (now.mine) PrismIcons.FlameFilled else PrismIcons.Flame, null, tint = Color.White,
-            modifier = Modifier.size(12.dp)
-                .graphicsLayer(compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen)
-                .drawWithContent { drawContent(); drawRect(light, blendMode = androidx.compose.ui.graphics.BlendMode.SrcIn) },
-        )
+        Icon(if (now.mine) PrismIcons.FlameFilled else PrismIcons.Flame, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(5.dp))
-        // The words in plain white: the split light is the tag's outline and its flame.
         Text(if (now.mine) "Your best part" else "Best part", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.92f))
     }
     return true

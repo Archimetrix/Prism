@@ -304,6 +304,8 @@ data class AppSettings(
     /** "Playing from …" above the artwork in the player. */
     val showPlayingFrom: Boolean = true,
     val lyricsBlur: Boolean = true,
+    /** The thin line of split light under the line being sung (lyrics page and immersive). */
+    val lyricsProgressLine: Boolean = true,
     /** Each screen's background (screen name -> "STYLE" or "PHOTO|path"); missing means the default. */
     val backdrops: Map<String, String> = emptyMap(),
     /** How much the theme colour washes over custom backgrounds (0 = none). */
@@ -488,6 +490,8 @@ data class AppSettings(
     val startTab: NavTab = NavTab.HOME,
     val miniPlayerStyle: MiniPlayerStyle = MiniPlayerStyle.CARD,
     val miniSkipButtons: Boolean = true,
+    /** The mini player's previous button (off by default: swiping right goes back too). */
+    val miniPrevButton: Boolean = false,
     val miniProgress: MiniProgress = MiniProgress.LINE,
     // Player look
     val playerBackground: PlayerBackground = PlayerBackground.MESH,
@@ -553,6 +557,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val spatial = booleanPreferencesKey("soft_spatial")
         val spatialAmount = floatPreferencesKey("soft_spatial_amount")
         val lyricsBlur = booleanPreferencesKey("lyrics_blur")
+        val lyricsProgressLine = booleanPreferencesKey("lyrics_progress_line")
         val backdrops = stringPreferencesKey("backdrops")
         val backdropDim = floatPreferencesKey("backdrop_dim")
         val backdropMotion = booleanPreferencesKey("backdrop_motion")
@@ -651,6 +656,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val startTab = stringPreferencesKey("start_tab")
         val miniPlayerStyle = stringPreferencesKey("mini_player_style")
         val miniSkipButtons = booleanPreferencesKey("mini_skip_buttons")
+        val miniPrevButton = booleanPreferencesKey("mini_prev_button")
         val miniProgress = stringPreferencesKey("mini_progress")
         val playerBackground = stringPreferencesKey("player_background")
         val playerBackdropShow = floatPreferencesKey("player_backdrop_show")
@@ -671,7 +677,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val look: List<Preferences.Key<*>> by lazy {
             listOf(
                 fontChoice, textScale, corners, uiDensity, titleSize, cardSize, reduceMotion, navStyle, navLabels, navHideOnScroll,
-                navTabs, startTab, miniPlayerStyle, miniSkipButtons, miniProgress, playerBackground, playerBackdropShow, playerArtCorners, transportStyle,
+                navTabs, startTab, miniPlayerStyle, miniSkipButtons, miniPrevButton, miniProgress, playerBackground, playerBackdropShow, playerArtCorners, transportStyle,
                 coverSize, scrubberStyle, artShrinkOnPause, showOutputDevice, lyricsAlign, libraryView, playlistHeroCover, frostedPages, replayThemeColors,
                 immersiveArt, immersiveLyrics, playerShuffleRepeat, lightStyle,
             )
@@ -716,6 +722,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             spatial = p[K.spatial] ?: d.spatial,
             spatialAmount = p[K.spatialAmount] ?: d.spatialAmount,
             lyricsBlur = p[K.lyricsBlur] ?: d.lyricsBlur,
+            lyricsProgressLine = p[K.lyricsProgressLine] ?: d.lyricsProgressLine,
             backdrops = p[K.backdrops]?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: d.backdrops,
             backdropDim = p[K.backdropDim] ?: d.backdropDim,
             backdropMotion = p[K.backdropMotion] ?: d.backdropMotion,
@@ -833,6 +840,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             startTab = p.enum(K.startTab, d.startTab),
             miniPlayerStyle = p.enum(K.miniPlayerStyle, d.miniPlayerStyle),
             miniSkipButtons = p[K.miniSkipButtons] ?: d.miniSkipButtons,
+            miniPrevButton = p[K.miniPrevButton] ?: d.miniPrevButton,
             miniProgress = p.enum(K.miniProgress, d.miniProgress),
             playerBackground = p.enum(K.playerBackground, d.playerBackground),
             playerBackdropShow = p[K.playerBackdropShow] ?: d.playerBackdropShow,
@@ -947,6 +955,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setSpatial(v: Boolean) = edit { it[K.spatial] = v }
     fun setSpatialAmount(v: Float) = edit { it[K.spatialAmount] = v }
     fun setLyricsBlur(v: Boolean) = edit { it[K.lyricsBlur] = v }
+    fun setLyricsProgressLine(v: Boolean) = edit { it[K.lyricsProgressLine] = v }
     fun setBackdrops(v: Map<String, String>) = edit { it[K.backdrops] = json.encodeToString<Map<String, String>>(v) }
     fun setBackdropDim(v: Float) = edit { it[K.backdropDim] = v }
     fun setBackdropMotion(v: Boolean) = edit { it[K.backdropMotion] = v }
@@ -1047,6 +1056,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setStartTab(v: NavTab) = edit { it[K.startTab] = v.name }
     fun setMiniPlayerStyle(v: MiniPlayerStyle) = edit { it[K.miniPlayerStyle] = v.name }
     fun setMiniSkipButtons(v: Boolean) = edit { it[K.miniSkipButtons] = v }
+    fun setMiniPrevButton(v: Boolean) = edit { it[K.miniPrevButton] = v }
     fun setMiniProgress(v: MiniProgress) = edit { it[K.miniProgress] = v.name }
     fun setPlayerBackground(v: PlayerBackground) = edit { it[K.playerBackground] = v.name }
     fun setPlayerBackdropShow(v: Float) = edit { it[K.playerBackdropShow] = v }

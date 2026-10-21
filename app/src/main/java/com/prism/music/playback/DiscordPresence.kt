@@ -21,8 +21,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -95,10 +97,24 @@ class DiscordPresence(context: Context, http: OkHttpClient, private val scope: C
     private var lastKey: String? = null
     private var lastStart = 0L
 
+    /** Covers Discord has taken in (cover URL → "mp:external/…"), so a song's art is asked for once. */
+    private val art = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     private fun activity(song: Song, positionMs: Long, durationMs: Long): JsonObject = buildJsonObject {
         put("name", "Prism")
         // 2: "Listening to", as music apps show.
         put("type", 2)
+        // The cover: Discord only shows pictures for an application's activity, through its media proxy (an
+        // "external asset" made from the cover's URL). Without Prism's application id, no picture at all.
+        if (APP_ID.isNotBlank()) {
+            put("application_id", APP_ID)
+            val cover = song.thumbnail?.let { coverUrl(it) }
+            val asset = cover?.let { art[it] }
+            if (asset != null) putJsonObject("assets") {
+                put("large_image", asset)
+                put("large_text", (song.album?.title ?: song.title).take(128))
+            } else if (cover != null) fetchArt(song.id, cover)
+        }
         put("details", song.title.take(128))
         put("state", (if (song.isEpisode) song.primaryArtist else "by ${song.artists.joinToString(", ") { it.name }}").take(128).ifBlank { "Prism" })
         if (!song.isLive && durationMs > 0) {
@@ -106,6 +122,41 @@ class DiscordPresence(context: Context, http: OkHttpClient, private val scope: C
             putJsonObject("timestamps") {
                 put("start", start)
                 put("end", start + durationMs)
+            }
+        }
+    }
+
+    /** A big enough cover for Discord (YouTube's image hosts take a size in the URL). */
+    private fun coverUrl(url: String): String? {
+        if (!url.startsWith("https://")) return null // local files' covers live on the phone
+        return if ("googleusercontent.com" in url || "ggpht.com" in url) url.replace(Regex("=w\\d+-h\\d+.*$"), "=w512-h512-l90-rj") else url
+    }
+
+    /** Asks Discord to take in [cover] for Prism's application, then sends the presence again with it (same song). */
+    private fun fetchArt(songId: String, cover: String) {
+        val token = prefs.getString("token", null) ?: return
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val path = runCatching {
+                val body = buildJsonObject { put("urls", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(cover)) }) }.toString()
+                val req = Request.Builder().url("https://discord.com/api/v9/applications/$APP_ID/external-assets")
+                    .header("Authorization", token)
+                    .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
+                    .build()
+                http.newCall(req).execute().use { r ->
+                    if (!r.isSuccessful) { Log.w("PrismDiscord", "cover: HTTP ${r.code}"); return@use null }
+                    InnerTube.json.parseToJsonElement(r.body.string()).let { it as? kotlinx.serialization.json.JsonArray }
+                        ?.firstOrNull()?.jsonObject?.get("external_asset_path")?.jsonPrimitive?.contentOrNull
+                }
+            }.getOrNull() ?: return@launch
+            art[cover] = "mp:$path"
+            // Still the same song: send it again, now with its cover.
+            if (lastKey?.startsWith("$songId|") == true) {
+                val now = pending ?: return@launch
+                pending = buildJsonObject {
+                    now.forEach { (k, v) -> put(k, v) }
+                    putJsonObject("assets") { put("large_image", "mp:$path") }
+                }
+                if (ready) sendPresence()
             }
         }
     }
@@ -201,6 +252,14 @@ class DiscordPresence(context: Context, http: OkHttpClient, private val scope: C
             if (code == 4004) { signOut(); return }
             retry()
         }
+    }
+
+    companion object {
+        /**
+         * Prism's Discord application (Discord Developer Portal → New Application "Prism" → Application ID). It names
+         * the activity and lets Discord show song covers; blank sends the status without a picture.
+         */
+        const val APP_ID = ""
     }
 
     /** Back off (5 s, 10 s … up to 5 min) and connect again, while presence is on. */

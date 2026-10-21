@@ -100,7 +100,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
                 Eyebrow("Replay ${d.year}")
                 Spacer(Modifier.height(4.dp))
                 Text(d.total, style = big, color = scheme.onSurface, maxLines = 1)
-                Text(tops.ifBlank { "Your top songs, artists and genres" }, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Your top songs, artists and genres", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(PrismIcons.ChevronRight, null, Modifier.align(Alignment.TopEnd), tint = scheme.onSurfaceVariant)
         }
@@ -221,7 +221,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
                 Eyebrow("Replay ${d.year}")
                 Spacer(Modifier.height(4.dp))
                 Text(d.total, style = big, color = scheme.onSurface, maxLines = 1)
-                Text(tops.ifBlank { "Your top songs, artists and genres" }, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("Your top songs, artists and genres", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
         // The months as big bars along the card, red to violet (the months still to come as faint stubs), under the time.
@@ -250,7 +250,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
             Column(Modifier.align(Alignment.BottomStart)) {
                 Eyebrow("Replay ${d.year}", color = Color.White.copy(alpha = 0.85f))
                 Text(d.total, style = big, color = Color.White, maxLines = 1)
-                Text(tops.ifBlank { "Your top songs, artists and genres" }, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Your top songs, artists and genres", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(PrismIcons.ChevronRight, null, Modifier.align(Alignment.TopEnd), tint = Color.White)
         }
@@ -297,8 +297,15 @@ private suspend fun previewYear(c: com.prism.music.AppContainer): PreviewYear {
     val artist = plays.topArtists(start, now, 1).firstOrNull()
     return PreviewYear(
         plays.totalMs(start, now), months, song?.title, song?.artistName, artist?.artistName, song?.thumbnail,
-        cal.get(java.util.Calendar.DAY_OF_YEAR).toFloat() / cal.getActualMaximum(java.util.Calendar.DAY_OF_YEAR),
+        yearFraction(),
     )
+}
+
+/** How far through this year it is, to the minute (the Ring card's arc and percentage). */
+fun yearFraction(now: Long = System.currentTimeMillis()): Float {
+    val start = java.util.Calendar.getInstance().apply { timeInMillis = now; set(java.util.Calendar.DAY_OF_YEAR, 1); set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0) }
+    val end = (start.clone() as java.util.Calendar).apply { add(java.util.Calendar.YEAR, 1) }
+    return ((now - start.timeInMillis).toFloat() / (end.timeInMillis - start.timeInMillis)).coerceIn(0f, 1f)
 }
 
 /** The year's months as bars in hue order (this month brightest); [slim] for a small corner chart, else a full row of twelve. */

@@ -65,7 +65,7 @@ data class VideoLookup(val id: String?, val lookupFailed: Boolean = false)
 private data class SavedQueue(val songs: List<Song>, val index: Int, val positionMs: Long, val title: String)
 
 @OptIn(UnstableApi::class)
-class PlaybackService : MediaLibraryService(), Player.Listener {
+open class PlaybackService : MediaLibraryService(), Player.Listener {
     private val c by lazy { container }
     lateinit var player: ExoPlayer
         private set
@@ -108,6 +108,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
 
     override fun onCreate() {
         super.onCreate()
+        PlaybackServices.running = this::class.java
         AudioDiagnostics.init(this)
         // Media3's own audio warnings (spurious AudioTrack timestamps, position jumps…) go into the diagnostics too.
         androidx.media3.common.util.Log.setLogger(object : androidx.media3.common.util.Log.Logger {
@@ -408,6 +409,7 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     override fun onDestroy() {
+        if (PlaybackServices.running == this::class.java) PlaybackServices.running = null
         flushPlayTime()
         saveEpisodePosition()
         saveQueue()

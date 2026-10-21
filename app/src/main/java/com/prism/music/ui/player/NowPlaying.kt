@@ -658,8 +658,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         ) {
                             val scrolls = collapse.value < 0.01f && !covered
                             PlayerMarquee(
-                                // The title leads, the artist under it a size smaller (#41). Spectrum: large and light.
-                                song.title, MaterialTheme.typography.headlineMedium, Color.White, scrolls,
+                                // The title leads, the artist under it a size smaller (#41). Spectrum: large and light
+                                // (a tenth under headlineMedium, so longer titles fit before they scroll).
+                                song.title, MaterialTheme.typography.headlineMedium.let { it.copy(fontSize = it.fontSize * 0.9f, lineHeight = it.lineHeight * 0.9f) }, Color.White, scrolls,
                                 Modifier.clickable(enabled = song.album?.id != null) { song.album?.id?.let { onCollapse(); nav.go(Routes.album(it)) } },
                             )
                             // With more than one artist, the name asks which one to open (#42).

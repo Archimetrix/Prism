@@ -107,6 +107,9 @@ val homeShelfCache = MutableStateFlow<List<Shelf>>(emptyList())
 /** The last Quick picks YouTube served, the radio standing in when it served none, and Speed dial's own picks (per session). */
 private val lastQuickPicks = MutableStateFlow<Shelf?>(null)
 private val standInPicks = MutableStateFlow<List<Song>>(emptyList())
+/** Quick picks made around the listener's artists, kept for the session (and which pull to refresh made them). */
+private val curatedPicks = MutableStateFlow<List<Song>>(emptyList())
+private val curatedAt = MutableStateFlow(-1)
 private val speedDialMine = MutableStateFlow<List<BrowseItem>>(emptyList())
 /** The last lists and mixes made from your music, shown while the next are made. */
 private val lastYours = MutableStateFlow<com.prism.music.data.foryou.YourMusic.Sections?>(null)
@@ -168,10 +171,22 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
             .also { speedDialMine.value = it }
     }
     val dialItems = remember(dial, dialMine) { (dial?.items.orEmpty().filter { it !is MoodItem } + dialMine).distinctBy { it.id }.take(SPEED_DIAL_SIZE) }
+    // Quick picks made around the artists the listener plays (their favourites, new songs from radios of their top
+    // artists, YouTube's own that fit): worked out once a session, again on pull to refresh.
+    val youtubePicks = picks?.items?.filterIsInstance<SongItem>()?.map { it.song } ?: standIn
+    val onlineNow by c.network.online.collectAsState()
+    val curated by produceState(curatedPicks.value, youtubePicks.isNotEmpty() || recent.isNotEmpty(), refreshes, onlineNow) {
+        if (!onlineNow || (curatedPicks.value.isNotEmpty() && curatedAt.value == refreshes)) return@produceState
+        if (youtubePicks.isEmpty() && recent.isEmpty()) return@produceState
+        val made = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { c.yourMusic.quickPicks(youtubePicks, radioOf = { seed: Song -> c.ytm.next(seed.id, playlistId = "RDAMVM${seed.id}").songs }) }.getOrDefault(youtubePicks)
+        }
+        if (made.isNotEmpty()) { value = made; curatedPicks.value = made; curatedAt.value = refreshes }
+    }
     // Songs already on a Speed dial tile aren't repeated in Quick picks.
-    val pickSongs = remember(picks, standIn, dialItems) {
+    val pickSongs = remember(curated, youtubePicks, dialItems) {
         val onDial = if (dialItems.size >= 3) dialItems.map { it.id }.toSet() else emptySet()
-        (picks?.items?.filterIsInstance<SongItem>()?.map { it.song } ?: standIn).filter { it.id !in onDial }
+        curated.ifEmpty { youtubePicks }.filter { it.id !in onDial }
     }
 
     // Offline, Home is what's on the phone: no YouTube shelves, and lists keep to songs that play without a connection.
@@ -784,9 +799,10 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         }
         val coverUrl = top.first?.thumbnail?.takeIf { look == ReplayCardStyle.COVER }
         val art = if (coverUrl != null) coil3.compose.rememberAsyncImagePainter(coverUrl) else null
-        val yearDone = remember {
-            val cal = Calendar.getInstance()
-            cal.get(Calendar.DAY_OF_YEAR).toFloat() / cal.getActualMaximum(Calendar.DAY_OF_YEAR)
+        // How far through the year, to the minute; looked at again every hour while Home is open (the Ring's percent
+        // steps up a point every three and a half days, not only when the page is rebuilt).
+        val yearDone by produceState(com.prism.music.ui.screens.yearFraction()) {
+            while (true) { kotlinx.coroutines.delay(3_600_000); value = com.prism.music.ui.screens.yearFraction() }
         }
         ReplayCard(
             look,

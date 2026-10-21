@@ -155,9 +155,15 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                 }
             },
     ) {
-        // Fill: the played part of the song tints the whole card.
+        // Fill: the played part of the song tints the whole card, in the split light (red at the start, violet at the
+        // end; White light's accent or greys).
         if (settings.miniProgress == MiniProgress.FILL) Box(
-            Modifier.fillMaxHeight().fillMaxWidth(fraction).background(scheme.primary.copy(alpha = 0.16f)),
+            Modifier.matchParentSize().drawBehind {
+                if (fraction > 0f) drawRect(
+                    com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width),
+                    size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height), alpha = if (dark) 0.22f else 0.18f,
+                )
+            },
         )
         Row(
             // Holding it brings up the song's actions (like, add to playlist, share…) without opening the player.
@@ -180,6 +186,9 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
                     )
                 }
+            }
+            if (settings.miniPrevButton) {
+                IconButton(onClick = { haptics.click(); pc.previous() }, modifier = Modifier.size(40.dp)) { Icon(PrismIcons.Previous, "Previous") }
             }
             if (style == MiniPlayerStyle.PILL) {
                 Box(

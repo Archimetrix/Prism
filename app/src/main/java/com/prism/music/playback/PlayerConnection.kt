@@ -208,7 +208,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
 
     fun connect() {
         if (controllerFuture != null) return
-        val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+        val token = SessionToken(context, ComponentName(context, PlaybackServices.target(context)))
         controllerFuture = MediaController.Builder(context, token).buildAsync()
     }
 
@@ -234,7 +234,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
      * the app leaves the screen.
      */
     private fun ensureStarted() {
-        runCatching { context.startService(android.content.Intent(context, PlaybackService::class.java)) }
+        runCatching { context.startService(android.content.Intent(context, PlaybackServices.target(context))) }
     }
 
     private fun withPlayer(block: (ExoPlayer) -> Unit) {
