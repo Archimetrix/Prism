@@ -64,17 +64,20 @@ class MixEngine(
         val fromId: String,
         val toId: String,
         val toIndex: Int,
-        /** Where in the ending song the blend starts. */
-        val startMs: Long,
+        /** Where in the ending song the blend starts (later, and the blend shorter, when it's put off: [postponeMs]). */
+        var startMs: Long,
         /** Where in the next song it starts playing. */
         val inMs: Long,
-        val lengthMs: Long,
+        var lengthMs: Long,
         /** The next song's speed while they overlap (its tempo matched to the ending song's); 1 without beat matching. */
         val ratio: Float,
         val beats: Boolean,
         /** A beat of the ending song in the next song's time (ms), with beat matching. */
         val beatMs: Double = 0.0,
-    )
+    ) {
+        /** How many times the blend has been put off to get the tail in step. */
+        var postponed = 0
+    }
 
     private enum class Phase { IDLE, PREPARED, SYNCING, BLENDING, SETTLING }
 
@@ -131,6 +134,9 @@ class MixEngine(
     /** When the ending song went quiet mid-blend and the next was brought in early (0 when it hasn't). */
     private var rushedAt = 0L
     private var rushFrom = 0f
+    private var rushMs = RUSH_MS
+    /** Since when the ending song has been stopped to load mid-blend (0 when it's playing). */
+    private var tailStalledAt = 0L
 
     /** One step; returns how long to wait before the next. */
     private fun tick(): Long {
@@ -316,6 +322,23 @@ class MixEngine(
         if (handoverMs == 0L) {
             handoverMs = when {
                 d == null || !t.isPlaying || abs(d) > 250 -> {
+                    // Usually the tail stopped for a moment to load (a slow connection) and fell behind after it was put in
+                    // step. Rather than no crossfade at all, the blend is put off a little (it ends where it would have),
+                    // the tail shifted, and measured again.
+                    val by = postponeMs(p.lengthMs, p.postponed, if (p.beats) p.beatMs / p.ratio else 0.0)
+                    if (by > 0 && t.isPlaying) {
+                        d?.let { shifter?.shift(-it) }
+                        offset = null
+                        syncActionAt = now
+                        mainLead = Long.MIN_VALUE; tailLead = Long.MIN_VALUE; windowFrom = 0L
+                        t.volume = 0f
+                        main.volume = 1f
+                        p.startMs += by
+                        p.lengthMs -= by
+                        p.postponed++
+                        Log.i(TAG, "tail ${d ?: "?"} ms off at the blend: put off by $by ms (now ${p.lengthMs} ms long)")
+                        return 10
+                    }
                     Log.w(TAG, "tail out of step by ${d ?: "an unknown amount"} ms at the blend")
                     return abort("out of step")
                 }
@@ -340,6 +363,7 @@ class MixEngine(
         windowFrom = 0L
         catchUpUntil = 0L
         rushedAt = 0L
+        tailStalledAt = 0L
         phase = Phase.BLENDING
         Log.i(TAG, "blend ${p.fromId} -> ${p.toId} started (tail $d ms off)")
         return 20
@@ -360,10 +384,29 @@ class MixEngine(
         if (rushedAt == 0L && main.isPlaying && (shifter?.quietMs ?: 0L) >= QUIET_HANDOFF_MS && progress < 0.9f) {
             rushedAt = now
             rushFrom = progress
+            rushMs = RUSH_MS
             Log.i(TAG, "${p.fromId} went quiet ${(tailPosition(t) - p.startMs)} ms into the blend: bringing ${p.toId} in now")
         }
-        if (rushedAt != 0L) progress = maxOf(progress, (rushFrom + (now - rushedAt).toFloat() / RUSH_MS * (1 - rushFrom)).coerceAtMost(1f))
+        // The ending song stopped to load (its data didn't come in time) while the next one plays: the blend's clock
+        // would stand still with the next song held near silent, so the listener would hear nothing until the ending
+        // song came back. The ending song is let go instead, and the next one comes up.
+        if (t.playbackState == Player.STATE_BUFFERING && main.isPlaying) {
+            if (tailStalledAt == 0L) tailStalledAt = now
+        } else tailStalledAt = 0L
+        if (rushedAt == 0L && tailStalledAt != 0L && now - tailStalledAt >= TAIL_STALL_MS) {
+            rushedAt = now
+            rushFrom = progress
+            rushMs = STALL_RUSH_MS
+            Log.i(TAG, "${p.fromId} stalled loading ${(tailPosition(t) - p.startMs)} ms into the blend: bringing ${p.toId} in now")
+        }
+        if (rushedAt != 0L) progress = maxOf(progress, (rushFrom + (now - rushedAt).toFloat() / rushMs * (1 - rushFrom)).coerceAtMost(1f))
         val ended = t.playbackState == Player.STATE_ENDED
+        if (now - lastSyncLog >= 1000) {
+            lastSyncLog = now
+            Log.i(TAG, "blending %.2f: ending at %d ms (%s, quiet %d ms), next at %d ms (%s)".format(
+                progress, tailPosition(t), stateName(t), shifter?.quietMs ?: 0L, main.currentPosition, stateName(main),
+            ))
+        }
         main.volume = sin(progress * PI / 2).toFloat()
         t.volume = cos(progress * PI / 2).toFloat()
         if (p.beats && t.isPlaying) alignBeats(p, t, progress)
@@ -444,6 +487,14 @@ class MixEngine(
         noPlanFor = null
     }
 
+    private fun stateName(p: ExoPlayer): String = when {
+        p.isPlaying -> "playing"
+        p.playbackState == Player.STATE_BUFFERING -> "loading"
+        p.playbackState == Player.STATE_ENDED -> "ended"
+        !p.playWhenReady -> "paused"
+        else -> "idle"
+    }
+
     private fun abort(why: String): Long {
         if (phase != Phase.IDLE) Log.i(TAG, "blend stopped: $why")
         tail?.let { runCatching { it.release() } }
@@ -475,6 +526,25 @@ class MixEngine(
                 else -> AUTO_SHORT_MS
             }.coerceIn(AUTO_SHORT_MS, AUTO_MAX_MS)
         }
+
+        /**
+         * How far to put a blend off when the tail isn't in step as it comes up ([POSTPONE_MS], in whole beats of the
+         * ending song with beat matching, so the blend still starts on a beat), or 0 when it can't be: put off
+         * [MAX_POSTPONES] times already, or the blend would get shorter than [MIN_POSTPONED_MS].
+         */
+        fun postponeMs(lengthMs: Long, postponed: Int, beatMs: Double): Long {
+            if (postponed >= MAX_POSTPONES) return 0
+            val by = if (beatMs > 0) (kotlin.math.ceil(POSTPONE_MS / beatMs) * beatMs).toLong() else POSTPONE_MS
+            return if (lengthMs - by >= MIN_POSTPONED_MS) by else 0
+        }
+
+        private const val POSTPONE_MS = 2000L
+        private const val MAX_POSTPONES = 2
+        private const val MIN_POSTPONED_MS = 3000L
+        /** The ending song stopped to load this long mid-blend: it's let go ([STALL_RUSH_MS]). */
+        private const val TAIL_STALL_MS = 500L
+        /** How quickly the next song comes up when the ending song is let go. */
+        private const val STALL_RUSH_MS = 1500L
 
         /** Auto's longest crossfade, as Spotify's slider's. */
         const val AUTO_MAX_MS = 12_000L

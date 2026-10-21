@@ -2,6 +2,11 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## Unreleased
+
+### Fixed
+- **Crossfade could go silent, or not happen at all.** Prism plays a song's ending on a second player while the next song fades in, and on a slower connection that second player could stop to load. Just before a blend, that put it out of step, and the crossfade was dropped. Mid-blend, the fade stood still with both songs nearly silent until the ending came back, then rushed through. The ending is now loaded whole before it's needed. A blend that isn't in step is put off by two seconds and lined up again instead of dropped. If the ending still stops to load, the next song simply comes up. Each blend is now logged step by step in Playback diagnostics.
+
 ## 1.7.0
 
 ### New

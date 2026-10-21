@@ -381,7 +381,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                     liveDsf = c.liveDataSourceFactory(),
                 )
             )
-            .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(4_000, 15_000, 500, 500).build())
+            // The whole ending (a blend plus its lead-in is under 20 s) is loaded as soon as the tail is made, seconds before
+            // it plays along: with only part of it loaded, a slow connection made the tail stop to load mid-blend.
+            .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(60_000, 60_000, 1_500, 1_500).build())
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
                 false,
