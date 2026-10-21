@@ -95,7 +95,7 @@ object ColorMath {
     }
 
     /** How readable text in one colour is on another, by WCAG 2's thresholds for normal-size text. */
-    enum class Readability(val label: String) { AAA("AAA"), AA("AA"), LARGE("Large text only"), POOR("Hard to read") }
+    enum class Readability(val label: String) { AAA("Very easy to read"), AA("Easy to read"), LARGE("OK for big text"), POOR("Hard to read") }
 
     fun readability(fg: Int, bg: Int): Readability {
         val r = contrast(fg, bg)

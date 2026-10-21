@@ -297,14 +297,7 @@ private fun rememberArtworkColor(song: Song?, settings: com.prism.music.data.pre
             runCatching {
                 val req = ImageRequest.Builder(context).data(hiRes(url, 160)).allowHardware(false).build()
                 val bmp = (context.imageLoader.execute(req) as? SuccessResult)?.image?.toBitmap() ?: return@runCatching null
-                val p = Palette.from(bmp).generate()
-                val picked = when (swatch) {
-                    com.prism.music.data.prefs.ArtworkSwatch.VIBRANT -> p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch ?: p.mutedSwatch
-                    com.prism.music.data.prefs.ArtworkSwatch.MUTED -> p.mutedSwatch ?: p.lightMutedSwatch ?: p.darkMutedSwatch ?: p.dominantSwatch
-                    com.prism.music.data.prefs.ArtworkSwatch.DOMINANT -> p.dominantSwatch ?: p.vibrantSwatch ?: p.mutedSwatch
-                }?.rgb ?: return@runCatching null
-                // "Keep it lively": a floor on saturation, so a grey-ish cover still gives a colour.
-                Color(if (vivid) com.prism.music.ui.theme.ColorMath.toHsl(picked).let { h -> com.prism.music.ui.theme.ColorMath.fromHsl(h[0], h[1].coerceAtLeast(0.55f), h[2].coerceIn(0.35f, 0.7f)) } else picked)
+                com.prism.music.ui.theme.pickSwatch(Palette.from(bmp).generate(), swatch, vivid)?.let { Color(it) }
             }.getOrNull()
         } ?: color
     }

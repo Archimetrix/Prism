@@ -311,6 +311,15 @@ private fun ArtistContent(page: ArtistPage, bottomPadding: Dp) {
             "${page.name}'s colour", (ownColor ?: fromPhoto ?: MaterialTheme.colorScheme.primary).toArgb(),
             onDismiss = { pageColor = false },
             reset = if (ownColor != null) "Use the photo's colour" to { c.artistPrefs.setColor(page.id, null) } else null,
+            preview = { col ->
+                val settings = com.prism.music.ui.theme.LocalAppSettings.current
+                androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(true, false).forEach { d ->
+                        val tc = rememberColours(settings, d)
+                        ColourSample(tc, Modifier.weight(1f), pageAccent = com.prism.music.ui.theme.readableOn(Color(col), tc.scheme.background), height = 128.dp)
+                    }
+                }
+            },
         ) { c.artistPrefs.setColor(page.id, it) }
     }
     if (sharing) ShareSheet(

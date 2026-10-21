@@ -213,6 +213,8 @@ private fun SettingsPage(
         horizontalPadding = 16.dp,
         spacing = 22.dp,
         showBack = !isTab,
+        pinned = if (section == SettingsSection.COLOUR) ({ ColourPreviewBar(pinned = true) }) else null,
+        pinnedKey = if (section == SettingsSection.COLOUR) COLOUR_PREVIEW_KEY else null,
     ) {
         when (section) {
             null -> {
@@ -263,7 +265,7 @@ private fun SettingsPage(
                 }
             }
             SettingsSection.APPEARANCE -> appearance()
-            SettingsSection.COLOUR -> item(key = "colour") { ColourSettings() }
+            SettingsSection.COLOUR -> colourPage()
             SettingsSection.TEXT -> item(key = "text") { TypeSettings() }
             SettingsSection.ICONS -> item(key = "icons") {
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings() }

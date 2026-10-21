@@ -117,6 +117,8 @@ fun ColorPickerSheet(
     note: ((Int) -> String?)? = null,
     /** A way back to "no colour of your own" (an artist page's photo colour): its label and what it does. */
     reset: Pair<String, () -> Unit>? = null,
+    /** What the colour would look like where it's used, redrawn as the colour changes. */
+    preview: (@Composable (Int) -> Unit)? = null,
     onPick: (Int) -> Unit,
 ) {
     val c = LocalContainer.current
@@ -155,6 +157,11 @@ fun ColorPickerSheet(
                     Modifier.size(44.dp).clip(CircleShape).clickable { c.savedColors.setSaved(color, !starred) }.padding(10.dp),
                     tint = if (starred) scheme.onSurface else scheme.onSurfaceVariant,
                 )
+            }
+
+            if (preview != null) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Eyebrow("How it will look")
+                preview(color)
             }
 
             Segmented(listOf(0, 1), mode, { if (it == 0) "Wheel" else "Values" }, Modifier.fillMaxWidth()) { mode = it }

@@ -23,7 +23,13 @@ What changed in each release. Older releases are described on the [Releases page
   - With "Now playing" as the accent, you choose which of the cover's colours to use (vibrant, muted or main) and whether grey covers still give a colour ("Keep it lively").
   - You also choose how the colour moves between songs: at once, a fade, a slow fade, or only when the album changes.
 - **Page colours.** Whether artist, album and playlist pages take their picture's colour is now its own switch. An artist's page can also have a colour you pick (⋯ → Page colour).
-- **Appearance is tidier.** Appearance now holds the theme and four pages: Colour (with a live preview at the top), Text, Icons & shapes, and Glass & backgrounds. Colour has its own "Reset colours".
+- **Appearance is tidier.** Appearance now holds the theme and four pages: Colour, Text, Icons & shapes, and Glass & backgrounds.
+- **A Colour page you can see.**
+  - A preview of your Prism in dark and light mode stays pinned at the top while you scroll. It numbers the three parts colours apply to: ① the light, ② the accent and ③ the background.
+  - Every choice is a card that shows what it looks like before you pick it.
+  - The colour picker shows how Prism will look with the colour as you drag.
+  - Choices are explained in plain words ("Song's cover", "Softened" or "Exactly as picked", "Plain" background).
+  - "Reset colours" at the bottom puts everything back.
 
 ## 1.7.1
 

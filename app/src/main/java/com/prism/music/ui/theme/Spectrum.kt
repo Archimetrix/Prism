@@ -64,16 +64,26 @@ object PrismTokens {
     val spectrumColors get() = if (white) whiteAccent?.let { solid(it.now) } ?: whiteColors else splitColors
     /** The same, deeper, for text and thin lines on light backgrounds (the bright yellow doesn't read on white). */
     val spectrumColorsDeep get() = if (white) whiteAccent?.let { solid(it.onLight) } ?: whiteOnLight else splitColorsDeep
-    fun spectrumColors(dark: Boolean) = if (white) {
-        whiteAccent?.let { solid(if (dark) it.onDark else it.onLight) } ?: if (dark) whiteOnDark else whiteOnLight
-    } else if (dark) splitColors else splitColorsDeep
+    fun spectrumColors(dark: Boolean) = runOf(white, whiteAccent, light, dark)
+
+    /**
+     * The light as it's drawn on a [dark] or light page for any style, accent and light: what [spectrumColors] gives for
+     * the settings in use, and what Settings' examples give for settings not picked yet.
+     */
+    fun runOf(white: Boolean, accent: Accent?, light: SpectrumPresets.Light, dark: Boolean): List<Pair<Float, Color>> = if (white) {
+        accent?.let { solid(if (dark) it.onDark else it.onLight) } ?: if (dark) whiteOnDark else whiteOnLight
+    } else if (dark) light.colors else light.deep
+
+    /** The ring's colours (play ring, Liked songs) for any style, accent and light. */
+    fun ringOf(white: Boolean, accent: Accent?, light: SpectrumPresets.Light): List<Color> =
+        if (white) accent?.let { listOf(it.now, it.now) } ?: ringWhite else light.ring
     val spectrum: Brush get() = Brush.horizontalGradient(*spectrumColors.toTypedArray())
     /** The split light across a width (for text and lines), deeper on light backgrounds. */
     fun spectrum(dark: Boolean, startX: Float = 0f, endX: Float = Float.POSITIVE_INFINITY): Brush =
         Brush.horizontalGradient(*spectrumColors(dark).toTypedArray(), startX = startX, endX = endX)
     /** The split light round a circle (the play ring, Liked songs' cover, small dots), from red back to red. */
     fun spectrumRing(center: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Unspecified): Brush =
-        Brush.sweepGradient(if (white) whiteAccent?.let { listOf(it.now, it.now) } ?: ringWhite else ringSplit, center)
+        Brush.sweepGradient(ringOf(white, whiteAccent, light), center)
     /** The spectrum's seven hues in order, one per Settings section (and a menu's quick actions). */
     private val splitHues get() = light.hues
     /** White light's single tile colour: a grey white icons still read on. */
@@ -121,12 +131,19 @@ fun Color.lit(): Color {
     return Color.hsl(0f, 0f, (0.16f + l * 0.30f).coerceIn(0.16f, 0.40f), alpha)
 }
 
+/** How strong secondary ink, quiet ink and hairlines are at each contrast level (Standard, Medium, High). */
+object InkLevels {
+    val secondary = floatArrayOf(0.60f, 0.72f, 0.84f)
+    val quiet = floatArrayOf(0.38f, 0.52f, 0.68f)
+    val line = floatArrayOf(0.09f, 0.14f, 0.22f)
+}
+
 /** Secondary text: 60% ink (firmer with more contrast). */
-val ColorScheme.ink2: Color get() = onBackground.copy(alpha = floatArrayOf(0.60f, 0.72f, 0.84f)[PrismTokens.contrast.coerceIn(0, 2)])
+val ColorScheme.ink2: Color get() = onBackground.copy(alpha = InkLevels.secondary[PrismTokens.contrast.coerceIn(0, 2)])
 /** Tertiary text and quiet icons: 38% ink (firmer with more contrast). */
-val ColorScheme.ink3: Color get() = onBackground.copy(alpha = floatArrayOf(0.38f, 0.52f, 0.68f)[PrismTokens.contrast.coerceIn(0, 2)])
+val ColorScheme.ink3: Color get() = onBackground.copy(alpha = InkLevels.quiet[PrismTokens.contrast.coerceIn(0, 2)])
 /** Hairlines. */
-val ColorScheme.hairline: Color get() = onBackground.copy(alpha = floatArrayOf(0.09f, 0.14f, 0.22f)[PrismTokens.contrast.coerceIn(0, 2)])
+val ColorScheme.hairline: Color get() = onBackground.copy(alpha = InkLevels.line[PrismTokens.contrast.coerceIn(0, 2)])
 
 /**
  * The split light's colours (1.7.2): Prism's own, a preset, or the listener's. [Light] holds every form the tokens use:
@@ -189,7 +206,16 @@ object SpectrumPresets {
      * just enough to read as a line on dark pages, deepened on light ones (the bright yellow rule), and seven tile hues
      * sampled along the run, kept dark enough for a white icon.
      */
-    fun light(key: String, stops: List<Int>, bands: Boolean): Light {
+    fun light(key: String, stops: List<Int>, bands: Boolean): Light = synchronized(memo) {
+        memo.getOrPut(Triple(key, stops, bands)) { build(key, stops, bands) }
+    }
+
+    /** The same light for the same choice (the tokens compare by identity), for the presets and a few of your own. */
+    private val memo = object : LinkedHashMap<Triple<String, List<Int>, Boolean>, Light>(0, 0.75f, true) {
+        override fun removeEldestEntry(eldest: Map.Entry<Triple<String, List<Int>, Boolean>, Light>) = size > 48
+    }
+
+    private fun build(key: String, stops: List<Int>, bands: Boolean): Light {
         val prism = key == "PRISM" || (key == "CUSTOM" && stops.size < 2) || (key != "CUSTOM" && preset(key) == null)
         if (prism && !bands) return PRISM_LIGHT
         val colors = colorsFor(key, stops)

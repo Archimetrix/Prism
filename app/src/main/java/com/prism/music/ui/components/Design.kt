@@ -154,11 +154,27 @@ fun SubPage(
     spacing: Dp = 0.dp,
     showBack: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
+    /**
+     * Shown pinned under the bar once the list item keyed [pinnedKey] has scrolled up behind it (Appearance → Colour's
+     * preview: you always see what your choices do).
+     */
+    pinned: (@Composable () -> Unit)? = null,
+    pinnedKey: Any? = null,
     content: LazyListScope.() -> Unit,
 ) {
     val nav = LocalNavigator.current
     val scheme = MaterialTheme.colorScheme
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val showPinned by remember(state, pinnedKey) {
+        derivedStateOf {
+            if (pinned == null || pinnedKey == null) false
+            else {
+                // Item offsets start at the top padding, which is where the bar ends: below 0 is behind the bar.
+                val item = state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == pinnedKey }
+                if (item == null) state.firstVisibleItemIndex > 0 else item.offset + item.size * 0.6f < 0
+            }
+        }
+    }
     val scrolled by remember(state) { derivedStateOf { state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > 60 } }
     val bar by animateFloatAsState(if (scrolled) 1f else 0f, tween(220), label = "bar")
     // On a frosted page the content melts away under the bar into the page's own backdrop, as
@@ -182,6 +198,12 @@ fun SubPage(
             content()
         }
         if (melts) TopScrollEdge({ bar }, 60.dp)
+        if (pinned != null) androidx.compose.animation.AnimatedVisibility(
+            showPinned,
+            Modifier.padding(top = statusTop + 60.dp, start = horizontalPadding + gutter, end = horizontalPadding + gutter),
+            enter = androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.slideInVertically(tween(200)) { -it / 3 },
+            exit = androidx.compose.animation.fadeOut(tween(140)),
+        ) { pinned() }
         // On the ambient frost the content melts away under the bar; on a plain page the bar turns solid once scrolled.
         Box(
             Modifier.fillMaxWidth()

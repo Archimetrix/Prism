@@ -305,6 +305,92 @@ fun isAppDark(settings: AppSettings = LocalAppSettings.current): Boolean = when 
     ThemeMode.DARK -> true
 }
 
+/** The playing cover's colour as the theme has it (for Settings' examples of "Now playing"). */
+val LocalArtworkColor = staticCompositionLocalOf<Color?> { null }
+
+/**
+ * Every colour Prism draws with for one set of settings on one kind of page: the Material scheme, the accent that
+ * stands in for the light in White light, and the light itself. [PrismTheme] uses it for the app; Appearance → Colour
+ * uses it to show what a choice would look like before it's picked, so the two can't disagree.
+ */
+class ThemeColors(
+    val scheme: ColorScheme,
+    val whiteAccent: PrismTokens.Accent?,
+    val light: SpectrumPresets.Light,
+    val white: Boolean,
+    val dark: Boolean,
+    /** 0 standard, 1 medium, 2 high. */
+    val contrast: Int,
+) {
+    /** The light across a line, as drawn on this page. */
+    val run: List<Pair<Float, Color>> get() = PrismTokens.runOf(white, whiteAccent, light, dark)
+    /** The light round a ring. */
+    val ring: List<Color> get() = PrismTokens.ringOf(white, whiteAccent, light)
+    val ink2: Color get() = scheme.onBackground.copy(alpha = InkLevels.secondary[contrast])
+    val ink3: Color get() = scheme.onBackground.copy(alpha = InkLevels.quiet[contrast])
+    val line: Color get() = scheme.onBackground.copy(alpha = InkLevels.line[contrast])
+}
+
+/** The colour the accent grows from: the cover's, or the one picked (light mode's own, when there is one). */
+fun seedFor(s: AppSettings, dark: Boolean, artworkColor: Color?): Color = when (s.colorSource) {
+    ColorSource.ARTWORK -> artworkColor ?: Color(s.accent)
+    ColorSource.CUSTOM -> Color(if (!dark && s.accentLight != 0) s.accentLight else s.accent)
+    ColorSource.DYNAMIC -> Color(s.accent)
+}
+
+/** The wallpaper's schemes, when the accent follows it (Android 12+); null otherwise. */
+fun dynamicSchemes(s: AppSettings, context: android.content.Context): ((Boolean) -> ColorScheme)? =
+    if (s.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31) { d -> if (d) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) } else null
+
+/** See [ThemeColors]. [seed] is [seedFor] (animated, in the app); [dynamic] is [dynamicSchemes]. */
+fun themeColors(s: AppSettings, dark: Boolean, seed: Color, dynamic: ((Boolean) -> ColorScheme)?): ThemeColors {
+    val white = s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
+    val light = SpectrumPresets.light(s.spectrumPreset, s.spectrumStops, s.spectrumBands)
+    val minRatio = s.contrast.minRatio
+    val custom = s.colorSource == ColorSource.CUSTOM
+    val exact = custom && s.accentExact
+    fun accentScheme(d: Boolean): ColorScheme =
+        dynamic?.invoke(d) ?: schemeFromSeed(if (d == dark || !custom) seed else seedFor(s, d, null), d, s.pureBlack, exact, minRatio)
+    val accented = accentScheme(dark).let { sc ->
+        if (dark && s.pureBlack && dynamic != null) sc.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else sc
+    }
+    val accentful = dynamic != null || !isNeutralSeed(seed.toArgb())
+    // White light: neutral surfaces with the accent's own colours swapped in (greys only for a white accent).
+    val built = if (!white) accented else {
+        val neutral = schemeFromSeed(Color.White, dark, s.pureBlack, minRatio = minRatio)
+        if (!accentful) neutral
+        else neutral.copy(
+            primary = accented.primary, onPrimary = accented.onPrimary, primaryContainer = accented.primaryContainer,
+            onPrimaryContainer = accented.onPrimaryContainer, inversePrimary = accented.inversePrimary, surfaceTint = accented.primary,
+        )
+    }
+    // Appearance → Colour → Background (1.7.2): Automatic keeps what each style always had.
+    val tinted = when (s.surfaceTint) {
+        com.prism.music.data.prefs.SurfaceTint.AUTO -> built
+        com.prism.music.data.prefs.SurfaceTint.NEUTRAL -> withSurfaces(built, 0f, 0f, dark, s.pureBlack, minRatio)
+        com.prism.music.data.prefs.SurfaceTint.ACCENT -> withSurfaces(built, seed.toHsl().first, s.surfaceTintStrength, dark, s.pureBlack, minRatio)
+        com.prism.music.data.prefs.SurfaceTint.CUSTOM -> withSurfaces(built, Color(s.surfaceColor).toHsl().first, s.surfaceTintStrength, dark, s.pureBlack, minRatio)
+    }
+    val scheme = if (minRatio > 4.5f) firmed(tinted, minRatio) else tinted
+    val whiteAccent = if (!white || !accentful) null
+        else PrismTokens.Accent(onDark = accentScheme(true).primary, onLight = accentScheme(false).primary, now = scheme.primary)
+    return ThemeColors(scheme, whiteAccent, light, white, dark, s.contrast.ordinal.coerceIn(0, 2))
+}
+
+/**
+ * Which of a cover's colours the accent takes ([com.prism.music.data.prefs.ArtworkSwatch]), lifted when [vivid] so a
+ * grey cover still gives a colour. Null when the cover has none to give.
+ */
+fun pickSwatch(p: androidx.palette.graphics.Palette, swatch: com.prism.music.data.prefs.ArtworkSwatch, vivid: Boolean): Int? {
+    val picked = when (swatch) {
+        com.prism.music.data.prefs.ArtworkSwatch.VIBRANT -> p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.dominantSwatch ?: p.mutedSwatch
+        com.prism.music.data.prefs.ArtworkSwatch.MUTED -> p.mutedSwatch ?: p.lightMutedSwatch ?: p.darkMutedSwatch ?: p.dominantSwatch
+        com.prism.music.data.prefs.ArtworkSwatch.DOMINANT -> p.dominantSwatch ?: p.vibrantSwatch ?: p.mutedSwatch
+    }?.rgb ?: return null
+    val opaque = picked or (0xFF shl 24)
+    return if (!vivid) opaque else ColorMath.toHsl(opaque).let { h -> ColorMath.fromHsl(h[0], h[1].coerceAtLeast(0.55f), h[2].coerceIn(0.35f, 0.7f)) }
+}
+
 @Composable
 fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable () -> Unit) {
     val dark = isAppDark(settings)
@@ -321,46 +407,12 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     if (PrismTokens.light !== light) PrismTokens.light = light
     val contrastStep = settings.contrast.ordinal
     if (PrismTokens.contrast != contrastStep) PrismTokens.contrast = contrastStep
-    val minRatio = settings.contrast.minRatio
-    val custom = settings.colorSource == ColorSource.CUSTOM
-    // A different accent on light pages (1.7.2), when one's picked.
-    fun accentFor(d: Boolean) = Color(if (!d && custom && settings.accentLight != 0) settings.accentLight else settings.accent)
-    val seedTarget = when (settings.colorSource) {
-        ColorSource.ARTWORK -> artworkColor ?: Color(settings.accent)
-        else -> accentFor(dark)
-    }
+    val seedTarget = seedFor(settings, dark, artworkColor)
     val seed by animateColorAsState(seedTarget, tween(if (settings.colorSource == ColorSource.ARTWORK) settings.artworkChange.ms else 900), label = "seed")
-    val dynamic = settings.colorSource == ColorSource.DYNAMIC && Build.VERSION.SDK_INT >= 31
-    val exact = custom && settings.accentExact
-    fun accentScheme(d: Boolean): ColorScheme =
-        if (dynamic) (if (d) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context))
-        else schemeFromSeed(if (d == dark || !custom) seed else accentFor(d), d, settings.pureBlack, exact, minRatio)
-    val accented = remember(seed, dark, settings.pureBlack, dynamic, exact, minRatio, settings.accentLight) {
-        accentScheme(dark).let { s -> if (dark && settings.pureBlack && dynamic) s.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else s }
-    }
-    val accentful = dynamic || !isNeutralSeed(seed.toArgb())
-    val built = if (!white) accented else remember(accented, dark, settings.pureBlack, accentful, minRatio) {
-        val neutral = schemeFromSeed(Color.White, dark, settings.pureBlack, minRatio = minRatio)
-        if (!accentful) neutral
-        else neutral.copy(
-            primary = accented.primary, onPrimary = accented.onPrimary, primaryContainer = accented.primaryContainer,
-            onPrimaryContainer = accented.onPrimaryContainer, inversePrimary = accented.inversePrimary, surfaceTint = accented.primary,
-        )
-    }
-    // Appearance → Colour → Background (1.7.2): Automatic keeps what each style always had.
-    val tint = settings.surfaceTint
-    val scheme = remember(built, tint, settings.surfaceTintStrength, settings.surfaceColor, dark, settings.pureBlack, minRatio, seed) {
-        val s = when (tint) {
-            com.prism.music.data.prefs.SurfaceTint.AUTO -> built
-            com.prism.music.data.prefs.SurfaceTint.NEUTRAL -> withSurfaces(built, 0f, 0f, dark, settings.pureBlack, minRatio)
-            com.prism.music.data.prefs.SurfaceTint.ACCENT -> withSurfaces(built, seed.toHsl().first, settings.surfaceTintStrength, dark, settings.pureBlack, minRatio)
-            com.prism.music.data.prefs.SurfaceTint.CUSTOM -> withSurfaces(built, Color(settings.surfaceColor).toHsl().first, settings.surfaceTintStrength, dark, settings.pureBlack, minRatio)
-        }
-        if (minRatio > 4.5f) firmed(s, minRatio) else s
-    }
-    val whiteAccent = if (!white || !accentful) null else remember(seed, dynamic, scheme.primary, exact, minRatio, settings.accentLight) {
-        PrismTokens.Accent(onDark = accentScheme(true).primary, onLight = accentScheme(false).primary, now = scheme.primary)
-    }
+    val dynamic = dynamicSchemes(settings, context)
+    val colors = remember(settings, seed, dark) { themeColors(settings, dark, seed, dynamic) }
+    val scheme = colors.scheme
+    val whiteAccent = colors.whiteAccent
     if (PrismTokens.whiteAccent?.now != whiteAccent?.now || (PrismTokens.whiteAccent == null) != (whiteAccent == null)) PrismTokens.whiteAccent = whiteAccent
 
     val ui = remember(settings.corners, settings.uiDensity, settings.cardSize, settings.titleSize, settings.reduceMotion) { PrismUi.from(settings) }
@@ -377,7 +429,7 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     // The app's own text size sits on top of the phone's.
     val scaled = remember(density, settings.textScale) { Density(density.density, density.fontScale * settings.textScale) }
 
-    CompositionLocalProvider(LocalAppSettings provides settings, LocalIsDark provides dark, LocalUi provides ui, LocalDensity provides scaled, LocalLyricsFont provides lyricsFont) {
+    CompositionLocalProvider(LocalAppSettings provides settings, LocalIsDark provides dark, LocalUi provides ui, LocalDensity provides scaled, LocalLyricsFont provides lyricsFont, LocalArtworkColor provides artworkColor) {
         MaterialTheme(colorScheme = scheme, typography = typography, shapes = ui.materialShapes) {
             // Text and icons outside a Surface read LocalContentColor, which
             // otherwise defaults to black — unreadable in dark mode.
