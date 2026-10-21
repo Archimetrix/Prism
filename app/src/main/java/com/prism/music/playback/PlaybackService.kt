@@ -889,10 +889,12 @@ class PlaybackService : MediaLibraryService(), Player.Listener {
     private fun upcoming(n: Int): List<MediaItem> {
         val tl = player.currentTimeline
         val out = ArrayList<MediaItem>(n)
+        // An empty queue has no next song (an empty timeline still answers index + 1).
+        if (tl.isEmpty) return out
         var i = player.currentMediaItemIndex
         while (out.size < n) {
             i = tl.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
-            if (i == C.INDEX_UNSET) break
+            if (i == C.INDEX_UNSET || i >= tl.windowCount) break
             out += player.getMediaItemAt(i)
         }
         return out
