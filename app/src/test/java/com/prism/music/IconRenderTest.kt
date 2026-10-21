@@ -189,6 +189,30 @@ class IconRenderTest {
      * status-bar size; onto icon-previews/launcher.png.
      */
     @Test
+    fun launcherIconLarge() {
+        // The Classic app icon at 1600 px, as the launcher shows it (circle) and as a rounded square, clear outside:
+        // the showcase film's opening and closing mark.
+        val ctx = org.robolectric.RuntimeEnvironment.getApplication()
+        val px = 1600
+        val shapes = mapOf(
+            "app-icon-circle-1600.png" to android.graphics.Path().apply { addCircle(px / 2f, px / 2f, px / 2f, android.graphics.Path.Direction.CW) },
+            "app-icon-square-1600.png" to android.graphics.Path().apply { addRoundRect(0f, 0f, px.toFloat(), px.toFloat(), px * 0.225f, px * 0.225f, android.graphics.Path.Direction.CW) },
+        )
+        val dir = File("build/icon-previews").apply { mkdirs() }
+        for ((name, clip) in shapes) {
+            val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+            val c = android.graphics.Canvas(bmp)
+            c.clipPath(clip)
+            for (res in listOf(com.prism.music.ui.theme.AppIcon.CLASSIC.background, com.prism.music.ui.theme.AppIcon.CLASSIC.foreground)) {
+                val d = ctx.getDrawable(res)!!.mutate()
+                d.setBounds(-px / 4, -px / 4, px + px / 4, px + px / 4)
+                d.draw(c)
+            }
+            File(dir, name).outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+    }
+
+    @Test
     fun launcherIcons() {
         val ctx = org.robolectric.RuntimeEnvironment.getApplication()
         val px = 216

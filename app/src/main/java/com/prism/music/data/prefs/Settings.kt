@@ -188,12 +188,12 @@ object HomeSections {
     const val NEW_RELEASES_TITLE = "New from your artists"
 
     val defaults = listOf(
+        HomeSectionConfig(REPLAY, "Replay teaser", style = SectionStyle.HERO),
         HomeSectionConfig(GREETING, TILES_TITLE, style = SectionStyle.HERO),
         HomeSectionConfig(QUICK_PICKS, "Quick picks", style = SectionStyle.LIST),
         HomeSectionConfig(MADE_FOR_YOU, "Made for you"),
         HomeSectionConfig(NEW_RELEASES, NEW_RELEASES_TITLE),
         HomeSectionConfig(RECENT, "Recently played"),
-        HomeSectionConfig(REPLAY, "Replay teaser", style = SectionStyle.HERO),
         HomeSectionConfig(GENRES, "Your top genres", style = SectionStyle.GRID),
         HomeSectionConfig(MOODS, "Moods & genres", style = SectionStyle.GRID),
         HomeSectionConfig(LIKED, "Liked songs"),
@@ -240,6 +240,15 @@ object HomeSections {
         if (old < 0) return layout
         if (layout.any { it.key == MADE_FOR_YOU }) return layout.filterNot { it.key == YOUR_MIXES }
         return layout.toMutableList().apply { this[old] = this[old].copy(key = MADE_FOR_YOU, title = "Made for you") }
+    }
+
+    /**
+     * The Replay card heads Home (1.7), as on a fresh install: an older layout's Replay teaser moves to the top as the
+     * card (Spotlight), shown or hidden as it was; a layout without one gets it.
+     */
+    fun replayOnTop(layout: List<HomeSectionConfig>): List<HomeSectionConfig> {
+        val replay = layout.firstOrNull { it.key == REPLAY } ?: HomeSectionConfig(REPLAY, "Replay teaser")
+        return listOf(replay.copy(style = SectionStyle.HERO)) + layout.filterNot { it.key == REPLAY }
     }
 }
 
@@ -882,6 +891,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         }
         // Mixes from your music joined Made for you (1.7): one section.
         once("home_mixes_merged") { HomeSections.mergeYourMixes(it) }
+        // The Replay card heads Home (1.7).
+        once("home_replay_top") { HomeSections.replayOnTop(it) }
     }
 
     suspend fun saveAccount(cookie: String, visitorData: String, dataSyncId: String) = editNow {

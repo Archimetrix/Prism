@@ -38,6 +38,18 @@ class AvatarRenderTest {
         return disc
     }
 
+    /** The Prism picture large and square (no circle), for the showcase film's opening and closing shots. */
+    @Test
+    fun prismPictureLarge() {
+        val px = 1600
+        val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+        CanvasDrawScope().draw(Density(2f), LayoutDirection.Ltr, Canvas(bmp.asImageBitmap()), Size(px.toFloat(), px.toFloat())) { drawPrismAvatar(PrismAvatar.PRISM) }
+        val dir = File("build/avatar-previews").apply { mkdirs() }
+        File(dir, "prism-1600.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        // And as the round picture, clear outside the circle, for light grounds.
+        File(dir, "prism-disc-1600.png").outputStream().use { render(PrismAvatar.PRISM, px).compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     @Test
     fun everyPictureDrawsAndIdsStay() {
         assertEquals(PrismAvatar.entries.size, PrismAvatar.entries.map { it.id }.toSet().size)

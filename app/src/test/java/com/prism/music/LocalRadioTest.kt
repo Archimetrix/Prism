@@ -108,4 +108,21 @@ class LocalRadioTest {
         assertEquals(com.prism.music.data.prefs.SectionStyle.GRID, merged[1].style)
         assertTrue(HomeSections.initial.none { it.key == HomeSections.YOUR_MIXES } && HomeSections.defaults.none { it.key == HomeSections.YOUR_MIXES })
     }
+
+    /** The Replay card heads Home: moved up as the card, hidden stays hidden, missing gets added. */
+    @Test
+    fun replayCardGoesToTheTop() {
+        val old = listOf(
+            HomeSectionConfig(HomeSections.GREETING, "Shortcut tiles"), HomeSectionConfig("x", "X"),
+            HomeSectionConfig(HomeSections.REPLAY, "Replay teaser", style = com.prism.music.data.prefs.SectionStyle.LIST),
+        )
+        val moved = HomeSections.replayOnTop(old)
+        assertEquals(listOf(HomeSections.REPLAY, HomeSections.GREETING, "x"), moved.map { it.key })
+        assertEquals(com.prism.music.data.prefs.SectionStyle.HERO, moved[0].style)
+        val hidden = HomeSections.replayOnTop(listOf(HomeSectionConfig("x", "X"), HomeSectionConfig(HomeSections.REPLAY, "Replay teaser", visible = false)))
+        assertEquals(false, hidden[0].visible)
+        assertEquals(listOf(HomeSections.REPLAY, "x"), HomeSections.replayOnTop(listOf(HomeSectionConfig("x", "X"))).map { it.key })
+        assertEquals(HomeSections.REPLAY, HomeSections.initial.first().key)
+        assertEquals(HomeSections.REPLAY, HomeSections.defaults.first().key)
+    }
 }
