@@ -32,7 +32,7 @@ class FrostRenderTest {
     private val density = 1.5f
 
     private fun photo(): Bitmap {
-        val shot = BitmapFactory.decodeFile(File("../docs/screenshots/artist-dark.jpg").absolutePath)
+        val shot = BitmapFactory.decodeFile(File("src/test/resources/frost/artist-dark.jpg").absolutePath)
         // The photo part of the screenshot (above the name).
         return Bitmap.createBitmap(shot, 0, 0, shot.width, (shot.height * 0.38f).toInt())
     }

@@ -2,7 +2,7 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
-## 1.7 (unreleased)
+## 1.7.0
 
 ### New
 - **Search on the Podcasts page**: type a show, host or topic at the top of Podcasts and shows and episodes appear as you type, without leaving the page. (Search's own Podcasts and Episodes filters still work too.)
@@ -62,8 +62,23 @@ What changed in each release. Older releases are described on the [Releases page
 - **Lyrics**: Settings → Lyrics → **Progress line** turns off the thin line of split light under the line being sung (on the lyrics page and in immersive mode).
 - **Discord**: your status shows the song's cover (Discord takes it in through Prism's own Discord application).
 - **Android Auto** shows the app icon you picked (Settings → Appearance → App icon), from the next time playback starts.
+- **Songs start sooner**: Prism asks for a song's stream in one request where it can (falling back to the old way), resolves the song after next as well as the next one, and keeps background lookups out of the way while a song is loading. On Wi-Fi a song started in about 0.7 s instead of 2.5 s, and skips took about 0.2 s. The whole song is now buffered, not the next 30-60 seconds, so a dropped signal doesn't stop it.
+- **Double-tap the cover's sides to seek** back or ahead (3, 5, 10 or 15 seconds; Settings → Player → Gestures) (#79).
+- **Tap the time left** under the progress bar to show the song's length instead (#82).
+- **Pull the mini player down** to stop playing and clear the queue (#59).
+- **The queue shows what played**: the last 100 songs sit above Now playing, and the queue opens at the song playing (#68).
+- **Search in Settings**: the search box on Settings' first page finds any setting and opens its page at it (#73).
+- **Songs, not videos → Everywhere** (Settings → Playback & sound): a video you tap, or one coming up in the queue, plays as its song, with the video a tap away (#80).
+- **Search can open the keyboard** as soon as it opens (Settings → Layout & navigation → Search) (#71).
+- **Search lyrics with another title**: from the Lyrics source sheet, look a song's lyrics up under a title of your own; it's remembered for that song (#63).
+- **Background vocals** show smaller under the line, lit word by word, and two karaoke lines sung at once are both lit (#65, #66).
+- **Artists a song names without a link** (featured artists, often) now open, from the player and from the song's menu (#78).
+- **Downloads** shows albums and playlists you've downloaded above the songs, and its "Recently added" is newest first (with "Oldest first" too) (#77).
+- **Sort orders are kept**: Liked songs, Downloads, each playlist and Library's tabs remember how you last sorted them.
 
 ### Fixed
+- **From GitHub issues:** removing a song from a playlist could fail with "Precondition check failed"; it now tries again with fresh details (#87). The player's cover was blurry (it was decoded at a small size), and downloads now save full-size covers (#86). An artist's "From your library" listed only the first songs, under an empty heading (#69). Speed dial's last page showed a sliver of the previous one (#67). Songs with non-Latin titles could get another song's animated cover (#58). The Discord sign-in page was blank (#72).
+- **From Reddit:** Local files could spin forever when music access was given outside the page; it now checks again when you come back, and lists songs before their artwork is ready. Lyrics are faster: if a source is slow, the next one is asked too after a moment (its answer still only used in your order).
 - **Tidier settings and looks**: Appearance only offers an accent colour with White light (Spectrum's colour is the split light), and only shows the colour swatches for your own colour (Now playing and Wallpaper pick theirs). The Best part tag's flame is plain white. The song title in the player is a touch smaller. Customize Home calls YouTube Music's shelves YouTube Music again. "Japanese reading data" is now "Japanese kanji readings", which says what it's for: only Japanese needs a download to spell its lyrics in Latin letters. The Quiet, Prism stripe and Aurora Replay cards read "Your top songs, artists and genres", and the Ring card follows the year by the minute (it could sit on a stale percentage while Prism stayed open). The Prism app icon's mark sits a little higher, so it looks centred in a circle.
 - **Music videos are the artist's own**: some songs opened a fan's lyric video, a translated re-upload or a different song ("What You Need" by Bring Me The Horizon, "Memories" by Panic! At The Disco, "Bohemian Rhapsody"). A video now has to come from the artist's channel, their VEVO or their record label, and its title has to be the song's title, not just contain it; otherwise the song simply has no video. If fan uploads crowd out the first page, Prism asks once more for the official video.
 - **Replay counts a song once**: two uploads of the same song (an album's and a single's) were listed separately in Replay, Rewind and the Replay card; their plays and time are added together now.

@@ -1,197 +1,165 @@
 <div align="center">
 
+<img src="docs/screenshots/icon.png" width="96" alt="Prism app icon">
+
 # Prism
 
-**A YouTube Music client for Android, with word-by-word lyrics, Replay, offline downloads and full Android Auto support.**
+**Your music, refracted.**<br>
+A free, open-source YouTube Music client for Android, with word-by-word lyrics, on-device recommendations,<br>karaoke, a DJ mode, Replay and full Android Auto support. No ads, no server, no tracking.
 
 [![Latest release](https://img.shields.io/github/v/release/Yigder/Prism?label=download&color=7c4dff)](../../releases/latest)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3ddc84?logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7f52ff?logo=kotlin&logoColor=white)
 ![No tracking](https://img.shields.io/badge/telemetry-none-555)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Prism-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/yigder)
 
-**[⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)** · [Release notes](../../releases/latest) · [▶ Watch the showcase (1:55)](promo/prism-showcase.mp4)
+### [⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)
 
-**New in [1.7](../../releases/tag/v1.7.0):** a whole new look, Sing (karaoke with the song's own music), Made for you (Daily Mixes, Release Radar, Smart Shuffle), DJ mode, Blend, song recognition, Prism Connect (speakers and TVs, a browser remote, handoff), Rewind every year, headphone correction, romanized lyrics, jump to the best part, tablet and landscape layouts, playlists without an account, and a tour of it all.
+[What's new in 1.7](../../releases/tag/v1.7.0) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
 
-<img src="docs/screenshots/home-dark.jpg" width="22%" alt="Home">
-<img src="docs/screenshots/player.jpg" width="22%" alt="Now playing">
-<img src="docs/screenshots/lyrics.jpg" width="22%" alt="Word-by-word lyrics">
-<img src="docs/screenshots/artist-dark.jpg" width="22%" alt="Artist page">
+<a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
+
+<img src="docs/screenshots/home.jpg" width="24%" alt="Home with the Replay card, shortcuts and Made for you">
+<img src="docs/screenshots/player.jpg" width="24%" alt="Now playing, coloured by the album art">
+<img src="docs/screenshots/lyrics.jpg" width="24%" alt="Lyrics that light up word by word">
+<img src="docs/screenshots/sing.jpg" width="24%" alt="Sing: the voice taken out of the song">
 
 </div>
 
 > [!NOTE]
 > Prism is an independent, unofficial app. It is not affiliated with, endorsed by, or connected to Google, YouTube or YouTube Music.
 
-## Install
+## What's new in 1.7
 
-1. Download **`Prism.apk`** from the [latest release](../../releases/latest) on your phone.
-2. Open it. Android will ask you to allow installs from your browser or file manager.
-3. Optional: sign in with your YouTube Music account to sync likes, playlists, albums and artists.
+The biggest update yet: a complete redesign, and a set of features that run on your phone.
 
-Updating works the same way: install the new APK over the old one, and your downloads, Replay history and settings stay.
+- **A new look.** Colour from what's playing under frosted glass, with Prism's split light on what's playing, progress and the Play ring. New icons, new app icons, seven bundled fonts, and lyrics that thicken word by word as they're sung. Prefer it quieter? Try **White light**.
+- **Sing.** Takes the singer's voice out of the song that's playing, on your phone. Leave a little in, or none, and move the key.
+- **DJ mode.** Orders your queue by key and tempo so every song blends into the next, beat-matched.
+- **Made for you.** Daily Mixes, a time-of-day mix, Release Radar, Smart Shuffle, and an autoplay radio built from your own listening.
+- **Blend, Song Recognition, Prism Connect** (Google Cast, DLNA, a browser remote and handoff), **Rewind** for every year, **best part**, **romanized lyrics**, **headphone correction** and **tablet layouts**.
+- **Faster:** songs start in under a second on Wi-Fi, and whole songs are buffered.
 
-## Highlights
-
-| | |
-|---|---|
-| 🎤 **Word-by-word lyrics** | Ten lyric sources, karaoke timing first, then line-synced, then plain. Switch source per song and nudge the timing. |
-| 🎨 **Make it yours** | Font, text size, corners, spacing, nav bar, mini player, player background and controls, lyrics alignment, Replay colours and eleven screen backgrounds. |
-| 📊 **Replay and Rewind** | A private, on-device recap of your listening, with a full-screen story, and a Rewind for every year. |
-| 🎙️ **Sing** | Karaoke with the song's own music: the voice is taken out on your phone, the key moves to suit you. |
-| ✨ **Made for you** | Daily Mixes, a time-of-day mix, Release Radar, Smart Shuffle and Blend, worked out on your phone. |
-| 📺 **Prism Connect** | Play on Chromecast, Google TV and other Google Cast devices, or on DLNA speakers, TVs and receivers; control Prism from a browser; move the music to another device. |
-| 🎬 **Music videos** | Switch any song to its music video in one tap, with lyrics in sync and full-screen landscape. |
-| 🎧 **Listen together** | Phones on the same Wi-Fi play in step, or friends add songs to your queue. No account, no server. |
-| 🔗 **Share anything** | Story cards and links for songs, albums, playlists and artists, plus "Play in Prism" for YouTube links. |
-| 📥 **Offline** | Downloads, Smart Downloads and your own music files, with lyrics saved alongside every song. |
-| 🎚️ **Sound** | 10-band EQ, loudness normalization, Prism Spatial, skip silence and lossless playback. |
-| 🎛️ **Crossfade** | Songs fade into each other as on Spotify, with the length worked out for each pair, or beat-matched like a DJ set. |
-| 🚗 **Android Auto** | Shuffle play, extra player buttons and lyrics on the car screen. |
+Everything else is in the [release notes](../../releases/tag/v1.7.0) and the [changelog](CHANGELOG.md).
 
 ## Features
 
-### New in 1.7
-- **A new look.** Colour from what's playing under frosted glass, with Prism's split light running through it (what's playing, progress, the Play ring, Settings' sections), the Outfit font, and every icon, the app icon and the widgets redrawn. Synced lyrics thicken word by word as they're sung. Prefer it neutral? **White light** keeps Prism in greys and ink. Seven fonts come with it: Outfit, Manrope, Plus Jakarta Sans, Urbanist, Nunito, Fraunces and Geist Mono.
-- **Sing.** The microphone button by the lyrics takes the singer's voice out of the song as it plays, worked out on your phone (Deezer's Spleeter, a one-time ~50 MB download). Leave a little of the lead voice in, and move the key up or down.
-- **Made for you.** Up to six Daily Mixes grouped by what goes together, a time-of-day mix, and Release Radar (new albums, singles and EPs from your artists, with their release dates), on Home and in Android Auto. Pick artists you like to start them off.
-- **A Prism Account.** Your name and picture (your photo, or one of twelve Prism pictures), kept on this phone (no email, password or server), owning your likes, playlists, saved albums and Replay. Signed in to YouTube Music too, it can keep a copy of that library in Prism for after you sign out.
-- **Prism's own radio and Home from your music.** Autoplay can pick from your own music (what you play together, your artists and genres, keys that blend), on its own or mixed with YouTube's radio. Home adds On repeat, more mixes in Made for you (by genre, by artist, and Ready offline), Repeat rewind and Forgotten favourites, all worked out on the phone, and with no connection it shows only what plays offline.
-- **Smart Shuffle** slips recommendations into a playlist or album as it plays; **exclusions** keep an artist out, or keep a playlist out of your taste.
-- **DJ mode.** Prism finds each song's key and orders the queue so each song blends into the next, beat-matched, with a Steady, Build up or Wind down energy.
-- **Blend.** A playlist of two tastes, by QR code or a shared message, worked out the same on both phones, with a cover of its own (or your photo). No server.
-- **Song recognition.** Tap the button in Search, the Recognize widget or the Quick Settings tile and Prism tells you what's playing around you (the widget and tile open a small card over whatever's on screen; made wider, the widget shows the last song found, with Play). Only an audio fingerprint is sent.
-- **Prism Connect.** Play on Google Cast devices (Chromecast, Google TV, speakers with Cast built in) and on speakers, TVs and AV receivers with DLNA / UPnP on your Wi-Fi, with the queue, lyrics and volume keys still on the phone. Control Prism from any browser on the Wi-Fi after pairing it with a code. Move what's playing to another phone or tablet with Prism, or bring it over.
-- **Rewind** for every year you've listened, opening on December 1: your year season by season, your top album, your year in Prism and more, each slide shareable.
-- **Headphone correction** from AutoEq's measurements of almost 9,000 headphones, switching on with each pair.
-- **Romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian, Greek and more, word by word in karaoke lyrics.
-- **Jump to the best part**: a button to skip to the stretch listeners replay most (YouTube's "Most replayed" data), or the chorus when there's none.
-- **Tablets, foldables and landscape**: a side rail, the player beside its lyrics or queue, and the half-open foldable layout.
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/lyrics.jpg" alt="Word-by-word lyrics"></td>
+<td width="25%"><img src="docs/screenshots/immersive.jpg" alt="Immersive mode"></td>
+<td width="50%">
 
-### Listening
-- **Lyrics, word by word.** Better Lyrics (Apple Music's timed lyrics), QQ Music, NetEase, KuGou, LyricsPlus, Bini, LRCLIB, Unison, Genius and YouTube Music. Starred-out swear words ("f**k") are filled back in from Genius's full text, keeping the word-by-word timing. Lyrics in another language can show a translation under each line.
-- **Crossfade.** When a song runs into the next, the ending song fades out while the next one fades in, as on Spotify. With **Automatic length**, Prism listens to how each song ends and the next begins (measured on the phone, on Wi-Fi): it crossfades over a song's fade-out or the next song's quiet intro, and only briefly between two hard edges; or pick 1 to 12 seconds yourself. **Match tempo and beats** makes it DJ-style: the next song starts on the beat and plays at the same tempo while they overlap, then eases back to its own. An album's own tracks still play straight through.
-- **Player.** Full-bleed artwork and animated covers (saved with downloads, for offline), in three cover sizes up to full width, with optional shuffle and repeat buttons beside play. Hold previous or next to jump back or forward (1 to 20 seconds a step, your pick), and hide the Song / Video switch if you only want audio. Shows the codec and bitrate (or Lossless / Downloaded) under the progress bar, with stats in an in-player panel.
-- **Lyrics in any direction.** Arabic, Hebrew and other right-to-left lyrics sit on the right and light up from the right.
-- **Podcasts.** Popular shows, your followed shows when signed in, episodes that pick up where you left off, and 0.75× to 2× speed.
-- **Music videos.** Tap the video toggle under the player to switch any song to its official music video. Playback carries on from the same spot, and the lyrics stay in sync. Fit or fill the frame, go full screen, or turn the phone sideways for edge-to-edge landscape. Video quality goes from 480p up to 1440p in Playback & sound.
-- **Sound.** 10-band equalizer with presets, bass boost, loudness normalization (each song measured on the phone, to -14 LUFS; works offline), Prism Spatial for any headphones, skip silence, and a lossless mode that plays matching FLAC files on the phone.
-- **Immersive mode.** The cover fills the screen (its animated version when it has one) and the lyrics play over it like a lyric video. Swipe for the next or previous song; pick how the cover fits and where the lyrics sit.
-- **Autoplay and radio.** The queue keeps going with similar music after an album or playlist ends. Shuffle makes a fresh order every time, and Previous goes back to the song you just heard. Swipe a song in an album or playlist right to play it next, or left to add it to the queue. Save the queue as a playlist, or clear what's up next.
-- **Sleep timer** for a set time or until the current song ends.
+### Lyrics, word by word
+Ten lyric sources, karaoke timing first: Apple Music's timed lyrics (via Better Lyrics), QQ Music, NetEase, KuGou, LyricsPlus, LRCLIB and more. Background vocals, right-to-left scripts, translations, and **romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian and Greek. **Immersive mode** turns the cover and lyrics into a full-screen lyric video.
 
-### Finding music
-- **Search as you type**, with a ranked "Top results" view across songs, albums, artists, playlists and videos.
-- **Artist pages** in the style of Apple Music's 2026 redesign: the photo frosts over into a backdrop made of its colours, the name is set in a signature typeface that suits the artist (long-press it to pick your own, from Autograph to Neon), and Info, Play, Shuffle and Favourite sit right under it. The latest release gets a spotlight card, then top songs, albums, singles, videos, live, appearances and similar artists.
-- **Albums** star their most-played songs, show the release type, year and explicit badge, and end with other versions and more by the artist. **Playlists** sort by title, artist, album, duration or genre, and filter by genre. Both sit on the same frosted backdrop (switchable in Appearance), with big Play and Shuffle buttons.
+</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/sing.jpg" alt="Sing"></td>
+<td><img src="docs/screenshots/dj.jpg" alt="DJ mode in the queue"></td>
+<td>
 
-### Your library
-- **Home your way.** Custom greeting, shortcut tiles and pinned playlists.
-- **Downloads** work like a playlist, with counts, size, saved lyrics, sorting and bulk delete. Smart Downloads is one space for music on the phone: the songs you stream, plus the ones you're likely to play next, downloaded ahead (on Wi-Fi, or mobile data if you allow it). Library → Local files plays the music files already on your phone, by song, artist or album, with Favourites, Recently added, Recently played and your downloads alongside (sections you choose and order), and can be a tab of its own in the bottom bar.
-- **Replay.** Minutes, top songs, artists and genres for this month, the last 30 days, any year or all time. Play or shuffle your top 250. Each year's story is its **Rewind**.
-- **Custom playlist pictures** and **backgrounds** for Home, Search, Library, Replay and Settings.
-- **Make it yours:** your own font file (and a separate one for lyrics), thin, regular or bold icons, and six app icons to pick from.
-- **No account needed for a library of your own**: make playlists (they can hold music files from your phone too) and save albums, kept on your phone and in your backups.
-- Signed in, likes, playlists, albums and artists sync both ways. **Add albums and playlists to your library**, **star your favourite artists** (they lead Library → Artists and are subscribed on YouTube Music), **make new playlists**, and add songs to them from a searchable sheet.
-- **Your playlists, your way:** rename them, rewrite the description, choose private, unlisted or public, take songs out, or delete them.
-- **Import playlists from Spotify, Apple Music and more** with [TuneMyMusic](https://www.tunemymusic.com) (Library → Import playlists). It copies them into your YouTube Music account, and Prism syncs them in when you come back.
+### Sing and DJ mode
+**Sing** separates the voice from the music on your phone (Deezer's Spleeter model, a one-time download), so you can sing over the real song. Keep a little of the lead or none, and shift the key up to six semitones.
 
-### Together and sharing
-- **Listen together.** Start a session and friends on the same Wi-Fi (or your hotspot) join with a four-digit code. They can play the same music on their own phones, kept in step with yours, or just add songs to your queue, party style. You decide whether guests can also play, pause and skip. Phones talk to each other directly: there's no Prism server, and nothing is shared once the session ends.
-- **Share** any song, album, playlist or artist as a link or as a story card made from its artwork. A private playlist's link only works for you, so the share sheet offers to make it unlisted. Liked songs and Downloads share as a card and a track list.
-- **Play in Prism:** share a YouTube or YouTube Music link from any app to Prism to open it.
-- **"Hey Google, play … on Prism":** Google Assistant and Gemini can play songs in Prism by voice; "play music on Prism" carries on with your last queue.
+**DJ mode** finds each song's key and tempo and orders the queue around the Camelot wheel, with long blends where keys sit together. Pick Steady, Build up or Wind down. Works in Android Auto too.
 
-### Android Auto
-- Browse Home, Liked songs, your library and recent plays, and search or ask Google Assistant / Gemini by voice.
-- Every song list starts with **Shuffle play**.
-- Extra buttons: like, shuffle, repeat, lyrics on/off, start radio and "not for me".
-- **Lyrics on the car screen.** The sung line replaces the title, and the cover becomes a lyric card that lights up word by word.
+</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/home.jpg" alt="Home"></td>
+<td><img src="docs/screenshots/mix.jpg" alt="A Daily Mix"></td>
+<td>
 
-> [!WARNING]
-> **Android Auto lyrics are for passengers and for use while parked only.** Do not read lyrics while driving. Keep your eyes on the road and follow local laws. You can turn car lyrics off at any time in Settings → Lyrics → Android Auto, or with the lyrics button on the car's player.
+### Made for you, made on your phone
+Daily Mixes, a mix for this time of day, **Release Radar** for your artists' new music, **Smart Shuffle**, On repeat, Forgotten favourites, and Quick picks built around the artists you play. When a queue ends, Prism's own radio carries on from your listening, mixed with YouTube's or not. None of your listening leaves the phone.
 
-## Screenshots
+</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/replay.jpg" alt="Replay"></td>
+<td><img src="docs/screenshots/rewind.jpg" alt="Rewind story"></td>
+<td>
 
-### New in 1.6
+### Replay and Rewind
+Minutes, top songs, artists and genres for this month, the last 30 days, any year or all time, worked out on the device. Each year gets a **Rewind** story (opening December 1), with shareable slides. Home leads with a Replay card in nine styles.
 
-| | | | |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/immersive.jpg" width="190" alt="Immersive mode: the cover fills the screen with the lyrics over it"><br>Immersive mode | <img src="docs/screenshots/crossfade-dark.jpg" width="190" alt="Crossfade settings"><br>Crossfade, timed per song | <img src="docs/screenshots/local-dark.jpg" width="190" alt="Local files page"><br>Local files | <img src="docs/screenshots/lyrics-rtl.jpg" width="190" alt="Arabic lyrics, right-aligned, with a translation"><br>Right-to-left lyrics |
-| <img src="docs/screenshots/player-large.jpg" width="190" alt="Player with the Large cover size"><br>Large cover | <img src="docs/screenshots/player-full.jpg" width="190" alt="Player with the Full width cover size"><br>Full width cover (current lyric and output device hidden) | <img src="docs/screenshots/storage-dark.jpg" width="190" alt="Smart Downloads settings"><br>Smart Downloads, one space | <img src="docs/screenshots/podcasts-dark.jpg" width="190" alt="Podcasts"><br>Podcasts |
+</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/recognize.jpg" alt="Song recognition"></td>
+<td><img src="docs/screenshots/podcasts.jpg" alt="Podcasts"></td>
+<td>
 
-### The player
+### Recognize, podcasts and more
+**Song Recognition** from Search, a Quick Settings tile or a home-screen widget; only an audio fingerprint is sent. **Podcasts** with search, 15/30-second skips, speed and resume. **Blend** makes a shared playlist with a friend from one QR code.
 
-| | | | |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/player.jpg" width="190" alt="Now playing"><br>Now playing | <img src="docs/screenshots/lyrics.jpg" width="190" alt="Lyrics"><br>Word-by-word lyrics | <img src="docs/screenshots/video.jpg" width="190" alt="Music video playing in the player"><br>Music videos, one tap from the song | <img src="docs/screenshots/queue.jpg" width="190" alt="Queue"><br>Queue, shuffle and autoplay |
-| <img src="docs/screenshots/player-blur.jpg" width="190" alt="Player with the blurred cover background and ring controls"><br>Blurred cover, ring controls | <img src="docs/screenshots/player-theme.jpg" width="190" alt="Player with the theme background and classic controls"><br>Theme background, classic controls | <img src="docs/screenshots/playerset-dark.jpg" width="190" alt="Player settings, dark"><br>Player settings | <img src="docs/screenshots/playerset-light.jpg" width="190" alt="Player settings, light"><br>Player settings, light |
+</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/player.jpg" alt="Now playing"></td>
+<td><img src="docs/screenshots/account.jpg" alt="Prism Account"></td>
+<td>
 
-### Light and dark
+### Yours, and private
+A **Prism Account** is just a name and picture on your phone: no email, no password, no server. Make playlists and save albums without a YouTube account, play your own music files, and keep Home working offline. Or sign in to sync likes, playlists, albums and artists with YouTube Music.
 
-Every screen follows the phone's theme, or pick Light or Dark in Appearance.
+</td>
+</tr>
+</table>
 
-| | | | |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/home-dark.jpg" width="190" alt="Home, dark"> | <img src="docs/screenshots/home-light.jpg" width="190" alt="Home, light"> | <img src="docs/screenshots/search-dark.jpg" width="190" alt="Search, dark"> | <img src="docs/screenshots/search-light.jpg" width="190" alt="Search, light"> |
-| Home with Replay and shortcuts || Search with top results ||
-| <img src="docs/screenshots/artist-dark.jpg" width="190" alt="Artist page, dark"> | <img src="docs/screenshots/artist-light.jpg" width="190" alt="Artist page, light"> | <img src="docs/screenshots/album-dark.jpg" width="190" alt="Album, dark"> | <img src="docs/screenshots/album-light.jpg" width="190" alt="Album, light"> |
-| Artist pages with signatures || Albums ||
-| <img src="docs/screenshots/playlist-dark.jpg" width="190" alt="Playlist, dark"> | <img src="docs/screenshots/playlist-light.jpg" width="190" alt="Playlist, light"> | <img src="docs/screenshots/library-dark.jpg" width="190" alt="Library, dark"> | <img src="docs/screenshots/library-light.jpg" width="190" alt="Library, light"> |
-| Playlists with genre filters || Library ||
-| <img src="docs/screenshots/downloads-dark.jpg" width="190" alt="Downloads, dark"> | <img src="docs/screenshots/downloads-light.jpg" width="190" alt="Downloads, light"> | <img src="docs/screenshots/together-dark.jpg" width="190" alt="Listen together, dark"> | <img src="docs/screenshots/together-light.jpg" width="190" alt="Listen together, light"> |
-| Downloads, with lyrics saved || Listen together ||
-| <img src="docs/screenshots/replay-dark.jpg" width="190" alt="Replay, dark"> | <img src="docs/screenshots/replay-light.jpg" width="190" alt="Replay, light"> | <img src="docs/screenshots/replay2-dark.jpg" width="190" alt="Replay top genres and songs, dark"> | <img src="docs/screenshots/replay2-light.jpg" width="190" alt="Replay top genres and songs, light"> |
-| Replay, your on-device recap || Top artists, genres and songs ||
-
-### Settings
-
-| | | | |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/settings-dark.jpg" width="190" alt="Settings, dark"> | <img src="docs/screenshots/settings-light.jpg" width="190" alt="Settings, light"> | <img src="docs/screenshots/appearance-dark.jpg" width="190" alt="Appearance, dark"> | <img src="docs/screenshots/appearance-light.jpg" width="190" alt="Appearance, light"> |
-| Settings || Theme, accent colour and fonts ||
-| <img src="docs/screenshots/backgrounds-dark.jpg" width="190" alt="Backgrounds, dark"> | <img src="docs/screenshots/backgrounds-light.jpg" width="190" alt="Backgrounds, light"> | <img src="docs/screenshots/sound-dark.jpg" width="190" alt="Playback and sound, dark"> | <img src="docs/screenshots/sound-light.jpg" width="190" alt="Playback and sound, light"> |
-| Screen backgrounds and designs || Lossless, normalization, video quality ||
-| <img src="docs/screenshots/eq-dark.jpg" width="190" alt="Equalizer, dark"> | <img src="docs/screenshots/eq-light.jpg" width="190" alt="Equalizer, light"> | <img src="docs/screenshots/carlyrics-dark.jpg" width="190" alt="Android Auto lyrics settings, dark"> | <img src="docs/screenshots/carlyrics-light.jpg" width="190" alt="Android Auto lyrics settings, light"> |
-| 10-band equalizer || Android Auto lyrics, with preview ||
+### Everything else
 
 | | |
-|:-:|:-:|
-| <img src="docs/screenshots/menu.jpg" width="190" alt="Song menu"><br>Song menu | <img src="docs/screenshots/welcome.jpg" width="190" alt="Welcome screen"><br>Welcome, with or without an account |
-
-### Android Auto
+|---|---|
+| **Play anywhere** | Prism Connect casts to Chromecast, Google TV and DLNA/UPnP speakers, TVs and receivers (no Google SDK), controls Prism from any browser on your Wi-Fi, and hands playback to another phone or tablet. |
+| **Listen together** | Phones on the same Wi-Fi play in step, or friends add songs to your queue. No account, no server. |
+| **Sound** | 10-band EQ, headphone correction for about 9,000 models (AutoEq), loudness normalization to -14 LUFS, Prism Spatial, Crossfade with beat matching, and lossless playback of your FLAC files. |
+| **Offline** | Downloads with saved lyrics and covers, Smart Downloads (songs you'll likely play next, fetched ahead), and your own music files. |
+| **Music videos** | Switch any song to its official video in one tap, lyrics still in sync, full screen in landscape. |
+| **Best part** | Jump straight to the part listeners replay most, or set your own. |
+| **Make it yours** | Fonts (or your own), corners, glass, backgrounds, tab bar and mini player styles, icon weight, six app icons and an optional Cupertino icon pack. |
+| **Tablets and foldables** | A side rail, the player beside its lyrics or queue, and a tabletop layout for half-open foldables. |
+| **Android Auto** | Your library, Made for you, Shuffle play and Play as a DJ set, extra buttons, and lyrics on the car screen. |
+| **Share** | Story cards and links for songs, albums, playlists and artists, and "Play in Prism" for YouTube links. Discord status with album covers (optional). |
+| **Voice** | "Hey Google, play … on Prism" with Google Assistant and Gemini. |
 
 <img src="docs/screenshots/android-auto-lyrics.jpg" width="600" alt="Prism on Android Auto, the sung line shown in place of the song title">
 
-The sung line shows in place of the song title on the car's player (parked or passengers only).
+> [!WARNING]
+> **Android Auto lyrics are for passengers and for use while parked only.** Do not read lyrics while driving. You can turn car lyrics off in Settings → Lyrics → Android Auto, or with the lyrics button on the car's player.
+
+## Install
+
+1. Download **[`Prism.apk`](../../releases/latest/download/Prism.apk)** on your phone (Android 8.0 or newer).
+2. Open it. Android will ask you to allow installs from your browser or file manager.
+3. Optional: sign in with your YouTube Music account to sync your library.
+
+Prism checks for updates itself: tap the banner on Home and it installs the new version over the old one, keeping your downloads, Replay history and settings.
+
+## Privacy
+
+Prism talks to YouTube Music and the lyric services directly from your phone. There is no Prism server and no telemetry. Listening history, Replay, recommendations, downloads and settings stay on the device; if you sign in, your session is stored only in the app's private storage. Listen Together, Blend and handoff only talk to other phones on your local network, and only while they're open. A few features send the minimum they need: song recognition sends an audio fingerprint to Shazam, and lyrics translation and some romanization send the lyrics' text to Google Translate.
 
 ## Credits and inspiration
 
 Prism doesn't ship artwork, fonts or code copied from other apps, but several ideas and data sources come from elsewhere:
 
-- **Apple Music** inspired the artist page layout (including its 2026 frosted redesign, with the name and Info, Play and Favourite centred under the photo), starred most-played album tracks, headline artist typefaces and the animated cover style.
-- **Spotify Jam** inspired Listen Together (built here to work without any server), and Spotify and Apple Music's share cards inspired the story cards.
-- **Signatures** use fonts already on the phone, such as Android's own Dancing Script for the Autograph style.
-- **BitChord** (itself modelled on Apple Music) inspired the Now Playing screen.
-- **Spotify Wrapped** inspired the Replay story and Rewind, including the story's "what's playing" card.
-- **Spotify Connect** and Apple's Handoff inspired Prism Connect's handoff and browser remote; speakers and TVs are reached with the open UPnP / DLNA standards, and Google Cast devices with the Cast protocol as open-source projects such as [pychromecast](https://github.com/home-assistant-libs/pychromecast) and [node-castv2](https://github.com/thibauts/node-castv2) document it (no Google SDK in Prism).
-- **Spotify's Crossfade and Mix** inspired Crossfade and its beat-matched blends between songs.
+- **Apple Music** inspired the artist pages (including its 2026 frosted redesign), starred most-played album tracks, headline artist typefaces, animated covers and Sing's controls. **BitChord** (itself modelled on Apple Music) inspired the Now Playing screen.
+- **Spotify** inspired Daily Mixes, Release Radar, Smart Shuffle, Blend, Crossfade and the DJ-style mixing; **Spotify Wrapped** inspired Replay and Rewind; **Spotify Jam** inspired Listen Together (built here without any server); Spotify and Apple Music's share cards inspired the story cards.
+- **Spotify Connect** and Apple's Handoff inspired Prism Connect. Speakers and TVs are reached with the open UPnP / DLNA standards, and Google Cast devices with the Cast protocol as open-source projects such as [pychromecast](https://github.com/home-assistant-libs/pychromecast) and [node-castv2](https://github.com/thibauts/node-castv2) document it (no Google SDK in Prism).
 - **Lyrics:** [Better Lyrics](https://betterlyrics.org) (Apple Music TTML and QQ Music "Portato"), NetEase, KuGou, LyricsPlus, Bini, [LRCLIB](https://lrclib.net), Unison, Genius and YouTube Music. Lyrics belong to their rights holders.
 - **Animated covers** come from Apple Music, Tidal and the ViVi Music canvas list.
-- **Playlist import** hands off to [TuneMyMusic](https://www.tunemymusic.com), the transfer service YouTube Music's own app uses. It's a separate service; Prism shares nothing with it.
-- **Signed-in streams:** [yt-dlp's EJS solver](https://github.com/yt-dlp/ejs) (Unlicense, bundling [meriyah](https://github.com/meriyah/meriyah) and [astring](https://github.com/davidbonnet/astring)) deciphers them, running on WebView's JavaScript engine through androidx.javascriptengine.
+- **Playlist import** hands off to [TuneMyMusic](https://www.tunemymusic.com). It's a separate service; Prism shares nothing with it.
+- **Signed-in streams:** [yt-dlp's EJS solver](https://github.com/yt-dlp/ejs) (Unlicense, bundling [meriyah](https://github.com/meriyah/meriyah) and [astring](https://github.com/davidbonnet/astring)) deciphers them, on WebView's JavaScript engine through androidx.javascriptengine.
 - **Song recognition** uses Shazam's service, with the audio fingerprint ported from [SongRec](https://github.com/marin-m/SongRec) (GPL-3.0). Only the fingerprint is sent, never the sound.
 - **Sing** separates voices with Deezer's [Spleeter](https://github.com/deezer/spleeter) model (MIT), as converted to ONNX by [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), on [ONNX Runtime](https://github.com/microsoft/onnxruntime).
 - **Headphone correction** profiles come from [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT); **release dates** for Release Radar from Deezer's public API; **genres** from Apple's iTunes Search API, then Deezer's.
-- **Spotify** inspired Daily Mixes, Release Radar, Smart Shuffle, Blend and the DJ-style mixing ideas.
-- **Libraries:** [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor), [Haze](https://github.com/chrisbanes/haze), [Coil](https://coil-kt.github.io/coil/), Media3 ExoPlayer and the rest of the stack below.
+- **Fonts:** Outfit, Manrope, Plus Jakarta Sans, Urbanist, Nunito, Fraunces and Geist Mono, all under the SIL Open Font License.
+- **Libraries:** [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor), [Haze](https://github.com/chrisbanes/haze), [Coil](https://coil-kt.github.io/coil/), Media3 ExoPlayer and the rest of the stack below. Every library and its license is listed in the app under Settings → About → Open-source licenses.
+- **The film's music** is "Minimal Tech" by PaulYudin (Pixabay).
 - Music and metadata are streamed from YouTube Music. All trademarks belong to their owners.
-
-## Privacy
-
-Prism talks to YouTube Music and the lyric services directly from your phone. There is no Prism server and no telemetry. Listening history, Replay stats, downloads and settings stay on the device; if you sign in, your session is stored only in the app's private storage. Listen Together only ever talks to the other phones in your session, on your local network, and only while it's open. Lyrics translation (off unless you turn it on) sends the lyrics' text to Google Translate.
 
 ## Support Prism
 
@@ -215,27 +183,22 @@ Unit tests (some call live lyric and YouTube Music endpoints, so they need a net
 ./gradlew :app:testDebugUnitTest
 ```
 
-### Project layout
-
 | Area | Where (`app/src/main/java/com/prism/music/`) |
 |---|---|
 | YouTube Music API, parsing and search ranking | `data/innertube/` |
-| Stream resolving (NewPipe Extractor) | `data/stream/` |
+| Stream resolving | `data/stream/` |
 | Lyric providers and TTML / LRC / QRC / YRC / KRC parsers | `data/lyrics/` |
-| Playback service, audio effects, Android Auto and car lyrics | `playback/` |
-| Listen Together (local-network sessions) | `playback/together/` |
-| Downloads and smart downloads | `download/` |
+| Made for you, Blend and song recognition | `data/foryou/`, `data/blend/`, `data/recognize/` |
+| Playback service, audio effects, Sing, DJ mode, Android Auto | `playback/` |
+| Prism Connect (casting, browser remote, handoff) | `connect/` |
+| Downloads and Smart Downloads | `download/` |
 | Compose UI and design kit | `ui/` |
 
-Stack: Kotlin, Jetpack Compose (Material 3), Media3 ExoPlayer and MediaSession, Room, DataStore, OkHttp, kotlinx.serialization, Coil, WorkManager, NewPipe Extractor.
-
-## Changelog
-
-What's new in each release is in [CHANGELOG.md](CHANGELOG.md) and on the [Releases page](https://github.com/Yigder/Prism/releases).
+Stack: Kotlin, Jetpack Compose (Material 3), Media3 ExoPlayer and MediaSession, Room, DataStore, OkHttp, kotlinx.serialization, Coil, WorkManager, NewPipe Extractor, ONNX Runtime (downloaded on first use of Sing).
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and send changes.
+Bug reports, ideas and pull requests are welcome in [Issues](../../issues). See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and send changes.
 
 ## License
 
