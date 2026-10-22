@@ -73,7 +73,7 @@ object SettingsIndex {
         SettingEntry(A, "Look", "Glass & backgrounds", "blur backgrounds motion"),
         // Appearance → Color (1.7.2)
         SettingEntry(CO, "Spectrum", "Spectrum", "split light gradient rainbow preset sunset ocean aurora forest ember candy neon ice gold silver color-blind colour blind custom own colors style light colors"),
-        SettingEntry(CO, "Spectrum", "White light", "white light monochrome neutral grey gray minimal colorless simple style"),
+        SettingEntry(CO, "Spectrum", "White", "white light black monochrome neutral grey gray minimal colorless simple style"),
         SettingEntry(CO, "Spectrum", "Smooth or bands", "stripes hard spectrum split light rainbow"),
         SettingEntry(CO, "Accent color", "Accent from", "song cover wallpaper your pick now playing artwork dynamic material you color"),
         SettingEntry(CO, "Accent color", "Accent color", "color accent picker wheel hex code rgb hsl custom eyedropper"),

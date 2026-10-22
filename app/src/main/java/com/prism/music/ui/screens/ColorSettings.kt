@@ -193,8 +193,10 @@ private fun ColorSettings() {
                     "songs cover, the lyrics' progress line and the Best part tag. Home-screen widgets keep Prism's own colors."
             )
             if (white) Changes(
-                "White light also: puts your accent (②) where the light was, turns the frosted backgrounds and Prism's own colored " +
-                    "tiles (moods, genres, the Replay card) grey, and greys the home-screen widgets. Covers and photos keep their color.",
+                "${whiteName(dark)} lights all of these in ${whiteName(dark).lowercase()} (${whiteName(!dark).lowercase()} in " +
+                    "${if (dark) "light" else "dark"} mode). It also turns the frosted backgrounds and Prism's own colored tiles " +
+                    "(moods, genres, the Replay card) grey, and greys the home-screen widgets. Covers and photos keep their color, and " +
+                    "your accent (②) stays on its own things.",
                 label = "Also",
             )
             LightPresets(s, dark) { key ->
@@ -224,8 +226,7 @@ private fun ColorSettings() {
                 "Artist names and links on album and playlist pages; the star, More and New release on artist pages; ticks and " +
                     "picked rows in lists and menus; Replay's top three and its bars; the text cursor; the Simple pattern backgrounds; " +
                     "and the page tint when Page background is Accent tint. Song lists and the player's text don't use it (the " +
-                    "player only does with its Theme or Your background backgrounds, in Player settings)." +
-                    if (white) " In White light it's also where the light was." else ""
+                    "player only does with its Theme or Your background backgrounds, in Player settings)."
             )
             val sources = ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }
             ChoiceCards(
@@ -342,14 +343,22 @@ private fun ColorSettings() {
                 "The accent on artist, album and playlist pages, and in the menus you open from a song, album or artist (long " +
                     "press or ⋯). Their frosted backgrounds take the picture's colors either way (Glass & backgrounds)."
             )
-            val photo = cover?.let { pickSwatch(it, ArtworkSwatch.VIBRANT, false) }?.let { Color(it) } ?: SAMPLE_COVER[ArtworkSwatch.VIBRANT]!!
+            // The playing cover's page accent, worked out exactly as its page does (none for a black-and-white cover).
+            val art = cover?.let { p ->
+                val dominant = (p.dominantSwatch ?: p.mutedSwatch ?: p.vibrantSwatch)?.rgb?.let { Color(it) }
+                val vibrant = (p.vibrantSwatch ?: p.lightVibrantSwatch ?: p.darkVibrantSwatch)?.rgb?.let { Color(it) } ?: dominant
+                if (dominant != null && vibrant != null) com.prism.music.ui.components.ArtPalette(vibrant, dominant) else null
+            } ?: com.prism.music.ui.components.ArtPalette(SAMPLE_COVER[ArtworkSwatch.VIBRANT]!!, SAMPLE_COVER[ArtworkSwatch.DOMINANT]!!)
             val c = rememberColors(s, dark)
+            val pictureAccent = art.accent(dark)?.let { com.prism.music.ui.theme.readableOn(it, c.scheme.background) }
             ChoiceCards(
                 listOf(true, false), s.pageColors,
                 title = { if (it) "Picture's color" else "Your accent" },
-                detail = { if (it) "Each page and menu takes a color from its picture" else "Pages and menus use your accent" },
+                detail = {
+                    if (it) "Each page and menu takes a color from its picture (black-and-white ones keep yours)" else "Pages and menus use your accent"
+                },
                 onSelect = { prefs.setPageColors(it) },
-            ) { on -> ColorSample(c, pageAccent = if (on) pageAccentFrom(photo, c) else null) }
+            ) { on -> ColorSample(c, pageAccent = if (on) pictureAccent else null) }
             Note("An artist's page can also have a color of its own: ⋯ → Page color on their page")
         }
         ResetColors()
@@ -417,9 +426,6 @@ private fun Changes(text: String, label: String = "Changes") {
 private val SAMPLE_COVER = mapOf(
     ArtworkSwatch.VIBRANT to Color(0xFFE0735A), ArtworkSwatch.MUTED to Color(0xFF9C7F8E), ArtworkSwatch.DOMINANT to Color(0xFF2B1F4A),
 )
-
-/** A page's photo color as [com.prism.music.ui.components.ArtworkAccent] would use it, readable on that page. */
-private fun pageAccentFrom(photo: Color, c: ThemeColors): Color = com.prism.music.ui.theme.readableOn(photo, c.scheme.background)
 
 /** The playing song's cover colors, for the "Song's cover" examples; null when nothing is playing. */
 @Composable
@@ -533,12 +539,13 @@ private fun LightPresets(s: AppSettings, dark: Boolean, onPick: (String) -> Unit
     val ui = LocalUi.current
     val scheme = MaterialTheme.colorScheme
     val white = s.lightStyle == LightStyle.WHITE
-    val keys = SpectrumPresets.all.map { it.key to it.label } + (WHITE_KEY to "White light") + ("CUSTOM" to "Your own")
-    FlowRow(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), maxItemsInEachRow = 3,
-    ) {
-        keys.forEach { (key, label) ->
+    // White is a preset like the others: white light on dark pages, black on light ones (named for what it shows).
+    val keys = SpectrumPresets.all.map { it.key to it.label } + (WHITE_KEY to whiteName(dark)) + ("CUSTOM" to "Your own")
+    // Three to a row, every tile the same width (a short last row keeps its tiles' size, it doesn't stretch them).
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      keys.chunked(3).forEach { row ->
+      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        row.forEach { (key, label) ->
             val on = if (key == WHITE_KEY) white else !white && key == s.spectrumPreset
             val empty = key == "CUSTOM" && s.spectrumStops.size < 2
             val c = rememberColors(
@@ -567,11 +574,17 @@ private fun LightPresets(s: AppSettings, dark: Boolean, onPick: (String) -> Unit
                 Text(label, style = MaterialTheme.typography.labelMedium, color = if (on) scheme.onSurface else scheme.onSurfaceVariant, maxLines = 2)
             }
         }
+        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+      }
+      }
     }
 }
 
-/** The Spectrum tile that turns on White light ([LightStyle.WHITE]) rather than naming a preset. */
+/** The Spectrum tile that turns on the White preset ([LightStyle.WHITE]) rather than naming a split-light preset. */
 private const val WHITE_KEY = "WHITE"
+
+/** The White preset's name as it shows: white light on dark pages, black on light ones. */
+fun whiteName(dark: Boolean) = if (dark) "White" else "Black"
 
 /** Your own light's colors in order: tap one to change (or remove) it, + to add one, and a way to flip the order. */
 @Composable

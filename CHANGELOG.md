@@ -12,7 +12,7 @@ What changed in each release. Older releases are described on the [Releases page
   - star colors to keep them; your recent colors are kept too.
 
   Before you use a color, it shows how readable it is on dark and light pages.
-- **Your light.** The split light that runs through Prism (progress, rings, switches, what's playing) comes in 12 palettes: Prism, Sunset, Ocean, Aurora, Forest, Ember, Candy, Neon, Ice, Gold, Silver and a color-blind-safe one. You can also build your own from 2 to 7 colors, and show any of them as hard bands like the logo's bars. **White light** is now one of these choices under Spectrum, rather than a separate Style setting.
+- **Your light.** The split light that runs through Prism (progress, rings, switches, what's playing) comes in 12 palettes: Prism, Sunset, Ocean, Aurora, Forest, Ember, Candy, Neon, Ice, Gold, Silver and a color-blind-safe one. You can also build your own from 2 to 7 colors, and show any of them as hard bands like the logo's bars. White light is now one of these presets, called **White** (**Black** in light mode). It's the same size as the others, and its light really is white (or black): your accent no longer stands in for it.
 - **More accent options.**
   - The accent can be set with any light, not only White light.
   - **Exact shade** uses your color just as picked, instead of Prism's own tones of it.
@@ -55,10 +55,12 @@ What changed in each release. Older releases are described on the [Releases page
 - **Lyrics on mobile data** (#95). Turn it off under Settings → Lyrics → Sources, and on mobile data Prism looks lyrics up only once you open them. Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.
 - **Which downloads failed, and why** (#98). Under "N downloads failed", **See which** lists each song with the reason, for example YouTube refusing the link, the phone going offline or running out of space. You can try each one again or remove it.
 - **"Color" is spelled the US way** throughout Prism.
+- **No more freezes from the sound effects.** The equalizer, bass boost and loudness effects are now set up on a thread of their own. When Android's audio service is slow to answer (after a restart, during a Bluetooth switch, with some phone makers' sound engines), Prism no longer stops responding while it waits.
 - **The Color page says what each setting changes.** Every group now has a "Changes" line naming everywhere it shows: the player, the mini player, song lists, Home, Settings, album and artist pages, menus, widgets. The preview is a small album page that shows only what each part really colors: the artist in the accent, the song that's playing in the light, the mini player's progress and Play ring, a switch. It sits on your real page background. Fixes found along the way:
   - **Page background did almost nothing** with the Ambient background: the frost from the playing cover covered it. Now Plain turns the frost grey, and Accent tint or Your color tint the frost in that color (the strength slider included), in light and dark mode.
   - **Accent tint with Wallpaper** tinted pages with your old picked color instead of the wallpaper's.
   - In White light, "Plain" is no longer offered beside "Automatic" (they were the same).
+  - **Album and artist pages showed a paler accent than the preview.** A black-and-white cover gave the page a grey accent. Now a picture with no color of its own keeps your accent, and colorful pictures give a deeper accent, as lively as your own. Secondary text (an album's year line, its description, song rows' artists) no longer turns pink with a strong page tint, so it no longer looks like a faded accent.
   - The page no longer says the accent colors the song that's playing (it's the light that does), and it now says that "Picture's color" also colors the menus you open from songs, albums and artists.
 - **Pin Prism playlists to Home.** Customize Home → Pinned playlists lists your Prism playlists as well as YouTube Music's. A pinned Prism playlist keeps its current name and cover.
 - **Playlists above the tiles.** Library → Edit tiles → "Where your playlists go": **Playlists first** puts your playlists at the top of Library, with the tiles (Liked songs, Downloads…) after them.

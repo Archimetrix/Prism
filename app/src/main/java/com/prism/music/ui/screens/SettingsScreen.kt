@@ -125,7 +125,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     ICONS("icons", "Icons & shapes", PrismIcons.Category),
     GLASS("glass", "Glass & backgrounds", PrismIcons.Photo);
 
-    fun summary(s: AppSettings): String = when (this) {
+    fun summary(s: AppSettings, dark: Boolean = true): String = when (this) {
         APPEARANCE -> listOf(s.themeMode.label + " theme", s.fontChoice.label + " font", when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }).joinToString(" · ")
         INTERFACE -> listOf(s.navStyle.label + " bar", "${s.navTabs.size} tabs", s.miniPlayerStyle.label + " mini player").joinToString(" · ")
         PLAYER -> listOfNotNull(s.playerBackground.label, if (s.immersivePlayer) "Immersive" else if (s.fullBleedArtwork) "Full-bleed artwork" else "Framed artwork", if (s.canvasEnabled) "Animated covers" else null).joinToString(" · ")
@@ -139,8 +139,9 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates"
         LICENSES -> "GPL-3.0-or-later"
         COLOR -> listOfNotNull(
-            s.lightStyle.label,
-            if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) (com.prism.music.ui.theme.SpectrumPresets.preset(s.spectrumPreset)?.label ?: "Your own") + " light" else null,
+            // The light's name (White shows as Black in light mode).
+            if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) whiteName(dark) + " light"
+            else (com.prism.music.ui.theme.SpectrumPresets.preset(s.spectrumPreset)?.label ?: "Your own") + " light",
             when (s.colorSource) { ColorSource.CUSTOM -> com.prism.music.ui.theme.ColorMath.toHex(s.accent) + " accent"; ColorSource.ARTWORK -> "Accent from the cover"; ColorSource.DYNAMIC -> "Accent from the wallpaper" },
         ).joinToString(" · ")
         TEXT -> listOfNotNull(s.fontChoice.label + " font", if (s.textScale != 1f) "${(s.textScale * 100).roundToInt()}% size" else null).joinToString(" · ")
@@ -256,7 +257,7 @@ private fun SettingsPage(
                         Group(title) {
                             sections.forEachIndexed { i, sec ->
                                 val hue = com.prism.music.ui.theme.PrismTokens.spectrumAt((first + i) / (hubCount - 1).coerceAtLeast(1).toFloat())
-                                NavRow(sec.icon, sec.title, sec.summary(s), selected = sec == selected, hue = hue) {
+                                NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current), selected = sec == selected, hue = hue) {
                                     if (onOpen != null) onOpen(sec, null) else nav.go(Routes.settings(sec.key))
                                 }
                             }
@@ -698,7 +699,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                 val nav = LocalNavigator.current
                 Group("Look") {
                     listOf(SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
-                        NavRow(sec.icon, sec.title, sec.summary(s)) { nav.go(Routes.settings(sec.key)) }
+                        NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current)) { nav.go(Routes.settings(sec.key)) }
                     }
                 }
             }

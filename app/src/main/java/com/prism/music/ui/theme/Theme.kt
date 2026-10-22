@@ -133,13 +133,16 @@ private fun inkOn(c: Color): Color =
  */
 fun withSurfaces(scheme: ColorScheme, h: Float, k: Float, dark: Boolean, pureBlack: Boolean, minRatio: Float = 4.5f): ColorScheme {
     val n = 0.10f * k
+    // Text keeps at most the hint Prism always had, however strong the page tint: tinted harder, secondary text read
+    // as a faded copy of the accent (an album's "Album · 2015", its description, song rows' artists).
+    val ink = n.coerceAtMost(0.10f)
     val c = if (dark) {
         val bg = if (pureBlack) Color.Black else hsl(h, n * 1.4f, 0.055f)
         scheme.copy(
             background = bg, surface = bg, surfaceDim = bg,
-            onBackground = hsl(h, n, 0.93f), onSurface = hsl(h, n, 0.93f),
-            surfaceVariant = hsl(h, n * 1.5f, 0.20f), onSurfaceVariant = hsl(h, n * 1.2f, 0.74f),
-            inverseSurface = hsl(h, n, 0.92f), inverseOnSurface = hsl(h, n, 0.12f),
+            onBackground = hsl(h, ink, 0.93f), onSurface = hsl(h, ink, 0.93f),
+            surfaceVariant = hsl(h, n * 1.5f, 0.20f), onSurfaceVariant = hsl(h, ink * 1.2f, 0.74f),
+            inverseSurface = hsl(h, ink, 0.92f), inverseOnSurface = hsl(h, ink, 0.12f),
             outline = hsl(h, n, 0.45f), outlineVariant = hsl(h, n, 0.26f),
             surfaceBright = hsl(h, n * 1.4f, if (pureBlack) 0.16f else 0.20f),
             surfaceContainerLowest = if (pureBlack) Color.Black else hsl(h, n * 1.4f, 0.04f),
@@ -152,9 +155,9 @@ fun withSurfaces(scheme: ColorScheme, h: Float, k: Float, dark: Boolean, pureBla
         val bg = hsl(h, 0.30f * k, 0.985f)
         scheme.copy(
             background = bg, surface = bg, surfaceBright = bg,
-            onBackground = hsl(h, n, 0.10f), onSurface = hsl(h, n, 0.10f),
-            surfaceVariant = hsl(h, 0.18f * k, 0.91f), onSurfaceVariant = hsl(h, n, 0.34f),
-            inverseSurface = hsl(h, n, 0.18f), inverseOnSurface = hsl(h, n, 0.95f),
+            onBackground = hsl(h, ink, 0.10f), onSurface = hsl(h, ink, 0.10f),
+            surfaceVariant = hsl(h, 0.18f * k, 0.91f), onSurfaceVariant = hsl(h, ink, 0.34f),
+            inverseSurface = hsl(h, ink, 0.18f), inverseOnSurface = hsl(h, ink, 0.95f),
             outline = hsl(h, n, 0.52f), outlineVariant = hsl(h, n, 0.82f),
             surfaceDim = hsl(h, 0.15f * k, 0.88f),
             surfaceContainerLowest = Color.White, surfaceContainerLow = hsl(h, 0.30f * k, 0.965f),
@@ -375,8 +378,10 @@ fun themeColors(s: AppSettings, dark: Boolean, seed: Color, dynamic: ((Boolean) 
         com.prism.music.data.prefs.SurfaceTint.CUSTOM -> withSurfaces(built, Color(s.surfaceColor).toHsl().first, s.surfaceTintStrength, dark, s.pureBlack, minRatio)
     }
     val scheme = if (minRatio > 4.5f) firmed(tinted, minRatio) else tinted
-    val whiteAccent = if (!white || !accentful) null
-        else PrismTokens.Accent(onDark = accentScheme(true).primary, onLight = accentScheme(false).primary, now = scheme.primary)
+    // The White preset (1.7.2, "Black" in light mode) lights progress, Play and switches in white / black whatever the
+    // accent: it's one of the Spectrum's lights, named for what it shows. (Until then White light put the accent there.)
+    // The accent stays on the accent's own things (②).
+    val whiteAccent: PrismTokens.Accent? = null
     return ThemeColors(scheme, whiteAccent, light, white, dark, s.contrast.ordinal.coerceIn(0, 2), s)
 }
 

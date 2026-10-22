@@ -88,12 +88,27 @@ data class ArtPalette(
         return Color(ColorUtils.HSLToColor(h))
     }
 
-    /** The accent that reads well on the page: light on dark pages, deep on light ones. */
-    fun accent(dark: Boolean): Color {
-        val h = hsl(vibrant)
-        // Near-greys make poor accents; lean on the dominant color's hue then.
-        val base = if (h[1] < 0.18f) dominant else vibrant
-        return base.withLightness(if (dark) 0.74f else 0.40f, 1.1f)
+    /**
+     * The picture's accent for its page (Appearance → Color → "Picture's color"), as deep and lively as Prism's own
+     * accent: its liveliest color (else its main one) at a firm saturation and the lightness Prism's accents use. Null
+     * when the picture has no color to give (a black-and-white cover): the page then keeps the listener's accent,
+     * rather than a grey one that read as a faded version of it.
+     */
+    fun accent(dark: Boolean): Color? {
+        val base = when {
+            hsl(vibrant)[1] >= MIN_ACCENT_SATURATION -> vibrant
+            hsl(dominant)[1] >= MIN_ACCENT_SATURATION -> dominant
+            else -> return null
+        }
+        val h = hsl(base)
+        h[1] = h[1].coerceIn(0.62f, 0.95f)
+        h[2] = if (dark) 0.66f else 0.42f
+        return Color(ColorUtils.HSLToColor(h))
+    }
+
+    companion object {
+        /** Below this a picture's colors are greys (or nearly): no accent is taken from it. */
+        const val MIN_ACCENT_SATURATION = 0.25f
     }
 
     /** The same palette in greys (White light). */
@@ -524,10 +539,17 @@ fun ArtworkAccent(palette: ArtPalette?, override: Color? = null, content: @Compo
     val themed = if (override != null) {
         val accent = com.prism.music.ui.theme.readableOn(override, scheme.background)
         scheme.copy(primary = accent, onPrimary = if (accent.luminance() > 0.5f) Color.Black else Color.White, surfaceTint = accent)
-    } else if (palette == null || !pageColors || (com.prism.music.ui.theme.PrismTokens.white && com.prism.music.ui.theme.PrismTokens.whiteAccent == null)) scheme else {
-        val accent = palette.accent(dark)
-        val on = if (accent.luminance() > 0.5f) Color.Black else Color.White
-        scheme.copy(primary = accent, onPrimary = on, surfaceTint = accent)
+    } else {
+        // White with a white accent keeps every page neutral, so the artwork's color stays in the artwork.
+        val neutral = com.prism.music.ui.theme.PrismTokens.white && com.prism.music.ui.theme.isNeutralSeed(scheme.primary.toArgb())
+        val fromPicture = if (palette == null || !pageColors || neutral) null
+            else palette.accent(dark)
+        // A picture with no color of its own (black and white) leaves the listener's accent in place.
+        if (fromPicture == null) scheme else {
+            val accent = com.prism.music.ui.theme.readableOn(fromPicture, scheme.background)
+            val on = if (accent.luminance() > 0.5f) Color.Black else Color.White
+            scheme.copy(primary = accent, onPrimary = on, surfaceTint = accent)
+        }
     }
     MaterialTheme(colorScheme = themed, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes, content = content)
 }
