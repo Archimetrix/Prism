@@ -239,11 +239,47 @@ fun FrostedBackdrop(
     if (!settings.frostedPages) { Box(modifier.fillMaxSize().background(bg)); return }
     val shown by animateFloatAsState(if (frost != null) 1f else 0f, tween(500), label = "frost")
     val grainBrush = remember { ShaderBrush(ImageShader(grain, TileMode.Repeated, TileMode.Repeated)) }
-    val mono = com.prism.music.ui.theme.PrismTokens.white
+    // Appearance → Color → Page background reaches the Ambient frost (1.7.2): Plain greys it, a tint colors it in that
+    // tint, Automatic keeps the cover's own colors. Picture pages (artist, album, playlist) keep their picture's.
+    val pageTint = if (!ambient) null else when (settings.surfaceTint) {
+        com.prism.music.data.prefs.SurfaceTint.ACCENT -> MaterialTheme.colorScheme.primary
+        com.prism.music.data.prefs.SurfaceTint.CUSTOM -> Color(settings.surfaceColor)
+        else -> null
+    }
+    val plain = ambient && settings.surfaceTint == com.prism.music.data.prefs.SurfaceTint.NEUTRAL
+    // From the settings in reach (not the app-wide token), so the Color page's examples show each choice's own frost.
+    val mono = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE || plain
+    val tintFilter = remember(pageTint, settings.surfaceTintStrength, dark) {
+        pageTint?.let { ambientTintTone(dark, it, settings.surfaceTintStrength) }
+    }
     Canvas(modifier.fillMaxSize()) {
-        drawFrostedBackdrop(frost?.image, shown, palette, bg, heroHeight.toPx(), heroScroll(), parallax, dark, pureBlack, bleed, mono, ambient)
+        drawFrostedBackdrop(
+            frost?.image, shown, if (tintFilter != null) null else palette, bg, heroHeight.toPx(), heroScroll(), parallax, dark, pureBlack,
+            bleed, mono, ambient, tintFilter,
+        )
         drawRect(grainBrush, alpha = if (dark) 0.5f else 0.35f)
     }
+}
+
+/**
+ * The Ambient frost in one color ([tint], Page background → Accent tint or Your color): the cover's light and shade
+ * kept, its colors swapped for the tint's ([strength] as the page tint's slider), then held to the page's tone so text
+ * reads. Channels are only ever lowered, never lifted, so it's never brighter than the grey frost on a dark page.
+ */
+internal fun ambientTintTone(dark: Boolean, tint: Color, strength: Float): ColorFilter {
+    val top = maxOf(tint.red, tint.green, tint.blue).coerceAtLeast(0.05f)
+    val s = (0.45f + 0.25f * strength).coerceIn(0f, 1f)
+    fun ch(v: Float) = 1f + s * (v / top - 1f)
+    val k = if (dark) 0.22f else 0.17f
+    // The tint also sits in the page's own floor, or it would barely show: on a light page the pale floor leans toward
+    // it (a pastel, text still dark on it), on a dark page a faint glow of it is added (text still white on it).
+    val lean = (0.10f + 0.08f * strength).coerceAtMost(0.4f)
+    val glow = (0.02f + 0.02f * strength).coerceAtMost(0.08f)
+    fun off(v: Float) = if (dark) 255f * glow * (v / top) else (1f - k) * 255f * (1f - lean * (1f - v / top))
+    val tone = ColorMatrix(floatArrayOf(k, 0f, 0f, 0f, off(tint.red), 0f, k, 0f, 0f, off(tint.green), 0f, 0f, k, 0f, off(tint.blue), 0f, 0f, 0f, 1f, 0f))
+    tone.timesAssign(ColorMatrix(floatArrayOf(ch(tint.red), 0f, 0f, 0f, 0f, 0f, ch(tint.green), 0f, 0f, 0f, 0f, 0f, ch(tint.blue), 0f, 0f, 0f, 0f, 0f, 1f, 0f)))
+    tone.timesAssign(ColorMatrix().apply { setToSaturation(0f) })
+    return ColorFilter.colorMatrix(tone)
 }
 
 /**
@@ -256,10 +292,12 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
     mono: Boolean = false,
     /** The Ambient background behind the app's own pages (no hero photo above it). */
     ambient: Boolean = false,
+    /** The Ambient frost in the page tint's color ([ambientTintTone]); then it settles into the (tinted) page color. */
+    tintTone: ColorFilter? = null,
 ) {
         // Below the picture, where a page's text sits, the frost is always held to the theme's tone (as the whole Ambient
         // background is); under the picture itself (which dissolves into it) it keeps the picture's full color.
-        val toned = if (dark) {
+        val toned = tintTone ?: if (dark) {
             if (ambient) (if (mono) ambientDarkGrey else ambientDark) else (if (mono) pageDarkGrey else pageDark)
         } else (if (mono) ambientLightGrey else ambientLight)
         val filter = if (ambient) toned else if (mono) greyscale else saturate

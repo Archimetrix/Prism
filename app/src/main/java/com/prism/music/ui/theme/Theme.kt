@@ -321,6 +321,8 @@ class ThemeColors(
     val dark: Boolean,
     /** 0 standard, 1 medium, 2 high. */
     val contrast: Int,
+    /** The settings these colors came from (the Color page's examples draw the real page background with them). */
+    val settings: AppSettings? = null,
 ) {
     /** The light across a line, as drawn on this page. */
     val run: List<Pair<Float, Color>> get() = PrismTokens.runOf(white, whiteAccent, light, dark)
@@ -368,13 +370,14 @@ fun themeColors(s: AppSettings, dark: Boolean, seed: Color, dynamic: ((Boolean) 
     val tinted = when (s.surfaceTint) {
         com.prism.music.data.prefs.SurfaceTint.AUTO -> built
         com.prism.music.data.prefs.SurfaceTint.NEUTRAL -> withSurfaces(built, 0f, 0f, dark, s.pureBlack, minRatio)
-        com.prism.music.data.prefs.SurfaceTint.ACCENT -> withSurfaces(built, seed.toHsl().first, s.surfaceTintStrength, dark, s.pureBlack, minRatio)
+        // The accent's hue: the wallpaper's own when the accent follows it (the stored pick isn't what's shown then).
+        com.prism.music.data.prefs.SurfaceTint.ACCENT -> withSurfaces(built, (if (dynamic != null) accented.primary else seed).toHsl().first, s.surfaceTintStrength, dark, s.pureBlack, minRatio)
         com.prism.music.data.prefs.SurfaceTint.CUSTOM -> withSurfaces(built, Color(s.surfaceColor).toHsl().first, s.surfaceTintStrength, dark, s.pureBlack, minRatio)
     }
     val scheme = if (minRatio > 4.5f) firmed(tinted, minRatio) else tinted
     val whiteAccent = if (!white || !accentful) null
         else PrismTokens.Accent(onDark = accentScheme(true).primary, onLight = accentScheme(false).primary, now = scheme.primary)
-    return ThemeColors(scheme, whiteAccent, light, white, dark, s.contrast.ordinal.coerceIn(0, 2))
+    return ThemeColors(scheme, whiteAccent, light, white, dark, s.contrast.ordinal.coerceIn(0, 2), s)
 }
 
 /**
