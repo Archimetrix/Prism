@@ -1555,6 +1555,12 @@ private fun LibraryReplaySettings() {
             Chips(libraryTabs.map { it.first }, startTab, { k -> libraryTabs.firstOrNull { it.first == k }?.second ?: k }) { prefs.setLibraryStartTab(it) }
             Spacer(Modifier.height(6.dp))
             Toggle("Full-width playlist pictures", "Edge to edge, like an artist page", s.playlistHeroCover) { prefs.setPlaylistHeroCover(it) }
+            var editingTiles by remember { mutableStateOf(false) }
+            Item(
+                "Library tiles", "${s.libraryTiles.size} of ${com.prism.music.data.prefs.LibraryTile.entries.size} shown · pick and order them",
+                onClick = { editingTiles = true },
+            ) { Chevron() }
+            if (editingTiles) LibraryTilesSheet { editingTiles = false }
         }
         Group("Replay") {
             Toggle("Show time in hours", if (s.replayHours) "Like \"20h 4m\"" else "Like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }

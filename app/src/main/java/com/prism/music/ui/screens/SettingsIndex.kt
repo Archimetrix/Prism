@@ -241,6 +241,7 @@ object SettingsIndex {
         SettingEntry(R, "Library", "Albums, artists & playlists as", "grid list view"),
         SettingEntry(R, "Library", "Open Library on", "start tab"),
         SettingEntry(R, "Library", "Full-width playlist pictures"),
+        SettingEntry(R, "Library", "Library tiles", "liked downloads local files replay podcasts listen together blend recognized new playlist import reorder hide shortcuts"),
         SettingEntry(R, "Replay", "Show time in hours", "stats minutes"),
         SettingEntry(R, "Replay", "Use theme colours", "colors stats"),
         SettingEntry(R, "Replay", "Rewind notification", "rewind wrapped year in review december notification"),

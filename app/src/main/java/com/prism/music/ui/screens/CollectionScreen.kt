@@ -550,7 +550,9 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             ) {
                 if (!sideBySide) item("header") { header() }
                 if (type == CollectionType.DOWNLOADS) item { DownloadsInfo(page.songs) { text, action -> confirm = text to action } }
-                if (type == CollectionType.DOWNLOADS) item("downloaded-collections") { DownloadedCollections() }
+                if (type == CollectionType.DOWNLOADS) item("downloaded-collections") {
+                    DownloadedCollections(visible, sort, query, filtered = genreFilter != null || query.isNotBlank())
+                }
                 if (ready != null && type != CollectionType.DOWNLOADS) item("offline") {
                     Text(
                         "You're offline · ${ready.size} of ${songs.size} songs are on this phone and play" +
@@ -1014,9 +1016,13 @@ private fun HeroHeader(type: CollectionType, page: CollectionPage, art: String?,
  * two or more downloaded songs come from, newest download first. Playlists: those kept on the phone
  * ([com.prism.music.data.OfflineLibrary], i.e. opened since 1.6.8) whose every song is downloaded, as their own page
  * marks them; a fully downloaded album kept there counts too.
+ *
+ * The songs' search, genre filter and sort apply to them too (Reddit 1.7: "the filters work for songs, can they for
+ * albums?"): albums come from the songs left by the filters ([visible]), kept pages must match what's typed, and the
+ * cards follow the songs' order by title, artist or age.
  */
 @Composable
-private fun DownloadedCollections() {
+private fun DownloadedCollections(visible: List<Song>, sort: SortMode, query: String, filtered: Boolean) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
     val all by c.downloads.downloads.collectAsState()
@@ -1025,15 +1031,20 @@ private fun DownloadedCollections() {
     val kept by produceState<List<Pair<String, CollectionPage>>?>(null) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.offline.pages() }
     }
-    val (albums, playlists) = remember(kept, done) {
+    val (albums, playlists) = remember(kept, done, visible, sort, query, filtered) {
+        val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        fun matches(p: CollectionPage) = words.isEmpty() ||
+            "${p.title} ${p.artists.joinToString(" ") { it.name }}".lowercase().let { hay -> words.all { it in hay } }
         // A single's page is one song: that's already in the list below.
         val (keptAlbums, keptPlaylists) = kept.orEmpty()
-            .filter { (_, p) -> p.songs.size >= 2 && p.songs.all { it.id in done } }
+            .filter { (_, p) -> p.songs.size >= 2 && p.songs.all { it.id in done } && matches(p) }
             .distinctBy { it.second.id }
             .partition { it.second.kind == CollectionKind.ALBUM }
         // One card per album name and artist: YouTube lists some albums twice (two editions, two ids), and the songs
-        // can come from either. The card opens the edition most of them are from.
-        val fromSongs = c.downloads.completedSongs().filter { it.album?.id != null }
+        // can come from either. The card opens the edition most of them are from. With a filter on, only the songs it
+        // left count (so a genre shows its albums).
+        val pool = if (filtered) visible.filter { it.id in done } else c.downloads.completedSongs()
+        val fromSongs = pool.filter { it.album?.id != null }
             .groupBy { it.album!!.title.lowercase() to it.primaryArtist.lowercase() }.values
             .filter { it.size >= 2 }
             .map { songs ->
@@ -1043,7 +1054,14 @@ private fun DownloadedCollections() {
         val albums = (fromSongs + keptAlbums.map { (id, p) ->
             AlbumItem(id, p.title, listOfNotNull(p.artists.firstOrNull()?.name, com.prism.music.data.model.songCount(p.songs.size)).joinToString(" • "), p.thumbnail)
         }).distinctBy { it.title.lowercase() to it.subtitle.substringBefore(" • ").lowercase() }
-        albums to keptPlaylists.map { (id, p) -> PlaylistItem(id, p.title, com.prism.music.data.model.songCount(p.songs.size), p.thumbnail) }
+        val lists = keptPlaylists.map { (id, p) -> PlaylistItem(id, p.title, com.prism.music.data.model.songCount(p.songs.size), p.thumbnail) }
+        fun <T : com.prism.music.data.model.BrowseItem> ordered(items: List<T>): List<T> = when (sort) {
+            SortMode.TITLE, SortMode.ALBUM -> items.sortedBy { it.title.lowercase() }
+            SortMode.ARTIST -> items.sortedBy { it.subtitle.substringBefore(" • ").lowercase() }
+            SortMode.OLDEST -> items.asReversed()
+            else -> items
+        }
+        ordered(albums) to ordered(lists)
     }
     if (albums.isEmpty() && playlists.isEmpty()) return
     Column {

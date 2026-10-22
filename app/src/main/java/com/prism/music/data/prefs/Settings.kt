@@ -150,6 +150,11 @@ enum class LyricsAlign(val label: String) { START("Left"), CENTER("Centre") }
 /** Lyrics in a script the listener can't read, in Latin letters too: under each line, or in its place. */
 enum class RomanizeMode(val label: String) { OFF("Off"), UNDER("Under each line"), INSTEAD("Instead") }
 enum class LibraryView(val label: String) { GRID("Grid"), LIST("List") }
+/** The tiles at the top of Library's Playlists tab (Reddit 1.7: "let me reorder or hide them"); shown in the order kept. */
+enum class LibraryTile(val label: String) {
+    LIKED("Liked songs"), DOWNLOADS("Downloads"), LOCAL("Local files"), REPLAY("Replay"), PODCASTS("Podcasts"),
+    TOGETHER("Listen together"), BLEND("Blend"), RECOGNIZED("Recognized"), NEW_PLAYLIST("New playlist"), IMPORT("Import playlists"),
+}
 
 @Serializable
 data class HomeSectionConfig(
@@ -541,6 +546,8 @@ data class AppSettings(
     // Library & Replay
     val libraryView: LibraryView = LibraryView.LIST,
     val libraryStartTab: String = "PLAYLISTS",
+    /** Library's tiles that show, in order (the rest are hidden). */
+    val libraryTiles: List<LibraryTile> = LibraryTile.entries,
     /** Playlist pages open with their picture edge to edge, like an artist page. */
     val playlistHeroCover: Boolean = true,
     /** Artist, album and playlist pages sit on frosted glass made from their picture (Apple Music's look). */
@@ -724,6 +731,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsAlign = stringPreferencesKey("lyrics_align")
         val libraryView = stringPreferencesKey("library_view")
         val libraryStartTab = stringPreferencesKey("library_start_tab")
+        val libraryTiles = stringPreferencesKey("library_tiles")
         val playlistHeroCover = booleanPreferencesKey("playlist_hero_cover")
         val frostedPages = booleanPreferencesKey("frosted_pages")
         val replayThemeColors = booleanPreferencesKey("replay_theme_colors")
@@ -922,6 +930,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsAlign = p.enum(K.lyricsAlign, d.lyricsAlign),
             libraryView = p.enum(K.libraryView, d.libraryView),
             libraryStartTab = p[K.libraryStartTab] ?: d.libraryStartTab,
+            libraryTiles = p[K.libraryTiles]?.let { v -> if (v.isEmpty()) emptyList() else v.split(',').mapNotNull { n -> LibraryTile.entries.firstOrNull { it.name == n } } } ?: d.libraryTiles,
             playlistHeroCover = p[K.playlistHeroCover] ?: d.playlistHeroCover,
             frostedPages = p[K.frostedPages] ?: d.frostedPages,
             replayThemeColors = p[K.replayThemeColors] ?: d.replayThemeColors,
@@ -1159,6 +1168,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setLyricsAlign(v: LyricsAlign) = edit { it[K.lyricsAlign] = v.name }
     fun setLibraryView(v: LibraryView) = edit { it[K.libraryView] = v.name }
     fun setLibraryStartTab(v: String) = edit { it[K.libraryStartTab] = v }
+    fun setLibraryTiles(v: List<LibraryTile>) = edit { it[K.libraryTiles] = v.joinToString(",") { t -> t.name } }
     fun setPlaylistHeroCover(v: Boolean) = edit { it[K.playlistHeroCover] = v }
     fun setFrostedPages(v: Boolean) = edit { it[K.frostedPages] = v }
     fun setReplayThemeColors(v: Boolean) = edit { it[K.replayThemeColors] = v }

@@ -4,6 +4,8 @@ import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.data.friendlyMessage
+import com.prism.music.data.prefs.LibraryTile
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -105,6 +107,8 @@ fun LibraryScreen(bottomPadding: Dp) {
     var menuFor by remember { mutableStateOf<com.prism.music.data.model.BrowseItem?>(null) }
     var deleting by remember { mutableStateOf<com.prism.music.data.model.BrowseItem?>(null) }
     val menu = com.prism.music.ui.components.rememberPlayMenu()
+    var editingTiles by remember { mutableStateOf(false) }
+    if (editingTiles) LibraryTilesSheet { editingTiles = false }
 
     // The account's saved albums / artists first, then the ones your liked and downloaded songs come from.
     val mine = remember(liked, dls) {
@@ -234,22 +238,28 @@ fun LibraryScreen(bottomPadding: Dp) {
                 }
                 when (tab) {
                     LibTab.PLAYLISTS -> {
-                        item { ShortcutTile("Liked songs", com.prism.music.data.model.songCount(liked.size), PrismIcons.HeartFilled, asList, art = c.covers.custom("liked"), onLongClick = { menu(com.prism.music.ui.components.Playable.Liked) }) { nav.go(Routes.liked()) } }
-                        item { ShortcutTile("Downloads", com.prism.music.data.model.songCount(dls.values.count { it.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }), PrismIcons.DownloadDone, asList, onLongClick = { menu(com.prism.music.ui.components.Playable.Downloads) }) { nav.go(Routes.DOWNLOADS) } }
-                        item {
-                            ShortcutTile(
-                                "Local files", if (localTracks.isEmpty()) "Music files on this phone" else com.prism.music.data.model.songCount(localTracks.size),
-                                PrismIcons.Phone, asList,
-                            ) { nav.go(Routes.LOCAL) }
+                        // The tiles picked and ordered in "Edit tiles" (Settings → Library & Replay too).
+                        settings.libraryTiles.forEach { t ->
+                            when (t) {
+                                LibraryTile.LIKED -> item(key = "tile-liked") { ShortcutTile("Liked songs", com.prism.music.data.model.songCount(liked.size), PrismIcons.HeartFilled, asList, art = c.covers.custom("liked"), onLongClick = { menu(com.prism.music.ui.components.Playable.Liked) }) { nav.go(Routes.liked()) } }
+                                LibraryTile.DOWNLOADS -> item(key = "tile-downloads") { ShortcutTile("Downloads", com.prism.music.data.model.songCount(dls.values.count { it.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }), PrismIcons.DownloadDone, asList, onLongClick = { menu(com.prism.music.ui.components.Playable.Downloads) }) { nav.go(Routes.DOWNLOADS) } }
+                                LibraryTile.LOCAL -> item(key = "tile-local") {
+                                    ShortcutTile(
+                                        "Local files", if (localTracks.isEmpty()) "Music files on this phone" else com.prism.music.data.model.songCount(localTracks.size),
+                                        PrismIcons.Phone, asList,
+                                    ) { nav.go(Routes.LOCAL) }
+                                }
+                                LibraryTile.REPLAY -> item(key = "tile-replay") { ShortcutTile("Replay", "Your listening recap", PrismIcons.History, asList) { nav.go(Routes.REPLAY) } }
+                                // Home's Podcasts button turned off (#28): Podcasts lives here instead.
+                                LibraryTile.PODCASTS -> if (!settings.homePodcastsButton) item(key = "tile-podcasts") { ShortcutTile("Podcasts", "Shows and episodes", PrismIcons.Podcasts, asList) { nav.go(Routes.PODCASTS) } }
+                                LibraryTile.TOGETHER -> item(key = "tile-together") { ShortcutTile("Listen together", "With friends on the same Wi-Fi", PrismIcons.Groups, asList) { nav.go(Routes.TOGETHER) } }
+                                LibraryTile.BLEND -> item(key = "tile-blend") { ShortcutTile("Blend", "A playlist of two tastes", PrismIcons.Blend, asList) { nav.go(Routes.BLENDS) } }
+                                LibraryTile.RECOGNIZED -> item(key = "tile-recognized") { ShortcutTile("Recognized", "Songs found by listening", PrismIcons.Recognize, asList) { nav.go(Routes.RECOGNIZED) } }
+                                LibraryTile.NEW_PLAYLIST -> item(key = "tile-new") { ShortcutTile("New playlist", if (settings.isLoggedIn) "Make one on YouTube Music" else "Kept on this phone", PrismIcons.Add, asList) { creating = true } }
+                                LibraryTile.IMPORT -> if (settings.isLoggedIn) item(key = "tile-import") { ShortcutTile("Import playlists", "From Spotify, Apple Music…", PrismIcons.PlaylistAdd, asList) { nav.go(Routes.IMPORT) } }
+                            }
                         }
-                        item { ShortcutTile("Replay", "Your listening recap", PrismIcons.History, asList) { nav.go(Routes.REPLAY) } }
-                        // Home's Podcasts button turned off (#28): Podcasts lives here instead.
-                        if (!settings.homePodcastsButton) item { ShortcutTile("Podcasts", "Shows and episodes", PrismIcons.Podcasts, asList) { nav.go(Routes.PODCASTS) } }
-                        item { ShortcutTile("Listen together", "With friends on the same Wi-Fi", PrismIcons.Groups, asList) { nav.go(Routes.TOGETHER) } }
-                        item { ShortcutTile("Blend", "A playlist of two tastes", PrismIcons.Blend, asList) { nav.go(Routes.BLENDS) } }
-                        item { ShortcutTile("Recognized", "Songs found by listening", PrismIcons.Recognize, asList) { nav.go(Routes.RECOGNIZED) } }
-                        item { ShortcutTile("New playlist", if (settings.isLoggedIn) "Make one on YouTube Music" else "Kept on this phone", PrismIcons.Add, asList) { creating = true } }
-                        if (settings.isLoggedIn) item { ShortcutTile("Import playlists", "From Spotify, Apple Music…", PrismIcons.PlaylistAdd, asList) { nav.go(Routes.IMPORT) } }
+                        item(key = "tile-edit") { ShortcutTile("Edit tiles", "Pick and order these", PrismIcons.Edit, asList) { editingTiles = true } }
                         // Signed out: playlists made here are kept on the phone; signing in brings YouTube Music's too.
                         if (!settings.isLoggedIn && prismLists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -448,6 +458,47 @@ private fun ShortcutTile(title: String, subtitle: String, icon: ImageVector, asL
         Spacer(Modifier.height(8.dp))
         Text(title, style = MaterialTheme.typography.titleSmall)
         Text(subtitle, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * Edit Library's tiles (Reddit 1.7): tick the ones to show and move them up or down. Changes show at once in Library
+ * behind the sheet. Opened from Library's "Edit tiles" and from Settings → Library & Replay.
+ */
+@Composable
+fun LibraryTilesSheet(onDismiss: () -> Unit) {
+    val s = com.prism.music.ui.theme.LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    val tiles = s.libraryTiles
+    com.prism.music.ui.components.PrismSheet(onDismiss) { _ ->
+        Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 24.dp)) {
+            Text("Library tiles", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(
+                "Tick the tiles to show at the top of Library and put them in your order.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp),
+            )
+            (tiles + LibraryTile.entries.filter { it !in tiles }).forEach { t ->
+                val on = t in tiles
+                val i = tiles.indexOf(t)
+                Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PrismCheck(on, label = t.label) { v -> prefs.setLibraryTiles(if (v) tiles + t else tiles - t) }
+                    Text(
+                        t.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+                        color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (on) {
+                        androidx.compose.material3.IconButton(onClick = { prefs.setLibraryTiles(tiles.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
+                            Icon(PrismIcons.ChevronUp, "Move ${t.label} up")
+                        }
+                        androidx.compose.material3.IconButton(onClick = { prefs.setLibraryTiles(tiles.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < tiles.lastIndex) {
+                            Icon(PrismIcons.ChevronDown, "Move ${t.label} down")
+                        }
+                    }
+                }
+            }
+            PrismTextButton({ prefs.setLibraryTiles(LibraryTile.entries) }, Modifier.padding(start = 12.dp, top = 8.dp)) { Text("Show all, in Prism's order") }
+        }
     }
 }
 

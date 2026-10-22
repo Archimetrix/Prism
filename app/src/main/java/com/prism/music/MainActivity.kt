@@ -875,6 +875,10 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
         // The Quick Settings tile: straight to listening.
         uri.scheme == "prism" && uri.host == "recognize" -> nav.go(Routes.RECOGNIZE + "?start=true")
         uri.scheme == "prism" && uri.host == "recognized" -> nav.go(Routes.RECOGNIZED)
+        // App icon shortcuts (AppShortcuts).
+        uri.scheme == "prism" && uri.host == "search" -> nav.go(Routes.SEARCH)
+        uri.scheme == "prism" && uri.host == "liked" -> nav.go(Routes.liked())
+        uri.scheme == "prism" && uri.host == "downloads" -> nav.go(Routes.DOWNLOADS)
         // The 1 December notification: that year's Rewind.
         uri.scheme == "prism" && uri.host == "rewind" -> {
             path.firstOrNull()?.toIntOrNull()?.let { c.rewindRequest.value = it }

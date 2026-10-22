@@ -228,6 +228,8 @@ abstract class GeneratePrismIcons : DefaultTask() {
         "ic_w_thumb" to Drawable("ThumbDown", filled = true, flip = true, note = "YouTube Music-style widget: liked (thumb up)"),
         "ic_w_thumb_outline" to Drawable("ThumbDown", flip = true, note = "YouTube Music-style widget: like (thumb up)"),
         "ic_tile_recognize" to Drawable("Recognize", note = "Song recognition's Quick Settings tile and widget"),
+        "ic_s_search" to Drawable("Search", note = "App icon shortcut: Search"),
+        "ic_s_downloads" to Drawable("DownloadDone", note = "App icon shortcut: Downloads"),
     )
 
     /** One generated path: its data, kind (0 line, 1 filled, 2 line the twin fills) and line width. */

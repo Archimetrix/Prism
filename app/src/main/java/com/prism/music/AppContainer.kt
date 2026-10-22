@@ -80,6 +80,8 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         com.prism.music.ui.theme.AppFonts.init(this)
         container = AppContainer(this)
         runCatching { com.prism.music.data.Notifications.createChannels(this) }
+        // Long-press the app icon: Search, Recognize a song, Liked songs, Downloads (Reddit 1.7).
+        runCatching { com.prism.music.AppShortcuts.publish(this) }
         // For you (1.7): Home gets its sections once, and Release Radar looks round every few days.
         container.settings.addNewHomeSections()
         runCatching { com.prism.music.data.foryou.ReleaseRadar.schedule(this) }
