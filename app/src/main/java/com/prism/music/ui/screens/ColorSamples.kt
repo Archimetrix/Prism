@@ -129,7 +129,13 @@ fun PartMark(part: ColorPart, c: ThemeColors, modifier: Modifier = Modifier, siz
 @Composable
 fun ColorStage(c: ThemeColors, song: Song?, modifier: Modifier = Modifier, compact: Boolean = false, marks: Boolean = true) {
     val s = c.scheme
-    val accent = s.primary
+    // With Artist & album pages on "Picture's color", a page's accent is its cover's (none for a black-and-white cover,
+    // which keeps yours): the example album page shows what its real page would.
+    val pictureAccent = if (c.settings?.pageColors == true) com.prism.music.ui.components.rememberArtPalette(song?.thumbnail)
+        ?.accent(c.dark)?.let { com.prism.music.ui.theme.readableOn(it, s.background) } else null
+    val accent = pictureAccent ?: s.primary
+    // The ② mark only where it really is your accent.
+    val accentMarks = marks && pictureAccent == null
     val shape = RoundedCornerShape(if (compact) 18.dp else 24.dp)
     val title = song?.title ?: "Blinding Lights"
     val album = song?.album?.title?.takeIf { it.isNotBlank() } ?: if (song == null) "After Hours" else title
@@ -152,7 +158,7 @@ fun ColorStage(c: ThemeColors, song: Song?, modifier: Modifier = Modifier, compa
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(artist, Modifier.weight(1f, fill = false), color = accent, style = type.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (marks) PartMark(ColorPart.ACCENT, c, Modifier.padding(start = 6.dp), 14.dp)
+                        if (accentMarks) PartMark(ColorPart.ACCENT, c, Modifier.padding(start = 6.dp), 14.dp)
                     }
                     Spacer(Modifier.height(4.dp))
                     StageProgress(c, 0.42f)
@@ -174,7 +180,7 @@ fun ColorStage(c: ThemeColors, song: Song?, modifier: Modifier = Modifier, compa
                     Text(album, color = s.onBackground, style = type.titleLarge, fontWeight = FontWeight.Light, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(artist, Modifier.weight(1f, fill = false), color = accent, style = type.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (marks) PartMark(ColorPart.ACCENT, c, Modifier.padding(start = 6.dp))
+                        if (accentMarks) PartMark(ColorPart.ACCENT, c, Modifier.padding(start = 6.dp))
                     }
                 }
                 Icon(PrismIcons.StarFilled, null, Modifier.padding(start = 8.dp, end = if (marks) 14.dp else 0.dp).size(18.dp), tint = accent)

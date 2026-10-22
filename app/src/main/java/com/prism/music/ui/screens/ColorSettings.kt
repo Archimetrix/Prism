@@ -228,6 +228,17 @@ private fun ColorSettings() {
                     "and the page tint when Page background is Accent tint. Song lists and the player's text don't use it (the " +
                     "player only does with its Theme or Your background backgrounds, in Player settings)."
             )
+            // Picture's color takes over the accent on exactly the pages it shows most on: say so here, where it's missed.
+            if (s.pageColors) Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Album, playlist and artist pages use their picture's color instead (Artist & album pages, below)",
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface,
+                )
+                PrismTextButton({ prefs.setPageColors(false) }) { Text("Use mine") }
+            }
             val sources = ColorSource.entries.filter { it != ColorSource.DYNAMIC || Build.VERSION.SDK_INT >= 31 }
             ChoiceCards(
                 sources, s.colorSource,
@@ -338,7 +349,7 @@ private fun ColorSettings() {
         }
 
         Group("Artist & album pages") {
-            Note("Their accent (②): from their picture, or always yours")
+            Note("Their accent: yours (②), as everywhere else, or a color taken from each page's picture")
             Changes(
                 "The accent on artist, album and playlist pages, and in the menus you open from a song, album or artist (long " +
                     "press or ⋯). Their frosted backgrounds take the picture's colors either way (Glass & backgrounds)."
@@ -352,10 +363,11 @@ private fun ColorSettings() {
             val c = rememberColors(s, dark)
             val pictureAccent = art.accent(dark)?.let { com.prism.music.ui.theme.readableOn(it, c.scheme.background) }
             ChoiceCards(
-                listOf(true, false), s.pageColors,
+                listOf(false, true), s.pageColors,
                 title = { if (it) "Picture's color" else "Your accent" },
                 detail = {
-                    if (it) "Each page and menu takes a color from its picture (black-and-white ones keep yours)" else "Pages and menus use your accent"
+                    if (it) "Each page and menu takes a color from its picture instead of yours (black-and-white ones keep yours)"
+                    else "Your accent on every page and menu"
                 },
                 onSelect = { prefs.setPageColors(it) },
             ) { on -> ColorSample(c, pageAccent = if (on) pictureAccent else null) }

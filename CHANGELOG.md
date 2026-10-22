@@ -22,7 +22,7 @@ What changed in each release. Older releases are described on the [Releases page
 - **Cover colors.**
   - With "Now playing" as the accent, you choose which of the cover's colors to use (vibrant, muted or main) and whether grey covers still give a color ("Keep it lively").
   - You also choose how the color moves between songs: at once, a fade, a slow fade, or only when the album changes.
-- **Page colors.** Whether artist, album and playlist pages take their picture's color is now its own switch. An artist's page can also have a color you pick (⋯ → Page color).
+- **Page colors.** Artist, album and playlist pages (and the menus opened from them) now use your accent, like the rest of Prism. Before, they always took a color from their picture, so the accent you picked hardly showed. Their frosted backgrounds still take the picture's colors. To have them take their picture's color instead, set Color → Artist & album pages → **Picture's color**. An artist's page can also have a color you pick (⋯ → Page color).
 - **Appearance is tidier.** Appearance now holds the theme and four pages: Color, Text, Icons & shapes, and Glass & backgrounds.
 - **A Color page you can see.**
   - A preview of Prism's Now playing (your song's cover, the title, the artist in the accent, the light on Play, progress and a switch), in dark or light mode. It stays pinned at the top while you scroll, as one compact row. It numbers the three parts colors apply to: ① the light, ② the accent and ③ the background.

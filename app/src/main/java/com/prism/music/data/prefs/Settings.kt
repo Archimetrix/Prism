@@ -311,8 +311,11 @@ data class AppSettings(
     /** Keep the cover's color lively (a floor on its saturation). */
     val artworkVivid: Boolean = false,
     val artworkChange: ArtworkChange = ArtworkChange.FADE,
-    /** Artist, album and playlist pages (and menus) take their picture's color. */
-    val pageColors: Boolean = true,
+    /**
+     * Artist, album and playlist pages (and menus) take their accent from their picture instead of the listener's.
+     * Off by default (owner, 2026-10-22): the accent picked on the Color page shows on every page.
+     */
+    val pageColors: Boolean = false,
     val liquidGlass: Boolean = false,
     val glassKind: GlassKind = GlassKind.REGULAR,
     /** Blurred, non-refractive glass. Mutually exclusive with Liquid Glass. */
@@ -603,7 +606,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val artworkSwatch = stringPreferencesKey("artwork_swatch")
         val artworkVivid = booleanPreferencesKey("artwork_vivid")
         val artworkChange = stringPreferencesKey("artwork_change")
-        val pageColors = booleanPreferencesKey("page_colors")
+        // A new key with the new default (your accent): "page_colors" was only ever in unreleased 1.7.2 test builds,
+        // where it defaulted to the picture's color, so those settings are left behind on purpose.
+        val pageColors = booleanPreferencesKey("page_picture_accent")
 
         /** Everything Appearance → Color's "Reset colors" puts back. */
         val colors: List<Preferences.Key<*>> by lazy {
