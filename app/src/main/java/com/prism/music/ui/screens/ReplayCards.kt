@@ -149,7 +149,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
             Column(Modifier.align(Alignment.BottomStart)) {
                 Eyebrow("Replay ${d.year}")
                 Text(d.total, style = big.copy(brush = PrismTokens.spectrum(dark)), maxLines = 1)
-                Text("See your top songs, artists and genres", color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                Text("Your top songs, artists and genres", color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
             }
             Icon(PrismIcons.ReplayFilled, null, Modifier.align(Alignment.TopEnd), tint = scheme.onSurface)
         }
@@ -170,7 +170,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
                     )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${(d.yearDone * 100).toInt()}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Light), color = scheme.onSurface)
+                    Text(yearPercent(d.yearDone), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Light), color = scheme.onSurface)
                     Text("of ${d.year}", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                 }
             }
@@ -179,7 +179,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
                 Eyebrow("Replay ${d.year}")
                 Spacer(Modifier.height(4.dp))
                 Text(d.total, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraLight), color = scheme.onSurface, maxLines = 1)
-                Text(tops.ifBlank { "Your year so far" }, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("Your top songs, artists and genres", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
         // The top song's cover sets the color: blown up behind a scrim, and sharp beside the words.
@@ -299,6 +299,12 @@ private suspend fun previewYear(c: com.prism.music.AppContainer): PreviewYear {
         plays.totalMs(start, now), months, song?.title, song?.artistName, artist?.artistName, song?.thumbnail,
         yearFraction(),
     )
+}
+
+/** The Ring card's figure: how far through the year, in tenths of a percent, never rounded up ("81.3%"). */
+fun yearPercent(fraction: Float): String {
+    val tenths = kotlin.math.floor(fraction.toDouble() * 1000).toInt().coerceIn(0, 1000)
+    return "${tenths / 10}.${tenths % 10}%"
 }
 
 /** How far through this year it is, to the minute (the Ring card's arc and percentage). */

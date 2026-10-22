@@ -338,10 +338,16 @@ private fun PinPlaylistsSheet(onDismiss: () -> Unit) {
     val c = LocalContainer.current
     val settings = LocalAppSettings.current
     val library by c.library.playlists.collectAsState()
-    val playlists = remember(library) { library.filterIsInstance<PlaylistItem>() }
-    // Pinned ones first (kept even if they've left the library), then the rest of the library.
+    val prismLists by c.prismLibrary.lists.collectAsState()
+    // Prism's own playlists (kept on the phone) can be pinned too, as well as the library's.
+    val mine = remember(prismLists) { prismLists.map { it.item() } }
+    val playlists = remember(library, mine) { mine + library.filterIsInstance<PlaylistItem>().filterNot { l -> mine.any { it.id == l.id } } }
+    // Pinned ones first (kept even if they've left the library), then Prism's playlists, then the rest of the library.
     val pinnedIds = settings.homePlaylists.map { it.id }
-    val options = settings.homePlaylists.map { it.id to it.title } + playlists.filter { it.id !in pinnedIds }.map { it.id to it.title }
+    val pinned = settings.homePlaylists.map { it.id to it.title }
+    val prismOptions = mine.filter { it.id !in pinnedIds }.map { it.id to it.title }
+    val youtubeOptions = playlists.filter { it.id !in pinnedIds && mine.none { m -> m.id == it.id } }.map { it.id to it.title }
+    val options = pinned + prismOptions + youtubeOptions
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text("Pinned playlists", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
         Text(
@@ -355,7 +361,7 @@ private fun PinPlaylistsSheet(onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 )
             }
-            items(options, key = { it.first }) { (id, title) ->
+            fun row(scope: androidx.compose.foundation.lazy.LazyListScope, list: List<Pair<String, String>>) = scope.items(list, key = { it.first }) { (id, title) ->
                 val on = id in pinnedIds
                 SheetRow(title, checked = on) {
                     c.settings.setHomePlaylists(
@@ -364,6 +370,9 @@ private fun PinPlaylistsSheet(onDismiss: () -> Unit) {
                     )
                 }
             }
+            if (pinned.isNotEmpty()) { item { SheetLabel("Pinned") }; row(this, pinned) }
+            if (prismOptions.isNotEmpty()) { item { SheetLabel("Prism playlists") }; row(this, prismOptions) }
+            if (youtubeOptions.isNotEmpty()) { item { SheetLabel("YouTube Music playlists") }; row(this, youtubeOptions) }
         }
     }
 }

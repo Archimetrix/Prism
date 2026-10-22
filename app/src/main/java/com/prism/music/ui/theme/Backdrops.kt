@@ -193,6 +193,10 @@ fun ambientFrostShown(s: com.prism.music.data.prefs.AppSettings, dark: Boolean):
 fun BackdropLayer(style: Backdrop, photo: String?, dim: Float, motion: Boolean, modifier: Modifier) {
     val bg = MaterialTheme.colorScheme.background
     val dark = LocalIsDark.current
+    // Pure black (AMOLED) in dark mode: every background sits on true black, its own colors kept but quieter, so most of
+    // the screen's pixels stay off whichever background is picked (it used to change only Ambient and the plain page).
+    val black = dark && LocalAppSettings.current.pureBlack
+    val palette = style.colors(dark).map { Color(it) }.let { if (black && it.isNotEmpty()) listOf(Color.Black) + it.drop(1) else it }
     Box(modifier) {
         when (style) {
             // With frosted pages on, the default is the frost from what's playing (the previews show it so).
@@ -202,7 +206,7 @@ fun BackdropLayer(style: Backdrop, photo: String?, dim: Float, motion: Boolean, 
                 Box(Modifier.fillMaxSize().background(bg))
                 AsyncImage(
                     hiRes(song?.thumbnail, 300), null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().blur(70.dp).graphicsLayer { alpha = 0.85f },
+                    modifier = Modifier.fillMaxSize().blur(70.dp).graphicsLayer { alpha = if (black) 0.5f else 0.85f },
                 )
             }
             Backdrop.PHOTO -> {
@@ -210,12 +214,12 @@ fun BackdropLayer(style: Backdrop, photo: String?, dim: Float, motion: Boolean, 
                 if (photo != null) AsyncImage(File(photo), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             }
             else -> when (style.kind) {
-                BackdropKind.FIELDS -> Fields(style.colors(dark).map { Color(it) }, dark, motion)
-                BackdropKind.BLEND -> style.colors(dark).map { Color(it) }.let { (top, bottom) ->
+                BackdropKind.FIELDS -> Fields(palette, dark, motion, if (black) 0.45f else 1f)
+                BackdropKind.BLEND -> style.colors(dark).map { Color(it) }.map { if (black) androidx.compose.ui.graphics.lerp(Color.Black, it, 0.45f) else it }.let { (top, bottom) ->
                     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, bottom))))
                 }
-                else -> if (style.group == BackdropGroup.DESIGNS) Design(style.kind, style.colors(dark).map { Color(it) }, dark, motion)
-                    else Pattern(style.kind, dark, motion)
+                else -> if (style.group == BackdropGroup.DESIGNS) Design(style.kind, palette, dark, motion)
+                    else Pattern(style.kind, dark, motion, if (black) 0.5f else 1f)
             }
         }
         // Keeps text readable: a wash of the theme's background, stronger toward the bottom. The light
@@ -236,10 +240,10 @@ internal fun drift(motion: Boolean, periodMs: Int, rest: Float): Float = if (mot
 } else rest
 
 @Composable
-private fun Fields(colors: List<Color>, dark: Boolean, motion: Boolean) {
+private fun Fields(colors: List<Color>, dark: Boolean, motion: Boolean, quiet: Float = 1f) {
     val t = drift(motion, 28_000, 0.15f)
-    // Pastels need a touch less strength to stay airy; the dark palettes glow at full.
-    val strength = if (dark) 0.7f else 0.62f
+    // Pastels need a touch less strength to stay airy; the dark palettes glow at full ([quiet] lowers it on pure black).
+    val strength = (if (dark) 0.7f else 0.62f) * quiet
     Canvas(Modifier.fillMaxSize().background(colors[0])) {
         val a = t * 2 * PI.toFloat()
         val r = size.maxDimension * 0.6f
@@ -257,26 +261,26 @@ private fun Fields(colors: List<Color>, dark: Boolean, motion: Boolean) {
  * mode, where pale lines on a pale page would otherwise vanish.
  */
 @Composable
-private fun Pattern(kind: BackdropKind, dark: Boolean, motion: Boolean) {
+private fun Pattern(kind: BackdropKind, dark: Boolean, motion: Boolean, glow: Float = 1f) {
     val scheme = MaterialTheme.colorScheme
     val bg = scheme.background
     val accent = scheme.primary
     val second = scheme.tertiary
     val t = drift(motion && (kind == BackdropKind.WAVES || kind == BackdropKind.RIPPLES), 24_000, 0.2f)
     val density = LocalDensity.current.density
-    Canvas(Modifier.fillMaxSize().background(bg)) { drawPattern(kind, bg, accent, second, dark, t, density) }
+    Canvas(Modifier.fillMaxSize().background(bg)) { drawPattern(kind, bg, accent, second, dark, t, density, glow) }
 }
 
 /** One simple design, drawn plainly (tests render it to an image). */
 internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPattern(
-    kind: BackdropKind, bg: Color, accent: Color, second: Color, dark: Boolean, t: Float, density: Float,
+    kind: BackdropKind, bg: Color, accent: Color, second: Color, dark: Boolean, t: Float, density: Float, glow: Float = 1f,
 ) {
         drawRect(bg)
         val w = size.width
         val h = size.height
         // The glow every simple design shares: the accent, faintly, from the top.
         drawRect(Brush.verticalGradient(
-            0f to accent.copy(alpha = if (dark) 0.22f else 0.16f), 0.55f to accent.copy(alpha = if (dark) 0.06f else 0.04f), 1f to Color.Transparent,
+            0f to accent.copy(alpha = (if (dark) 0.22f else 0.16f) * glow), 0.55f to accent.copy(alpha = (if (dark) 0.06f else 0.04f) * glow), 1f to Color.Transparent,
         ))
         if (kind == BackdropKind.TINT) {
             drawCircle(

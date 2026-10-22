@@ -462,6 +462,7 @@ private fun GreetingSection(cfg: HomeSectionConfig, recent: List<Song>) {
     val settings = LocalAppSettings.current
     /** [playable]: what holding the tile offers to play (null for pages like Replay or Search). */
     data class Tile(val title: String, val icon: ImageVector?, val image: String?, val playable: Playable?, val onClick: () -> Unit)
+    val prismLists by c.prismLibrary.lists.collectAsState()
     val tiles = buildList {
         settings.homeShortcuts.forEach { sc ->
             val (icon, route) = when (sc) {
@@ -481,7 +482,12 @@ private fun GreetingSection(cfg: HomeSectionConfig, recent: List<Song>) {
             }
             add(Tile(sc.label, icon, null, playable) { nav.go(route) })
         }
-        settings.homePlaylists.forEach { pl ->
+        settings.homePlaylists.forEach { pin ->
+            val prism = pin.id.startsWith(com.prism.music.data.PrismLibrary.PREFIX)
+            // A deleted Prism playlist's pin has nothing to open.
+            if (prism && prismLists.none { it.id == pin.id }) return@forEach
+            // A Prism playlist shows its current name and cover (it changes on the phone; the pin keeps a copy).
+            val pl = prismLists.firstOrNull { it.id == pin.id }?.item()?.let { pin.copy(title = it.title, thumbnail = it.thumbnail ?: pin.thumbnail) } ?: pin
             val art = c.covers.art(pl.id, pl.thumbnail)
             add(Tile(pl.title, null, art, Playable.Of(PlaylistItem(pl.id, pl.title, "Playlist", art))) { nav.go(Routes.playlist(pl.id)) })
         }
@@ -799,10 +805,10 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         }
         val coverUrl = top.first?.thumbnail?.takeIf { look == ReplayCardStyle.COVER }
         val art = if (coverUrl != null) coil3.compose.rememberAsyncImagePainter(coverUrl) else null
-        // How far through the year, to the minute; looked at again every hour while Home is open (the Ring's percent
-        // steps up a point every three and a half days, not only when the page is rebuilt).
+        // How far through the year, to the minute; looked at again every 10 minutes while Home is open (the Ring shows
+        // tenths of a percent, which step up about every nine hours, not only when the page is rebuilt).
         val yearDone by produceState(com.prism.music.ui.screens.yearFraction()) {
-            while (true) { kotlinx.coroutines.delay(3_600_000); value = com.prism.music.ui.screens.yearFraction() }
+            while (true) { kotlinx.coroutines.delay(600_000); value = com.prism.music.ui.screens.yearFraction() }
         }
         ReplayCard(
             look,

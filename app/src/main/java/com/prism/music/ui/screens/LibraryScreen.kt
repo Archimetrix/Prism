@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import androidx.compose.foundation.border
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismTextButton
 import com.prism.music.ui.theme.PrismIcons
@@ -210,9 +211,13 @@ fun LibraryScreen(bottomPadding: Dp) {
 
         HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
             val tab = LibTab.entries[page]
+            val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+            // Swapping playlists and tiles: back to the top, or the list would stay on the tile it showed and hide what moved above.
+            if (tab == LibTab.PLAYLISTS) LaunchedEffect(settings.libraryPlaylistsFirst) { gridState.scrollToItem(0) }
             LazyVerticalGrid(
                 if (asList) GridCells.Fixed(1) else GridCells.Adaptive(160.dp),
                 Modifier.fillMaxSize(),
+                state = gridState,
                 contentPadding = PaddingValues(start = if (asList) 0.dp else 12.dp, end = if (asList) 0.dp else 12.dp, top = 4.dp, bottom = bottomPadding + 16.dp),
             ) {
                 val empty = when (tab) {
@@ -238,7 +243,8 @@ fun LibraryScreen(bottomPadding: Dp) {
                 }
                 when (tab) {
                     LibTab.PLAYLISTS -> {
-                        // The tiles picked and ordered in "Edit tiles" (Settings → Library & Replay too).
+                      // The tiles picked and ordered in "Edit tiles" (Settings → Library & Replay too).
+                      val tilesPart: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit = {
                         settings.libraryTiles.forEach { t ->
                             when (t) {
                                 LibraryTile.LIKED -> item(key = "tile-liked") { ShortcutTile("Liked songs", com.prism.music.data.model.songCount(liked.size), PrismIcons.HeartFilled, asList, art = c.covers.custom("liked"), onLongClick = { menu(com.prism.music.ui.components.Playable.Liked) }) { nav.go(Routes.liked()) } }
@@ -260,6 +266,8 @@ fun LibraryScreen(bottomPadding: Dp) {
                             }
                         }
                         item(key = "tile-edit") { ShortcutTile("Edit tiles", "Pick and order these", PrismIcons.Edit, asList) { editingTiles = true } }
+                      }
+                      val playlistsPart: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit = {
                         // Signed out: playlists made here are kept on the phone; signing in brings YouTube Music's too.
                         if (!settings.isLoggedIn && prismLists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -291,6 +299,16 @@ fun LibraryScreen(bottomPadding: Dp) {
                         } else items(sortedPlaylists, key = { "p" + it.id }) { p ->
                             LibraryItem(p, asList, onLongClick = { menuFor = p }) { nav.open(p, onSong) }
                         }
+                      }
+                      // Playlists above the tiles, or below them as Prism ships (Edit tiles → "Playlists first").
+                      if (settings.libraryPlaylistsFirst && myPlaylists.isNotEmpty()) {
+                          playlistsPart()
+                          item(key = "tiles-gap", span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.height(8.dp)) }
+                          tilesPart()
+                      } else {
+                          tilesPart()
+                          playlistsPart()
+                      }
                     }
                     LibTab.SONGS -> {
                         if (liked.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -498,7 +516,51 @@ fun LibraryTilesSheet(onDismiss: () -> Unit) {
                 }
             }
             PrismTextButton({ prefs.setLibraryTiles(LibraryTile.entries) }, Modifier.padding(start = 12.dp, top = 8.dp)) { Text("Show all, in Prism's order") }
+            Text(
+                "Where your playlists go", style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp),
+            )
+            ChoiceCards(
+                listOf(false, true), s.libraryPlaylistsFirst,
+                title = { if (it) "Playlists first" else "Tiles first" },
+                detail = { if (it) "Your playlists at the top, the tiles after them" else "The tiles at the top, your playlists below" },
+                onSelect = { prefs.setLibraryPlaylistsFirst(it) },
+            ) { first -> LibraryOrderSample(first) }
         }
+    }
+}
+
+/** A small Library page: a row of tiles and a few playlist rows, playlists on top when [playlistsFirst]. */
+@Composable
+private fun LibraryOrderSample(playlistsFirst: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+    val tiles: @Composable () -> Unit = {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(PrismIcons.HeartFilled, PrismIcons.DownloadDone, PrismIcons.Phone).forEach { icon ->
+                Box(
+                    Modifier.weight(1f).height(22.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)).background(scheme.onSurface.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(icon, null, Modifier.size(12.dp), tint = scheme.onSurfaceVariant) }
+            }
+        }
+    }
+    val playlists: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(Color(0xFFE0735A), Color(0xFF5A8BFF)).forEach { col ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(16.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).background(col))
+                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.weight(1f).height(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(scheme.onSurface.copy(alpha = 0.22f)))
+                }
+            }
+        }
+    }
+    Column(
+        Modifier.fillMaxWidth().height(96.dp).clip(shape).background(scheme.background).then(Modifier.border(1.dp, scheme.onSurface.copy(alpha = 0.1f), shape)).padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (playlistsFirst) { playlists(); tiles() } else { tiles(); playlists() }
     }
 }
 

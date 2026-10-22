@@ -42,6 +42,8 @@ class MediaTree(private val c: AppContainer) {
         const val SHUFFLE = "shuffle:"
         /** "Play as a DJ set" at the top of a list: the list in the order that blends best, mixed (DJ mode). */
         const val DJ = "dj:"
+        /** A Prism playlist's folder ("pp:" + its "prism:…" id). */
+        const val PRISM_LIST = "pp:"
         /** How many of each Home section's items show as tiles in the car. */
         private const val HOME_TILES = 8
     }
@@ -145,10 +147,16 @@ class MediaTree(private val c: AppContainer) {
                 folder(LIKED, "Liked songs", art = c.covers.custom("liked"), type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
                 folder(DOWNLOADS, "Downloads", type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
             ) +
+                // Prism's own playlists (kept on the phone), as in the app's Library.
+                c.prismLibrary.lists.value.map { l ->
+                    val item = l.item()
+                    folder(PRISM_LIST + l.id, l.title, item.subtitle, c.covers.art(item), MediaMetadata.MEDIA_TYPE_PLAYLIST)
+                } +
                 playlists.filterIsInstance<PlaylistItem>().filter { it.id != "LM" }.map {
                     folder(mixOrPlaylistId(it), it.title, it.subtitle, c.covers.art(it), MediaMetadata.MEDIA_TYPE_PLAYLIST)
                 }
         }
+        parentId.startsWith(PRISM_LIST) -> c.prismLibrary.list(parentId.removePrefix(PRISM_LIST))?.let { songList(parentId, it.title, it.songs) } ?: emptyList()
         parentId.startsWith("pl:") -> runCatching { c.ytm.playlistAll(parentId.removePrefix("pl:"), 200) }.getOrNull()
             ?.let { songList(parentId, it.title, it.songs) } ?: emptyList()
         parentId.startsWith("al:") -> runCatching { c.ytm.album(parentId.removePrefix("al:")) }.getOrNull()
@@ -245,7 +253,13 @@ class MediaTree(private val c: AppContainer) {
  * browse lists. Downloads the (Google-hosted) image once and caches it.
  */
 class ArtworkProvider : ContentProvider() {
-    private val allowedHosts = listOf("googleusercontent.com", "ggpht.com", "ytimg.com")
+    private val allowedHosts = listOf("googleusercontent.com", "ggpht.com", "ytimg.com", "gstatic.com")
+    /**
+     * YouTube Music's own mixes in the library (My Supermix, Discover mix, Replay mix…) have their covers drawn by
+     * music.youtube.com itself (`/image/mixart?…`): only that path is taken from there.
+     */
+    private fun youTubeImage(host: String, path: String?) =
+        (host == "music.youtube.com" || host == "www.youtube.com") && path?.startsWith("/image/") == true
 
     override fun onCreate() = true
 
@@ -266,8 +280,9 @@ class ArtworkProvider : ContentProvider() {
             val id = url.removePrefix(LOCAL_ALBUM_ART).toLongOrNull() ?: return null
             return runCatching { ctx.contentResolver.openFileDescriptor(Uri.parse(LOCAL_ALBUM_ART + id), "r") }.getOrNull()
         }
-        val host = Uri.parse(url).host ?: return null
-        if (!url.startsWith("https://") || allowedHosts.none { host.endsWith(it) }) return null
+        val parsed = Uri.parse(url)
+        val host = parsed.host ?: return null
+        if (!url.startsWith("https://") || (allowedHosts.none { host.endsWith(it) } && !youTubeImage(host, parsed.path))) return null
         val name = MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
         val dir = File(ctx.cacheDir, "auto_art").apply { mkdirs() }
         val file = File(dir, "$name.jpg")

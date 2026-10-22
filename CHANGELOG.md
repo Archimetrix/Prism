@@ -55,6 +55,11 @@ What changed in each release. Older releases are described on the [Releases page
 - **Lyrics on mobile data** (#95). Turn it off under Settings → Lyrics → Sources, and on mobile data Prism looks lyrics up only once you open them. Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.
 - **Which downloads failed, and why** (#98). Under "N downloads failed", **See which** lists each song with the reason, for example YouTube refusing the link, the phone going offline or running out of space. You can try each one again or remove it.
 - **"Color" is spelled the US way** throughout Prism.
+- **Pin Prism playlists to Home.** Customize Home → Pinned playlists lists your Prism playlists as well as YouTube Music's. A pinned Prism playlist keeps its current name and cover.
+- **Playlists above the tiles.** Library → Edit tiles → "Where your playlists go": **Playlists first** puts your playlists at the top of Library, with the tiles (Liked songs, Downloads…) after them.
+- **The Ring Replay card** says "Your top songs, artists and genres" like the other cards, and shows how far through the year it is to a tenth of a percent (81.3%).
+- **Pure black covers every background.** In dark mode with Pure black on, every screen background (the color ones, Simple patterns, Designs, Now playing) now sits on true black, with its colors kept but quieter. Before, only Ambient and the plain page went black.
+- **Android Auto.** Your Prism playlists are in the car's Library, and YouTube Music's own mixes in your library (My Supermix, Discover mix…) show their covers there.
 
 ### Fixed
 - **Pure black stayed grey.** The frosted background made from the playing cover was drawn over it. With Pure black on in dark mode, pages are now black.

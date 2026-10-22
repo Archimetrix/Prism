@@ -556,6 +556,8 @@ data class AppSettings(
     val libraryStartTab: String = "PLAYLISTS",
     /** Library's tiles that show, in order (the rest are hidden). */
     val libraryTiles: List<LibraryTile> = LibraryTile.entries,
+    /** Library → Playlists shows your playlists above the tiles (Liked songs, Downloads…) instead of below them. */
+    val libraryPlaylistsFirst: Boolean = false,
     /** Playlist pages open with their picture edge to edge, like an artist page. */
     val playlistHeroCover: Boolean = true,
     /** Artist, album and playlist pages sit on frosted glass made from their picture (Apple Music's look). */
@@ -744,6 +746,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val libraryView = stringPreferencesKey("library_view")
         val libraryStartTab = stringPreferencesKey("library_start_tab")
         val libraryTiles = stringPreferencesKey("library_tiles")
+        val libraryPlaylistsFirst = booleanPreferencesKey("library_playlists_first")
         val playlistHeroCover = booleanPreferencesKey("playlist_hero_cover")
         val frostedPages = booleanPreferencesKey("frosted_pages")
         val replayThemeColors = booleanPreferencesKey("replay_theme_colors")
@@ -946,6 +949,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsAlign = p.enum(K.lyricsAlign, d.lyricsAlign),
             libraryView = p.enum(K.libraryView, d.libraryView),
             libraryStartTab = p[K.libraryStartTab] ?: d.libraryStartTab,
+            libraryPlaylistsFirst = p[K.libraryPlaylistsFirst] ?: d.libraryPlaylistsFirst,
             libraryTiles = p[K.libraryTiles]?.let { v -> if (v.isEmpty()) emptyList() else v.split(',').mapNotNull { n -> LibraryTile.entries.firstOrNull { it.name == n } } } ?: d.libraryTiles,
             playlistHeroCover = p[K.playlistHeroCover] ?: d.playlistHeroCover,
             frostedPages = p[K.frostedPages] ?: d.frostedPages,
@@ -1189,6 +1193,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setLibraryView(v: LibraryView) = edit { it[K.libraryView] = v.name }
     fun setLibraryStartTab(v: String) = edit { it[K.libraryStartTab] = v }
     fun setLibraryTiles(v: List<LibraryTile>) = edit { it[K.libraryTiles] = v.joinToString(",") { t -> t.name } }
+    fun setLibraryPlaylistsFirst(v: Boolean) = edit { it[K.libraryPlaylistsFirst] = v }
     fun setPlaylistHeroCover(v: Boolean) = edit { it[K.playlistHeroCover] = v }
     fun setFrostedPages(v: Boolean) = edit { it[K.frostedPages] = v }
     fun setReplayThemeColors(v: Boolean) = edit { it[K.replayThemeColors] = v }

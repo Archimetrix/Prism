@@ -686,7 +686,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                 val prefs = LocalContainer.current.settings
                 Group("Theme") {
                     Chips(ThemeMode.entries, s.themeMode, { it.label }) { prefs.setThemeMode(it) }
-                    Toggle("Pure black", "AMOLED-friendly dark theme", s.pureBlack) { prefs.setPureBlack(it) }
+                    Toggle(
+                        "Pure black", "AMOLED-friendly dark theme", s.pureBlack,
+                        info = "In dark mode, pages sit on true black, whichever background you picked: its colors and patterns stay, quieter, over black.",
+                    ) { prefs.setPureBlack(it) }
                 }
             }
             // Appearance's own pages (1.7.2): each short, each found by Settings search.
