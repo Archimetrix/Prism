@@ -534,6 +534,7 @@ fun SongActionsSheet(song: Song, extra: List<SheetItem> = emptyList(), onDismiss
     val disliked by c.library.dislikedIds.collectAsState()
     var pickPlaylist by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
+    var credits by remember { mutableStateOf(false) }
     val isLiked = song.id in liked
     val dl = downloads[song.id]
     val downloaded = dl?.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED
@@ -546,6 +547,7 @@ fun SongActionsSheet(song: Song, extra: List<SheetItem> = emptyList(), onDismiss
     // The playlist picker and the share sheet take over from the sheet.
     if (pickPlaylist) { PlaylistPicker(song) { pickPlaylist = false; onDismiss() }; return }
     if (sharing) { ShareSheet(song.shareTarget()) { sharing = false; onDismiss() }; return }
+    if (credits) { SongCreditsSheet(song) { credits = false; onDismiss() }; return }
 
     // In someone's Listen Together session, songs go into their queue.
     val quick = listOf(
@@ -569,7 +571,10 @@ fun SongActionsSheet(song: Song, extra: List<SheetItem> = emptyList(), onDismiss
         else if (song.isEpisode) ActionItem(PrismIcons.DoneAll, "Mark as played") { c.episodes.markPlayed(song.id) } else null,
         ActionItem(PrismIcons.PlaylistAdd, "Add to playlist", keepOpen = true) { pickPlaylist = true },
         song.album?.id?.let { id -> ActionItem(PrismIcons.Album, "Go to album", value = song.album?.title?.takeIf { it.length <= 22 }) { nav.go(Routes.album(id)) } },
-    ) + goToArtists(song) { route -> nav.go(route) }
+    ) + goToArtists(song) { route -> nav.go(route) } + listOfNotNull(
+        // Who performed, wrote and produced it (Reddit 1.7).
+        if (song.isEpisode || local || song.isLive) null else ActionItem(PrismIcons.Info, "Song credits", keepOpen = true) { credits = true },
+    )
     val more = extra.map { it.toAction() } + listOfNotNull(
         // Your own FLAC / MP3 files (a Local file, or the lossless file played for this song) can keep its lyrics (#16).
         if (local || dl?.lossless == true) ActionItem(PrismIcons.Lyrics, "Save lyrics into the file") { c.lyricsToFiles.request(listOf(song)) } else null,

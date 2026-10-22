@@ -396,9 +396,36 @@ class StreamResolver(
     @Volatile
     private var newPipeBlockedUntil = 0L
 
+    /** Until when [premiumFormats] isn't tried: the account's answers had no Premium formats (not a Premium account). */
+    @Volatile
+    private var premiumMissingUntil = 0L
+
+    /**
+     * Settings → Playback & sound → "Premium quality" (Reddit 1.7): asked as the signed-in account, which YouTube answers
+     * with its 256 kbps formats (AAC itag 141, Opus 774) for Music Premium. Kept only when it has them; otherwise the
+     * usual quick path plays and, for an hour, the account isn't asked first again (so songs don't start slower for
+     * nothing). Not on metered networks with Data saver on.
+     */
+    private fun premiumFormats(videoId: String): Formats? {
+        val s = settings.current
+        if (!s.premiumStream || !s.isLoggedIn || System.currentTimeMillis() < premiumMissingUntil) return null
+        if (s.dataSaver && isMetered()) return null
+        val f = runCatching { signedInFormats(videoId) }.getOrNull() ?: return null
+        if (f.live) return f
+        val premium = f.audio.filter { it.itag in PREMIUM_ITAGS }
+        if (premium.isEmpty()) {
+            if (f.audio.isNotEmpty()) premiumMissingUntil = System.currentTimeMillis() + 60 * 60_000L
+            Log.i("PrismStream", "$videoId: no Premium formats for this account (${f.audio.map { it.itag }})")
+            return null
+        }
+        Log.i("PrismStream", "$videoId resolved as the account (Premium formats ${premium.map { it.itag }})")
+        return f
+    }
+
     private fun load(videoId: String): Formats {
         val signedIn = settings.current.isLoggedIn
         if (signedIn && videoId in needsAccount) return signedInFormats(videoId)
+        premiumFormats(videoId)?.let { return it }
         // While YouTube is blocking NewPipe here, signed-in playback goes straight to the account's own clients
         // (each song would otherwise wait for NewPipe to be refused first).
         if (signedIn && System.currentTimeMillis() < newPipeBlockedUntil) {
@@ -530,6 +557,8 @@ class StreamResolver(
     }
 
     private companion object {
+        /** YouTube Music Premium's 256 kbps audio: AAC (141) and Opus (774). */
+        val PREMIUM_ITAGS = setOf(141, 774)
         const val BLOCK_BACKOFF_MS = 30 * 60_000L
         const val BLOCKED = "YouTube is limiting playback on this network right now. Try again in a while, switch networks " +
             "(or turn off a VPN), or sign in."

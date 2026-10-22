@@ -59,6 +59,8 @@ fun PlayerOptionsSheet(
     var sharing by remember { mutableStateOf(false) }
 
     var outputs by remember { mutableStateOf(false) }
+    var credits by remember { mutableStateOf(false) }
+    if (credits) { com.prism.music.ui.components.SongCreditsSheet(song) { credits = false; onDismiss() }; return }
     if (pickPlaylist) { PlaylistPicker(song) { pickPlaylist = false; onDismiss() }; return }
     // Speakers and TVs, from the menu too (Reddit 1.7: "where's the cast button?").
     if (outputs) {
@@ -167,6 +169,7 @@ fun PlayerOptionsSheet(
     val go = listOfNotNull(
         song.album?.id?.let { id -> ActionItem(PrismIcons.Album, "Go to album") { onCollapse(); nav.go(Routes.album(id)) } },
     ) + com.prism.music.ui.components.goToArtists(song) { route -> onCollapse(); nav.go(route) } + listOfNotNull(
+        if (song.isEpisode || song.isLocal || song.isLive) null else ActionItem(PrismIcons.Info, "Song credits", keepOpen = true) { credits = true },
         if (song.id in disliked) ActionItem(PrismIcons.ThumbDownFilled, "Not for me", active = true, keepOpen = true) { c.library.setDisliked(song, false) }
         else ActionItem(PrismIcons.ThumbDown, "Not for me") {
             c.library.setDisliked(song, true)

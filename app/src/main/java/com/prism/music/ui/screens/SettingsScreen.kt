@@ -1279,6 +1279,11 @@ private fun SoundPage() {
                 Label("Streaming quality on mobile data")
                 Chips(AudioQuality.entries, s.cellularQuality, { it.label }) { prefs.setCellularQuality(it) }
             }
+            // Reddit 1.7: "am I getting the quality Premium offers?"
+            if (s.isLoggedIn) Toggle(
+                "Premium quality", "256 kbps with YouTube Music Premium", s.premiumStream,
+                info = "Prism normally fetches songs without your account, which starts them fastest but gets YouTube's standard 128–160 kbps stream. On, each song is asked for as you, and with Music Premium that brings its 256 kbps version. Songs can take a moment longer to start. Without Premium, Prism notices and plays as usual. YouTube Music has no lossless streams, even with Premium.",
+            ) { prefs.setPremiumStream(it) }
             Label("Music video quality")
             Chips(listOf(480, 720, 1080, 1440), s.videoMaxHeight, { "${it}p" }) { prefs.setVideoMaxHeight(it) }
             Spacer(Modifier.height(6.dp))
@@ -1468,6 +1473,10 @@ private fun LyricsSettings() {
                 ) { prefs.setCarLyricsKeepTitle(it) }
                 Toggle("On this phone too", "Lock screen and notification", s.carLyricsOnPhone) { prefs.setCarLyricsOnPhone(it) }
             }
+            Toggle(
+                "Covers in a grid", "Home and Library as cover tiles", s.autoGrid,
+                info = "The car shows Home's sections as rows of covers under their headings, and Library and Made for you as covers, like Spotify's car screen. Off, they're plain lists. Takes effect the next time the car connects.",
+            ) { prefs.setAutoGrid(it) }
         }
     }
 }

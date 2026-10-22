@@ -42,6 +42,8 @@ class MediaTree(private val c: AppContainer) {
         const val SHUFFLE = "shuffle:"
         /** "Play as a DJ set" at the top of a list: the list in the order that blends best, mixed (DJ mode). */
         const val DJ = "dj:"
+        /** How many of each Home section's items show as tiles in the car. */
+        private const val HOME_TILES = 8
     }
 
     /** Every song handed out, so a mediaId coming back can be played. */
@@ -51,7 +53,10 @@ class MediaTree(private val c: AppContainer) {
     private var homeShelves: List<Shelf> = emptyList()
     private var searchResults: List<Song> = emptyList()
 
-    private fun folder(id: String, title: String, subtitle: String? = null, art: String? = null, type: Int = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED) =
+    /**
+     * A folder. [extras]: how a car shows what's inside it, or the section it sits under ([styled], [grouped]).
+     */
+    private fun folder(id: String, title: String, subtitle: String? = null, art: String? = null, type: Int = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, extras: android.os.Bundle? = null) =
         MediaItem.Builder().setMediaId(id).setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)
@@ -60,46 +65,67 @@ class MediaTree(private val c: AppContainer) {
                 .setIsBrowsable(true)
                 .setIsPlayable(false)
                 .setMediaType(type)
+                .setExtras(extras)
                 .build()
         ).build()
 
-    private fun playable(song: Song): MediaItem {
+    private fun playable(song: Song, extras: android.os.Bundle? = null): MediaItem {
         songs[song.id] = song
         val item = song.toMediaItem()
         return item.buildUpon().setMediaMetadata(
-            item.mediaMetadata.buildUpon().setArtworkUri(artworkUri(song.thumbnail)).setSubtitle(song.artistText).build()
+            item.mediaMetadata.buildUpon().setArtworkUri(artworkUri(song.thumbnail)).setSubtitle(song.artistText)
+                .apply { if (extras != null) setExtras(extras) }.build()
         ).build()
+    }
+
+    /** Settings → Lyrics → Android Auto → "Covers in a grid" (Reddit 1.7: "a home like Spotify's"). */
+    private val grid get() = c.settings.current.autoGrid
+
+    /** A folder whose contents show as cover tiles ([androidx.media3.session.MediaConstants]), when the grid's on. */
+    private fun styled(browsableGrid: Boolean, playableGrid: Boolean): android.os.Bundle? = if (!grid) null else android.os.Bundle().apply {
+        putInt(androidx.media3.session.MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+            if (browsableGrid) androidx.media3.session.MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM else androidx.media3.session.MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
+        putInt(androidx.media3.session.MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
+            if (playableGrid) androidx.media3.session.MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM else androidx.media3.session.MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)
+    }
+
+    /** An item listed under a heading ([title]) inside its folder, as Home's sections are. */
+    private fun grouped(title: String) = android.os.Bundle().apply {
+        putString(androidx.media3.session.MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, title)
     }
 
     fun root(): MediaItem = folder(ROOT, "Prism")
 
+    /** The root's own hints for the car: lists of songs, folders as cover tiles (when the grid's on). */
+    fun rootExtras(): android.os.Bundle? = styled(browsableGrid = true, playableGrid = false)
+
     fun recentRoot(): MediaItem = folder(RECENT, "Recently played", type = MediaMetadata.MEDIA_TYPE_PLAYLIST)
 
     suspend fun children(parentId: String): List<MediaItem> = when {
+        // Four tabs, as cars show a root's first four folders along the top (Liked songs and Downloads open Library).
         parentId == ROOT -> listOf(
-            folder(HOME, "Home"),
-            folder(MADE_FOR_YOU, "Made for you", type = MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
-            folder(LIKED, "Liked songs", art = c.covers.custom("liked"), type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
-            folder(LIBRARY, "Library", type = MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
-            folder(RECENT, "Recently played", type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
+            folder(HOME, "Home", extras = styled(browsableGrid = true, playableGrid = true)),
+            folder(MADE_FOR_YOU, "Made for you", type = MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, extras = styled(browsableGrid = true, playableGrid = false)),
+            folder(RECENT, "Recents", type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
+            folder(LIBRARY, "Library", type = MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, extras = styled(browsableGrid = true, playableGrid = false)),
         )
+        // Home: every section's albums, playlists and songs as tiles under its heading (with the grid), like Spotify's
+        // home; without the grid, the sections as folders, as before.
         parentId == HOME -> {
             homeShelves = runCatching { c.ytm.fullHome(2) }.getOrDefault(homeShelves)
-            homeShelves.mapIndexed { i, s -> folder("shelf:$i", s.title, s.strapline, s.items.firstOrNull()?.thumbnail) }
+            if (!grid) homeShelves.mapIndexed { i, s -> folder("shelf:$i", s.title, s.strapline, s.items.firstOrNull()?.thumbnail) }
+            else homeShelves.withIndex().flatMap { (i, s) ->
+                val group = grouped(s.title)
+                val shelfSongs = s.items.filterIsInstance<SongItem>().map { it.song }
+                if (shelfSongs.isNotEmpty()) folders["shelf:$i"] = s.title to shelfSongs
+                s.items.take(HOME_TILES).mapNotNull { item -> tile(item, group) }
+            }
         }
         parentId.startsWith("shelf:") -> {
             val shelf = homeShelves.getOrNull(parentId.removePrefix("shelf:").toIntOrNull() ?: -1) ?: return emptyList()
             val shelfSongs = shelf.items.filterIsInstance<SongItem>().map { it.song }
             if (shelfSongs.isNotEmpty()) folders[parentId] = shelf.title to shelfSongs
-            shelf.items.mapNotNull { item ->
-                when (item) {
-                    is SongItem -> playable(item.song)
-                    is AlbumItem -> folder("al:${item.id}", item.title, item.subtitle, item.thumbnail, MediaMetadata.MEDIA_TYPE_ALBUM)
-                    is PlaylistItem -> folder(mixOrPlaylistId(item), item.title, item.subtitle, c.covers.art(item), MediaMetadata.MEDIA_TYPE_PLAYLIST)
-                    is ArtistItem -> folder("ar:${item.id}", item.title, item.subtitle, item.thumbnail, MediaMetadata.MEDIA_TYPE_ARTIST)
-                    else -> null
-                }
-            }
+            shelf.items.mapNotNull { item -> tile(item, null) }
         }
         parentId == MADE_FOR_YOU -> {
             // What's kept is listed straight away (the car waits for nothing); anything due is made behind it.
@@ -115,7 +141,10 @@ class MediaTree(private val c: AppContainer) {
         parentId == LIBRARY -> {
             var playlists = c.library.playlists.value
             if (playlists.isEmpty() && c.settings.current.isLoggedIn) playlists = runCatching { c.ytm.libraryPlaylists() }.getOrDefault(emptyList())
-            listOf(folder(DOWNLOADS, "Downloads", type = MediaMetadata.MEDIA_TYPE_PLAYLIST)) +
+            listOf(
+                folder(LIKED, "Liked songs", art = c.covers.custom("liked"), type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
+                folder(DOWNLOADS, "Downloads", type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
+            ) +
                 playlists.filterIsInstance<PlaylistItem>().filter { it.id != "LM" }.map {
                     folder(mixOrPlaylistId(it), it.title, it.subtitle, c.covers.art(it), MediaMetadata.MEDIA_TYPE_PLAYLIST)
                 }
@@ -134,6 +163,15 @@ class MediaTree(private val c: AppContainer) {
             ?.let { a -> songList(parentId, a.name, a.shelves.flatMap { s -> s.items.filterIsInstance<SongItem>().map { it.song } }.distinctBy { it.id }) }
             ?: emptyList()
         else -> emptyList()
+    }
+
+    /** One of Home's items for the car: a song to play, or an album, playlist or artist to open; [extras] its heading. */
+    private fun tile(item: com.prism.music.data.model.BrowseItem, extras: android.os.Bundle?): MediaItem? = when (item) {
+        is SongItem -> playable(item.song, extras)
+        is AlbumItem -> folder("al:${item.id}", item.title, item.subtitle, item.thumbnail, MediaMetadata.MEDIA_TYPE_ALBUM, extras)
+        is PlaylistItem -> folder(mixOrPlaylistId(item), item.title, item.subtitle, c.covers.art(item), MediaMetadata.MEDIA_TYPE_PLAYLIST, extras)
+        is ArtistItem -> folder("ar:${item.id}", item.title, item.subtitle, item.thumbnail, MediaMetadata.MEDIA_TYPE_ARTIST, extras)
+        else -> null
     }
 
     private fun songList(id: String, title: String, list: List<Song>): List<MediaItem> {

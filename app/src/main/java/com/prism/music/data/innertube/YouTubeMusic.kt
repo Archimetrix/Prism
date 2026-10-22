@@ -605,6 +605,30 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         return (tracks + subs).filterIsInstance<com.prism.music.data.model.ArtistItem>().distinctBy { it.id }
     }
 
+    /**
+     * A song's credits as YouTube Music's "View song credits" shows them ("Performed by", "Written by", "Produced by",
+     * "Music metadata provided by"), each with its names. Empty when there are none (music videos usually have none).
+     */
+    suspend fun credits(videoId: String): List<Pair<String, List<String>>> {
+        val r = browse("MPTC$videoId")
+        fun find(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonObject? = when (e) {
+            is kotlinx.serialization.json.JsonObject -> (e["dismissableDialogRenderer"] as? kotlinx.serialization.json.JsonObject)
+                ?: e.values.firstNotNullOfOrNull { find(it) }
+            is kotlinx.serialization.json.JsonArray -> e.firstNotNullOfOrNull { find(it) }
+            else -> null
+        }
+        fun runs(o: kotlinx.serialization.json.JsonObject?): List<String> =
+            (o?.get("runs") as? kotlinx.serialization.json.JsonArray).orEmpty()
+                .mapNotNull { ((it as? kotlinx.serialization.json.JsonObject)?.get("text") as? kotlinx.serialization.json.JsonPrimitive)?.content }
+        val dialog = find(r) ?: return emptyList()
+        return (dialog["sections"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { s ->
+            val sec = (s as? kotlinx.serialization.json.JsonObject)?.get("dismissableDialogContentSectionRenderer") as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val title = runs(sec["title"] as? kotlinx.serialization.json.JsonObject).joinToString("").trim()
+            val names = runs(sec["subtitle"] as? kotlinx.serialization.json.JsonObject).joinToString("").split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+            if (title.isEmpty() || names.isEmpty()) null else title to names
+        }
+    }
+
     /** Only the artists the account subscribes to (follows) on YouTube Music. */
     suspend fun librarySubscriptions(): List<com.prism.music.data.model.ArtistItem> =
         libraryItems("FEmusic_library_corpus_artists").filterIsInstance<com.prism.music.data.model.ArtistItem>().distinctBy { it.id }

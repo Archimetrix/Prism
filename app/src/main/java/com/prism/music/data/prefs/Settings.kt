@@ -392,6 +392,8 @@ data class AppSettings(
      * the car's small media card reads as usual, while its full player shows the lyric card big.
      */
     val carLyricsKeepTitle: Boolean = false,
+    /** Android Auto shows Home and Library as cover tiles under section headings (like Spotify's), not plain lists. */
+    val autoGrid: Boolean = true,
     // Playback
     val showNerdStats: Boolean = false,
     /** Downloaded songs save their animated cover too. */
@@ -408,6 +410,8 @@ data class AppSettings(
     val holdSeekSeconds: Int = 10,
     val audioQuality: AudioQuality = AudioQuality.HIGH,
     val cellularQuality: AudioQuality = AudioQuality.HIGH,
+    /** Ask for songs as the signed-in account so Music Premium's 256 kbps streams come (StreamResolver.premiumFormats). */
+    val premiumStream: Boolean = false,
     val autoplay: Boolean = true,
     /** Where Autoplay's songs come from: your own music, YouTube Music's radio, or both (offline it's always yours). */
     val autoplaySource: AutoplaySource = AutoplaySource.MIXED,
@@ -645,6 +649,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val carLyricsStyle = stringPreferencesKey("car_lyrics_style")
         val carLyricsOnPhone = booleanPreferencesKey("car_lyrics_on_phone")
         val carLyricsKeepTitle = booleanPreferencesKey("car_lyrics_keep_title")
+        val autoGrid = booleanPreferencesKey("auto_grid")
         val showNerdStats = booleanPreferencesKey("nerd_stats")
         val showQuality = booleanPreferencesKey("show_quality")
         val bestPartButton = booleanPreferencesKey("best_part_button")
@@ -654,6 +659,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val canvasWithDownloadsCellular = booleanPreferencesKey("canvas_with_downloads_cellular")
         val audioQuality = stringPreferencesKey("audio_quality")
         val cellularQuality = stringPreferencesKey("cellular_quality")
+        val premiumStream = booleanPreferencesKey("premium_stream")
         val autoplay = booleanPreferencesKey("autoplay")
         val autoplaySource = stringPreferencesKey("autoplay_source")
         val replayCard = stringPreferencesKey("replay_card")
@@ -832,6 +838,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             carLyricsStyle = p.enum(K.carLyricsStyle, d.carLyricsStyle),
             carLyricsOnPhone = p[K.carLyricsOnPhone] ?: d.carLyricsOnPhone,
             carLyricsKeepTitle = p[K.carLyricsKeepTitle] ?: d.carLyricsKeepTitle,
+            autoGrid = p[K.autoGrid] ?: d.autoGrid,
             showNerdStats = p[K.showNerdStats] ?: d.showNerdStats,
             showQuality = p[K.showQuality] ?: d.showQuality,
             bestPartButton = p[K.bestPartButton] ?: d.bestPartButton,
@@ -841,6 +848,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             canvasWithDownloadsCellular = p[K.canvasWithDownloadsCellular] ?: d.canvasWithDownloadsCellular,
             audioQuality = p.enum(K.audioQuality, d.audioQuality),
             cellularQuality = p.enum(K.cellularQuality, d.cellularQuality),
+            premiumStream = p[K.premiumStream] ?: d.premiumStream,
             autoplay = p[K.autoplay] ?: d.autoplay,
             autoplaySource = p[K.autoplaySource]?.let { n -> AutoplaySource.entries.firstOrNull { it.name == n } } ?: d.autoplaySource,
             replayCard = p[K.replayCard] ?: d.replayCard,
@@ -1080,6 +1088,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCarLyricsStyle(v: CarLyricsStyle) = edit { it[K.carLyricsStyle] = v.name }
     fun setCarLyricsOnPhone(v: Boolean) = edit { it[K.carLyricsOnPhone] = v }
     fun setCarLyricsKeepTitle(v: Boolean) = edit { it[K.carLyricsKeepTitle] = v }
+    fun setAutoGrid(v: Boolean) = edit { it[K.autoGrid] = v }
     fun setShowNerdStats(v: Boolean) = edit { it[K.showNerdStats] = v }
     fun setShowQuality(v: Boolean) = edit { it[K.showQuality] = v }
     fun setBestPartButton(v: Boolean) = edit { it[K.bestPartButton] = v }
@@ -1089,6 +1098,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCanvasWithDownloadsCellular(v: Boolean) = edit { it[K.canvasWithDownloadsCellular] = v }
     fun setAudioQuality(v: AudioQuality) = edit { it[K.audioQuality] = v.name }
     fun setCellularQuality(v: AudioQuality) = edit { it[K.cellularQuality] = v.name }
+    fun setPremiumStream(v: Boolean) = edit { it[K.premiumStream] = v }
     fun setAutoplay(v: Boolean) = edit { it[K.autoplay] = v }
     fun setAutoplaySource(v: AutoplaySource) = edit { it[K.autoplaySource] = v.name }
     fun setReplayCard(name: String) = edit { it[K.replayCard] = name }

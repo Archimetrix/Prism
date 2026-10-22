@@ -180,6 +180,8 @@ object SettingsIndex {
         SettingEntry(S, "Quality", "Streaming quality on mobile data", "bitrate audio quality cellular", needs = notLossless),
         SettingEntry(S, "Quality", "Streaming quality on mobile data (data saver)", "bitrate cellular", needs = saver),
         SettingEntry(S, "Quality", "Music video quality", "resolution 1080p 720p"),
+        SettingEntry(S, "Quality", "Premium quality", "youtube music premium 256 kbps aac opus high bitrate subscription",
+            needs = Needs("Sign in to YouTube Music first") { it.isLoggedIn }),
         SettingEntry(S, "Mobile data", "Data saver", "cellular low data"),
         SettingEntry(S, "Sound", "Normalize volume", "loudness lufs level"),
         SettingEntry(S, "Sound", "Measure songs on mobile data", "cellular", needs = measuring),
@@ -209,6 +211,7 @@ object SettingsIndex {
         SettingEntry(Y, "Android Auto", "Style", "android auto car", needs = carLyrics),
         SettingEntry(Y, "Android Auto", "Keep the song title", "android auto car", needs = carLyrics),
         SettingEntry(Y, "Android Auto", "On this phone too", "lock screen notification", needs = carLyrics),
+        SettingEntry(Y, "Android Auto", "Covers in a grid", "android auto car home tiles grid spotify layout tabs"),
         // Downloads & storage
         SettingEntry(D, "Downloads", "Manage downloads", "offline delete"),
         SettingEntry(D, "Downloads", "Download on Wi-Fi only", "cellular mobile data"),

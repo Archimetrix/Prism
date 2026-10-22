@@ -1565,8 +1565,15 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?,
         ): ListenableFuture<LibraryResult<MediaItem>> =
-            // Android Auto / the system ask for a "recent" root to offer a resume card.
-            Futures.immediateFuture(LibraryResult.ofItem(if (params?.isRecent == true) tree.recentRoot() else tree.root(), params))
+            // Android Auto / the system ask for a "recent" root to offer a resume card. The root's hints say how the car shows
+            // folders (cover tiles with the grid on) unless a folder says otherwise.
+            Futures.immediateFuture(LibraryResult.ofItem(
+                if (params?.isRecent == true) tree.recentRoot() else tree.root(),
+                if (params?.isRecent == true) params else tree.rootExtras()?.let { hints ->
+                    LibraryParams.Builder().setExtras(android.os.Bundle(params?.extras ?: android.os.Bundle.EMPTY).apply { putAll(hints) })
+                        .setOffline(params?.isOffline == true).setSuggested(params?.isSuggested == true).build()
+                } ?: params,
+            ))
 
         override fun onGetChildren(
             session: MediaLibrarySession,
