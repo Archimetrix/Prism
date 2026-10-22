@@ -27,6 +27,16 @@ The second customization update: Looks.
   the player or any Home section to change just that, right there.
 - **Reset this page** on each look page, beside Appearance's Reset look.
 
+### Fixes and smaller changes
+- **Prism closed on its own on some phones (#103).** Reading a long Liked songs list could fail on a phone short of
+  memory, and that closed the app. Now the list is simply read again.
+- **Liked songs follow YouTube Music's order (#99).** "Original order" now matches YouTube Music after every sync; a song
+  you liked again elsewhere used to keep its old place.
+- **Songs not available in your country (#93)** now play their music video's sound instead of stopping, when the video
+  is allowed where you are.
+- **Section headings (#104, #107)** are a little bolder, the same on every page, and the whole heading row opens the
+  section, with its arrow at the far end where your thumb reaches it.
+
 ## 1.7.2
 
 The first of the 1.7.x customization updates: color.

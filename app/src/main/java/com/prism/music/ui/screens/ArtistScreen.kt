@@ -486,16 +486,8 @@ private fun TopBar(
 
 @Composable
 private fun AppleHeader(title: String, onMore: (() -> Unit)?) {
-    val ui = LocalUi.current
-    Row(
-        Modifier.padding(start = 20.dp, end = 20.dp, top = ui.gap(26.dp), bottom = ui.gap(10.dp))
-            .clip(RoundedCornerShape(8.dp))
-            .then(if (onMore != null) Modifier.clickable(onClick = onMore) else Modifier),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        if (onMore != null) Icon(PrismIcons.ChevronRight, "See all", Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    // The same as every other section heading now (#104, #107): the whole row opens it.
+    com.prism.music.ui.components.SectionHeader(title, onMore = onMore)
 }
 
 /** The latest release in a frosted card of its own, as Apple Music features it. */

@@ -12,27 +12,42 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class SyncState { IDLE, SYNCING, DONE, ERROR }
 
+/**
+ * A list read from the database that can't take Prism down (#103): on a phone short of memory, reading ~1,250 liked
+ * songs failed partway ("Couldn't read row 1248… from CursorWindow"), and the error closed the app. Now it's logged and
+ * read again, a little later each time ([stepMs] more per try, up to ten steps); the list keeps what it had meanwhile.
+ */
+internal fun <T> kotlinx.coroutines.flow.Flow<T>.resilient(what: String, stepMs: Long = 1_000L): kotlinx.coroutines.flow.Flow<T> =
+    retryWhen { cause, attempt ->
+        if (cause is kotlinx.coroutines.CancellationException) return@retryWhen false
+        runCatching { android.util.Log.w("PrismLibrary", "Reading $what failed (try ${attempt + 1}), reading it again: $cause") }
+        com.prism.music.playback.AudioDiagnostics.log("library", "reading $what failed, read again: ${cause.javaClass.simpleName}")
+        kotlinx.coroutines.delay(stepMs * (attempt + 1).coerceAtMost(10))
+        true
+    }
+
 /** Local mirror of the signed-in user's YouTube Music library, with two-way like sync. */
 class LibraryRepository(private val c: AppContainer) {
     private val songs = c.db.songs()
 
-    val likedIds: StateFlow<Set<String>> = songs.likedIdsFlow().map { it.toSet() }
+    val likedIds: StateFlow<Set<String>> = songs.likedIdsFlow().resilient("liked ids").map { it.toSet() }
         .stateIn(c.scope, SharingStarted.Eagerly, emptySet())
 
-    val liked = songs.likedFlow().map { list -> list.map { it.toSong() } }
+    val liked = songs.likedFlow().resilient("liked songs").map { list -> list.map { it.toSong() } }
         .stateIn(c.scope, SharingStarted.Eagerly, emptyList())
 
-    val recent = songs.recentFlow(40).map { list -> list.map { it.toSong() } }
+    val recent = songs.recentFlow(40).resilient("recent songs").map { list -> list.map { it.toSong() } }
         .stateIn(c.scope, SharingStarted.Eagerly, emptyList())
 
     /** Ids of the phone's own files, most recently played first. */
-    val recentLocalIds: StateFlow<List<String>> = songs.recentLocalIdsFlow()
+    val recentLocalIds: StateFlow<List<String>> = songs.recentLocalIdsFlow().resilient("recent files")
         .stateIn(c.scope, SharingStarted.Lazily, emptyList())
 
     val playlists = MutableStateFlow<List<BrowseItem>>(emptyList())
@@ -160,10 +175,10 @@ class LibraryRepository(private val c: AppContainer) {
             val now = System.currentTimeMillis()
             // Chunked: SQLite caps bound parameters at 999 on older Android versions.
             val existing = remote.map { it.id }.chunked(500).flatMap { songs.getAll(it) }.associateBy { it.id }
-            // Keep YouTube's order: newest like first.
+            // YouTube's order, newest like first, every time (#99): songs Prism already had kept their first like time,
+            // so one liked again (or re-liked in another app) stayed where it was instead of moving to the top.
             songs.upsertAll(remote.mapIndexed { i, s ->
-                val e = existing[s.id]
-                s.toEntity(e).copy(liked = true, likedAt = if (e?.liked == true && e.likedAt > 0) e.likedAt else now - i)
+                s.toEntity(existing[s.id]).copy(liked = true, likedAt = now - i)
             })
             if (remote.isNotEmpty()) {
                 val remoteIds = remote.map { it.id }.toSet()

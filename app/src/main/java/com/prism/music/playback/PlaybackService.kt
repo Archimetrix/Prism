@@ -662,6 +662,28 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             player.play()
             return
         }
+        // #93: a song YouTube won't play where the listener is, though its music video plays there: the video's sound
+        // takes its place (the song stays the song: its lyrics, likes and history are its own).
+        val song = player.currentMediaItem?.toSong()
+        if (song != null && !song.isVideo && !song.isLocal && !song.isLive && !song.isEpisode && !c.soundFrom.containsKey(id) && unavailableHere(error)) {
+            val idx = player.currentMediaItemIndex
+            scope.launch {
+                val video = videoIdFor(song).id?.takeIf { it != id }
+                if (player.currentMediaItemIndex != idx || player.currentMediaItem?.mediaId != id) return@launch
+                if (video == null) { failAndSkip(error); return@launch }
+                c.soundFrom[id] = video
+                AudioDiagnostics.log("song", "$id isn't available here: playing its music video $video's sound")
+                c.player.reportError("${song.title} isn't available where you are, so its music video's sound plays")
+                player.prepare()
+                player.play()
+            }
+            return
+        }
+        failAndSkip(error)
+    }
+
+    /** Says why a song didn't play, and moves on to the next one. */
+    private fun failAndSkip(error: PlaybackException) {
         c.player.reportError((error.cause ?: error).friendlyMessage("Playback failed"))
         if (player.hasNextMediaItem()) {
             scope.launch {
@@ -1870,6 +1892,21 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
 }
 
 /** Normalization's level: songs are brought to this loudness (integrated LUFS, as Spotify and YouTube use). */
+/** How YouTube says a song can't be played where the listener is (#93). */
+private val UNAVAILABLE = listOf("not available", "unavailable", "isn't available", "in your country")
+
+/**
+ * Whether [error] (or what caused it) is YouTube saying the song isn't available, in the listener's country mostly
+ * (#93). Not age-restricted or Premium-only songs: those need an account, not another recording.
+ */
+internal fun unavailableHere(error: Throwable): Boolean =
+    generateSequence(error) { it.cause }.any { e ->
+        if (e is org.schabi.newpipe.extractor.exceptions.AgeRestrictedContentException ||
+            e is org.schabi.newpipe.extractor.exceptions.YoutubeMusicPremiumContentException) return@any false
+        e is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException ||
+            e.message?.let { m -> UNAVAILABLE.any { m.contains(it, ignoreCase = true) } } == true
+    }
+
 private const val TARGET_LUFS = -14f
 
 /** A song's volume (normalization) can still be set this far into it; after that it stays put for the song. */

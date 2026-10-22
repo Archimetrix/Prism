@@ -420,19 +420,28 @@ class AppContainer(val app: Application) {
         return len <= 0 || isCached(key, position, len)
     }
 
+    /**
+     * Songs YouTube won't play where the listener is, and the music video whose sound plays in their place (#93: the
+     * video was allowed when its song wasn't). Set by the player when a song fails as unavailable; for this run only.
+     */
+    val soundFrom = ConcurrentHashMap<String, String>()
+
     private fun resolveAudio(spec: DataSpec, useCaches: Boolean): DataSpec {
         val uri = spec.uri
         if (uri.scheme != "prism") return spec
-        val id = uri.lastPathSegment ?: return spec
+        val song = uri.lastPathSegment ?: return spec
+        // Played (and cached) as the video it plays from, so its bytes never mix with the song's own. Downloads keep
+        // the song's own key, so they aren't swapped.
+        val id = (if (useCaches) soundFrom[song] else null) ?: song
         if (useCaches) {
             if (downloadCache.fullyCached(id, spec.position, spec.length)) {
-                streamDetails[id] = "Downloaded" to streamDetails[id]?.second
-                onStreamResolved?.invoke(id)
+                streamDetails[song] = "Downloaded" to streamDetails[song]?.second
+                onStreamResolved?.invoke(song)
                 return spec.buildUpon().setKey(id).build()
             }
             if (playerCache.fullyCached(id, spec.position, spec.length)) {
-                streamDetails[id] = "Cached" to streamDetails[id]?.second
-                onStreamResolved?.invoke(id)
+                streamDetails[song] = "Cached" to streamDetails[song]?.second
+                onStreamResolved?.invoke(song)
                 return spec.buildUpon().setKey(id).build()
             }
         }
@@ -444,8 +453,8 @@ class AppContainer(val app: Application) {
         // The song's start was saved ahead from another format (the network changed since, so another quality
         // was picked): bytes of two formats can't be stitched together, so that start goes.
         prebuffered.remove(id)?.let { itag -> if (itag != s.itag) runCatching { playerCache.removeResource(id) } }
-        streamDetails[id] = (if (useCaches) "Streaming" else "Downloading") to s
-        if (useCaches) onStreamResolved?.invoke(id)
+        streamDetails[song] = (if (useCaches) "Streaming" else "Downloading") to s
+        if (useCaches) onStreamResolved?.invoke(song)
         return spec.buildUpon().setUri(s.audioUrl).setKey(id).build()
     }
 

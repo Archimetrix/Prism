@@ -111,9 +111,14 @@ fun Artwork(
     }
 }
 
+/** A section title's style: medium weight, so headings read as headings beside the rows under them (#104). */
+@Composable
+fun sectionTitleStyle(): androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+
 /**
- * A shelf's heading, as Apple Music sets them (and the artist pages do): a quiet strapline over a
- * bold title, with a chevron right after it when the title opens the whole shelf.
+ * A shelf's heading, as Apple Music sets them (and the artist pages do): a quiet strapline over the title. When it opens
+ * the whole shelf, the whole row is the button, its chevron at the far end where a thumb reaches it (#107, as on
+ * YouTube Music).
  */
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier, strapline: String? = null, onMore: (() -> Unit)? = null) {
@@ -121,18 +126,18 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, strapline: Strin
     val scheme = MaterialTheme.colorScheme
     Column(
         modifier.fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = ui.gap(26.dp), bottom = ui.gap(10.dp)),
+            .padding(start = 8.dp, end = 8.dp, top = ui.gap(18.dp), bottom = ui.gap(2.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .then(if (onMore != null) Modifier.clickable(onClickLabel = "See all", onClick = onMore) else Modifier)
+            .padding(start = 12.dp, end = 4.dp, top = ui.gap(8.dp), bottom = ui.gap(8.dp)),
     ) {
         if (!strapline.isNullOrBlank()) Text(
             strapline, style = MaterialTheme.typography.labelMedium,
             color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
-        Row(
-            Modifier.clip(RoundedCornerShape(8.dp)).then(if (onMore != null) Modifier.clickable(onClickLabel = "See all", onClick = onMore) else Modifier),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleLarge,
+                title, Modifier.weight(1f), style = sectionTitleStyle(),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             if (onMore != null) Icon(PrismIcons.ChevronRight, "See all", Modifier.size(26.dp), tint = scheme.onSurfaceVariant)
