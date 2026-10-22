@@ -43,11 +43,22 @@ object IconStyle {
         private set
     @Volatile var pack = IconPack.PRISM
         private set
+    /** Likes drawn as a star instead of a heart (Reddit 1.7: "if you changed the heart to a star"). */
+    @Volatile var likeStar = false
+        private set
 
     fun load(context: android.content.Context) {
         val (w, r) = saved(context)
         weight = w; rounded = r
         pack = savedPack(context)
+        likeStar = savedLikeStar(context)
+    }
+
+    fun savedLikeStar(context: android.content.Context): Boolean =
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getBoolean("like_star", false)
+
+    fun saveLikeStar(context: android.content.Context, on: Boolean) {
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean("like_star", on).apply()
     }
 
     fun savedPack(context: android.content.Context): IconPack {
@@ -156,8 +167,9 @@ object PrismIcons {
     val Backward = drawn("Backward")
     val Next = drawn("Next").or { Cupertino.Next }
     val Previous = drawn("Previous").or { Cupertino.Previous }
-    val Heart = drawn("Heart").or { Cupertino.Heart }
-    val HeartFilled = drawn("Heart", filled = true).or { Cupertino.HeartFilled }
+    // The like: a heart, or a star when Settings → Appearance → Icons & shapes → "Likes as stars" is on.
+    val Heart = if (IconStyle.likeStar) drawn("Star") else drawn("Heart").or { Cupertino.Heart }
+    val HeartFilled = if (IconStyle.likeStar) drawn("Star", filled = true) else drawn("Heart", filled = true).or { Cupertino.HeartFilled }
     val More = drawn("More").or { Cupertino.More }
     val Lyrics = drawn("Lyrics").or { Cupertino.Lyrics }
     val LyricsFilled = drawn("Lyrics", filled = true).or { Cupertino.LyricsFilled }

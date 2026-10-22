@@ -55,7 +55,8 @@ object PrismTokens {
     // White light: a quiet grey sheen. Mid greys where the line must read on either theme (borders, fills under white
     // icons); near-white on dark pages and near-black on light ones where it carries text or a progress line.
     private val whiteColors = listOf(0.00f to Color(0xFF9C9CA4), 0.50f to Color(0xFF7E7E86), 1.00f to Color(0xFF9C9CA4))
-    private val whiteOnDark = listOf(0.00f to Color(0xFFFFFFFF), 1.00f to Color(0xFFC6C6CC))
+    // White on dark pages, really white (Reddit 1.7: "when I chose white it's giving grey, not white").
+    private val whiteOnDark = listOf(0.00f to Color(0xFFFFFFFF), 1.00f to Color(0xFFF0F0F3))
     private val whiteOnLight = listOf(0.00f to Color(0xFF141418), 1.00f to Color(0xFF55555D))
     private val ringSplit get() = light.ring
     private val ringWhite = listOf(Color(0xFF8E8E96), Color(0xFF64646C), Color(0xFF8E8E96), Color(0xFFB2B2B8), Color(0xFF8E8E96))

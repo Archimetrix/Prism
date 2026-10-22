@@ -58,7 +58,15 @@ fun PlayerOptionsSheet(
     var pickPlaylist by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
 
+    var outputs by remember { mutableStateOf(false) }
     if (pickPlaylist) { PlaylistPicker(song) { pickPlaylist = false; onDismiss() }; return }
+    // Speakers and TVs, from the menu too (Reddit 1.7: "where's the cast button?").
+    if (outputs) {
+        val profile by c.account.profile.collectAsState()
+        val name = (profile?.name ?: c.settings.current.accountName).trim().split(" ").firstOrNull()?.takeIf { it.isNotBlank() }?.let { "$it's Phone" } ?: "This Phone"
+        OutputPickerSheet(name) { outputs = false; onDismiss() }
+        return
+    }
     if (sharing) { com.prism.music.ui.components.ShareSheet(song.shareTarget()) { sharing = false; onDismiss() }; return }
 
     val isLiked = song.id in liked
@@ -131,6 +139,7 @@ fun PlayerOptionsSheet(
     val cover = com.prism.music.data.canvas.CanvasRepository.albumKey(song)
     val immersive = c.settings.flow.collectAsState().value.immersivePlayer
     val player = listOfNotNull(
+        ActionItem(PrismIcons.Cast, "Play on a speaker or TV", keepOpen = true) { outputs = true },
         // The cover fills the screen with the lyrics over it; a tap there brings this back.
         ActionItem(PrismIcons.Fullscreen, "Immersive mode", value = if (immersive) "On" else null, active = immersive) { c.settings.setImmersivePlayer(!immersive) },
         com.prism.music.ui.components.videoDownloadAction(song, videos[song.id]),
@@ -178,7 +187,7 @@ fun PlayerOptionsSheet(
         ActionGroup("Lyrics", lyrics) { runAction(it, close) }
         // The player's settings, one tap away (Settings → Player).
         val settingsRow = ActionItem(PrismIcons.Settings, "Player settings") { onCollapse(); nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.PLAYER.key)) }
-        ActionGroup("Player", (if (song.isLocal) player.filter { it.label == "Stats for nerds" || it.label == "Immersive mode" || it.label == "Mark a stutter" || it.label == "Your best part" } else player) + settingsRow) { runAction(it, close) }
+        ActionGroup("Player", (if (song.isLocal) player.filter { it.label == "Play on a speaker or TV" || it.label == "Stats for nerds" || it.label == "Immersive mode" || it.label == "Mark a stutter" || it.label == "Your best part" } else player) + settingsRow) { runAction(it, close) }
         ActionGroup("More", go) { runAction(it, close) }
     }
 }

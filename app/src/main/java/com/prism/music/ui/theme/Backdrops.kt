@@ -161,7 +161,7 @@ fun ScreenBackdrop(screen: BackdropScreen, content: @Composable BoxScope.() -> U
     val s by c.settings.flow.collectAsState()
     val (style, photo) = Backdrop.parse(s.backdrops[screen.name])
     val motion = s.backdropMotion && !s.reduceMotion
-    val frosted = s.frostedPages
+    val frosted = ambientFrostShown(s, LocalIsDark.current)
     val density = LocalDensity.current
     var height by remember { mutableStateOf(0.dp) }
     val draw: @Composable (Modifier) -> Unit = { m ->
@@ -182,6 +182,12 @@ fun ScreenBackdrop(screen: BackdropScreen, content: @Composable BoxScope.() -> U
     }
 }
 
+/**
+ * Whether the Default background is the frost from what's playing. Pure black in dark mode means black pages (Reddit,
+ * Pixel 9 Pro: "AMOLED mode stays grey"), so the frost steps aside for it.
+ */
+fun ambientFrostShown(s: com.prism.music.data.prefs.AppSettings, dark: Boolean): Boolean = s.frostedPages && !(dark && s.pureBlack)
+
 /** One background, at any size (the settings previews use it too). */
 @Composable
 fun BackdropLayer(style: Backdrop, photo: String?, dim: Float, motion: Boolean, modifier: Modifier) {
@@ -190,7 +196,7 @@ fun BackdropLayer(style: Backdrop, photo: String?, dim: Float, motion: Boolean, 
     Box(modifier) {
         when (style) {
             // With frosted pages on, the default is the frost from what's playing (the previews show it so).
-            Backdrop.DEFAULT -> if (LocalAppSettings.current.frostedPages) AmbientFrost(Modifier.fillMaxSize()) else Box(Modifier.fillMaxSize().background(bg))
+            Backdrop.DEFAULT -> if (ambientFrostShown(LocalAppSettings.current, dark)) AmbientFrost(Modifier.fillMaxSize()) else Box(Modifier.fillMaxSize().background(bg))
             Backdrop.ARTWORK -> {
                 val song by LocalContainer.current.player.currentSong.collectAsState()
                 Box(Modifier.fillMaxSize().background(bg))

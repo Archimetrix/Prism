@@ -808,6 +808,7 @@ private fun IconSettings() {
         com.prism.music.ui.theme.IconStyle.save(context, v.first, v.second)
     }
     var pack by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedPack(context)) }
+    var likeStar by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedLikeStar(context)) }
     Group("Icons") {
         Label("Pack")
         Chips(com.prism.music.ui.theme.IconPack.entries, pack, { it.label }) {
@@ -818,7 +819,11 @@ private fun IconSettings() {
         Label("Weight")
         Chips(com.prism.music.ui.theme.IconWeight.entries, saved.first, { it.label }) { save(it to saved.second) }
         Toggle("Rounded", "Round ends and softer corners", saved.second) { save(saved.first to it) }
-        if (saved != drawn || pack != com.prism.music.ui.theme.IconStyle.pack) {
+        Toggle("Likes as stars", "A star instead of a heart for likes", likeStar) {
+            likeStar = it
+            com.prism.music.ui.theme.IconStyle.saveLikeStar(context, it)
+        }
+        if (saved != drawn || pack != com.prism.music.ui.theme.IconStyle.pack || likeStar != com.prism.music.ui.theme.IconStyle.likeStar) {
             Item("Restart Prism to see them", "Playback stops for a moment", onClick = {
                 val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
                 if (launch != null) {
@@ -1086,6 +1091,7 @@ private fun PlayerSettings() {
                 Chips(com.prism.music.data.prefs.ImmersiveArt.entries, s.immersiveArt, { it.label }) { prefs.setImmersiveArt(it) }
                 Label("Lyrics")
                 Chips(com.prism.music.data.prefs.ImmersiveLyrics.entries, s.immersiveLyrics, { it.label }) { prefs.setImmersiveLyrics(it) }
+                Toggle("Keep controls on screen", "Previous, play and next stay up", s.immersiveControls) { prefs.setImmersiveControls(it) }
                 Spacer(Modifier.height(6.dp))
             }
         }

@@ -165,7 +165,7 @@ class YourMusic(private val c: AppContainer) {
 
         // What plays with no connection at all: downloads, songs kept whole in the cache, files on the phone.
         val ready = known.filter { c.availableOffline(it.id) }.sortedByDescending { score[it.id] ?: 0.0 }
-        if (ready.size >= MIN_MIX) out += Mix(OFFLINE_MIX, "Ready offline", "Plays with no connection", artists(ready).take(4), 0xFF37474F.toInt(), s.at, spread(ready.take(MIX_SIZE)))
+        if (ready.size >= MIN_MIX) out += Mix(OFFLINE_MIX, "Ready offline", "A mix of songs already on your phone", artists(ready).take(4), 0xFF37474F.toInt(), s.at, spread(ready.take(MIX_SIZE)))
         return out
     }
 

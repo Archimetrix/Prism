@@ -333,8 +333,9 @@ fun ImmersivePlayer(
                 Text(song.artistText, color = Color.White.copy(alpha = 0.65f), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        // "Keep controls on screen" (Reddit 1.7): the capsule stays; a tap still brings up the song's name.
         AnimatedVisibility(
-            button || menu, Modifier.align(Alignment.BottomCenter).padding(bottom = insets.calculateBottomPadding() + 26.dp),
+            button || menu || settings.immersiveControls, Modifier.align(Alignment.BottomCenter).padding(bottom = insets.calculateBottomPadding() + 26.dp),
             enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }, exit = fadeOut(tween(300)),
         ) {
             Row(
@@ -370,6 +371,9 @@ fun ImmersivePlayer(
                 // Fill the screen → zoomed out → the whole cover, round again.
                 ActionItem(PrismIcons.AspectRatio, "Artwork", value = art.label, keepOpen = true) {
                     c.settings.setImmersiveArt(ImmersiveArt.entries[(art.ordinal + 1) % ImmersiveArt.entries.size])
+                },
+                ActionItem(PrismIcons.Play, "Keep controls on screen", value = if (settings.immersiveControls) "On" else "Off", active = settings.immersiveControls, keepOpen = true) {
+                    c.settings.setImmersiveControls(!settings.immersiveControls)
                 },
                 ActionItem(PrismIcons.More, "Song options", onClick = onSongOptions),
             ),

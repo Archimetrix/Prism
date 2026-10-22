@@ -182,7 +182,8 @@ fun ThinSlider(
             val played = Size(filled.coerceAtLeast(size.height).coerceAtMost(size.width), size.height)
             if (filled > 0f) {
                 if (spectrum) drawRoundRect(
-                    Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors.toTypedArray(), startX = 0f, endX = size.width),
+                    // The player is always dark: White light's white (not its mid grey) on it (Reddit: "white is giving gray").
+                    Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors(true).toTypedArray(), startX = 0f, endX = size.width),
                     size = played, cornerRadius = r,
                 ) else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
             }
@@ -779,6 +780,11 @@ fun OutputCaption() {
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
+        // The cast mark says the line opens speakers and TVs (Reddit 1.7: "where's the cast button?").
+        if (!away) {
+            Spacer(Modifier.width(7.dp))
+            Icon(PrismIcons.Cast, "Play on a speaker or TV", Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.62f))
+        }
     }
     if (picking) OutputPickerSheet(phoneName) { picking = false }
 }

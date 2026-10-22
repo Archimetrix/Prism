@@ -100,7 +100,7 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                 .drawBehind {
                     drawLine(scheme.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx() * 0.75f)
                     if (settings.miniProgress == MiniProgress.LINE && fraction > 0f) drawRect(
-                        androidx.compose.ui.graphics.Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors.toTypedArray(), startX = 0f, endX = size.width),
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors(dark).toTypedArray(), startX = 0f, endX = size.width),
                         Offset(0f, 0f), androidx.compose.ui.geometry.Size(size.width * fraction, 2.dp.toPx()),
                     )
                 },

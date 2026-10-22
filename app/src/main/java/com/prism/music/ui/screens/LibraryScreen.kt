@@ -73,7 +73,8 @@ import kotlinx.coroutines.launch
 private enum class LibTab(val label: String) { PLAYLISTS("Playlists"), SONGS("Songs"), ALBUMS("Albums"), ARTISTS("Artists"), DOWNLOADS("Downloads") }
 
 private enum class SongSort(val label: String) { RECENT("Recently liked"), TITLE("Title"), ARTIST("Artist"), ALBUM("Album") }
-private enum class AlbumSort(val label: String) { LIBRARY("Library order"), MOST("Most songs"), TITLE("Title"), ARTIST("Artist") }
+/** DOWNLOADED (Reddit 1.7): albums with the most downloaded songs first, the rest after in library order. */
+private enum class AlbumSort(val label: String) { LIBRARY("Library order"), DOWNLOADED("Downloaded first"), MOST("Most songs"), TITLE("Title"), ARTIST("Artist") }
 private enum class ArtistSort(val label: String) { LIBRARY("Library order"), MOST("Most songs"), NAME("Name") }
 /** Saved by name ([com.prism.music.data.LibraryRepository.playlistSort]); CUSTOM is the listener's own order. */
 private enum class PlaylistSort(val label: String) { CUSTOM("Your order"), LIBRARY("Recent activity"), TITLE("Title") }
@@ -133,10 +134,18 @@ fun LibraryScreen(bottomPadding: Dp) {
         }
     }
     val albumSongs = remember(mine) { mine.filter { it.album?.id != null }.groupBy { it.album!!.id!! } }
-    val sortedAlbums = remember(albums, albumSort, albumSongs) {
+    // Downloaded songs per album: by the album's id, and by its title for albums YouTube lists under another edition's id.
+    val downloadedPerAlbum = remember(dls) {
+        val done = dls.values.filter { it.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }.mapNotNull { it.song }
+        done.mapNotNull { s -> s.album?.id?.let { it to s } }.groupingBy { it.first }.eachCount() to
+            done.mapNotNull { s -> s.album?.title?.lowercase()?.let { it to s } }.groupingBy { it.first }.eachCount()
+    }
+    val sortedAlbums = remember(albums, albumSort, albumSongs, downloadedPerAlbum) {
         fun artistOf(a: com.prism.music.data.model.BrowseItem) = albumSongs[a.id]?.first()?.primaryArtist ?: a.subtitle.split(" • ").firstOrNull { it != "Album" && it != "Single" && it != "EP" } ?: ""
+        fun downloaded(a: com.prism.music.data.model.BrowseItem) = downloadedPerAlbum.first[a.id] ?: downloadedPerAlbum.second[a.title.lowercase()] ?: 0
         when (albumSort) {
             AlbumSort.LIBRARY -> albums
+            AlbumSort.DOWNLOADED -> albums.sortedByDescending { downloaded(it) }
             AlbumSort.MOST -> albums.sortedByDescending { albumSongs[it.id]?.size ?: 0 }
             AlbumSort.TITLE -> albums.sortedBy { it.title.lowercase() }
             AlbumSort.ARTIST -> albums.sortedWith(compareBy<com.prism.music.data.model.BrowseItem> { artistOf(it).lowercase() }.thenBy { it.title.lowercase() })

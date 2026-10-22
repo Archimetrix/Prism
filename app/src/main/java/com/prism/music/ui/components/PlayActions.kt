@@ -144,6 +144,8 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
                 else -> PrismIcons.QueueMusic
             },
         ) {
+            // Save to (or take out of) the library, or star an artist, right from the cover's long press (Reddit 1.7).
+            LibraryToggle(item)
             SheetIconButton(PrismIcons.Share, "Share") {
                 sharing = when (target) {
                     Playable.Liked -> ShareTarget("Liked songs", com.prism.music.data.model.songCount(liked.size), "Playlist", art, null, songs = liked)
@@ -186,6 +188,54 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
             ActionGroup(null, djSet + remove) { runAction(it, close) }
             ActionGroup(extraTitle, extra.map { it.toAction() }) { runAction(it, close) }
         } else ActionGroup(null, djSet + extra.map { it.toAction() } + remove) { runAction(it, close) }
+    }
+}
+
+/**
+ * The header's library button: an album or playlist saved to your library (YouTube Music when signed in; on the phone
+ * for albums when not), or an artist starred. Nothing for Prism's own lists, mixes and radios.
+ */
+@Composable
+private fun LibraryToggle(item: BrowseItem?) {
+    val c = LocalContainer.current
+    val context = LocalContext.current
+    val signedIn = c.settings.current.isLoggedIn
+    when (item) {
+        is AlbumItem -> {
+            val albums by c.library.albums.collectAsState()
+            val here by c.prismLibrary.albums.collectAsState()
+            val saved = if (signedIn) albums.any { it.id == item.id } else here.any { it.id == item.id }
+            SheetIconButton(if (saved) PrismIcons.LibraryAdded else PrismIcons.LibraryAdd, if (saved) "Remove from library" else "Add to library") {
+                if (!signedIn) {
+                    if (saved) c.prismLibrary.unsaveAlbum(item.id)
+                    else c.prismLibrary.saveAlbum(com.prism.music.data.SavedAlbum(item.id, item.title, item.subtitle, item.thumbnail, item.playlistId, System.currentTimeMillis()))
+                    Toast.makeText(context, if (saved) "Removed from your library" else "Added to your library", Toast.LENGTH_SHORT).show()
+                } else c.scope.launch(Dispatchers.Main) {
+                    val ok = if (saved) c.library.removeAlbum(item.id, item.playlistId)
+                    else c.library.setSaved(item.playlistId ?: item.id, true)
+                    Toast.makeText(context, if (!ok) "Couldn't update your library" else if (saved) "Removed from your library" else "Added to your library", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        is PlaylistItem -> {
+            if (!signedIn || item.isMix || item.id.startsWith("RD") || com.prism.music.data.PrismLibrary.isPrismList(item.id)) return
+            val playlists by c.library.playlists.collectAsState()
+            val saved = playlists.any { it.id.removePrefix("VL") == item.id.removePrefix("VL") }
+            SheetIconButton(if (saved) PrismIcons.LibraryAdded else PrismIcons.LibraryAdd, if (saved) "Remove from library" else "Add to library") {
+                c.scope.launch(Dispatchers.Main) {
+                    val ok = c.library.setSaved(item.id, !saved)
+                    Toast.makeText(context, if (!ok) "Couldn't update your library" else if (saved) "Removed from your library" else "Added to your library", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        is ArtistItem -> {
+            val favorites by c.artistPrefs.favorites.collectAsState()
+            val starred = favorites.any { it.id == item.id }
+            SheetIconButton(if (starred) PrismIcons.StarFilled else PrismIcons.Star, if (starred) "Remove from favourites" else "Add to favourites") {
+                c.library.setFavoriteArtist(com.prism.music.data.FavoriteArtist(item.id, item.title, item.thumbnail), null, !starred)
+            }
+        }
+        else -> Unit
     }
 }
 
