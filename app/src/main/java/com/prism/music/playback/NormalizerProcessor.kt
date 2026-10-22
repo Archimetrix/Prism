@@ -19,6 +19,8 @@ import kotlin.math.roundToInt
 @UnstableApi
 class NormalizerProcessor : BaseAudioProcessor() {
     @Volatile private var targetGain = 1f
+    /** How long a change takes (s): quick before a song's sound starts, slow once it's playing. */
+    @Volatile private var glideSec = 0.1f
     private var gain = 1f
     private var env = 0f
     private var rate = 48_000
@@ -26,8 +28,13 @@ class NormalizerProcessor : BaseAudioProcessor() {
     private var attack = 0f
     private var release = 0f
 
-    /** Sets the song's gain in dB; it glides there over ~100 ms. */
-    fun setGainDb(db: Float) {
+    /**
+     * Sets the song's gain in dB; it glides there over ~100 ms, or over [glideSec] seconds. A song already playing changes
+     * slowly (Reddit 1.7: "a hiccup near the start, like it switches to another version": its measured loudness landing a
+     * few seconds in moved the volume by several dB in a tenth of a second).
+     */
+    fun setGainDb(db: Float, glideSec: Float = 0.1f) {
+        this.glideSec = glideSec.coerceAtLeast(0.01f)
         targetGain = 10f.pow(db / 20f)
     }
 
@@ -52,7 +59,8 @@ class NormalizerProcessor : BaseAudioProcessor() {
             return
         }
         val t0 = if (AudioDiagnostics.enabled) System.nanoTime() else 0L
-        val glide = 1f - exp(-1f / (0.1f * rate))
+        // Per stereo frame (the gain moves every other sample).
+        val glide = 1f - exp(-1f / (glideSec * rate))
         val ceiling = 0.89f // -1 dBFS
         val samples = bytes / (if (float) 4 else 2)
         for (s in 0 until samples) {

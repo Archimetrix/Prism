@@ -299,6 +299,8 @@ class MixTempo(
     private val local: (id: String, scratch: File) -> android.net.Uri? = { _, _ -> null },
     /** Blocks while the playing song is still loading (a scan starting then competed with it); off the main thread. */
     private val yieldToPlaying: () -> Unit = {},
+    /** Music is playing right now (DJ mode's quick scans then go one at a time). */
+    private val playing: () -> Boolean = { false },
 ) {
     private val prefs = context.getSharedPreferences("mix_tempo", Context.MODE_PRIVATE)
     /** Song id -> integrated loudness (LUFS; NaN when it couldn't be measured). Also marks a song as scanned. */
@@ -354,8 +356,17 @@ class MixTempo(
     suspend fun quickScan(id: String, network: Boolean): QuickResult {
         if (keyed(id)) return QuickResult.KEYED
         if (id in failed) return QuickResult.FAILED
-        return quickGate.withPermit {
-            if (keyed(id)) return@withPermit QuickResult.KEYED
+        // While music plays, one at a time (Reddit 1.7: "DJ mode is so laggy": three decodes beside playback were too
+        // much for mid-range phones); while paused, a few at once.
+        return quickGate.withPermit { if (playing()) playingGate.withLock { quickScanNow(id, network) } else quickScanNow(id, network) }
+    }
+
+    /** One quick scan at a time while music plays ([quickScan]). */
+    private val playingGate = kotlinx.coroutines.sync.Mutex()
+
+    private suspend fun quickScanNow(id: String, network: Boolean): QuickResult {
+        if (keyed(id)) return QuickResult.KEYED
+        return run {
             withContext(Dispatchers.IO) {
                 val started = System.nanoTime()
                 val before = android.os.Process.getThreadPriority(android.os.Process.myTid())

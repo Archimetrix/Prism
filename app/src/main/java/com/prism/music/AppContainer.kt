@@ -182,7 +182,7 @@ class AppContainer(val app: Application) {
     }
     val videoSync by lazy { com.prism.music.playback.VideoSync(app, streamHttp, streams, scope) }
     /** Songs' tempo and edges, for Mix, and their loudness, for normalization. */
-    val mixTempo by lazy { com.prism.music.playback.MixTempo(app, streamHttp, streams, ::audioOnPhone) { yieldToPlaying(null) } }
+    val mixTempo by lazy { com.prism.music.playback.MixTempo(app, streamHttp, streams, ::audioOnPhone, { yieldToPlaying(null) }, { player.isPlaying.value }) }
 
     /**
      * Where a song's audio is on the phone, for scanning it without the network: a local file as it is; a download or

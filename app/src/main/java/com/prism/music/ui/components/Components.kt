@@ -243,15 +243,19 @@ fun SongRowLayout(
 @Composable
 fun PlayingBars(modifier: Modifier = Modifier, color: Color = Color.White, spectrum: Boolean = false) {
     val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
-    val t = rememberInfiniteTransition(label = "bars")
-    val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "a")
-    val b by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "b")
-    val d by t.animateFloat(0.5f, 0.9f, infiniteRepeatable(tween(370), RepeatMode.Reverse), label = "d")
     val colors = if (spectrum && !com.prism.music.ui.theme.PrismTokens.white) listOf(Color(0xFFFF6B5E), Color(0xFF3DDC97), Color(0xFF7C8CFF)) else listOf(color, color, color)
+    // With reduced motion there's no animation running at all (it used to tick every frame and just not show it).
+    val heights: List<Float> = if (still) listOf(0.6f, 1f, 0.75f) else {
+        val t = rememberInfiniteTransition(label = "bars")
+        val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "a")
+        val b by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "b")
+        val d by t.animateFloat(0.5f, 0.9f, infiniteRepeatable(tween(370), RepeatMode.Reverse), label = "d")
+        listOf(a, b, d)
+    }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
-        listOf(a, b, d).forEachIndexed { i, h ->
+        heights.forEachIndexed { i, h ->
             Box(Modifier.weight(1f).fillMaxSize().graphicsLayer {
-                scaleY = if (still) listOf(0.6f, 1f, 0.75f)[i] else h; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                scaleY = h; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
             }.clip(RoundedCornerShape(1.dp)).background(colors[i]))
         }
     }

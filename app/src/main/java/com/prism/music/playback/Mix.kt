@@ -178,6 +178,7 @@ class MixEngine(
         // (The tail can still load while it waits to play along, see [prepared], so only the lead-in itself is needed.)
         if (main.currentPosition > p.startMs - LEAD_MS - 1000) {
             // Too late to get the tail ready in time (a seek near the end): let this one end on its own.
+            Log.i(TAG, "no blend after ${item.mediaId}: too close to the end to get ready (at ${main.currentPosition} ms, blend at ${p.startMs} ms)")
             noPlanFor = item.mediaId
             return 1000
         }
@@ -198,11 +199,18 @@ class MixEngine(
         return 50
     }
 
+    /** Why a song isn't blended into the next, said once per song (in Share diagnostics), then null. */
+    private fun noBlend(item: MediaItem, why: String): Plan? {
+        Log.i(TAG, "no blend after ${item.mediaId}: $why")
+        return null
+    }
+
     private fun makePlan(item: MediaItem, dur: Long, length: Long): Plan? {
-        val toIndex = main.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET } ?: return null
-        if (main.repeatMode == Player.REPEAT_MODE_ONE) return null
+        val toIndex = main.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET } ?: return noBlend(item, "nothing next in the queue")
+        if (main.repeatMode == Player.REPEAT_MODE_ONE) return noBlend(item, "repeat one")
         val next = main.getMediaItemAt(toIndex)
-        if (next.mediaId.isBlank() || next.mediaId == item.mediaId || !allowed(item, next)) return null
+        if (next.mediaId.isBlank() || next.mediaId == item.mediaId) return noBlend(item, "the same song next")
+        if (!allowed(item, next)) return noBlend(item, "not blended here (an album playing through, a video, live, a podcast, Sing, Listen Together or casting)")
         val a = tempo.cached(item.mediaId)
         val b = tempo.cached(next.mediaId)
         val nextDur = (next.mediaMetadata.durationMs ?: 0L).takeIf { it > 0 } ?: Long.MAX_VALUE
@@ -215,7 +223,7 @@ class MixEngine(
             }
         }
         val len = minOf(chosen, dur / 3, nextDur / 3)
-        if (len < 1000 || dur < 30_000) return null
+        if (len < 1000 || dur < 30_000) return noBlend(item, "a song too short to blend (${dur / 1000} s, next ${nextDur.takeIf { it != Long.MAX_VALUE }?.let { it / 1000 } ?: "?"} s)")
         val end = (a?.lastSoundMs?.takeIf { it in dur / 2..dur } ?: dur)
         var start = end - len
         // Silence before the next song's music is skipped (up to 10 s; a quiet intro is music, and stays).
@@ -238,7 +246,7 @@ class MixEngine(
                 beatMs = beat * r
             }
         }
-        if (start < dur / 2) return null
+        if (start < dur / 2) return noBlend(item, "the blend would start before the song's middle")
         return Plan(item.mediaId, next.mediaId, toIndex, start, inMs, len, ratio, beats, beatMs)
     }
 
@@ -339,8 +347,17 @@ class MixEngine(
                         Log.i(TAG, "tail ${d ?: "?"} ms off at the blend: put off by $by ms (now ${p.lengthMs} ms long)")
                         return 10
                     }
-                    Log.w(TAG, "tail out of step by ${d ?: "an unknown amount"} ms at the blend")
-                    return abort("out of step")
+                    // Put off as often as it may be and still apart: a plain blend (not on the beat) goes ahead anyway when
+                    // it's within [LAST_CHANCE_MS], crossed over slowly, so it sounds like a brief doubling (Reddit 1.7.1:
+                    // "no crossfade happens at all"; a slower phone's readings can stay a few hundred ms apart).
+                    val apart = d ?: drift
+                    if (!p.beats && t.isPlaying && abs(apart) <= LAST_CHANCE_MS) {
+                        Log.i(TAG, "tail $apart ms off after ${p.postponed} tries: blending anyway, crossed over slowly")
+                        LONG_HANDOVER_MS
+                    } else {
+                        Log.w(TAG, "tail out of step by ${d ?: "an unknown amount"} ms at the blend")
+                        return abort("out of step")
+                    }
                 }
                 abs(d) > 45 -> LONG_HANDOVER_MS
                 else -> HANDOVER_MS
@@ -564,6 +581,8 @@ class MixEngine(
         private const val HANDOVER_MS = 120L
         /** The cross-over when the two are a little apart. */
         private const val LONG_HANDOVER_MS = 350L
+        /** How far apart a plain blend may still start, once putting it off hasn't brought the two in step. */
+        private const val LAST_CHANCE_MS = 1200L
         /**
          * A player's reported position is unsteady for a moment after it starts, and a shift takes the length of the
          * audio buffer to reach the speaker; readings wait this long.

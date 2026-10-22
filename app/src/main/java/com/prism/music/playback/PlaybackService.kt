@@ -700,7 +700,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             yt != null -> (-yt).coerceIn(-12f, 6f)
             else -> 0f
         }
-        normalizer.setGainDb(gain)
+        // Once the song is under way, a better figure eases in over two seconds, and a small one isn't worth a change
+        // heard mid-song; before its sound starts, the right level is set at once.
+        val underWay = player.isPlaying && player.currentPosition > 400
+        if (underWay && kotlin.math.abs(gain - normalizeGainDb) < MIN_MIDSONG_CHANGE_DB) return
+        normalizer.setGainDb(gain, if (underWay) 2f else 0.1f)
         if (gain != normalizeGainDb) AudioDiagnostics.log("normalize", "gain %.1f dB (%s) at %d s".format(gain, if (measured != null) "measured" else if (yt != null) "YouTube's figure" else "none", player.currentPosition / 1000))
         normalizeGainDb = gain
         c.nerdStats.value = c.nerdStats.value.copy(
@@ -1860,6 +1864,8 @@ private const val TARGET_LUFS = -14f
 
 /** A song's volume (normalization) can still be set this far into it; after that it stays put for the song. */
 private const val SETTLE_MS = 2_000L
+/** A song already playing only has its volume changed for a better loudness figure this much apart (dB). */
+private const val MIN_MIDSONG_CHANGE_DB = 1.5f
 /** Queued songs are got ready once the playing one has played this long (not as it starts: that slowed its loading). */
 private const val UNDER_WAY_MS = 5_000L
 /** How many songs ahead DJ mode scans and orders (a quick scan each: three stretches of the song, a few at once). */
