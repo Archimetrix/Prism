@@ -274,7 +274,7 @@ fun ReplayScreen(bottomPadding: Dp) {
                     Box(Modifier.fillMaxWidth().height(40.dp).clip(com.prism.music.ui.theme.LocalUi.current.shape(12.dp)).background(com.prism.music.ui.components.quietFill())) {
                         Box(Modifier.fillMaxWidth(anim.value).height(40.dp).background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary))))
                         // The labels twice: in the page's ink, then in the bar's ink clipped to the bar, so a name
-                        // that runs past the end of a short bar changes colour where the bar stops.
+                        // that runs past the end of a short bar changes color where the bar stops.
                         GenreLabels(g, listenTime(ms), Color.Unspecified, Color.Unspecified, Modifier)
                         GenreLabels(
                             g, listenTime(ms), barInk, endInk,
@@ -432,7 +432,7 @@ fun listenTotal(ms: Long): ListenTotal =
     if (LocalAppSettings.current.replayHours && ms >= 3_600_000) ListenTotal(ms / 60_000, "", ::hoursAndMinutes)
     else ListenTotal(ms / 60_000, "minutes") { "%,d".format(it) }
 
-/** Replay's own colours, or the theme's when "Use theme colours" is on — always dark enough for white text. */
+/** Replay's own colors, or the theme's when "Use theme colors" is on — always dark enough for white text. */
 @Composable
 fun replayGradient(): List<Color> {
     val scheme = MaterialTheme.colorScheme
@@ -446,7 +446,7 @@ fun replayGradient(): List<Color> {
  */
 private fun inkOn(bg: Color): Color = if (bg.luminance() > 0.18f) Color(0xFF111111) else Color.White
 
-/** Darkens a colour towards black by [amount] (0 = as is), so white sits on it comfortably. */
+/** Darkens a color towards black by [amount] (0 = as is), so white sits on it comfortably. */
 private fun Color.compositeDark(amount: Float = 0.7f): Color = Color(red * (1 - amount), green * (1 - amount), blue * (1 - amount), 1f)
 
 @Composable

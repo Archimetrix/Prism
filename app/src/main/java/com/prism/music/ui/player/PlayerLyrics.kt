@@ -58,6 +58,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import com.prism.music.ui.theme.LocalAppSettings
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -138,17 +139,32 @@ class LyricsState(
     private val found = HashMap<LyricsSource, Lyrics?>()
     private var selectJob: Job? = null
 
-    val lines: List<LyricLine> get() = lyrics?.lines.orEmpty()
-    val unavailable: Boolean get() = !loading && lyrics == null
+    /** Not looked up yet: on mobile data with "Lyrics on mobile data" off, they wait for the lyrics to be opened (#95). */
+    var waiting by mutableStateOf(false)
+        private set
+    /** A look-up has finished (the whole one, or the saved-only one while [waiting]). */
+    var settled = false
+        private set
 
-    suspend fun loadAuto() {
+    val lines: List<LyricLine> get() = lyrics?.lines.orEmpty()
+    val unavailable: Boolean get() = !loading && lyrics == null && !waiting
+
+    /** [savedOnly]: only what's saved on the phone, no lyric service asked (then [waiting] if there's nothing). */
+    suspend fun loadAuto(savedOnly: Boolean = false) {
         // Podcast episodes have no lyrics: don't ask ten lyric services about one.
-        if (song.isEpisode) { lyrics = null; loading = false; return }
+        if (song.isEpisode) { lyrics = null; loading = false; settled = true; return }
         loading = true
-        lyrics = try { repo.auto(song) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+        if (savedOnly) {
+            lyrics = try { repo.savedOnly(song) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+            waiting = lyrics == null
+        } else {
+            lyrics = try { repo.auto(song) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+            waiting = false
+        }
         source = lyrics?.source
         lyrics?.let { found[it.source] = it; providers[it.source] = it.state() }
         loading = false
+        settled = true
     }
 
     private suspend fun lookup(src: LyricsSource): Lyrics? {
@@ -257,12 +273,21 @@ class LyricsState(
     }
 }
 
+/**
+ * The lyrics for [song], looked up as it starts. With "Lyrics on mobile data" off (#95) and the phone on mobile data,
+ * only lyrics already saved on the phone are shown until [opened] (the lyrics are on screen), or until Wi-Fi is back.
+ */
 @Composable
-fun rememberLyricsState(song: Song): LyricsState {
-    val repo = LocalContainer.current.lyrics
+fun rememberLyricsState(song: Song, opened: Boolean = true): LyricsState {
+    val c = LocalContainer.current
+    val repo = c.lyrics
     val scope = rememberCoroutineScope()
     val state = remember(song.id) { LyricsState(repo, song, scope) }
-    LaunchedEffect(song.id) { state.loadAuto() }
+    val metered by c.network.metered.collectAsState()
+    val hold = metered && !LocalAppSettings.current.lyricsOnMobileData
+    LaunchedEffect(song.id, opened, hold) {
+        if (!state.settled || state.waiting && (opened || !hold)) state.loadAuto(savedOnly = hold && !opened)
+    }
     return state
 }
 
@@ -382,6 +407,10 @@ fun CurrentLyricStrip(state: LyricsState, isPlaying: Boolean, onClick: () -> Uni
                         }
                     }
                 }
+            }
+            // On mobile data with "Lyrics on mobile data" off (#95): opening them looks them up.
+            state.waiting -> StripRow(onClick, note = false) {
+                Text("Tap to load lyrics", style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.55f), maxLines = 1)
             }
             state.unavailable -> {
                 var visible by remember(state.song.id) { mutableStateOf(true) }

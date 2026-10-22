@@ -36,7 +36,7 @@ import java.io.File
 
 /**
  * The 1.7 redesign's foundations: the type scale keeps thin weights to large sizes, Outfit really loads at each weight
- * from its one variable file, and every scheme Prism builds from a colour is readable. Also draws the type scale in
+ * from its one variable file, and every scheme Prism builds from a color is readable. Also draws the type scale in
  * Outfit, dark and light, onto app/build/type-previews/type-scale.png.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -86,7 +86,7 @@ class SpectrumFoundationTest {
     )
 
     @Test
-    fun schemesFromAnyColourAreReadable() {
+    fun schemesFromAnyColorAreReadable() {
         for (seed in hardSeeds) for (dark in listOf(true, false)) for (black in listOf(true, false)) {
             if (!dark && black) continue
             val c = schemeFromSeed(seed, dark, black)

@@ -44,7 +44,7 @@ class ArtistPrefs(context: Context) {
         prefs.edit().apply { if (key == null) remove(SIG + id) else putString(SIG + id, key) }.apply()
     }
 
-    /** Artist id -> their page's colour (1.7.2), picked from the page's ⋯ menu; unset = the photo's. */
+    /** Artist id -> their page's color (1.7.2), picked from the page's ⋯ menu; unset = the photo's. */
     val colors = MutableStateFlow(
         prefs.all.filterKeys { it.startsWith(COL) }.mapNotNull { (k, v) -> (v as? Int)?.let { k.removePrefix(COL) to it } }.toMap()
     )

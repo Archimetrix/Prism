@@ -965,6 +965,13 @@ class LyricsRepository(
     /** The best lyrics saved on the phone for [song], as a [level]. */
     suspend fun savedLevel(song: Song): Int = level(saved(song))
 
+    /** Lyrics already on the phone (the source picked for the song first), with no lyric service asked (#95). */
+    suspend fun savedOnly(song: Song): Lyrics? {
+        if (song.isEpisode) return null
+        val picked = chosen(song)?.let { src -> withContext(Dispatchers.IO) { dao.allFor(song.id) }.firstOrNull { it.source == src.name }?.let { build(src, it.content) } }
+        return picked ?: saved(song)
+    }
+
     /**
      * For downloads: karaoke (word-by-word) lyrics from any source that has them, then
      * line-synced, then plain, so the best version is on the phone for offline listening.

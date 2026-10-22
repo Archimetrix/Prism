@@ -154,7 +154,7 @@ private fun Shelf.newestFirst() = copy(items = Releases.newestFirst(items))
 
 /**
  * An artist's page after Apple Music's (iOS 27): their photo fills the top and frosts over into
- * a backdrop made of its colours, with their name set in a signature typeface, centred, and the
+ * a backdrop made of its colors, with their name set in a signature typeface, centred, and the
  * Info, Play, Shuffle and Favourite buttons beneath it. Their latest release gets a card of its
  * own; the rest of the page sits on the frosted glass.
  */
@@ -304,19 +304,19 @@ private fun ArtistContent(page: ArtistPage, bottomPadding: Dp) {
         if (showInfo) InfoSheet(page, genre, favorite, onFavorite = toggleFavorite, onShare = { showInfo = false; sharing = true }) { showInfo = false }
         if (showSignature) SignatureSheet(page, genre) { showSignature = false }
     }
-    // The page's own colour (1.7.2): any colour, or back to the photo's.
+    // The page's own color (1.7.2): any color, or back to the photo's.
     if (pageColor) {
         val fromPhoto = palette?.accent(dark)
         com.prism.music.ui.components.ColorPickerSheet(
-            "${page.name}'s colour", (ownColor ?: fromPhoto ?: MaterialTheme.colorScheme.primary).toArgb(),
+            "${page.name}'s color", (ownColor ?: fromPhoto ?: MaterialTheme.colorScheme.primary).toArgb(),
             onDismiss = { pageColor = false },
-            reset = if (ownColor != null) "Use the photo's colour" to { c.artistPrefs.setColor(page.id, null) } else null,
+            reset = if (ownColor != null) "Use the photo's color" to { c.artistPrefs.setColor(page.id, null) } else null,
             preview = { col ->
                 val settings = com.prism.music.ui.theme.LocalAppSettings.current
                 androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(true, false).forEach { d ->
-                        val tc = rememberColours(settings, d)
-                        ColourSample(tc, Modifier.weight(1f), pageAccent = com.prism.music.ui.theme.readableOn(Color(col), tc.scheme.background), height = 128.dp)
+                        val tc = rememberColors(settings, d)
+                        ColorSample(tc, Modifier.weight(1f), pageAccent = com.prism.music.ui.theme.readableOn(Color(col), tc.scheme.background), height = 128.dp)
                     }
                 }
             },
@@ -467,7 +467,7 @@ private fun TopBar(
                             leadingIcon = { Icon(if (favorite) PrismIcons.StarFilled else PrismIcons.Star, null) },
                         )
                         DropdownMenuItem({ Text("Signature style") }, { menu = false; onSignature() }, leadingIcon = { Icon(PrismIcons.Signature, null) })
-                        DropdownMenuItem({ Text("Page colour") }, { menu = false; onColor() }, leadingIcon = { Icon(PrismIcons.Palette, null) })
+                        DropdownMenuItem({ Text("Page color") }, { menu = false; onColor() }, leadingIcon = { Icon(PrismIcons.Palette, null) })
                         // Never in radios, autoplay, Smart Shuffle, mixes or Smart Downloads (Settings → Library & Replay → Exclusions).
                         val c = com.prism.music.ui.theme.LocalContainer.current
                         val excluded by c.exclusions.artists.collectAsState()

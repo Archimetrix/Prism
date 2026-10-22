@@ -14,12 +14,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 
-/** The colour picker's arithmetic and the 1.7.2 colour settings' effect on the theme (ColorUtils needs Robolectric). */
+/** The color picker's arithmetic and the 1.7.2 color settings' effect on the theme (ColorUtils needs Robolectric). */
 @org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
 @org.robolectric.annotation.Config(sdk = [34], application = android.app.Application::class)
-class ColourTest {
+class ColorTest {
     @Test
-    fun readsColourCodes() {
+    fun readsColorCodes() {
         assertEquals(0xFF3A86FF.toInt(), ColorMath.parseHex("#3A86FF"))
         assertEquals(0xFF3A86FF.toInt(), ColorMath.parseHex("3a86ff"))
         assertEquals(0xFF3A86FF.toInt(), ColorMath.parseHex("  #3A 86 FF "))
@@ -65,7 +65,7 @@ class ColourTest {
     @Test
     fun prismsOwnLightIsUnchanged() {
         assertSame(SpectrumPresets.PRISM_LIGHT, SpectrumPresets.light("PRISM", emptyList(), bands = false))
-        // Unknown keys, and "your own" without colours, fall back to it.
+        // Unknown keys, and "your own" without colors, fall back to it.
         assertSame(SpectrumPresets.PRISM_LIGHT, SpectrumPresets.light("NOPE", emptyList(), bands = false))
         assertSame(SpectrumPresets.PRISM_LIGHT, SpectrumPresets.light("CUSTOM", listOf(0xFFFF0000.toInt()), bands = false))
         assertEquals(Color(0xFFFF4D5E), SpectrumPresets.PRISM_LIGHT.colors.first().second)
@@ -88,7 +88,7 @@ class ColourTest {
     @Test
     fun bandsAreHardStripes() {
         val l = SpectrumPresets.light("OCEAN", emptyList(), bands = true)
-        // Each colour twice: where its band starts and where it ends.
+        // Each color twice: where its band starts and where it ends.
         assertEquals(8, l.colors.size)
         assertEquals(l.colors[0].second, l.colors[1].second)
         assertEquals(l.colors[1].first, l.colors[2].first, 0.0001f)
@@ -96,7 +96,7 @@ class ColourTest {
     }
 
     @Test
-    fun exactShadeKeepsTheColourWhenItReads() {
+    fun exactShadeKeepsTheColorWhenItReads() {
         val blue = Color(0xFF3A86FF)
         val exact = schemeFromSeed(blue, dark = true, pureBlack = false, exact = true)
         assertEquals(blue.toArgb(), exact.primary.toArgb())
@@ -116,7 +116,7 @@ class ColourTest {
         val base = schemeFromSeed(Color(0xFF3A86FF), dark = true, pureBlack = false)
         val neutral = withSurfaces(base, 0f, 0f, dark = true, pureBlack = false)
         val bg = ColorMath.toHsl(neutral.background.toArgb())
-        assertTrue("neutral has no colour", bg[1] < 0.02f)
+        assertTrue("neutral has no color", bg[1] < 0.02f)
         val strong = withSurfaces(base, 140f, 3f, dark = true, pureBlack = false)
         val sb = ColorMath.toHsl(strong.surfaceContainer.toArgb())
         assertTrue("strong tint is green-ish: ${sb[0]}", abs(sb[0] - 140f) < 12f && sb[1] > 0.2f)

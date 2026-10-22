@@ -105,7 +105,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
     val ui = com.prism.music.ui.theme.LocalUi.current
     com.prism.music.ui.components.SubPage(
         "Backgrounds", bottomPadding,
-        subtitle = "Colour from what's playing, ready-made designs or your own photo",
+        subtitle = "Color from what's playing, ready-made designs or your own photo",
         horizontalPadding = 16.dp, spacing = 12.dp,
     ) {
             item {
@@ -137,9 +137,9 @@ fun BackgroundsScreen(bottomPadding: Dp) {
                     Text(group.label, style = MaterialTheme.typography.titleLarge)
                     Text(
                         when (group) {
-                            com.prism.music.ui.theme.BackdropGroup.COLOUR -> "Glowing in dark mode, soft pastels in light mode"
+                            com.prism.music.ui.theme.BackdropGroup.COLOR -> "Glowing in dark mode, soft pastels in light mode"
                             com.prism.music.ui.theme.BackdropGroup.DESIGNS -> "Detailed scenes that fade away behind the text"
-                            else -> "Quiet patterns in your accent colour"
+                            else -> "Quiet patterns in your accent color"
                         },
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -191,12 +191,12 @@ fun BackgroundsScreen(bottomPadding: Dp) {
             item {
                 Column(Modifier.padding(top = 8.dp).pane(ui.card, MaterialTheme.colorScheme.surfaceContainer).padding(16.dp)) {
                     Text("Softness", style = MaterialTheme.typography.bodyLarge)
-                    Text("How much the theme colour washes over the background, for easier reading", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("How much the theme color washes over the background, for easier reading", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     PrismSlider(dim, { dim = it }, valueRange = 0f..0.8f, onValueChangeFinished = { c.settings.setBackdropDim(dim) })
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Gentle motion", style = MaterialTheme.typography.bodyLarge)
-                            Text("Colour fields drift, waves roll and ripples spread, slowly", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Color fields drift, waves roll and ripples spread, slowly", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         PrismSwitch(s.backdropMotion, { c.settings.setBackdropMotion(it) })
                     }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Apple Music's look: the card takes the cover's colour, a large cover with rounded corners, "Now playing" over the title. -->
+<!-- Apple Music's look: the card takes the cover's color, a large cover with rounded corners, "Now playing" over the title. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"

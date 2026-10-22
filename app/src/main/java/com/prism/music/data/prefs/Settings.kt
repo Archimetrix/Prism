@@ -26,18 +26,18 @@ private val Context.dataStore by preferencesDataStore("prism_settings")
 enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
 enum class ColorSource(val label: String) { ARTWORK("Now playing"), DYNAMIC("Wallpaper"), CUSTOM("Custom") }
 enum class GlassKind(val label: String) { REGULAR("Regular"), CLEAR("Clear") }
-/** Appearance → Colour → Style: the split light through the app, or white light (neutral greys and ink, no accent). */
+/** Appearance → Color → Spectrum: the split light through the app, or white light (neutral greys and ink, no accent). */
 enum class LightStyle(val label: String) { SPECTRUM("Spectrum"), WHITE("White light") }
-/** Appearance → Colour → Background (1.7.2): how much colour the page itself carries. */
+/** Appearance → Color → Background (1.7.2): how much color the page itself carries. */
 enum class SurfaceTint(val label: String) {
     /** As Prism always did: a hint of the accent in Spectrum, neutral in White light. */
-    AUTO("Automatic"), NEUTRAL("Neutral"), ACCENT("Accent"), CUSTOM("Your colour")
+    AUTO("Automatic"), NEUTRAL("Neutral"), ACCENT("Accent"), CUSTOM("Your color")
 }
-/** Appearance → Colour → Contrast (1.7.2): how firm secondary text, lines and the accent are. */
+/** Appearance → Color → Contrast (1.7.2): how firm secondary text, lines and the accent are. */
 enum class ContrastLevel(val label: String, val minRatio: Float) { STANDARD("Standard", 4.5f), MEDIUM("Medium", 6f), HIGH("High", 7.5f) }
-/** Which of the cover's colours "Now playing" takes. */
-enum class ArtworkSwatch(val label: String) { VIBRANT("Vibrant"), MUTED("Muted"), DOMINANT("Main colour") }
-/** How the "Now playing" colour moves between songs. */
+/** Which of the cover's colors "Now playing" takes. */
+enum class ArtworkSwatch(val label: String) { VIBRANT("Vibrant"), MUTED("Muted"), DOMINANT("Main color") }
+/** How the "Now playing" color moves between songs. */
 enum class ArtworkChange(val label: String, val ms: Int) { INSTANT("At once", 0), FADE("Fade", 900), SLOW("Slow fade", 2400), ALBUM("New albums only", 900) }
 enum class AudioQuality(val label: String) { HIGH("High"), NORMAL("Normal"), LOW("Low") }
 /** How lyrics show on Android Auto's player. */
@@ -130,7 +130,7 @@ enum class MiniProgress(val label: String) { LINE("Line"), FILL("Fill"), NONE("N
 
 /** What's behind the full player. */
 enum class PlayerBackground(val label: String) {
-    MESH("Colour mesh"), BLUR("Blurred cover"),
+    MESH("Color mesh"), BLUR("Blurred cover"),
     /** The background picked for Home in Appearance → Backgrounds, in its dark version. */
     APPEARANCE("Your background"),
     THEME("Theme"), BLACK("Black"),
@@ -297,7 +297,7 @@ data class AppSettings(
     val accentExact: Boolean = false,
     /** A different accent on light pages; 0 = the same as [accent]. */
     val accentLight: Int = 0,
-    /** The split light's colours: a [com.prism.music.ui.theme.SpectrumPresets] key, or "CUSTOM" for [spectrumStops]. */
+    /** The split light's colors: a [com.prism.music.ui.theme.SpectrumPresets] key, or "CUSTOM" for [spectrumStops]. */
     val spectrumPreset: String = "PRISM",
     val spectrumStops: List<Int> = emptyList(),
     /** The split light in hard bands (as the logo's bars) instead of a blend. */
@@ -308,10 +308,10 @@ data class AppSettings(
     val surfaceColor: Int = 0xFF3A86FF.toInt(),
     val contrast: ContrastLevel = ContrastLevel.STANDARD,
     val artworkSwatch: ArtworkSwatch = ArtworkSwatch.VIBRANT,
-    /** Keep the cover's colour lively (a floor on its saturation). */
+    /** Keep the cover's color lively (a floor on its saturation). */
     val artworkVivid: Boolean = false,
     val artworkChange: ArtworkChange = ArtworkChange.FADE,
-    /** Artist, album and playlist pages (and menus) take their picture's colour. */
+    /** Artist, album and playlist pages (and menus) take their picture's color. */
     val pageColors: Boolean = true,
     val liquidGlass: Boolean = false,
     val glassKind: GlassKind = GlassKind.REGULAR,
@@ -321,7 +321,7 @@ data class AppSettings(
     /** Taps and swipes on player controls give a little buzz. */
     val haptics: Boolean = true,
     /** Artwork runs edge to edge at the top of the player, dissolving into the backdrop. */
-    // Aura × Spectrum: the cover framed, with a glow of its own colour.
+    // Aura × Spectrum: the cover framed, with a glow of its own color.
     val fullBleedArtwork: Boolean = false,
     /** Immersive mode (the player's ⋯ menu): the cover fills the screen, lyrics play over it, everything else hides. */
     val immersivePlayer: Boolean = false,
@@ -346,7 +346,7 @@ data class AppSettings(
     val lyricsProgressLine: Boolean = true,
     /** Each screen's background (screen name -> "STYLE" or "PHOTO|path"); missing means the default. */
     val backdrops: Map<String, String> = emptyMap(),
-    /** How much the theme colour washes over custom backgrounds (0 = none). */
+    /** How much the theme color washes over custom backgrounds (0 = none). */
     val backdropDim: Float = 0.35f,
     val backdropMotion: Boolean = true,
     // Lyrics
@@ -402,6 +402,10 @@ data class AppSettings(
     val canvasWithDownloadsCellular: Boolean = false,
     /** The stream's quality (codec and bitrate, or "Downloaded") under the player's scrubber. */
     val showQuality: Boolean = true,
+    /** Videos played as songs get a square cover: the thumbnail's black bars trimmed and its middle cut square (#92). */
+    val squareVideoCovers: Boolean = true,
+    /** Lyrics are looked up on mobile data as each song starts; off, only once the lyrics are opened (#95). */
+    val lyricsOnMobileData: Boolean = true,
     /** A "Best part" button by the scrubber in a song's first seconds, to skip to its most replayed stretch. */
     val bestPartButton: Boolean = true,
     /** The Song / Video switch on the player. Off, the player stays audio only. */
@@ -555,7 +559,7 @@ data class AppSettings(
     /** Playlist pages open with their picture edge to edge, like an artist page. */
     val playlistHeroCover: Boolean = true,
     /** Artist, album and playlist pages sit on frosted glass made from their picture (Apple Music's look). */
-    // Aura × Spectrum (1.7): ambient colour from what's playing behind every page.
+    // Aura × Spectrum (1.7): ambient color from what's playing behind every page.
     val frostedPages: Boolean = true,
     val replayThemeColors: Boolean = false,
 ) {
@@ -599,7 +603,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val artworkChange = stringPreferencesKey("artwork_change")
         val pageColors = booleanPreferencesKey("page_colors")
 
-        /** Everything Appearance → Colour's "Reset colours" puts back. */
+        /** Everything Appearance → Color's "Reset colors" puts back. */
         val colors: List<Preferences.Key<*>> by lazy {
             listOf(
                 colorSource, accent, lightStyle, accentExact, accentLight, spectrumPreset, spectrumStops, spectrumBands,
@@ -652,6 +656,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val autoGrid = booleanPreferencesKey("auto_grid")
         val showNerdStats = booleanPreferencesKey("nerd_stats")
         val showQuality = booleanPreferencesKey("show_quality")
+        val squareVideoCovers = booleanPreferencesKey("square_video_covers")
+        val lyricsOnMobileData = booleanPreferencesKey("lyrics_on_mobile_data")
         val bestPartButton = booleanPreferencesKey("best_part_button")
         val showVideoSwitch = booleanPreferencesKey("show_video_switch")
         val holdSeekSeconds = intPreferencesKey("hold_seek_seconds")
@@ -841,6 +847,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             autoGrid = p[K.autoGrid] ?: d.autoGrid,
             showNerdStats = p[K.showNerdStats] ?: d.showNerdStats,
             showQuality = p[K.showQuality] ?: d.showQuality,
+            squareVideoCovers = p[K.squareVideoCovers] ?: d.squareVideoCovers,
+            lyricsOnMobileData = p[K.lyricsOnMobileData] ?: d.lyricsOnMobileData,
             bestPartButton = p[K.bestPartButton] ?: d.bestPartButton,
             showVideoSwitch = p[K.showVideoSwitch] ?: d.showVideoSwitch,
             holdSeekSeconds = p[K.holdSeekSeconds] ?: d.holdSeekSeconds,
@@ -1030,7 +1038,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setAccentExact(v: Boolean) = edit { it[K.accentExact] = v }
     fun setAccentLight(v: Int) = edit { it[K.accentLight] = v }
     fun setSpectrumPreset(v: String) = edit { it[K.spectrumPreset] = v }
-    /** Your own split light: its colours (2–7, in order) and, with them, the Custom preset. */
+    /** Your own split light: its colors (2–7, in order) and, with them, the Custom preset. */
     fun setSpectrumStops(v: List<Int>) = edit {
         it[K.spectrumStops] = v.take(7).joinToString(",") { c -> "%08X".format(c) }
         it[K.spectrumPreset] = "CUSTOM"
@@ -1044,7 +1052,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setArtworkVivid(v: Boolean) = edit { it[K.artworkVivid] = v }
     fun setArtworkChange(v: ArtworkChange) = edit { it[K.artworkChange] = v.name }
     fun setPageColors(v: Boolean) = edit { it[K.pageColors] = v }
-    /** Appearance → Colour → Reset colours: style, accent, split light, background, contrast and cover colour as Prism ships. */
+    /** Appearance → Color → Reset colors: style, accent, split light, background, contrast and cover color as Prism ships. */
     @Suppress("UNCHECKED_CAST")
     fun resetColors() = edit { p -> K.colors.forEach { p.remove(it as Preferences.Key<Any>) } }
     fun setFullBleedArtwork(v: Boolean) = edit { it[K.fullBleedArtwork] = v }
@@ -1091,6 +1099,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setAutoGrid(v: Boolean) = edit { it[K.autoGrid] = v }
     fun setShowNerdStats(v: Boolean) = edit { it[K.showNerdStats] = v }
     fun setShowQuality(v: Boolean) = edit { it[K.showQuality] = v }
+    fun setSquareVideoCovers(v: Boolean) = edit { it[K.squareVideoCovers] = v }
+    fun setLyricsOnMobileData(v: Boolean) = edit { it[K.lyricsOnMobileData] = v }
     fun setBestPartButton(v: Boolean) = edit { it[K.bestPartButton] = v }
     fun setShowVideoSwitch(v: Boolean) = edit { it[K.showVideoSwitch] = v }
     fun setHoldSeekSeconds(v: Int) = edit { it[K.holdSeekSeconds] = v.coerceIn(0, 20) }
@@ -1183,7 +1193,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setFrostedPages(v: Boolean) = edit { it[K.frostedPages] = v }
     fun setReplayThemeColors(v: Boolean) = edit { it[K.replayThemeColors] = v }
 
-    /** Puts every look & layout option back to how Prism ships (colours and backgrounds are left alone). */
+    /** Puts every look & layout option back to how Prism ships (colors and backgrounds are left alone). */
     @Suppress("UNCHECKED_CAST")
     fun resetLook() = edit { p -> K.look.forEach { p.remove(it as Preferences.Key<Any>) } }
 }

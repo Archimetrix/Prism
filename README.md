@@ -20,7 +20,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 <a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
 
 <img src="docs/screenshots/home.jpg" width="24%" alt="Home with the Replay card, shortcuts and Made for you">
-<img src="docs/screenshots/player.jpg" width="24%" alt="Now playing, coloured by the album art">
+<img src="docs/screenshots/player.jpg" width="24%" alt="Now playing, colored by the album art">
 <img src="docs/screenshots/lyrics.jpg" width="24%" alt="Lyrics that light up word by word">
 <img src="docs/screenshots/sing.jpg" width="24%" alt="Sing: the voice taken out of the song">
 
@@ -33,7 +33,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 
 The biggest update yet: a complete redesign, and a set of features that run on your phone.
 
-- **A new look.** Colour from what's playing under frosted glass, with Prism's split light on what's playing, progress and the Play ring. New icons, new app icons, seven bundled fonts, and lyrics that thicken word by word as they're sung. Prefer it quieter? Try **White light**.
+- **A new look.** Color from what's playing under frosted glass, with Prism's split light on what's playing, progress and the Play ring. New icons, new app icons, seven bundled fonts, and lyrics that thicken word by word as they're sung. Prefer it quieter? Try **White light**.
 - **Sing.** Takes the singer's voice out of the song that's playing, on your phone. Leave a little in, or none, and move the key.
 - **DJ mode.** Orders your queue by key and tempo so every song blends into the next, beat-matched.
 - **Made for you.** Daily Mixes, a time-of-day mix, Release Radar, Smart Shuffle, and an autoplay radio built from your own listening.

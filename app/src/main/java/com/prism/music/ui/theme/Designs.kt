@@ -241,7 +241,7 @@ private fun DrawScope.mosaic(r: Random, base: Color, a: Color, b: Color, c: Colo
     } }
     val strength = if (dark) 0.62f else 0.55f
     fun shade(center: Offset): Color {
-        // A diagonal sweep through the three colours, each facet a little lighter or darker.
+        // A diagonal sweep through the three colors, each facet a little lighter or darker.
         val u = ((center.x / w) * 0.45f + (center.y / h) * 0.75f).coerceIn(0f, 1f)
         val tone = if (u < 0.5f) lerp(a, b, u * 2) else lerp(b, c, (u - 0.5f) * 2)
         val jitter = (r.nextFloat() - 0.5f) * 0.22f
@@ -320,7 +320,7 @@ private fun DrawScope.silk(a: Color, b: Color, c: Color, dark: Boolean, t: Float
     geometry.forEachIndexed { n, threads ->
         val s = specs[n]
         val strength = (if (dark) 0.17f else 0.24f) * s.strength
-        // The colours repeat every width too, so the slide loops without a seam.
+        // The colors repeat every width too, so the slide loops without a seam.
         val shiftX = if (s.direction > 0) -t * w else (t - 1f) * w
         translate(left = shiftX) {
             for ((path, k) in threads) {

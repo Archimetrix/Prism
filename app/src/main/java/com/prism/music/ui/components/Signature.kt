@@ -63,7 +63,7 @@ fun signatureStyle(type: ArtistType, sizeSp: Float, align: TextAlign = TextAlign
         } else null,
     )
     return if (type.effect == SignatureEffect.GRADIENT) {
-        // The accent, drifting a little round the colour wheel.
+        // The accent, drifting a little round the color wheel.
         val hsl = FloatArray(3).also { ColorUtils.colorToHSL(accent.toArgb(), it) }
         val second = Color(ColorUtils.HSLToColor(floatArrayOf((hsl[0] + 48f) % 360f, hsl[1], (hsl[2] + if (dark) 0.08f else -0.06f).coerceIn(0.2f, 0.85f))))
         base.copy(brush = Brush.linearGradient(listOf(accent, second, ink.copy(alpha = 0.9f))))

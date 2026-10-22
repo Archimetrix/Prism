@@ -146,7 +146,7 @@ class YourMusic(private val c: AppContainer) {
         byGenre.entries.sortedByDescending { (_, songs) -> songs.sumOf { score[it.id] ?: 0.0 } }.take(3).forEach { (genre, songs) ->
             if (songs.size < MIN_MIX) return@forEach
             val list = spread(songs.sortedByDescending { score[it.id] ?: 0.0 }.take(MIX_SIZE))
-            out += Mix("lib:genre:$genre", "Your ${genre!!.substringBefore(" & ")} mix", MadeForYou.namesLine(artists(list)), artists(list).take(4), colour(genre), s.at, list)
+            out += Mix("lib:genre:$genre", "Your ${genre!!.substringBefore(" & ")} mix", MadeForYou.namesLine(artists(list)), artists(list).take(4), color(genre), s.at, list)
         }
 
         val artistPlays = s.events.groupingBy { s.songs[it.songId]?.primaryArtist.orEmpty() }.eachCount().filterKeys { it.isNotBlank() }
@@ -160,7 +160,7 @@ class YourMusic(private val c: AppContainer) {
             ).filter { it.related }.map { it.song }
             val list = MadeForYou.interleave(theirs.take(20), around, MIX_SIZE) { it.primaryArtist.lowercase() }
             if (list.size < MIN_MIX) return@forEach
-            out += Mix("lib:artist:$artist", "$artist mix", "With " + MadeForYou.namesLine(artists(list).filterNot { it.equals(artist, true) }.ifEmpty { listOf(artist) }), listOf(artist), colour(artist), s.at, list)
+            out += Mix("lib:artist:$artist", "$artist mix", "With " + MadeForYou.namesLine(artists(list).filterNot { it.equals(artist, true) }.ifEmpty { listOf(artist) }), listOf(artist), color(artist), s.at, list)
         }
 
         // What plays with no connection at all: downloads, songs kept whole in the cache, files on the phone.
@@ -246,7 +246,7 @@ class YourMusic(private val c: AppContainer) {
     /** The same artist not twice running where it can be helped. */
     private fun spread(list: List<Song>) = MadeForYou.interleave(list, emptyList(), list.size) { it.primaryArtist.lowercase() }
 
-    private fun colour(key: String) = COLOURS[((key.hashCode() % COLOURS.size) + COLOURS.size) % COLOURS.size]
+    private fun color(key: String) = COLORS[((key.hashCode() % COLORS.size) + COLORS.size) % COLORS.size]
 
     companion object {
         const val OFFLINE_MIX = "lib:offline"
@@ -259,6 +259,6 @@ class YourMusic(private val c: AppContainer) {
         private const val MIN_PICK_HISTORY = 15
         private const val MIN_MIX = 8
         private const val MIX_SIZE = 40
-        private val COLOURS = listOf(0xFF2E7D6B, 0xFF6A4C93, 0xFFB5523B, 0xFF1F6FB2, 0xFF8C6D1F, 0xFF9C3D6B).map { it.toInt() }
+        private val COLORS = listOf(0xFF2E7D6B, 0xFF6A4C93, 0xFFB5523B, 0xFF1F6FB2, 0xFF8C6D1F, 0xFF9C3D6B).map { it.toInt() }
     }
 }

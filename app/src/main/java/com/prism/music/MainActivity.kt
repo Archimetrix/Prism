@@ -289,7 +289,7 @@ private fun rememberArtworkColor(song: Song?, settings: com.prism.music.data.pre
     var color by remember { mutableStateOf<Color?>(null) }
     val swatch = settings.artworkSwatch
     val vivid = settings.artworkVivid
-    // "New albums only" (1.7.2): songs from the same album keep the colour; otherwise every cover is looked at.
+    // "New albums only" (1.7.2): songs from the same album keep the color; otherwise every cover is looked at.
     val key = if (settings.artworkChange == com.prism.music.data.prefs.ArtworkChange.ALBUM) song?.album?.id ?: song?.album?.title ?: song?.thumbnail else song?.thumbnail
     LaunchedEffect(key, swatch, vivid) {
         val url = song?.thumbnail ?: return@LaunchedEffect

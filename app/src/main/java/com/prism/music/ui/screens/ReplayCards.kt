@@ -49,17 +49,17 @@ import com.prism.music.ui.theme.LocalUi
 import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.ui.theme.PrismTokens
 
-/** Looks for Home's Replay card, from the quietest to the most colourful. */
+/** Looks for Home's Replay card, from the quietest to the most colorful. */
 enum class ReplayCardStyle(val label: String, val note: String) {
     QUIET("Quiet", "Plain glass, one hairline of split light"),
     LEDGER("Ledger", "Three numbers side by side"),
-    WASH("Wash", "A faint wash of colour and month bars"),
-    FRAME("Spectrum frame", "Glass ringed in split light, the time in colour"),
+    WASH("Wash", "A faint wash of color and month bars"),
+    FRAME("Spectrum frame", "Glass ringed in split light, the time in color"),
     RING("Ring", "The year so far as a ring of split light"),
-    COVER("Cover", "Your top song's cover sets the colour"),
+    COVER("Cover", "Your top song's cover sets the color"),
     STRIPE("Prism stripe", "A band of refracted light down one side"),
     BARS("Spectrum bars", "Your months as big bars, red to violet"),
-    AURORA("Aurora", "Full colour, like a Rewind slide"),
+    AURORA("Aurora", "Full color, like a Rewind slide"),
 }
 
 /** What a Replay card shows: the year so far. [months]: listening per month, January first, up to this month. */
@@ -90,7 +90,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
     val tops = listOfNotNull(d.topArtist, d.topSong).joinToString(" · ")
     val big = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraLight)
     when (style) {
-        // Plain glass and type; the only colour is a hairline of split light along the bottom.
+        // Plain glass and type; the only color is a hairline of split light along the bottom.
         ReplayCardStyle.QUIET -> Box(
             base.pane(shape).border(0.7.dp, glassEdge(), shape)
                 .drawBehind { drawRect(PrismTokens.spectrum(dark), Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx())) }
@@ -182,7 +182,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
                 Text(tops.ifBlank { "Your year so far" }, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
-        // The top song's cover sets the colour: blown up behind a scrim, and sharp beside the words.
+        // The top song's cover sets the color: blown up behind a scrim, and sharp beside the words.
         ReplayCardStyle.COVER -> Box(base.clip(shape).background(Color(0xFF15121C)).clickable(onClick = onClick)) {
             if (art != null) Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.55f)
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.35f)))))
@@ -233,7 +233,7 @@ fun ReplayCard(style: ReplayCardStyle, d: ReplayCardData, art: Painter?, modifie
             }
             Icon(PrismIcons.ChevronRight, null, Modifier.align(Alignment.TopEnd).padding(16.dp), tint = scheme.onSurfaceVariant)
         }
-        // Full colour: pools of the spectrum meeting in light, white type over them, like a Rewind slide.
+        // Full color: pools of the spectrum meeting in light, white type over them, like a Rewind slide.
         ReplayCardStyle.AURORA -> Box(
             base.clip(shape).background(Color(0xFF120F1C))
                 .drawBehind {

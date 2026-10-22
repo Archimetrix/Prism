@@ -155,7 +155,7 @@ fun SubPage(
     showBack: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
     /**
-     * Shown pinned under the bar once the list item keyed [pinnedKey] has scrolled up behind it (Appearance → Colour's
+     * Shown pinned under the bar once the list item keyed [pinnedKey] has scrolled up behind it (Appearance → Color's
      * preview: you always see what your choices do).
      */
     pinned: (@Composable () -> Unit)? = null,

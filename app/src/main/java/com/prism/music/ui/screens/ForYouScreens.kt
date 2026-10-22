@@ -100,7 +100,7 @@ import java.util.Locale
 
 // ---------------------------------------------------------------------------- Mixes
 
-/** A mix's picture: up to four of its covers in a square, washed in its colour, with its name. */
+/** A mix's picture: up to four of its covers in a square, washed in its color, with its name. */
 @Composable
 fun MixCover(mix: Mix, modifier: Modifier = Modifier, showTitle: Boolean = true) {
     val ui = LocalUi.current

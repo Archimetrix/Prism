@@ -101,7 +101,7 @@ private fun neutralScheme(dark: Boolean, pureBlack: Boolean): ColorScheme {
 }
 
 /**
- * Builds a full Material 3 scheme from a single seed colour (tonal approximation), with the colours text and icons sit
+ * Builds a full Material 3 scheme from a single seed color (tonal approximation), with the colors text and icons sit
  * on checked for contrast ([readableOn]): a pale yellow or neon cover can't give an accent you can't read.
  */
 fun schemeFromSeed(seed: Color, dark: Boolean, pureBlack: Boolean, exact: Boolean = false, minRatio: Float = 4.5f): ColorScheme {
@@ -127,9 +127,9 @@ private fun inkOn(c: Color): Color =
     if (contrastRatio(Color.White, c) >= contrastRatio(Color(0xFF111114), c)) Color.White else Color(0xFF111114)
 
 /**
- * [scheme] with its page colours (background, surfaces, outlines, ink) rebuilt around hue [h] at [k] times Prism's usual
- * tint (0 = neutral grey, 1 = the hint Spectrum always had, 3 = strong), keeping its accent colours. Appearance →
- * Colour → Background (1.7.2).
+ * [scheme] with its page colors (background, surfaces, outlines, ink) rebuilt around hue [h] at [k] times Prism's usual
+ * tint (0 = neutral grey, 1 = the hint Spectrum always had, 3 = strong), keeping its accent colors. Appearance →
+ * Color → Background (1.7.2).
  */
 fun withSurfaces(scheme: ColorScheme, h: Float, k: Float, dark: Boolean, pureBlack: Boolean, minRatio: Float = 4.5f): ColorScheme {
     val n = 0.10f * k
@@ -168,7 +168,7 @@ fun withSurfaces(scheme: ColorScheme, h: Float, k: Float, dark: Boolean, pureBla
     )
 }
 
-/** Appearance → Colour → Contrast above Standard: accent and secondary text firmed up against the page. */
+/** Appearance → Color → Contrast above Standard: accent and secondary text firmed up against the page. */
 private fun firmed(s: ColorScheme, minRatio: Float): ColorScheme = s.copy(
     primary = readableOn(s.primary, s.background, minRatio),
     secondary = readableOn(s.secondary, s.background, minRatio),
@@ -305,12 +305,12 @@ fun isAppDark(settings: AppSettings = LocalAppSettings.current): Boolean = when 
     ThemeMode.DARK -> true
 }
 
-/** The playing cover's colour as the theme has it (for Settings' examples of "Now playing"). */
+/** The playing cover's color as the theme has it (for Settings' examples of "Now playing"). */
 val LocalArtworkColor = staticCompositionLocalOf<Color?> { null }
 
 /**
- * Every colour Prism draws with for one set of settings on one kind of page: the Material scheme, the accent that
- * stands in for the light in White light, and the light itself. [PrismTheme] uses it for the app; Appearance → Colour
+ * Every color Prism draws with for one set of settings on one kind of page: the Material scheme, the accent that
+ * stands in for the light in White light, and the light itself. [PrismTheme] uses it for the app; Appearance → Color
  * uses it to show what a choice would look like before it's picked, so the two can't disagree.
  */
 class ThemeColors(
@@ -331,7 +331,7 @@ class ThemeColors(
     val line: Color get() = scheme.onBackground.copy(alpha = InkLevels.line[contrast])
 }
 
-/** The colour the accent grows from: the cover's, or the one picked (light mode's own, when there is one). */
+/** The color the accent grows from: the cover's, or the one picked (light mode's own, when there is one). */
 fun seedFor(s: AppSettings, dark: Boolean, artworkColor: Color?): Color = when (s.colorSource) {
     ColorSource.ARTWORK -> artworkColor ?: Color(s.accent)
     ColorSource.CUSTOM -> Color(if (!dark && s.accentLight != 0) s.accentLight else s.accent)
@@ -355,7 +355,7 @@ fun themeColors(s: AppSettings, dark: Boolean, seed: Color, dynamic: ((Boolean) 
         if (dark && s.pureBlack && dynamic != null) sc.copy(background = Color.Black, surface = Color.Black, surfaceContainerLowest = Color.Black) else sc
     }
     val accentful = dynamic != null || !isNeutralSeed(seed.toArgb())
-    // White light: neutral surfaces with the accent's own colours swapped in (greys only for a white accent).
+    // White light: neutral surfaces with the accent's own colors swapped in (greys only for a white accent).
     val built = if (!white) accented else {
         val neutral = schemeFromSeed(Color.White, dark, s.pureBlack, minRatio = minRatio)
         if (!accentful) neutral
@@ -364,7 +364,7 @@ fun themeColors(s: AppSettings, dark: Boolean, seed: Color, dynamic: ((Boolean) 
             onPrimaryContainer = accented.onPrimaryContainer, inversePrimary = accented.inversePrimary, surfaceTint = accented.primary,
         )
     }
-    // Appearance → Colour → Background (1.7.2): Automatic keeps what each style always had.
+    // Appearance → Color → Background (1.7.2): Automatic keeps what each style always had.
     val tinted = when (s.surfaceTint) {
         com.prism.music.data.prefs.SurfaceTint.AUTO -> built
         com.prism.music.data.prefs.SurfaceTint.NEUTRAL -> withSurfaces(built, 0f, 0f, dark, s.pureBlack, minRatio)
@@ -378,8 +378,8 @@ fun themeColors(s: AppSettings, dark: Boolean, seed: Color, dynamic: ((Boolean) 
 }
 
 /**
- * Which of a cover's colours the accent takes ([com.prism.music.data.prefs.ArtworkSwatch]), lifted when [vivid] so a
- * grey cover still gives a colour. Null when the cover has none to give.
+ * Which of a cover's colors the accent takes ([com.prism.music.data.prefs.ArtworkSwatch]), lifted when [vivid] so a
+ * grey cover still gives a color. Null when the cover has none to give.
  */
 fun pickSwatch(p: androidx.palette.graphics.Palette, swatch: com.prism.music.data.prefs.ArtworkSwatch, vivid: Boolean): Int? {
     val picked = when (swatch) {
@@ -395,12 +395,12 @@ fun pickSwatch(p: androidx.palette.graphics.Palette, swatch: com.prism.music.dat
 fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable () -> Unit) {
     val dark = isAppDark(settings)
     val context = LocalContext.current
-    // White light: neutral surfaces (no tint from the accent) and, where the spectrum would be, the accent colour as in
+    // White light: neutral surfaces (no tint from the accent) and, where the spectrum would be, the accent color as in
     // Prism's earlier look; with a white accent, greys and ink only (PrismTokens). Written before anything below reads
     // it, so the first frame is already right.
     val white = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     if (PrismTokens.white != white) PrismTokens.white = white
-    // Your light (1.7.2): the split light's own colours, worked out once per change.
+    // Your light (1.7.2): the split light's own colors, worked out once per change.
     val light = remember(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands) {
         SpectrumPresets.light(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands)
     }

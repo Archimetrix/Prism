@@ -169,7 +169,7 @@ data class MixEntity(
     val subtitle: String,
     /** The artists it's built around (for its cover and the subtitle), "|"-separated. */
     val seedArtists: String,
-    /** Accent colour for its cover (ARGB). */
+    /** Accent color for its cover (ARGB). */
     val color: Int,
     val createdAt: Long,
     /** The songs, as JSON ([com.prism.music.data.foryou.MixSongs]). */

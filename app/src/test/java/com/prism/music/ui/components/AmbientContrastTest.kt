@@ -60,7 +60,7 @@ class AmbientContrastTest {
         return bmp
     }
 
-    /** An artist / album / playlist page's backdrop from [frost], its colours carried down the page (#47), at the top. */
+    /** An artist / album / playlist page's backdrop from [frost], its colors carried down the page (#47), at the top. */
     private fun renderPicturePage(frost: Bitmap, dark: Boolean): Pair<Bitmap, Int> {
         val scheme = schemeFromSeed(Color(0xFF3A86FF), dark, pureBlack = false)
         val c = frost.getPixel(48, 20)

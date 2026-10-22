@@ -177,7 +177,7 @@ fun ShowChips(options: List<ShowOption>) {
 
 /**
  * A row that opens another page: an icon, title, summary, chevron. With a [hue] (Settings' sections, red to violet in
- * the spectrum's order) the icon sits on a tile of that colour.
+ * the spectrum's order) the icon sits on a tile of that color.
  */
 @Composable
 fun NavRow(icon: ImageVector, title: String, subtitle: String?, selected: Boolean = false, hint: String? = null, hue: Color? = null, onClick: () -> Unit) {

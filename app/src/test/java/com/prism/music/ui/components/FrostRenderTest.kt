@@ -19,7 +19,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
 /**
- * Draws the artist page's frosted backdrop as it was and with the picture's colours carried down the page (#47), dark
+ * Draws the artist page's frosted backdrop as it was and with the picture's colors carried down the page (#47), dark
  * and light, at the top of the page and scrolled, side by side (app/build/frost-previews/), from the README's artist
  * photo. The hero photo itself is left out: this is about what's under and below it.
  */

@@ -277,7 +277,7 @@ private class Slide(val kind: Kind, val song: SongPlays?, val colors: List<Color
 
 private fun palette(vararg hex: Long) = hex.map { Color(it) }
 
-/** The story's slides ([com.prism.music.data.StoryParts.pick] says which), each with its colours and the song under it. */
+/** The story's slides ([com.prism.music.data.StoryParts.pick] says which), each with its colors and the song under it. */
 private fun slidesFor(s: ReplayStory): List<Slide> {
     val songs = s.songs
     fun byArtist(name: String?) = songs.firstOrNull { it.mainArtist == name }
@@ -516,7 +516,7 @@ private fun StoryContent(story: ReplayStory, onDismiss: () -> Unit) {
     }
 }
 
-/** Slow-drifting colour fields behind every slide. */
+/** Slow-drifting color fields behind every slide. */
 @Composable
 private fun Backdrop(base: Color, c1: Color, c2: Color, c3: Color) {
     val t by rememberInfiniteTransition(label = "bg").animateFloat(0f, 1f, infiniteRepeatable(tween(18_000, easing = LinearEasing)), label = "t")

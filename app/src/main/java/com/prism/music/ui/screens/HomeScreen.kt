@@ -531,7 +531,7 @@ private fun GreetingSection(cfg: HomeSectionConfig, recent: List<Song>) {
                             .combinedClickable(onClick = t.onClick, onLongClick = t.playable?.let { p -> { menu(p) } }),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Liked songs wears the prism's colours; the other pages a tile of stronger glass.
+                        // Liked songs wears the prism's colors; the other pages a tile of stronger glass.
                         if (t.icon != null) Box(
                             Modifier.size(58.dp).background(
                                 if (t.playable == Playable.Liked) com.prism.music.ui.theme.PrismTokens.spectrumRing()
@@ -774,7 +774,7 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         ))
         return
     }
-    // Quiet glass with a hairline edge; the colour is a faint wash of split light from one corner, a short spectrum
+    // Quiet glass with a hairline edge; the color is a faint wash of split light from one corner, a short spectrum
     // dash under the label, and the year's months as small bars in hue order (this month brightest). The time listened
     // is set large and light in plain ink.
     val dark = com.prism.music.ui.theme.LocalIsDark.current
@@ -817,7 +817,7 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
         Modifier.padding(horizontal = 16.dp, vertical = ui.gap(16.dp)).fillMaxWidth().height(156.dp)
             .pane(ui.card).border(0.7.dp, com.prism.music.ui.components.glassEdge(), ui.card)
             .drawBehind {
-                // Light through a prism landing on the card: three soft pools of colour fanning from the top-right corner.
+                // Light through a prism landing on the card: three soft pools of color fanning from the top-right corner.
                 listOf(0.0f to 0.62f, 0.5f to 0.48f, 1.0f to 0.34f).forEach { (t, r) ->
                     val col = hues[(t * (hues.size - 1)).toInt()]
                     drawCircle(
@@ -879,7 +879,7 @@ private fun TopGenresSection(cfg: HomeSectionConfig) {
     SectionHeader("Your top genres", strapline = "From your liked songs")
     val palette = listOf(0xFF7C5CFF, 0xFFFF3B5C, 0xFF00B4D8, 0xFF2EC27E, 0xFFFF6B35, 0xFFE056FD, 0xFFFFB627, 0xFF3A86FF)
     val ui = com.prism.music.ui.theme.LocalUi.current
-    // Grid (the default) is the coloured tiles below; the other styles show the same genres their way.
+    // Grid (the default) is the colored tiles below; the other styles show the same genres their way.
     if (cfg.style != SectionStyle.GRID) {
         StyledEntries(cfg.style, genres.mapIndexed { i, (g, n) ->
             val col = Color(palette[i % palette.size]).lit()

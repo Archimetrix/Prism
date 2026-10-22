@@ -54,7 +54,7 @@ class HomeEntry(
     val image: String? = null,
     val icon: ImageVector? = null,
     val fill: Brush? = null,
-    /** Light text over [fill] (a coloured tile); else the theme's. */
+    /** Light text over [fill] (a colored tile); else the theme's. */
     val onFill: Boolean = false,
     val art: (@Composable (Modifier) -> Unit)? = null,
     val onLongClick: (() -> Unit)? = null,

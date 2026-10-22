@@ -14,9 +14,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Prism's 1.7 look, "Aura × Spectrum": Aura's ambient colour from the playing cover, frosted glass and soft corners,
+ * Prism's 1.7 look, "Aura × Spectrum": Aura's ambient color from the playing cover, frosted glass and soft corners,
  * with the split light (the prism) running through it: what to continue, progress, where you are, what's playing, the
- * play ring, Prism's own covers, switches, Settings' sections. Other colour comes from the artwork, through
+ * play ring, Prism's own covers, switches, Settings' sections. Other color comes from the artwork, through
  * [readableOn] so it stays legible.
  *
  * Screens read these tokens instead of literal values; the approved proposal is `.claude/redesign-aura-spectrum.html`.
@@ -24,14 +24,14 @@ import kotlin.math.min
 @Stable
 object PrismTokens {
     /**
-     * Appearance → Colour → Style: "White light" (true) is the light before the prism splits it. Everything below that
+     * Appearance → Color → Spectrum: "White light" (true) is the light before the prism splits it. Everything below that
      * would be the spectrum (lines, rings, the hue tiles) is then neutral grey and ink instead, and the accent goes
      * neutral too ([PrismTheme]). Set by [PrismTheme] from the settings; snapshot state, so what reads it redraws.
      */
     var white by mutableStateOf(false)
 
     /**
-     * White light with an accent colour (as in Prism's earlier look): where the spectrum would be, the accent instead,
+     * White light with an accent color (as in Prism's earlier look): where the spectrum would be, the accent instead,
      * as read on dark pages, on light ones, and on the page showing now. Null for a neutral (white) accent: greys and ink.
      */
     class Accent(val onDark: Color, val onLight: Color, val now: Color)
@@ -39,13 +39,13 @@ object PrismTokens {
     private fun solid(c: Color) = listOf(0f to c, 1f to c)
 
     /**
-     * Appearance → Colour → "Your light" (1.7.2): the split light's own colours, Prism's by default. Set by [PrismTheme]
+     * Appearance → Color → "Your light" (1.7.2): the split light's own colors, Prism's by default. Set by [PrismTheme]
      * from the settings ([SpectrumPresets.light]); snapshot state, so everything drawn with it follows.
      */
     var light by mutableStateOf(SpectrumPresets.PRISM_LIGHT)
 
     /**
-     * Appearance → Colour → Contrast (1.7.2): secondary text, quiet icons and hairlines are this much firmer
+     * Appearance → Color → Contrast (1.7.2): secondary text, quiet icons and hairlines are this much firmer
      * (0 standard, 1 medium, 2 high). Set by [PrismTheme].
      */
     var contrast by mutableStateOf(0)
@@ -75,7 +75,7 @@ object PrismTokens {
         accent?.let { solid(if (dark) it.onDark else it.onLight) } ?: if (dark) whiteOnDark else whiteOnLight
     } else if (dark) light.colors else light.deep
 
-    /** The ring's colours (play ring, Liked songs) for any style, accent and light. */
+    /** The ring's colors (play ring, Liked songs) for any style, accent and light. */
     fun ringOf(white: Boolean, accent: Accent?, light: SpectrumPresets.Light): List<Color> =
         if (white) accent?.let { listOf(it.now, it.now) } ?: ringWhite else light.ring
     val spectrum: Brush get() = Brush.horizontalGradient(*spectrumColors.toTypedArray())
@@ -87,12 +87,12 @@ object PrismTokens {
         Brush.sweepGradient(ringOf(white, whiteAccent, light), center)
     /** The spectrum's seven hues in order, one per Settings section (and a menu's quick actions). */
     private val splitHues get() = light.hues
-    /** White light's single tile colour: a grey white icons still read on. */
+    /** White light's single tile color: a grey white icons still read on. */
     private val whiteHue = Color(0xFF74747C)
     val hues: List<Color> get() = if (white) List(splitHues.size) { whiteHue } else splitHues
     fun hue(i: Int): Color = if (white) whiteHue else splitHues[((i % splitHues.size) + splitHues.size) % splitHues.size]
 
-    /** The colour [t] (0 red … 1 violet) along the hue run, so any number of rows can run evenly red to violet. */
+    /** The color [t] (0 red … 1 violet) along the hue run, so any number of rows can run evenly red to violet. */
     fun spectrumAt(t: Float): Color {
         if (white) return whiteHue
         val x = t.coerceIn(0f, 1f) * (splitHues.size - 1)
@@ -123,7 +123,7 @@ object PrismTokens {
 }
 
 /**
- * A colour Prism draws itself (a mood or genre tile, Replay's card, a glow) as it should look now: unchanged in
+ * A color Prism draws itself (a mood or genre tile, Replay's card, a glow) as it should look now: unchanged in
  * Spectrum; in White light a grey of about its weight, kept dark enough for white text on it.
  */
 fun Color.lit(): Color {
@@ -147,7 +147,7 @@ val ColorScheme.ink3: Color get() = onBackground.copy(alpha = InkLevels.quiet[Pr
 val ColorScheme.hairline: Color get() = onBackground.copy(alpha = InkLevels.line[PrismTokens.contrast.coerceIn(0, 2)])
 
 /**
- * The split light's colours (1.7.2): Prism's own, a preset, or the listener's. [Light] holds every form the tokens use:
+ * The split light's colors (1.7.2): Prism's own, a preset, or the listener's. [Light] holds every form the tokens use:
  * the run for dark pages ([Light.colors]), a deeper one for light pages ([Light.deep]), the closed ring, and seven tile
  * hues white icons sit on.
  */
@@ -189,13 +189,13 @@ object SpectrumPresets {
         Preset("ICE", "Ice", c(0xFFE0F7FF, 0xFF9BE3FF, 0xFF5AB8FF, 0xFF8C9EFF)),
         Preset("GOLD", "Gold", c(0xFFFFE29F, 0xFFFFC75F, 0xFFE8A33D, 0xFFFFD98E)),
         Preset("SILVER", "Silver", c(0xFFF5F5F7, 0xFFB8B8C0, 0xFF8E8E96, 0xFFD6D6DC)),
-        // Okabe & Ito's palette: hues that stay apart for every common kind of colour blindness.
-        Preset("CLEAR", "Colour-blind safe", c(0xFFF0E442, 0xFFE69F00, 0xFFD55E00, 0xFFCC79A7, 0xFF0072B2, 0xFF56B4E9, 0xFF009E73)),
+        // Okabe & Ito's palette: hues that stay apart for every common kind of color blindness.
+        Preset("CLEAR", "Color-blind safe", c(0xFFF0E442, 0xFFE69F00, 0xFFD55E00, 0xFFCC79A7, 0xFF0072B2, 0xFF56B4E9, 0xFF009E73)),
     )
 
     fun preset(key: String): Preset? = all.firstOrNull { it.key == key }
 
-    /** The colours [key] (or, for "CUSTOM", [stops]) stands for; Prism's when there's nothing usable. */
+    /** The colors [key] (or, for "CUSTOM", [stops]) stands for; Prism's when there's nothing usable. */
     fun colorsFor(key: String, stops: List<Int>): List<Color> =
         if (key == "CUSTOM" && stops.size >= 2) stops.map { Color(it) } else preset(key)?.colors ?: all.first().colors
 
@@ -203,7 +203,7 @@ object SpectrumPresets {
     private val lightPage = Color(0xFFFAFAFB)
 
     /**
-     * Everything the tokens need from [key]/[stops]. Prism's own, unbanded, is exactly 1.7's. Others: each colour lifted
+     * Everything the tokens need from [key]/[stops]. Prism's own, unbanded, is exactly 1.7's. Others: each color lifted
      * just enough to read as a line on dark pages, deepened on light ones (the bright yellow rule), and seven tile hues
      * sampled along the run, kept dark enough for a white icon.
      */
@@ -229,7 +229,7 @@ object SpectrumPresets {
         return Light(run(onDark), run(onLight), onDark + onDark.first(), hues)
     }
 
-    /** The colour [t] (0…1) along an evenly spaced run. */
+    /** The color [t] (0…1) along an evenly spaced run. */
     fun sample(list: List<Color>, t: Float): Color {
         if (list.size == 1) return list.first()
         val x = t.coerceIn(0f, 1f) * (list.size - 1)
@@ -249,7 +249,7 @@ object SpectrumPresets {
 
 // ---------------------------------------------------------------- Contrast guard
 
-/** WCAG 2 contrast ratio between two opaque colours, 1…21. */
+/** WCAG 2 contrast ratio between two opaque colors, 1…21. */
 fun contrastRatio(a: Color, b: Color): Float {
     val la = a.luminance() + 0.05f
     val lb = b.luminance() + 0.05f
@@ -259,7 +259,7 @@ fun contrastRatio(a: Color, b: Color): Float {
 /**
  * [color], with its lightness moved (hue and saturation kept) just far enough to reach [minRatio] against
  * [background]: lighter on dark backgrounds, darker on light ones. Returned unchanged when it already passes. Any
- * cover's colour, even white on white, neon or beige, comes out readable this way.
+ * cover's color, even white on white, neon or beige, comes out readable this way.
  */
 fun readableOn(color: Color, background: Color, minRatio: Float = 4.5f): Color {
     if (contrastRatio(color, background) >= minRatio) return color

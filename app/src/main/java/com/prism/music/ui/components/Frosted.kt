@@ -72,12 +72,12 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 /**
- * Colours taken from a picture, for the pages that dress themselves in their artwork (artist,
+ * Colors taken from a picture, for the pages that dress themselves in their artwork (artist,
  * album and playlist pages, like Apple Music's).
  */
 @Immutable
 data class ArtPalette(
-    /** The liveliest colour: buttons and links. */
+    /** The liveliest color: buttons and links. */
     val vibrant: Color,
     /** What the picture is mostly made of. */
     val dominant: Color,
@@ -91,7 +91,7 @@ data class ArtPalette(
     /** The accent that reads well on the page: light on dark pages, deep on light ones. */
     fun accent(dark: Boolean): Color {
         val h = hsl(vibrant)
-        // Near-greys make poor accents; lean on the dominant colour's hue then.
+        // Near-greys make poor accents; lean on the dominant color's hue then.
         val base = if (h[1] < 0.18f) dominant else vibrant
         return base.withLightness(if (dark) 0.74f else 0.40f, 1.1f)
     }
@@ -102,15 +102,15 @@ data class ArtPalette(
         return ArtPalette(g(vibrant), g(dominant))
     }
 
-    /** The page colour far below the picture, where the frost settles. */
+    /** The page color far below the picture, where the frost settles. */
     fun settle(dark: Boolean): Color = dominant.withLightness(if (dark) 0.09f else 0.93f, if (dark) 0.85f else 0.6f)
 
     /**
-     * The colours the page settles into below its picture (#47), as on Apple Music: the picture's main colour, a little
+     * The colors the page settles into below its picture (#47), as on Apple Music: the picture's main color, a little
      * deeper toward the bottom, rather than a near-black (or white).
      */
     fun field(dark: Boolean): List<Color> {
-        // A little richer since 1.7.2 (Reddit: "black, not colourful like before"); still deep enough for white text.
+        // A little richer since 1.7.2 (Reddit: "black, not colorful like before"); still deep enough for white text.
         return if (dark) listOf(dominant.withLightness(0.25f, 1.1f), dominant.withLightness(0.19f, 1.05f), dominant.withLightness(0.14f, 1f))
         else listOf(dominant.withLightness(0.84f, 0.85f), dominant.withLightness(0.89f, 0.75f), dominant.withLightness(0.93f, 0.65f))
     }
@@ -137,7 +137,7 @@ private suspend fun decodeSmall(context: android.content.Context, url: String, p
 fun rememberArtPalette(url: String?): ArtPalette? {
     val context = LocalContext.current
     // The state outlives a change of [url] (produceState isn't reset by its keys), so each picture is looked up
-    // afresh: checking `value != null` here kept the previous song's colours on Home (issue #3). The old colours
+    // afresh: checking `value != null` here kept the previous song's colors on Home (issue #3). The old colors
     // stay up until the new ones are ready, so nothing flashes.
     val palette by produceState(url?.let { synchronized(paletteCache) { paletteCache[it] } }, url) {
         val u = url ?: return@produceState
@@ -173,7 +173,7 @@ fun rememberFrost(url: String?): FrostImage? {
     return frost
 }
 
-/** A fine grain over the frost, so large blurred areas read as frosted glass rather than flat colour. */
+/** A fine grain over the frost, so large blurred areas read as frosted glass rather than flat color. */
 private val grain: ImageBitmap by lazy {
     val n = 96
     val rnd = Random(7)
@@ -182,11 +182,11 @@ private val grain: ImageBitmap by lazy {
 }
 
 private val saturate = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.35f) })
-/** White light: the frost in greys, so colour stays in the pictures themselves. */
+/** White light: the frost in greys, so color stays in the pictures themselves. */
 private val greyscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 /**
- * The Ambient frost's tone: the cover's colours kept, its brightness held to a deep tint on dark pages and a pale one on
+ * The Ambient frost's tone: the cover's colors kept, its brightness held to a deep tint on dark pages and a pale one on
  * light pages, so the page's text (and its secondary text, on panes too) reads at 4.5:1 or better whatever the cover:
  * a white or yellow cover no longer lights a dark page up behind white text, nor a black one a light page behind dark
  * text (AmbientContrastTest). [saturation] 0 is White light's greys.
@@ -204,8 +204,8 @@ private val ambientLight = ambientTone(dark = false, saturation = 1.35f)
 private val ambientDarkGrey = ambientTone(dark = true, saturation = 0f)
 private val ambientLightGrey = ambientTone(dark = false, saturation = 0f)
 /**
- * Below an album, playlist or artist picture on a dark page: more of the picture's colour than the app's own pages keep
- * (Reddit 1.7: "the playlist and album pages are black, not colourful like before"). Their text sits on the colour
+ * Below an album, playlist or artist picture on a dark page: more of the picture's color than the app's own pages keep
+ * (Reddit 1.7: "the playlist and album pages are black, not colorful like before"). Their text sits on the color
  * itself, with the wash below on top, and stays readable (AmbientContrastTest).
  */
 private val pageDark = ambientTone(dark = true, saturation = 1.35f, darkLevel = PAGE_DARK_LEVEL)
@@ -226,7 +226,7 @@ fun FrostedBackdrop(
     heroScroll: () -> Float,
     modifier: Modifier = Modifier,
     parallax: Float = 0.5f,
-    /** The picture's colours carry on down the page ([ArtPalette.field]), for artist, album and playlist pages (#47). */
+    /** The picture's colors carry on down the page ([ArtPalette.field]), for artist, album and playlist pages (#47). */
     bleed: Boolean = false,
     /** The Ambient background of the app's own pages: its brightness held so their text reads ([ambientTone]). */
     ambient: Boolean = false,
@@ -248,7 +248,7 @@ fun FrostedBackdrop(
 
 /**
  * [FrostedBackdrop]'s drawing (without its grain), apart so it can be drawn in tests. The hero's blurred picture, its
- * foot running on down the page, and the picture's colours ([ArtPalette.field]) settling in below that.
+ * foot running on down the page, and the picture's colors ([ArtPalette.field]) settling in below that.
  */
 internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdrop(
     img: ImageBitmap?, shown: Float, palette: ArtPalette?, bg: Color, heroPx: Float, heroScroll: Float, parallax: Float, dark: Boolean, pureBlack: Boolean,
@@ -258,7 +258,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
     ambient: Boolean = false,
 ) {
         // Below the picture, where a page's text sits, the frost is always held to the theme's tone (as the whole Ambient
-        // background is); under the picture itself (which dissolves into it) it keeps the picture's full colour.
+        // background is); under the picture itself (which dissolves into it) it keeps the picture's full color.
         val toned = if (dark) {
             if (ambient) (if (mono) ambientDarkGrey else ambientDark) else (if (mono) pageDarkGrey else pageDark)
         } else (if (mono) ambientLightGrey else ambientLight)
@@ -268,7 +268,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
         val scroll = heroScroll.coerceIn(0f, heroPx)
         val heroBottom = heroPx - scroll
         val imgTop = -scroll * (1f - parallax)
-        // Pure black keeps its deep settle; otherwise the picture's own colours carry the page (#47).
+        // Pure black keeps its deep settle; otherwise the picture's own colors carry the page (#47).
         val field = if (palette == null || pureBlack || !bleed) null else palette.field(dark)
         val settle = field?.last() ?: palette?.settle(dark) ?: bg
         drawRect(settle)
@@ -304,14 +304,14 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
             val from = heroBottom.coerceAtLeast(0f)
             val below = (size.height - from).roundToInt()
             if (field != null) {
-                // The picture carries on below itself, mirrored (#47): its foot meets its own reflection, so its colours
-                // flow on down the page where they are in the picture, rather than as streaks or a flat colour…
+                // The picture carries on below itself, mirrored (#47): its foot meets its own reflection, so its colors
+                // flow on down the page where they are in the picture, rather than as streaks or a flat color…
                 if (below > 0) clipRect(top = from) {
                     scale(1f, -1f, pivot = Offset(0f, from)) {
                         drawImage(img, IntOffset(sx, sy), srcSize, IntOffset(0, imgTop.roundToInt()), IntSize(w.roundToInt(), heroPx.roundToInt()), alpha = shown, colorFilter = toned, filterQuality = FilterQuality.Low)
                     }
                 }
-                // …then settle into the picture's main colour by the reflection's end, a little deeper toward the bottom.
+                // …then settle into the picture's main color by the reflection's end, a little deeper toward the bottom.
                 val mirrorEnd = (2 * from - imgTop).coerceAtLeast(from + 1f)
                 drawRect(
                     Brush.verticalGradient(
@@ -325,7 +325,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
                     topLeft = Offset(0f, mirrorEnd),
                 )
             } else {
-                // The row of the picture at the hero's foot, drawn tall: its colours run on down the page.
+                // The row of the picture at the hero's foot, drawn tall: its colors run on down the page.
                 val frac = ((heroBottom - imgTop) / heroPx).coerceIn(0f, 1f)
                 val row = (sy + frac * srcSize.height).roundToInt().coerceIn(sy, sy + srcSize.height - 1)
                 if (below > 0) drawImage(
@@ -341,7 +341,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
             }
         }
         // Keeps text readable: darker (or lighter) toward the bottom of the screen. Lighter-handed over the picture's
-        // colours, which are kept dark (or light) enough to read on already.
+        // colors, which are kept dark (or light) enough to read on already.
         val wash = if (dark) Color.Black else Color.White
         val k = if (dark && pureBlack) 1.25f else 1f
         val (a0, a1, a2) = when {
@@ -382,7 +382,7 @@ val LocalPageBackdrop = compositionLocalOf<PageBackdrop?> { null }
 
 /**
  * The fill of a card or panel: frosted glass (with its light top edge) on a frosted page,
- * [fallback] (the theme's container colour by default) elsewhere.
+ * [fallback] (the theme's container color by default) elsewhere.
  */
 @Composable
 fun Modifier.pane(shape: Shape, fallback: Color = Color.Unspecified): Modifier {
@@ -470,19 +470,19 @@ fun ScrollEdge(visible: () -> Float, height: Dp, pageHeight: Dp, backdrop: @Comp
 
 /**
  * The app's theme with the page's accent swapped for the artwork's ([palette]), so its buttons,
- * links and playing marks wear the picture's colour.
+ * links and playing marks wear the picture's color.
  */
 @Composable
 fun ArtworkAccent(palette: ArtPalette?, override: Color? = null, content: @Composable () -> Unit) {
     val dark = LocalIsDark.current
     val scheme = MaterialTheme.colorScheme
-    // Appearance → Colour → "Pages take their picture's colour" (1.7.2); an artist's own colour (picked on their page)
+    // Appearance → Color → "Pages take their picture's color" (1.7.2); an artist's own color (picked on their page)
     // applies either way.
     val pageColors = com.prism.music.ui.theme.LocalAppSettings.current.pageColors
     // Always the same composition shape, palette or not: switching between calling content() bare and inside
     // MaterialTheme threw the whole subtree away when the palette arrived — a menu sheet being swiped down
     // was rebuilt mid-gesture (stuttered, or popped back up after being flung away).
-    // White light with a white accent keeps every page neutral, so the artwork's colour stays in the artwork.
+    // White light with a white accent keeps every page neutral, so the artwork's color stays in the artwork.
     val themed = if (override != null) {
         val accent = com.prism.music.ui.theme.readableOn(override, scheme.background)
         scheme.copy(primary = accent, onPrimary = if (accent.luminance() > 0.5f) Color.Black else Color.White, surfaceTint = accent)

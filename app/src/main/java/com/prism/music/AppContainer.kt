@@ -60,6 +60,8 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
     override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader =
         coil3.ImageLoader.Builder(context)
             .components {
+                // First, so a cover kept on the phone is trimmed the same as one from the network (#92).
+                add(com.prism.music.data.VideoCoverInterceptor { ::container.isInitialized && container.settings.current.squareVideoCovers })
                 add(com.prism.music.data.OfflineArtInterceptor { if (::container.isInitialized) container.artwork else null })
                 add(com.prism.music.data.DataSaverInterceptor { ::container.isInitialized && container.dataSaving() })
             }
@@ -257,7 +259,7 @@ class AppContainer(val app: Application) {
     }
 
     val artistPrefs = com.prism.music.data.ArtistPrefs(app)
-    /** The colour picker's recent and starred colours. */
+    /** The color picker's recent and starred colors. */
     val savedColors = com.prism.music.data.prefs.SavedColors(app)
     /** Where each podcast episode was left off. */
     val episodes = com.prism.music.data.EpisodeProgress(app)

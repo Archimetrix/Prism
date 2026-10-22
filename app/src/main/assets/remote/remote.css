@@ -1,4 +1,4 @@
-/* Prism Remote, in Prism's own look (Aura × Spectrum): the cover's colour behind frosted glass, Outfit set light, and
+/* Prism Remote, in Prism's own look (Aura × Spectrum): the cover's color behind frosted glass, Outfit set light, and
    the split light where something is happening (progress, what's playing, the tab you're on, the Play ring). */
 @font-face { font-family: Outfit; src: url(outfit.ttf) format("truetype"); font-weight: 100 900; font-display: swap; }
 
@@ -30,7 +30,7 @@ body {
 button { font: inherit; color: inherit; }
 input { font: inherit; }
 
-/* The cover's colour, frosted and held deep so text always reads on it. */
+/* The cover's color, frosted and held deep so text always reads on it. */
 #backdrop {
   position: fixed; inset: -80px;
   background-color: var(--bg);

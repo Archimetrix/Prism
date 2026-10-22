@@ -147,7 +147,7 @@ object Tour {
         ),
         TourStep(
             V1_7, PrismIcons.Palette, "Make it yours",
-            "Prism takes its colour from what's playing. Change as much of it as you like.",
+            "Prism takes its color from what's playing. Change as much of it as you like.",
             listOf(
                 "Appearance: Spectrum or White light, your accent, fonts, icons and backgrounds",
                 "Layout: the tab bar, your tabs and the mini player",

@@ -19,7 +19,7 @@ import kotlin.random.Random
 
 /**
  * Not a check: the showcase film's demo year. With PRISM_FILM_SQL=<file>, looks up a curated set of well-known songs
- * (colourful covers, karaoke lyrics) on YouTube Music and writes SQL that fills a fresh Prism's database with a
+ * (colorful covers, karaoke lyrics) on YouTube Music and writes SQL that fills a fresh Prism's database with a
  * believable 2026: about 80 hours in sittings of one or two artists, likes, one recognised song. Run it against the
  * film copy's prism.db on the emulator (adb root + sqlite3), then carry it to the phone with Prism's own backup.
  */

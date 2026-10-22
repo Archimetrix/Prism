@@ -60,7 +60,7 @@ class WidgetRenderTest {
     @Test
     fun prismWidgets() = sheet("widgets.png", white = false)
 
-    /** The same widgets in White light (Appearance → Colour → Style). */
+    /** The same widgets in White light (Appearance → Color → Style). */
     @Test
     fun whiteLightWidgets() = sheet("widgets-white.png", white = true)
 

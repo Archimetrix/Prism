@@ -44,7 +44,7 @@ enum class WidgetStyle(val layout: Int, val provider: Class<out AppWidgetProvide
     PRISM(R.layout.widget_prism, PrismWidget::class.java, 0.16f),
     /** After Spotify's: a slim near-black bar with a green play button. */
     SPOTIFY(R.layout.widget_spotify, SpotifyStyleWidget::class.java, 0.08f),
-    /** After Apple Music's: a big cover on a card the colour of the cover. */
+    /** After Apple Music's: a big cover on a card the color of the cover. */
     APPLE(R.layout.widget_apple, AppleStyleWidget::class.java, 0.11f),
     /** After YouTube Music's: dark grey, thumbs up, a red progress line. */
     YTMUSIC(R.layout.widget_ytmusic, YtMusicStyleWidget::class.java, 0.11f),
@@ -52,7 +52,7 @@ enum class WidgetStyle(val layout: Int, val provider: Class<out AppWidgetProvide
     COVER(R.layout.widget_cover, CoverWidget::class.java, 0f),
     /** A round disc (#34): the cover in a ring that fills as the song plays, play in the middle. */
     DISC(R.layout.widget_disc, DiscWidget::class.java, 0.5f),
-    /** A slim bar (#34) in the cover's colour: the cover, the title, and previous / play / next. */
+    /** A slim bar (#34) in the cover's color: the cover, the title, and previous / play / next. */
     STRIP(R.layout.widget_strip, StripWidget::class.java, 0.18f),
 }
 
@@ -104,7 +104,7 @@ object Widgets {
     private val RINGED = setOf(WidgetStyle.PRISM, WidgetStyle.COVER, WidgetStyle.STRIP)
     private val SPLIT_PROGRESS = setOf(WidgetStyle.PRISM, WidgetStyle.COVER, WidgetStyle.DISC)
 
-    /** Appearance → Colour → Style is White light. */
+    /** Appearance → Color → Spectrum is White light. */
     fun whiteLight(context: Context): Boolean = runCatching {
         context.container.settings.current.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     }.getOrDefault(false)
@@ -179,7 +179,7 @@ object Widgets {
         if (style == WidgetStyle.SPOTIFY) v.setInt(R.id.widget_like, "setColorFilter", if (s.liked) 0xFF1ED760.toInt() else Color.WHITE)
         val progress = if (s.durationMs > 0) (s.positionMs * 1000 / s.durationMs).toInt().coerceIn(0, 1000) else 0
         if (style != WidgetStyle.APPLE) v.setProgressBar(R.id.widget_progress, 1000, progress, false)
-        // White light (Appearance → Colour): Prism's own widgets in white and grey instead of the split light.
+        // White light (Appearance → Color): Prism's own widgets in white and grey instead of the split light.
         val white = whiteLight(context)
         if (style in RINGED) v.setInt(R.id.widget_play, "setBackgroundResource", if (white) R.drawable.widget_circle else R.drawable.widget_play_ring)
         if (style in SPLIT_PROGRESS) {

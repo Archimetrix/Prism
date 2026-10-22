@@ -42,7 +42,7 @@ object SettingsIndex {
     private val webRemote = turnOn("Control from a browser") { it.webRemote }
 
     private val A = SettingsSection.APPEARANCE
-    private val CO = SettingsSection.COLOUR
+    private val CO = SettingsSection.COLOR
     private val T = SettingsSection.TEXT
     private val I = SettingsSection.ICONS
     private val G = SettingsSection.GLASS
@@ -67,32 +67,32 @@ object SettingsIndex {
         // Appearance
         SettingEntry(A, "Theme", "Theme", "dark light system mode night"),
         SettingEntry(A, "Theme", "Pure black", "amoled oled"),
-        SettingEntry(A, "Look", "Colour", "color colours colors accent split light spectrum"),
+        SettingEntry(A, "Look", "Color", "color colors colour accent split light spectrum"),
         SettingEntry(A, "Look", "Text", "font typeface size"),
         SettingEntry(A, "Look", "Icons & shapes", "icon pack app icon corners"),
         SettingEntry(A, "Look", "Glass & backgrounds", "blur backgrounds motion"),
-        // Appearance → Colour (1.7.2)
-        SettingEntry(CO, "Style", "Style", "white light spectrum monochrome neutral grey gray minimal colourless colorless simple color rainbow"),
-        SettingEntry(CO, "Light colours", "Light colours", "spectrum split light gradient rainbow preset sunset ocean aurora forest ember candy neon ice gold silver colour-blind color blind custom own colours colors"),
-        SettingEntry(CO, "Light colours", "Smooth or bands", "stripes hard spectrum split light rainbow"),
-        SettingEntry(CO, "Accent colour", "Accent from", "song cover wallpaper your pick now playing artwork dynamic material you color"),
-        SettingEntry(CO, "Accent colour", "Accent colour", "color accent picker wheel hex code rgb hsl custom eyedropper"),
-        SettingEntry(CO, "Accent colour", "Exactly as picked", "accent color exact shade softened tone"),
-        SettingEntry(CO, "Accent colour", "Different colour for light mode", "accent color light theme another"),
-        SettingEntry(CO, "Accent colour", "Light mode accent", "accent color light theme"),
-        SettingEntry(CO, "Accent colour", "Cover colour", "song cover now playing artwork accent vibrant muted color",
+        // Appearance → Color (1.7.2)
+        SettingEntry(CO, "Spectrum", "Spectrum", "split light gradient rainbow preset sunset ocean aurora forest ember candy neon ice gold silver color-blind colour blind custom own colors style light colors"),
+        SettingEntry(CO, "Spectrum", "White light", "white light monochrome neutral grey gray minimal colorless simple style"),
+        SettingEntry(CO, "Spectrum", "Smooth or bands", "stripes hard spectrum split light rainbow"),
+        SettingEntry(CO, "Accent color", "Accent from", "song cover wallpaper your pick now playing artwork dynamic material you color"),
+        SettingEntry(CO, "Accent color", "Accent color", "color accent picker wheel hex code rgb hsl custom eyedropper"),
+        SettingEntry(CO, "Accent color", "Exactly as picked", "accent color exact shade softened tone"),
+        SettingEntry(CO, "Accent color", "Different color for light mode", "accent color light theme another"),
+        SettingEntry(CO, "Accent color", "Light mode accent", "accent color light theme"),
+        SettingEntry(CO, "Accent color", "Cover color", "song cover now playing artwork accent vibrant muted color",
             needs = Needs("Pick Song's cover for the accent first") { it.colorSource == com.prism.music.data.prefs.ColorSource.ARTWORK }),
-        SettingEntry(CO, "Accent colour", "Always colourful", "song cover now playing artwork accent saturation grey color lively",
+        SettingEntry(CO, "Accent color", "Always colorful", "song cover now playing artwork accent saturation grey color lively",
             needs = Needs("Pick Song's cover for the accent first") { it.colorSource == com.prism.music.data.prefs.ColorSource.ARTWORK }),
-        SettingEntry(CO, "Accent colour", "Between songs", "song cover now playing artwork accent fade album change color",
+        SettingEntry(CO, "Accent color", "Between songs", "song cover now playing artwork accent fade album change color",
             needs = Needs("Pick Song's cover for the accent first") { it.colorSource == com.prism.music.data.prefs.ColorSource.ARTWORK }),
         SettingEntry(CO, "Page background", "Page background", "tint surface page neutral plain color colour background"),
-        SettingEntry(CO, "Page background", "Background colour", "tint surface page color",
-            needs = Needs("Pick Your colour under Page background first") { it.surfaceTint == com.prism.music.data.prefs.SurfaceTint.CUSTOM }),
+        SettingEntry(CO, "Page background", "Background color", "tint surface page color",
+            needs = Needs("Pick Your color under Page background first") { it.surfaceTint == com.prism.music.data.prefs.SurfaceTint.CUSTOM }),
         SettingEntry(CO, "Page background", "Tint strength", "surface page tint",
-            needs = Needs("Pick Accent tint or Your colour under Page background first") { it.surfaceTint == com.prism.music.data.prefs.SurfaceTint.ACCENT || it.surfaceTint == com.prism.music.data.prefs.SurfaceTint.CUSTOM }),
+            needs = Needs("Pick Accent tint or Your color under Page background first") { it.surfaceTint == com.prism.music.data.prefs.SurfaceTint.ACCENT || it.surfaceTint == com.prism.music.data.prefs.SurfaceTint.CUSTOM }),
         SettingEntry(CO, "Text contrast", "Text contrast", "high contrast accessibility readability legible"),
-        SettingEntry(CO, "Artist & album pages", "Photo's colour", "artist album playlist page colour color photo accent picture"),
+        SettingEntry(CO, "Artist & album pages", "Photo's color", "artist album playlist page color color photo accent picture"),
         SettingEntry(T, "Text", "Font", "typeface custom ttf otf outfit prism system clean manrope geometric plus jakarta sans airy urbanist rounded nunito editorial serif fraunces mono geist"),
         SettingEntry(T, "Text", "Remove your font"),
         SettingEntry(T, "Text", "Lyrics font", "typeface"),
@@ -128,7 +128,7 @@ object SettingsIndex {
         SettingEntry(L, "Pages", "Album & playlist cards"),
         SettingEntry(L, "Search", "Open the keyboard", "search typing"),
         // Player
-        SettingEntry(P, "Look", "Background", "player blur cover colour"),
+        SettingEntry(P, "Look", "Background", "player blur cover color"),
         SettingEntry(P, "Look", "Show background"),
         SettingEntry(P, "Look", "Controls", "buttons transport"),
         SettingEntry(P, "Look", "Progress bar", "scrubber seek bar"),
@@ -136,6 +136,7 @@ object SettingsIndex {
         SettingEntry(P, "Cover", "Corners", "cover rounded"),
         SettingEntry(P, "Cover", "Full-bleed artwork", "edge to edge"),
         SettingEntry(P, "Cover", "Shrink when paused"),
+        SettingEntry(P, "Cover", "Square video covers", "video thumbnail crop black bars letterbox square artwork audio only"),
         SettingEntry(P, "Immersive mode", "Immersive mode", "lyric video full screen"),
         SettingEntry(P, "Immersive mode", "Artwork", needs = immersive),
         SettingEntry(P, "Immersive mode", "Lyrics", needs = immersive),
@@ -205,6 +206,7 @@ object SettingsIndex {
         SettingEntry(Y, "Look", "Text size", "lyrics font size"),
         SettingEntry(Y, "Sources", "Prefer karaoke & synced lyrics", "word by word time synced"),
         SettingEntry(Y, "Sources", "Uncensor lyrics", "explicit swear stars"),
+        SettingEntry(Y, "Sources", "Lyrics on mobile data", "cellular data saver metered load lyrics later open"),
         SettingEntry(Y, "Sources", "Order", "lyrics providers sources priority"),
         SettingEntry(Y, "Your music files", "Save lyrics into your music files", "flac mp3 tags embed"),
         SettingEntry(Y, "Android Auto", "Lyrics in the car", "android auto"),
@@ -246,7 +248,7 @@ object SettingsIndex {
         SettingEntry(R, "Library", "Full-width playlist pictures"),
         SettingEntry(R, "Library", "Library tiles", "liked downloads local files replay podcasts listen together blend recognized new playlist import reorder hide shortcuts"),
         SettingEntry(R, "Replay", "Show time in hours", "stats minutes"),
-        SettingEntry(R, "Replay", "Use theme colours", "colors stats"),
+        SettingEntry(R, "Replay", "Use theme colors", "colors stats"),
         SettingEntry(R, "Replay", "Rewind notification", "rewind wrapped year in review december notification"),
         SettingEntry(R, "Recommendations", "Exclusions", "taste profile exclude artist playlist don't play block"),
         // About

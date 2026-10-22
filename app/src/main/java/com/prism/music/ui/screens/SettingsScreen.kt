@@ -120,7 +120,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     /** Not on the hub: opened from About. */
     LICENSES("licenses", "Open-source licenses", PrismIcons.Info),
     /** Not on the hub: Appearance's own pages (1.7.2). */
-    COLOUR("colour", "Colour", PrismIcons.Palette),
+    COLOR("color", "Color", PrismIcons.Palette),
     TEXT("text", "Text", PrismIcons.Signature),
     ICONS("icons", "Icons & shapes", PrismIcons.Category),
     GLASS("glass", "Glass & backgrounds", PrismIcons.Photo);
@@ -138,7 +138,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         DISCORD -> if (s.discordPresence) "Showing what you play on your profile" else "Show what you're playing on your profile"
         ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates"
         LICENSES -> "GPL-3.0-or-later"
-        COLOUR -> listOfNotNull(
+        COLOR -> listOfNotNull(
             s.lightStyle.label,
             if (s.lightStyle == com.prism.music.data.prefs.LightStyle.SPECTRUM) (com.prism.music.ui.theme.SpectrumPresets.preset(s.spectrumPreset)?.label ?: "Your own") + " light" else null,
             when (s.colorSource) { ColorSource.CUSTOM -> com.prism.music.ui.theme.ColorMath.toHex(s.accent) + " accent"; ColorSource.ARTWORK -> "Accent from the cover"; ColorSource.DYNAMIC -> "Accent from the wallpaper" },
@@ -213,8 +213,8 @@ private fun SettingsPage(
         horizontalPadding = 16.dp,
         spacing = 22.dp,
         showBack = !isTab,
-        pinned = if (section == SettingsSection.COLOUR) ({ ColourPreviewBar(pinned = true) }) else null,
-        pinnedKey = if (section == SettingsSection.COLOUR) COLOUR_PREVIEW_KEY else null,
+        pinned = if (section == SettingsSection.COLOR) ({ ColorPreviewBar(pinned = true) }) else null,
+        pinnedKey = if (section == SettingsSection.COLOR) COLOR_PREVIEW_KEY else null,
     ) {
         when (section) {
             null -> {
@@ -246,7 +246,7 @@ private fun SettingsPage(
                     return@SubPage
                 }
                 item { AccountCard() }
-                // Every section's icon sits on its own colour of the split light, red at the top to violet at the foot.
+                // Every section's icon sits on its own color of the split light, red at the top to violet at the foot.
                 val hubCount = hubGroups.sumOf { it.second.size }
                 var hubIndex = 0
                 hubGroups.forEach { (title, sections) ->
@@ -265,7 +265,7 @@ private fun SettingsPage(
                 }
             }
             SettingsSection.APPEARANCE -> appearance()
-            SettingsSection.COLOUR -> colourPage()
+            SettingsSection.COLOR -> colorPage()
             SettingsSection.TEXT -> item(key = "text") { TypeSettings() }
             SettingsSection.ICONS -> item(key = "icons") {
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings() }
@@ -292,7 +292,7 @@ private fun SettingsPage(
                     }
                     Group("Replay card") {
                         val look = ReplayCardStyle.entries.firstOrNull { it.name == s.replayCard } ?: ReplayCardStyle.WASH
-                        Note("How Replay looks on Home, from the quietest to the most colourful")
+                        Note("How Replay looks on Home, from the quietest to the most colorful")
                         Chips(ReplayCardStyle.entries, look, { it.label }) { c.settings.setReplayCard(it.name) }
                         Note(look.note)
                         ReplayCardPreview(look, Modifier.padding(top = 6.dp, bottom = 14.dp))
@@ -694,7 +694,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                 val s = LocalAppSettings.current
                 val nav = LocalNavigator.current
                 Group("Look") {
-                    listOf(SettingsSection.COLOUR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
+                    listOf(SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
                         NavRow(sec.icon, sec.title, sec.summary(s)) { nav.go(Routes.settings(sec.key)) }
                     }
                 }
@@ -731,7 +731,7 @@ private fun GlassSettings() {
                         Chips(GlassKind.entries, s.glassKind, { it.label }) { prefs.setGlassKind(it) }
                     }
                     Toggle("Frosted Glass", "Soft blur, no refraction", s.frostedGlass) { prefs.setFrostedGlass(it) }
-                    Toggle("Frosted pages", "Pages frosted with their picture", s.frostedPages, info = "Artist, album and playlist pages sit on frosted glass made from their picture; Home, Library, Search and Settings sit on frost from what's playing. Whether pages take their picture's colour is under Colour.") { prefs.setFrostedPages(it) }
+                    Toggle("Frosted pages", "Pages frosted with their picture", s.frostedPages, info = "Artist, album and playlist pages sit on frosted glass made from their picture; Home, Library, Search and Settings sit on frost from what's playing. Whether pages take their picture's color is under Color.") { prefs.setFrostedPages(it) }
                 }
             }
             Box {
@@ -943,7 +943,7 @@ private fun ResetLook() {
     if (ask) androidx.compose.material3.AlertDialog(
         onDismissRequest = { ask = false },
         title = { Text("Reset look & layout?") },
-        text = { Text("Font, text size, corners, spacing, navigation bar, tabs, mini player and player style go back to how Prism ships. Your colours, backgrounds and everything else stay as they are.") },
+        text = { Text("Font, text size, corners, spacing, navigation bar, tabs, mini player and player style go back to how Prism ships. Your colors, backgrounds and everything else stay as they are.") },
         confirmButton = { PrismTextButton(onClick = { prefs.resetLook(); ask = false }) { Text("Reset") } },
         dismissButton = { PrismTextButton(onClick = { ask = false }) { Text("Cancel") } },
     )
@@ -1069,6 +1069,10 @@ private fun PlayerSettings() {
                 info = "The cover runs to the screen's edges at the top of the player and fades into the background. Cover size then sets how far down it reaches.",
             ) { prefs.setFullBleedArtwork(it) }
             Toggle("Shrink when paused", "The cover eases back while paused", s.artShrinkOnPause) { prefs.setArtShrinkOnPause(it) }
+            Toggle(
+                "Square video covers", "No black bars when a video plays as a song", s.squareVideoCovers,
+                info = "YouTube's video pictures are wide, with black bars above and below. On, Prism trims the bars and uses the middle of the picture as a square cover: on the player, in lists, the notification and Android Auto.",
+            ) { prefs.setSquareVideoCovers(it) }
         }
         // Top to bottom, as they sit on the player: tick what you want there.
         Group("Show on the player") {
@@ -1432,6 +1436,10 @@ private fun LyricsSettings() {
         Group("Sources") {
             Toggle("Prefer karaoke & synced lyrics", "Word by word first, then by line", s.preferSynced, info = "Karaoke lyrics (lit up word by word) from any source that has them come first, then time-synced lines, then plain text.") { prefs.setPreferSynced(it) }
             Toggle("Uncensor lyrics", "Fills in starred-out words", s.skipCensored, info = "Swear words starred out (f**k) are filled back in from Genius, keeping the word timings, and a source that still stars them out is passed over.") { prefs.setSkipCensored(it) }
+            Toggle(
+                "Lyrics on mobile data", if (s.lyricsOnMobileData) "Looked up as each song starts" else "Only once you open the lyrics", s.lyricsOnMobileData,
+                info = "Off, Prism doesn't look up lyrics on mobile data until you open them (the player's lyrics, Immersive mode or the source list). Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.",
+            ) { prefs.setLyricsOnMobileData(it) }
             Label("Order")
             Note("Tried top to bottom; switch source per song from the player's ⋯")
             s.lyricsOrder.forEachIndexed { i, src ->
@@ -1584,7 +1592,7 @@ private fun LibraryReplaySettings() {
         }
         Group("Replay") {
             Toggle("Show time in hours", if (s.replayHours) "Like \"20h 4m\"" else "Like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
-            Toggle("Use theme colours", "Your accent instead of Prism's gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }
+            Toggle("Use theme colors", "Your accent instead of Prism's gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }
             Toggle("Rewind notification", "On December 1, when your year is ready", s.rewindNotification) { prefs.setRewindNotification(it) }
         }
         Group("Recommendations") {

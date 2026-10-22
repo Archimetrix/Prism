@@ -97,7 +97,7 @@ fun Artwork(
     Box(
         modifier
             .clip(shape)
-            // Spectrum: a flat tile with a quiet icon until the picture arrives (colour belongs to the artwork).
+            // Spectrum: a flat tile with a quiet icon until the picture arrives (color belongs to the artwork).
             .background(scheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
@@ -306,7 +306,7 @@ fun ItemCard(item: BrowseItem, modifier: Modifier = Modifier, width: Dp = Dp.Uns
 fun MoodTile(item: MoodItem, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val color = Color(item.color or 0xFF000000).lit()
     val ui = com.prism.music.ui.theme.LocalUi.current
-    // The mood's own colour, deepening across the tile, with a soft sheen; its name set light.
+    // The mood's own color, deepening across the tile, with a soft sheen; its name set light.
     Box(
         modifier
             .clip(ui.tile)

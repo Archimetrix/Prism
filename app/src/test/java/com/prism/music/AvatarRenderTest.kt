@@ -70,7 +70,7 @@ class AvatarRenderTest {
             canvas.drawBitmap(render(a, small), x + (big - small) / 2f, y + big + 12f, null)
             // Something drawn, and not the same picture as another.
             val pixels = IntArray(big * big).also { bmp.getPixels(it, 0, big, 0, 0, big, big) }
-            assertTrue("${a.id} draws colours", pixels.toSet().size > 8)
+            assertTrue("${a.id} draws colors", pixels.toSet().size > 8)
             seen += pixels.contentHashCode()
         }
         assertEquals("every picture is different", PrismAvatar.entries.size, seen.size)

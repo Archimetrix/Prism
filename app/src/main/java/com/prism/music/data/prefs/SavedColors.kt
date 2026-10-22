@@ -4,7 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * The colour picker's memory (1.7.2): the last colours picked anywhere in Prism, and the ones starred to keep.
+ * The color picker's memory (1.7.2): the last colors picked anywhere in Prism, and the ones starred to keep.
  * Shared preferences "colors" (in backups like the rest of shared_prefs).
  */
 class SavedColors(context: Context) {
@@ -19,7 +19,7 @@ class SavedColors(context: Context) {
     private fun write(key: String, list: List<Int>) =
         prefs.edit().putString(key, list.joinToString(",") { "%08X".format(it) }).apply()
 
-    /** A colour was picked: it goes to the front of the recent ones (once), keeping [MAX_RECENT]. */
+    /** A color was picked: it goes to the front of the recent ones (once), keeping [MAX_RECENT]. */
     fun used(color: Int) {
         val next = (listOf(color) + recent.value.filter { it != color }).take(MAX_RECENT)
         recent.value = next

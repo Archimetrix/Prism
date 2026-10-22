@@ -187,7 +187,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // cover, the word sweep, the title marquee) holds still, since both windows draw on the same thread and dragging
     // the sheet stuttered. The timing sheet isn't counted: the lyrics are what's being lined up there.
     val covered = showActions || showProviders || showSleep || showSing
-    val lyricsState = rememberLyricsState(song)
+    // Where the lyrics are on show (the lyrics view, immersive mode, the source sheet): with "Lyrics on mobile data"
+    // off, that's when they're looked up on mobile data (#95).
+    val lyricsState = rememberLyricsState(song, opened = lyricsOpen || settings.immersivePlayer || showProviders)
     // With the lyrics in, the best part can start where a line does (or come from the chorus, without a heat curve).
     LaunchedEffect(song.id, lyricsState.lyrics) { if (lyricsState.lyrics?.synced == true) c.bestParts.refine(song) }
     val position = rememberPosition(fast = false, hold = covered)
@@ -779,7 +781,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     playerSheets()
 }
 
-/** The "Theme" player background: a deep wash of the accent colour, lighter at the top. */
+/** The "Theme" player background: a deep wash of the accent color, lighter at the top. */
 @Composable
 private fun ThemeBackdrop() {
     val scheme = MaterialTheme.colorScheme

@@ -60,7 +60,7 @@ class DesignGalleryTest {
     @Test fun lightPaleAccent() = shoot("gallery-light-yellow", AppSettings(themeMode = ThemeMode.LIGHT, accent = 0xFFFFE066.toInt()))
     @Test fun darkPlainPage() = shoot("gallery-dark-plain", AppSettings(themeMode = ThemeMode.DARK), glass = false)
 
-    // 1.7.2 colour settings.
+    // 1.7.2 color settings.
     @Test fun neonLightDark() = shoot("gallery-dark-neon", AppSettings(themeMode = ThemeMode.DARK, spectrumPreset = "NEON"), glass = false)
     @Test fun sunsetBandsLight() = shoot("gallery-light-sunset-bands", AppSettings(themeMode = ThemeMode.LIGHT, spectrumPreset = "SUNSET", spectrumBands = true), glass = false)
     @Test fun ownLightAndTint() = shoot(
@@ -77,11 +77,11 @@ class DesignGalleryTest {
         glass = false,
     )
 
-    /** The colour wheel and the spectrum presets, dark and light. */
-    @Test fun colourPickerDark() = colourPicker(true)
-    @Test fun colourPickerLight() = colourPicker(false)
+    /** The color wheel and the spectrum presets, dark and light. */
+    @Test fun colorPickerDark() = colorPicker(true)
+    @Test fun colorPickerLight() = colorPicker(false)
 
-    private fun colourPicker(dark: Boolean) {
+    private fun colorPicker(dark: Boolean) {
         run {
             compose.setContent {
                 PrismTheme(AppSettings(themeMode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT), artworkColor = null) {
@@ -109,7 +109,7 @@ class DesignGalleryTest {
             compose.waitForIdle()
             val bmp = compose.onRoot().captureToImage().asAndroidBitmap()
             val dir = File("build/design-previews").apply { mkdirs() }
-            File(dir, "colour-picker-${if (dark) "dark" else "light"}.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            File(dir, "color-picker-${if (dark) "dark" else "light"}.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
 }

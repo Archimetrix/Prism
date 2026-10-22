@@ -47,23 +47,23 @@ enum class BackdropScreen(val label: String) { HOME("Home"), SEARCH("Search"), L
 enum class BackdropKind {
     /** Default, Now playing and Your photo: drawn specially. */
     SPECIAL,
-    /** A base colour with three slow-drifting light fields. */
+    /** A base color with three slow-drifting light fields. */
     FIELDS,
-    /** A quiet top-to-bottom blend of two colours. */
+    /** A quiet top-to-bottom blend of two colors. */
     BLEND,
-    /** The theme's accent, softly, over the theme's background (follows the accent colour). */
+    /** The theme's accent, softly, over the theme's background (follows the accent color). */
     TINT,
-    /** Simple line patterns in the accent colour over the theme's background. */
+    /** Simple line patterns in the accent color over the theme's background. */
     DOTS, PAPER, PINSTRIPE, WAVES, RIPPLES, DIAMONDS, ZIGZAG, HALFTONE, CROSSES, SCALES, CONFETTI,
     /** Detailed illustrations in their own palettes ([Design]). */
     CONSTELLATION, CONTOURS, MOSAIC, BOKEH, SILK, HORIZON,
 }
 
 /** Which row of the picker a background sits in. */
-enum class BackdropGroup(val label: String) { YOURS("Yours"), COLOUR("Colour"), SIMPLE("Simple"), DESIGNS("Designs") }
+enum class BackdropGroup(val label: String) { YOURS("Yours"), COLOR("Color"), SIMPLE("Simple"), DESIGNS("Designs") }
 
 /**
- * Ready-made backgrounds. Each has a dark and a light version (base colour first, then its light
+ * Ready-made backgrounds. Each has a dark and a light version (base color first, then its light
  * fields), so the same pick looks at home in either theme: deep and glowing in dark mode, airy
  * pastels in light mode. Pattern designs take their ink from the theme's accent instead.
  * Names are stored in settings, so keep them stable.
@@ -81,27 +81,27 @@ enum class Backdrop(
     PHOTO("Your photo", BackdropKind.SPECIAL, BackdropGroup.YOURS),
 
     /** The prism's split light as three slow fields: red, green and violet (1.7). */
-    SPECTRUM("Spectrum", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    SPECTRUM("Spectrum", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF0B0910, 0xFFFF4D5E, 0xFF3DDC97, 0xFF7C5CFF), listOf(0xFFF8F5F9, 0xFFFF9AA6, 0xFF8FE5C0, 0xFFBBA9FF)),
-    AURORA("Aurora", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    AURORA("Aurora", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF07122A, 0xFF2EE59D, 0xFF7C5CFF, 0xFF00C2FF), listOf(0xFFEEF6F5, 0xFF7FE6BE, 0xFFB3A3FF, 0xFF8ADDFF)),
-    PRISM("Prism", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    PRISM("Prism", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF0E0E12, 0xFFFF7A9C, 0xFFFFD36B, 0xFF6BE3FF), listOf(0xFFFBF8F4, 0xFFFFA9BE, 0xFFFFDE94, 0xFF9AE8FF)),
-    SUNSET("Sunset", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    SUNSET("Sunset", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF2A0E1A, 0xFFFF6B3D, 0xFFFF3B7F, 0xFFFFC145), listOf(0xFFFFF4EE, 0xFFFFA57D, 0xFFFF8FB3, 0xFFFFD685)),
-    OCEAN("Ocean", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    OCEAN("Ocean", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF031827, 0xFF0077B6, 0xFF00B4D8, 0xFF48CAE4), listOf(0xFFEEF7FC, 0xFF6DBDEA, 0xFF7ADBEE, 0xFFAAE7F3)),
-    FOREST("Forest", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    FOREST("Forest", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF07150E, 0xFF2D6A4F, 0xFF52B788, 0xFFB7E4C7), listOf(0xFFF2F7F1, 0xFF8EC3A4, 0xFFA8D9B9, 0xFFDDF0DA)),
-    NEON("Neon", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    NEON("Neon", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF0A0014, 0xFFFF00E5, 0xFF00F0FF, 0xFF7B2FFF), listOf(0xFFF8F3FF, 0xFFFF8CF2, 0xFF7FF3FF, 0xFFB394FF)),
-    ROSE("Rosé", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    ROSE("Rosé", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF1C0B12, 0xFFF4A3B4, 0xFFE76F8A, 0xFFFFD6A5), listOf(0xFFFFF5F6, 0xFFF8BECB, 0xFFF0A3B6, 0xFFFFE1C0)),
-    MIDNIGHT("Midnight", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    MIDNIGHT("Midnight", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF04040A, 0xFF1B1F3B, 0xFF3A2E6E, 0xFF0F3460), listOf(0xFFEFF1F8, 0xFFB4BDE6, 0xFFC2B5EC, 0xFFA8C2E0)),
-    EMBER("Ember", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    EMBER("Ember", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF140604, 0xFFB5361B, 0xFFFF7B00, 0xFF5A0F0F), listOf(0xFFFFF5EF, 0xFFEE9A80, 0xFFFFBC7A, 0xFFE3A0A0)),
-    GRAPHITE("Graphite", BackdropKind.FIELDS, BackdropGroup.COLOUR,
+    GRAPHITE("Graphite", BackdropKind.FIELDS, BackdropGroup.COLOR,
         listOf(0xFF111113, 0xFF2C2C31, 0xFF44444C, 0xFF1C1C20), listOf(0xFFF5F5F7, 0xFFDDDDE3, 0xFFD2D2D9, 0xFFE8E8EC)),
 
     TINT("Soft tint", BackdropKind.TINT, BackdropGroup.SIMPLE),
@@ -427,7 +427,7 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPattern(
                 }
             }
             BackdropKind.CONFETTI -> {
-                // Short dashes scattered at all angles, in the accent and its partner colour (same scatter every time).
+                // Short dashes scattered at all angles, in the accent and its partner color (same scatter every time).
                 val rnd = kotlin.random.Random(42)
                 val len = 7f * density
                 repeat((w * h / (34f * 34f * density * density)).toInt().coerceAtMost(900)) {

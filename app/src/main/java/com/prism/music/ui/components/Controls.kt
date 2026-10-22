@@ -61,7 +61,7 @@ internal fun glassEdge(): Brush {
     return Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.22f else 0.85f), Color.White.copy(alpha = if (dark) 0.05f else 0.3f)))
 }
 
-/** The primary action: a solid pill in the text colour (white in dark mode), its label in the background's. */
+/** The primary action: a solid pill in the text color (white in dark mode), its label in the background's. */
 @Composable
 fun PrismButton(
     onClick: () -> Unit,
@@ -122,7 +122,7 @@ fun PrismFilledTonalButton(
     )
 }
 
-/** A text-only action (dialogs, inline links), in the text colour. */
+/** A text-only action (dialogs, inline links), in the text color. */
 @Composable
 fun PrismTextButton(
     onClick: () -> Unit,
@@ -194,7 +194,7 @@ fun PrismSwitch(
     val dim = if (enabled) 1f else 0.4f
     val lit by animateFloatAsState(if (checked) 1f else 0f, tween(PrismTokens.Motion.STANDARD), label = "lit")
     // White light: the accent's track with its own ink for the knob (or, with a white accent, an ink track and the
-    // page's colour for the knob), so it still reads.
+    // page's color for the knob), so it still reads.
     val white = PrismTokens.white
     val accent = PrismTokens.whiteAccent != null
     val track = if (accent) s.primary else s.onSurface

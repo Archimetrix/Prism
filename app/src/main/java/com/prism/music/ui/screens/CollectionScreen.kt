@@ -100,6 +100,8 @@ import com.prism.music.ui.LocalNavigator
 import com.prism.music.ui.Routes
 import com.prism.music.ui.components.Artwork
 import com.prism.music.ui.components.ArtworkAccent
+import com.prism.music.ui.components.ActionSheet
+import com.prism.music.ui.components.pane
 import com.prism.music.ui.components.EmptyState
 import com.prism.music.ui.components.ErrorState
 import com.prism.music.ui.components.FrostedBackdrop
@@ -357,7 +359,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     // Playlists (and Liked songs) can have a picture of the listener's choosing.
     val coverKey = when (type) { CollectionType.PLAYLIST, CollectionType.PRISM -> page.id; CollectionType.LIKED -> "liked"; CollectionType.DOWNLOADS -> "downloads"; else -> null }
     val art = coverKey?.let { c.covers.art(it, page.thumbnail) } ?: page.thumbnail
-    // Prism's own lists without a picture take their colours from their newest song.
+    // Prism's own lists without a picture take their colors from their newest song.
     val frostUrl = art ?: songs.firstOrNull()?.thumbnail
     val palette = rememberArtPalette(frostUrl)
     val frost = rememberFrost(frostUrl)
@@ -513,7 +515,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     }
     val density = LocalDensity.current
     var pageHeight by remember { mutableStateOf(0.dp) }
-    // Search and chips go see-through on the frost (and keep the theme's colour without it).
+    // Search and chips go see-through on the frost (and keep the theme's color without it).
     val frosted = if (settings.frostedPages) frostFill(1.4f) else Color.Unspecified
 
     ArtworkAccent(palette) {
@@ -811,7 +813,7 @@ private fun PlayShufflePills(enabled: Boolean, onPlay: () -> Unit, onShuffle: ()
 @Composable
 private fun Pill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, primary: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    // Play: a solid pill in the text colour, glowing in the spectrum's colours; Shuffle: a pill of glass.
+    // Play: a solid pill in the text color, glowing in the spectrum's colors; Shuffle: a pill of glass.
     val bg = if (primary) scheme.onSurface else frostFill(1.6f)
     val fg = if (primary) scheme.surface else scheme.onSurface
     val pill = RoundedCornerShape(24.dp)
@@ -1260,11 +1262,69 @@ fun DownloadQueueStatus(unfinished: Collection<com.prism.music.download.Download
         // It switches the setting off for good (Settings → Downloads & storage), so it says so.
         PrismTextButton(onClick = { c.settings.setDownloadWifiOnly(false) }) { Text("Turn off Wi-Fi only") }
     }
+    var showFailed by remember { mutableStateOf(false) }
     if (failed > 0) Row(verticalAlignment = Alignment.CenterVertically) {
         Text(if (failed == 1) "1 download failed" else "$failed downloads failed", style = MaterialTheme.typography.labelMedium, color = scheme.error)
+        // Which ones, and why (#98).
+        PrismTextButton(onClick = { showFailed = true }) { Text("See which") }
         PrismTextButton(onClick = { c.downloads.retryFailed() }) { Text("Try again") }
     }
+    if (showFailed) FailedDownloadsSheet { showFailed = false }
 }
+
+/**
+ * The downloads that failed, each with why (GitHub #98), and a way to try each again or remove it. Songs that failed
+ * before Prism kept the reason say so.
+ */
+@Composable
+fun FailedDownloadsSheet(onDismiss: () -> Unit) {
+    val c = LocalContainer.current
+    val scheme = MaterialTheme.colorScheme
+    val ui = LocalUi.current
+    val all by c.downloads.downloads.collectAsState()
+    val why by c.downloads.failures.collectAsState()
+    val failed = remember(all) { all.filter { it.value.state == Download.STATE_FAILED }.toList().sortedByDescending { it.second.addedAt } }
+    // Everything tried again or removed: nothing left to show.
+    LaunchedEffect(failed.isEmpty()) { if (failed.isEmpty()) onDismiss() }
+    ActionSheet(art = null, onDismiss = onDismiss) { close ->
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp)) {
+            Text(if (failed.size == 1) "1 download failed" else "${failed.size} downloads failed", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Light)
+            Text(
+                "Prism also tries them again by itself when the phone is back online.",
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+            )
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp).pane(ui.card)) {
+            failed.take(MAX_FAILED_ROWS).forEachIndexed { i, (id, d) ->
+                if (i > 0) HorizontalDivider(Modifier.padding(start = 70.dp), color = scheme.onSurface.copy(alpha = 0.07f))
+                Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Artwork(d.song?.thumbnail, Modifier.size(46.dp), ui.art, size = 226)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(d.song?.title ?: "Unknown song", style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        d.song?.let { Text(it.artistText, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        Text(
+                            why[id] ?: "Failed before Prism kept the reason",
+                            style = MaterialTheme.typography.bodySmall, color = scheme.error, maxLines = 3,
+                        )
+                    }
+                    IconButton(onClick = { c.downloads.retryFailed(setOf(id)) }) { Icon(PrismIcons.Refresh, "Try again") }
+                    IconButton(onClick = { c.downloads.removeMany(setOf(id)) }) { Icon(PrismIcons.Delete, "Remove") }
+                }
+            }
+        }
+        if (failed.size > MAX_FAILED_ROWS) Text(
+            "and ${failed.size - MAX_FAILED_ROWS} more",
+            Modifier.padding(start = 28.dp, top = 8.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+        )
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            PrismTextButton(onClick = { close { c.downloads.removeMany(failed.map { it.first }) } }) { Text("Remove all") }
+            com.prism.music.ui.components.PrismButton(onClick = { close { c.downloads.retryFailed() } }) { Text("Try all again") }
+        }
+    }
+}
+
+private const val MAX_FAILED_ROWS = 60
 
 /** Downloads' ⋯ menu entries: lyrics and bulk deletes. */
 @Composable

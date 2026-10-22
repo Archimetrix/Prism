@@ -24,12 +24,12 @@ import com.prism.music.data.model.Song
 import com.prism.music.ui.theme.PrismTokens
 
 /**
- * A cover for a music file on the phone that has none: the song's initial, large and light, on a deep colour of its own
+ * A cover for a music file on the phone that has none: the song's initial, large and light, on a deep color of its own
  * (the same every time for the same song), with Prism's split light along the bottom as on its other made covers.
  */
 @Composable
 fun LocalCover(song: Song, modifier: Modifier = Modifier) {
-    val (top, bottom) = remember(song.id, song.title) { localCoverColours(song.title + "\u0000" + song.artistText) }
+    val (top, bottom) = remember(song.id, song.title) { localCoverColors(song.title + "\u0000" + song.artistText) }
     val initial = remember(song.title) { song.title.trim().firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "♪" }
     BoxWithConstraints(modifier.background(Brush.linearGradient(listOf(top, bottom)))) {
         val size = maxWidth
@@ -48,8 +48,8 @@ fun LocalCover(song: Song, modifier: Modifier = Modifier) {
     }
 }
 
-/** Two deep colours for [key], from a hue of its own; dark enough for white type (see the player's backdrop). */
-internal fun localCoverColours(key: String): Pair<Color, Color> {
+/** Two deep colors for [key], from a hue of its own; dark enough for white type (see the player's backdrop). */
+internal fun localCoverColors(key: String): Pair<Color, Color> {
     val hue = ((key.hashCode().toLong() and 0xffffffffL) % 360L).toFloat()
     val top = ColorUtils.HSLToColor(floatArrayOf(hue, 0.55f, 0.34f))
     val bottom = ColorUtils.HSLToColor(floatArrayOf((hue + 38f) % 360f, 0.6f, 0.18f))

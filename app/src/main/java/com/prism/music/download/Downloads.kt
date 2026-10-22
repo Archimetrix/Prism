@@ -145,6 +145,21 @@ class DownloadRepository(private val context: Context, private val c: AppContain
     private val _waiting = MutableStateFlow(false)
     /** Downloads are held back by their network rule (waiting for Wi-Fi). */
     val waitingForNetwork: StateFlow<Boolean> = _waiting
+    private val failurePrefs = context.getSharedPreferences("download_failures", Context.MODE_PRIVATE)
+    private val _failures = MutableStateFlow(failurePrefs.all.mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap())
+    /** Why each failed download failed, in words ([DownloadFailures], #98); kept until it finishes or is removed. */
+    val failures: StateFlow<Map<String, String>> = _failures
+
+    private fun noteFailure(id: String, why: String?) {
+        if (why == null) {
+            if (id !in _failures.value) return
+            _failures.update { it - id }
+            failurePrefs.edit().remove(id).apply()
+        } else {
+            _failures.update { it + (id to why) }
+            failurePrefs.edit().putString(id, why).apply()
+        }
+    }
     /** Bytes each running download had at the last look, and how many looks in a row it hasn't moved. */
     private val progressSeen = HashMap<String, Pair<Long, Int>>()
 
@@ -190,6 +205,13 @@ class DownloadRepository(private val context: Context, private val c: AppContain
                 _media.update { it + (download.request.id to download.info()) }
                 publish()
                 applyRequirements()
+                when (download.state) {
+                    Download.STATE_FAILED -> {
+                        noteFailure(download.request.id, DownloadFailures.describe(finalException))
+                        android.util.Log.w("PrismDownload", "failed ${download.request.id}", finalException)
+                    }
+                    Download.STATE_COMPLETED -> noteFailure(download.request.id, null)
+                }
                 // A pick that arrived takes its space from the song cache.
                 if (download.state == Download.STATE_COMPLETED && download.request.id in _smartIds.value) c.trimSongCache()
                 if (download.state == Download.STATE_COMPLETED) download.info().song?.let { s ->
@@ -213,6 +235,7 @@ class DownloadRepository(private val context: Context, private val c: AppContain
                 _media.update { it - download.request.id }
                 publish()
                 applyRequirements()
+                noteFailure(download.request.id, null)
                 c.canvasStore.forgetDownloads(listOf(download.request.id))
             }
         })
@@ -270,13 +293,14 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         return info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
-    fun retryFailed() {
+    /** Starts failed downloads again: all of them, or only those in [only] (song ids). */
+    fun retryFailed(only: Set<String>? = null) {
         if (!c.network.isOnline()) return
         val failed = runCatching {
             buildList {
                 manager.downloadIndex.getDownloads(Download.STATE_FAILED).use { cursor -> while (cursor.moveToNext()) add(cursor.download) }
             }
-        }.getOrDefault(emptyList())
+        }.getOrDefault(emptyList()).filter { only == null || it.request.id in only }
         if (failed.isEmpty()) return
         mainHandler.post {
             for (d in failed) {

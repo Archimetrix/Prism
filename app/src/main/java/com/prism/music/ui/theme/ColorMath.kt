@@ -6,8 +6,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Colour arithmetic for the colour picker (1.7.2), on plain ARGB ints so it's the same on the phone and in tests:
- * hex codes in and out, and HSV / HSL / RGB views of one colour. Hues are 0–360, everything else 0–1.
+ * Color arithmetic for the color picker (1.7.2), on plain ARGB ints so it's the same on the phone and in tests:
+ * hex codes in and out, and HSV / HSL / RGB views of one color. Hues are 0–360, everything else 0–1.
  */
 object ColorMath {
     fun argb(a: Int, r: Int, g: Int, b: Int): Int =
@@ -19,7 +19,7 @@ object ColorMath {
     fun blue(c: Int) = c and 0xFF
 
     /**
-     * A typed colour code: "#3A86FF", "3a86ff", "#38F" (each digit doubled), or "#AARRGGBB" (8 digits, alpha first, as
+     * A typed color code: "#3A86FF", "3a86ff", "#38F" (each digit doubled), or "#AARRGGBB" (8 digits, alpha first, as
      * Android writes them). Spaces are ignored. Null when it isn't one.
      */
     fun parseHex(text: String): Int? {
@@ -82,7 +82,7 @@ object ColorMath {
         return fromHsv(h, sv, v, alpha)
     }
 
-    /** WCAG relative luminance of an sRGB colour. */
+    /** WCAG relative luminance of an sRGB color. */
     fun luminance(c: Int): Double {
         fun ch(v: Int): Double { val s = v / 255.0; return if (s <= 0.04045) s / 12.92 else Math.pow((s + 0.055) / 1.055, 2.4) }
         return 0.2126 * ch(red(c)) + 0.7152 * ch(green(c)) + 0.0722 * ch(blue(c))
@@ -94,7 +94,7 @@ object ColorMath {
         return max(la, lb) / min(la, lb)
     }
 
-    /** How readable text in one colour is on another, by WCAG 2's thresholds for normal-size text. */
+    /** How readable text in one color is on another, by WCAG 2's thresholds for normal-size text. */
     enum class Readability(val label: String) { AAA("Very easy to read"), AA("Easy to read"), LARGE("OK for big text"), POOR("Hard to read") }
 
     fun readability(fg: Int, bg: Int): Readability {

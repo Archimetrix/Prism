@@ -28,7 +28,7 @@ enum class PrismAvatar(val id: String, val label: String) {
     DAWN("dawn", "Dawn"),
     SPLIT("split", "Split light"),
     ORBIT("orbit", "Orbits"),
-    PETALS("petals", "Colour wheel"),
+    PETALS("petals", "Color wheel"),
     WAVE("wave", "Waves"),
     GLASS("glass", "Glass"),
     MONO("mono", "White light"),
@@ -52,7 +52,7 @@ fun DrawScope.drawPrismAvatar(avatar: PrismAvatar) {
     when (avatar) {
         PrismAvatar.PRISM -> {
             // Prism's own picture of its name: white light falls straight down into a glass prism (point down) and opens
-            // out of its tip as a soft fan of colour, red to violet, all inside the circle.
+            // out of its tip as a soft fan of color, red to violet, all inside the circle.
             drawRect(Brush.radialGradient(listOf(Color(0xFF1F1A35), Color(0xFF100D1A), Color(0xFF07060B)), Offset(c.x, c.y + w * 0.1f), w * 0.75f))
             val tl = Offset(c.x - w * 0.21f, c.y - w * 0.18f)
             val tr = Offset(c.x + w * 0.21f, c.y - w * 0.18f)
@@ -107,7 +107,7 @@ fun DrawScope.drawPrismAvatar(avatar: PrismAvatar) {
         }
         PrismAvatar.AURORA -> {
             drawRect(INK)
-            // Pools of colour that add up to light where they meet (screen blending), not mud.
+            // Pools of color that add up to light where they meet (screen blending), not mud.
             listOf(Triple(0.22f, 0.30f, 6), Triple(0.75f, 0.28f, 3), Triple(0.62f, 0.76f, 0), Triple(0.22f, 0.78f, 4), Triple(0.5f, 0.5f, 2)).forEach { (x, y, i) ->
                 val p = Offset(size.width * x, size.height * y)
                 val r = w * if (i == 2) 0.26f else 0.42f

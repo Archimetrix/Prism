@@ -100,13 +100,13 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Prism's colour picker (1.7.2), used wherever a colour is picked: a hue ring around a saturation × brightness square,
- * sliders for exact RGB / HSL values, a hex code field, an eyedropper (the playing cover's colours, any spot of a photo,
- * the wallpaper's colours), Prism's swatches, recent and starred colours, and how readable the colour is on dark and
+ * Prism's color picker (1.7.2), used wherever a color is picked: a hue ring around a saturation × brightness square,
+ * sliders for exact RGB / HSL values, a hex code field, an eyedropper (the playing cover's colors, any spot of a photo,
+ * the wallpaper's colors), Prism's swatches, recent and starred colors, and how readable the color is on dark and
  * light pages.
  *
- * [note], given the colour, says how Prism will draw it when that differs from the colour itself (an accent nudged for
- * contrast). [onPick] gets the colour when "Use this colour" is tapped; nothing changes before then.
+ * [note], given the color, says how Prism will draw it when that differs from the color itself (an accent nudged for
+ * contrast). [onPick] gets the color when "Use this color" is tapped; nothing changes before then.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -115,15 +115,15 @@ fun ColorPickerSheet(
     initial: Int,
     onDismiss: () -> Unit,
     note: ((Int) -> String?)? = null,
-    /** A way back to "no colour of your own" (an artist page's photo colour): its label and what it does. */
+    /** A way back to "no color of your own" (an artist page's photo color): its label and what it does. */
     reset: Pair<String, () -> Unit>? = null,
-    /** What the colour would look like where it's used, redrawn as the colour changes. */
+    /** What the color would look like where it's used, redrawn as the color changes. */
     preview: (@Composable (Int) -> Unit)? = null,
     onPick: (Int) -> Unit,
 ) {
     val c = LocalContainer.current
     val scheme = MaterialTheme.colorScheme
-    // The colour lives as HSV so the hue survives greys and black (where RGB has none).
+    // The color lives as HSV so the hue survives greys and black (where RGB has none).
     var hue by remember { mutableFloatStateOf(ColorMath.toHsv(initial)[0]) }
     var sat by remember { mutableFloatStateOf(ColorMath.toHsv(initial)[1]) }
     var value by remember { mutableFloatStateOf(ColorMath.toHsv(initial)[2]) }
@@ -153,7 +153,7 @@ fun ColorPickerSheet(
                 }
                 val starred = color in saved
                 Icon(
-                    if (starred) PrismIcons.StarFilled else PrismIcons.Star, if (starred) "Remove from saved colours" else "Save this colour",
+                    if (starred) PrismIcons.StarFilled else PrismIcons.Star, if (starred) "Remove from saved colors" else "Save this color",
                     Modifier.size(44.dp).clip(CircleShape).clickable { c.savedColors.setSaved(color, !starred) }.padding(10.dp),
                     tint = if (starred) scheme.onSurface else scheme.onSurfaceVariant,
                 )
@@ -185,7 +185,7 @@ fun ColorPickerSheet(
                 PrismButton({
                     c.savedColors.used(color)
                     close { onPick(color) }
-                }, Modifier.weight(1f)) { Text("Use this colour") }
+                }, Modifier.weight(1f)) { Text("Use this color") }
             }
         }
     }
@@ -227,7 +227,7 @@ fun ColorWheel(hue: Float, sat: Float, value: Float, modifier: Modifier = Modifi
         }
         Canvas(
             Modifier.size(side)
-                .semantics { contentDescription = "Colour wheel" }
+                .semantics { contentDescription = "Color wheel" }
                 .pointerInput(px) { detectTapGestures { handle(it, true) } }
                 .pointerInput(px) {
                     detectDragGestures(onDragStart = { handle(it, true) }, onDragEnd = { dragging = 0 }) { ch, _ -> handle(ch.position, false) }
@@ -299,13 +299,13 @@ private fun Channel(name: String, fraction: Float, value: String, track: Brush, 
     }
 }
 
-/** The colour as a code, typed or pasted. */
+/** The color as a code, typed or pasted. */
 @Composable
 private fun HexField(color: Int, onColor: (Int) -> Unit) {
     val clipboard = LocalClipboardManager.current
     var text by remember { mutableStateOf(ColorMath.toHex(color)) }
     var bad by remember { mutableStateOf(false) }
-    // Picked elsewhere (wheel, swatch): the field follows, unless what's typed already means that colour.
+    // Picked elsewhere (wheel, swatch): the field follows, unless what's typed already means that color.
     LaunchedEffect(color) { if (ColorMath.parseHex(text) != color) { text = ColorMath.toHex(color); bad = false } }
     fun take(t: String) {
         text = t
@@ -315,7 +315,7 @@ private fun HexField(color: Int, onColor: (Int) -> Unit) {
     }
     PrismTextField(
         text, ::take, Modifier.fillMaxWidth(), singleLine = true,
-        label = { Text("Colour code") },
+        label = { Text("Color code") },
         placeholder = { Text("#3A86FF") },
         isError = bad,
         supportingText = if (bad) ({ Text("A code is 6 hex digits, like #3A86FF") }) else null,
@@ -323,14 +323,14 @@ private fun HexField(color: Int, onColor: (Int) -> Unit) {
         keyboardActions = KeyboardActions(onDone = { ColorMath.parseHex(text)?.let { onColor(it or (0xFF shl 24)) } }),
         trailingIcon = {
             Icon(
-                PrismIcons.Copy, "Paste a colour code",
+                PrismIcons.Copy, "Paste a color code",
                 Modifier.size(44.dp).clip(CircleShape).clickable { clipboard.getText()?.text?.let { take(it.trim().take(12)) } }.padding(11.dp),
             )
         },
     )
 }
 
-/** Colours to take from: the playing cover's palette, a spot on a photo, the wallpaper's colours. */
+/** Colors to take from: the playing cover's palette, a spot on a photo, the wallpaper's colors. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Eyedropper(onColor: (Int) -> Unit) {
@@ -353,7 +353,7 @@ private fun Eyedropper(onColor: (Int) -> Unit) {
         if (uri != null) scope.launch { photo = withContext(Dispatchers.IO) { runCatching { loadBitmap(context, uri, 1440) }.getOrNull() } }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Eyebrow("Take a colour from")
+        Eyebrow("Take a color from")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PrismChip(false, { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, "A photo", icon = PrismIcons.Photo)
         }
@@ -398,7 +398,7 @@ private fun Dot(color: Int, selected: Boolean, onClick: () -> Unit) {
     ) { if (selected) Icon(PrismIcons.Check, null, Modifier.size(16.dp), tint = if (light) Color.Black else Color.White) }
 }
 
-/** How the colour reads as text on a dark page and a light one, and what text reads on it. */
+/** How the color reads as text on a dark page and a light one, and what text reads on it. */
 @Composable
 private fun Readability(color: Int) {
     val darkPage = 0xFF0E0E12.toInt()
@@ -413,7 +413,7 @@ private fun Readability(color: Int) {
                 Text("$label · ${r.label}", color = if (bg == darkPage) Color.White.copy(alpha = 0.75f) else Color.Black.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
             }
         }
-        // Text on the colour itself (buttons): whichever of white or black reads better.
+        // Text on the color itself (buttons): whichever of white or black reads better.
         val onWhite = ColorMath.contrast(0xFFFFFFFF.toInt(), color) >= ColorMath.contrast(0xFF000000.toInt(), color)
         val ink = if (onWhite) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
         Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Color(color)).padding(10.dp)) {
@@ -423,7 +423,7 @@ private fun Readability(color: Int) {
     }
 }
 
-/** A photo to tap on: a loupe follows the finger and shows the colour under it; let go (or tap) to take it. */
+/** A photo to tap on: a loupe follows the finger and shows the color under it; let go (or tap) to take it. */
 @Composable
 private fun PhotoDropper(bitmap: Bitmap, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
     var at by remember { mutableStateOf<Offset?>(null) }
@@ -449,7 +449,7 @@ private fun PhotoDropper(bitmap: Bitmap, onDismiss: () -> Unit, onPick: (Int) ->
         Column(Modifier.fillMaxSize().background(Color.Black).navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 RoundAction(PrismIcons.Close, "Close", glass = true, onClick = onDismiss)
-                Text("Tap or drag to pick a colour", Modifier.weight(1f).padding(horizontal = 12.dp), color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                Text("Tap or drag to pick a color", Modifier.weight(1f).padding(horizontal = 12.dp), color = Color.White, style = MaterialTheme.typography.bodyMedium)
             }
             Box(
                 Modifier.weight(1f).fillMaxWidth().onSizeChanged { box = it }
@@ -484,7 +484,7 @@ private suspend fun loadBitmap(context: android.content.Context, data: Any, px: 
     return (SingletonImageLoader.get(context).execute(req) as? SuccessResult)?.image?.toBitmap()
 }
 
-/** A picture's main colours, liveliest first. */
+/** A picture's main colors, liveliest first. */
 private fun paletteOf(bitmap: Bitmap?): List<Int> {
     bitmap ?: return emptyList()
     val p = Palette.from(bitmap).maximumColorCount(16).generate()

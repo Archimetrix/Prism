@@ -12,7 +12,7 @@
     <string name="widget_spotify_name">Prism · Spotify style</string>
     <string name="widget_spotify_desc">A slim dark bar with a green play button</string>
     <string name="widget_apple_name">Prism · Apple Music style</string>
-    <string name="widget_apple_desc">A big cover on a card in the cover\'s colour</string>
+    <string name="widget_apple_desc">A big cover on a card in the cover\'s color</string>
     <string name="widget_ytmusic_name">Prism · YouTube Music style</string>
     <string name="widget_ytmusic_desc">Dark, with thumbs up and a red progress line</string>
     <string name="widget_cover_name">Prism · Cover</string>
@@ -20,7 +20,7 @@
     <string name="widget_disc_name">Prism · Disc</string>
     <string name="widget_disc_desc">The cover as a round disc, in a ring that fills as the song plays</string>
     <string name="widget_strip_name">Prism · Strip</string>
-    <string name="widget_strip_desc">A slim bar in the cover\'s colour, with previous, play and next</string>
+    <string name="widget_strip_desc">A slim bar in the cover\'s color, with previous, play and next</string>
     <string name="widget_recognize_name">Prism · Recognize</string>
     <string name="widget_recognize_desc">Find out what\'s playing around you. Make it wider to see the last song found</string>
     <string name="widget_recognize_label">RECOGNIZED</string>
