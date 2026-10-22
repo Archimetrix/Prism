@@ -540,21 +540,26 @@ private fun BlendCardDialog(blend: Blend, me: TasteCode, friend: TasteCode, onDi
  * ZXing; nothing is recorded or sent anywhere.
  */
 @Composable
-fun BlendScanScreen(onCode: (String) -> Unit) {
+fun BlendScanScreen(
+    prompt: String = "Point at your friend's Blend code",
+    /** The code in what a QR code says, or null when it holds none (a Blend code by default; Looks pass their own). */
+    find: (String?) -> String? = BlendCode::findIn,
+    onCode: (String) -> Unit,
+) {
     val context = LocalContext.current
     val nav = LocalNavigator.current
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     LaunchedEffect(Unit) { if (!granted) ask.launch(Manifest.permission.CAMERA) }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (granted) CameraScanner(onCode) else Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Prism needs the camera to scan a Blend code", color = Color.White, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
+        if (granted) CameraScanner(find, onCode) else Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Prism needs the camera to scan a code", color = Color.White, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
             PrismButton({ ask.launch(Manifest.permission.CAMERA) }) { Text("Allow the camera") }
         }
         Row(Modifier.statusBarsPadding().padding(12.dp)) { RoundAction(PrismIcons.ArrowBack, "Back", glass = true) { nav.back() } }
         Text(
-            "Point at your friend's Blend code", color = Color.White, style = MaterialTheme.typography.titleMedium,
+            prompt, color = Color.White, style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.5f)).padding(horizontal = 18.dp, vertical = 10.dp),
         )
         Box(Modifier.align(Alignment.Center).size(260.dp).border(3.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(24.dp)))
@@ -562,7 +567,7 @@ fun BlendScanScreen(onCode: (String) -> Unit) {
 }
 
 @Composable
-private fun CameraScanner(onCode: (String) -> Unit) {
+private fun CameraScanner(find: (String?) -> String?, onCode: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     val view = remember { PreviewView(context) }
@@ -589,7 +594,7 @@ private fun CameraScanner(onCode: (String) -> Unit) {
                 val source = PlanarYUVLuminanceSource(data, stride, image.height, 0, 0, image.width, image.height, false)
                 val text = runCatching { reader.decode(BinaryBitmap(HybridBinarizer(source)), hints).text }.getOrNull()
                 reader.reset()
-                val code = BlendCode.findIn(text)
+                val code = find(text)
                 // The whole text: besides the code, a QR code shown in Prism says how to send one back (BlendExchange).
                 if (code != null && done.compareAndSet(false, true)) view.post { onCode(text ?: code) }
             } finally {

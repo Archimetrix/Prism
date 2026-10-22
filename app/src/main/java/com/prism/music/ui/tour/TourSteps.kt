@@ -34,6 +34,7 @@ object Tour {
     private const val V1_7 = 39
     /** Prism 1.7.2 (build 41): color, and the smaller things that came with it. */
     private const val V1_7_2 = 41
+    private const val V1_7_3 = 42
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -182,6 +183,19 @@ object Tour {
                 "See which downloads failed, and why",
             ),
             listOf(PrismIcons.Edit),
+        ),
+        TourStep(
+            V1_7_3, PrismIcons.Looks, "Looks",
+            "Settings → Appearance → Looks: your whole look, saved, switched and shared in one tap.",
+            listOf(
+                "Try Prism's own: Paper, Midnight, Neon, Soft and Studio",
+                "Save yours, and share it as a QR code, a code or a file",
+                "One Look by day and another by night, at sunrise and sunset",
+                "Every look page shows Home, the player and lyrics as you change them; Undo takes a change back",
+                "Customize by tapping: hold the Settings tab, or turn it on in Appearance, then tap the mini player, tab bar, player or a Home section",
+            ),
+            listOf(PrismIcons.Sun, PrismIcons.Moon, PrismIcons.Undo),
+            showMe = Routes.settings("looks"),
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",

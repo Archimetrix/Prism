@@ -1,0 +1,284 @@
+package com.prism.music.data.looks
+
+import com.prism.music.data.prefs.LookValue
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.io.ByteArrayOutputStream
+import java.util.Base64
+import java.util.zip.Deflater
+import java.util.zip.Inflater
+
+/** The icon style a Look carries (Appearance → Icons & shapes; kept apart from the settings, see `IconStyle`). */
+@Serializable
+data class LookIcons(val pack: String = "PRISM", val weight: String = "REGULAR", val rounded: Boolean = true, val likeStar: Boolean = false)
+
+/**
+ * A Look (1.7.3): a named snapshot of how Prism looks, every setting in `SettingsRepository.lookSpec` as tagged text
+ * ([LookValue]; one it doesn't hold is at Prism's default), plus the icon style and, when it uses one, the listener's
+ * own font. Photos it uses as backgrounds are kept with it as `PHOTO|asset:<hash>` ([LookStore] keeps the files), so a
+ * Look never points at a file that can go away.
+ */
+@Serializable
+data class Look(
+    val id: String,
+    val name: String,
+    val values: Map<String, String> = emptyMap(),
+    val icons: LookIcons = LookIcons(),
+    /** The app font file's asset hash, when the Look uses the listener's own font. */
+    val font: String? = null,
+    val created: Long = 0,
+    /** One of Prism's own ([BuiltInLooks]): it can be applied and copied, not changed or deleted. */
+    val builtIn: Boolean = false,
+    /** What it is, in a few words (Prism's own Looks). */
+    val note: String = "",
+    val format: Int = 1,
+) {
+    /** The asset hashes this Look's backgrounds use. */
+    val photoAssets: List<String> get() = Backgrounds.parse(values[BACKDROPS]).values.mapNotNull(Backgrounds::assetOf)
+
+    companion object {
+        const val BACKDROPS = "backdrops"
+        const val FONT_CHOICE = "font_choice"
+        const val APP_FONT_NAME = "app_font_name"
+        const val LYRICS_FONT = "lyrics_font"
+        const val MAX_NAME = 40
+    }
+}
+
+/** The per-screen backgrounds a Look keeps, stored as one JSON map ("HOME" → "AURORA" or "PHOTO|…"). */
+object Backgrounds {
+    private val json = Json { ignoreUnknownKeys = true }
+    const val ASSET = "asset:"
+
+    fun parse(tagged: String?): Map<String, String> =
+        LookValue.text(tagged)?.let { runCatching { json.decodeFromString<Map<String, String>>(it) }.getOrNull() } ?: emptyMap()
+
+    fun tag(map: Map<String, String>): String = "s:" + json.encodeToString<Map<String, String>>(map)
+
+    /** The asset hash a background's photo is, or null when it isn't a kept photo. */
+    fun assetOf(v: String): String? = v.takeIf { it.startsWith("PHOTO|$ASSET") }?.substringAfter(ASSET)?.takeIf(::isHash)
+
+    fun isHash(s: String) = s.length == 40 && s.all { it in '0'..'9' || it in 'a'..'f' }
+}
+
+/**
+ * Looks as text to share (`PRISMLOOK1:` and the Look deflated, in URL-safe Base64), like Blend codes: small enough for a
+ * QR code when it has no photo or font of its own ([MAX_QR_CHARS]). Only the name, the look settings and the icon style
+ * travel; reading one keeps only settings a Look may hold, each with the right kind of value ([sanitized]).
+ */
+object LookCode {
+    const val PREFIX = "PRISMLOOK1:"
+    /** What fits in a QR code at medium error correction, with room to spare. */
+    const val MAX_QR_CHARS = 1_800
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+
+    @Serializable
+    private data class Wire(val n: String, val v: Map<String, String> = emptyMap(), val i: LookIcons = LookIcons(), val f: String? = null)
+
+    fun encode(look: Look): String {
+        val raw = json.encodeToString(Wire.serializer(), Wire(look.name, look.values, look.icons, look.font)).toByteArray(Charsets.UTF_8)
+        val deflater = Deflater(Deflater.BEST_COMPRESSION, true)
+        deflater.setInput(raw)
+        deflater.finish()
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(4096)
+        while (!deflater.finished()) out.write(buf, 0, deflater.deflate(buf))
+        deflater.end()
+        return PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(out.toByteArray())
+    }
+
+    /** The Look code somewhere in [text] (a message, a scanned QR code), or null. */
+    fun findIn(text: String?): String? {
+        val t = text ?: return null
+        val at = t.indexOf(PREFIX)
+        if (at < 0) return null
+        val body = t.substring(at + PREFIX.length).takeWhile { it.isLetterOrDigit() || it == '-' || it == '_' }
+        return if (body.isEmpty()) null else PREFIX + body
+    }
+
+    /** The Look in [text], checked against [kinds] (what a Look may set, and as what), or null if there isn't one. */
+    fun decode(text: String?, kinds: Map<String, Char>): Look? = runCatching {
+        val code = findIn(text) ?: return null
+        val bytes = Base64.getUrlDecoder().decode(code.removePrefix(PREFIX))
+        val inflater = Inflater(true)
+        inflater.setInput(bytes)
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(4096)
+        while (!inflater.finished()) {
+            val n = inflater.inflate(buf)
+            if (n == 0 && (inflater.needsInput() || inflater.needsDictionary())) break
+            out.write(buf, 0, n)
+            if (out.size() > 64 * 1024) return null
+        }
+        inflater.end()
+        val w = json.decodeFromString(Wire.serializer(), out.toString(Charsets.UTF_8.name()))
+        sanitized(Look(id = "", name = w.n, values = w.v, icons = w.i, font = w.f?.takeIf(Backgrounds::isHash)), kinds)
+    }.getOrNull()
+
+    /**
+     * [look] with only what a Look may hold: known settings with the right kind of value, backgrounds that are designs
+     * or kept photos (never a path on someone's phone), a name of a sensible length and a known icon style.
+     */
+    fun sanitized(look: Look, kinds: Map<String, Char>): Look {
+        val values = look.values.filter { (k, v) -> kinds[k]?.let { LookValue.untag(v, it) } != null }.toMutableMap()
+        values[Look.BACKDROPS]?.let { b ->
+            val kept = Backgrounds.parse(b).filter { (screen, v) ->
+                screen.length <= 16 && (v.startsWith("PHOTO|").not() && v.length <= 32 || Backgrounds.assetOf(v) != null)
+            }
+            if (kept.isEmpty()) values.remove(Look.BACKDROPS) else values[Look.BACKDROPS] = Backgrounds.tag(kept)
+        }
+        val icons = look.icons.let { i ->
+            LookIcons(
+                pack = i.pack.takeIf { p -> p in setOf("PRISM", "CUPERTINO") } ?: "PRISM",
+                weight = i.weight.takeIf { w -> w in setOf("THIN", "REGULAR", "BOLD") } ?: "REGULAR",
+                rounded = i.rounded, likeStar = i.likeStar,
+            )
+        }
+        val name = look.name.filter { !it.isISOControl() }.trim().take(Look.MAX_NAME).ifBlank { "A Look" }
+        return look.copy(name = name, values = values, icons = icons)
+    }
+}
+
+/** Prism's own Looks, each showing off what can be changed. The Prism Look is how Prism ships. */
+object BuiltInLooks {
+    private fun color(argb: Long) = "i:${argb.toInt()}"
+    private fun everywhere(style: String) = Backgrounds.tag(listOf("HOME", "SEARCH", "LIBRARY", "REPLAY", "SETTINGS").associateWith { style })
+
+    val all: List<Look> = listOf(
+        Look("prism", "Prism", builtIn = true, note = "How Prism comes: Outfit, the split light, soft corners"),
+        Look(
+            "paper", "Paper", builtIn = true, note = "Light, serif type, ink instead of color, warm paper",
+            values = mapOf(
+                "theme_mode" to "s:LIGHT", "font_choice" to "s:SERIF", "light_style" to "s:WHITE", "color_source" to "s:CUSTOM",
+                "accent" to color(0xFF8A5A3B), "surface_tint" to "s:CUSTOM", "surface_color" to color(0xFFD9B98C),
+                "surface_tint_strength" to "f:1.6", "corners" to "s:SUBTLE", "backdrops" to everywhere("SAND"),
+            ),
+        ),
+        Look(
+            "midnight", "Midnight", builtIn = true, note = "Pure black, thin icons, a deep blue",
+            values = mapOf(
+                "theme_mode" to "s:DARK", "pure_black" to "b:1", "color_source" to "s:CUSTOM", "accent" to color(0xFF2F5BFF),
+                "spectrum_preset" to "s:OCEAN",
+            ),
+            icons = LookIcons(weight = "THIN"),
+        ),
+        Look(
+            "neon", "Neon", builtIn = true, note = "Mono type, neon light, sharp corners",
+            values = mapOf(
+                "theme_mode" to "s:DARK", "font_choice" to "s:MONO", "spectrum_preset" to "s:NEON", "corners" to "s:SHARP",
+                "color_source" to "s:CUSTOM", "accent" to color(0xFFFF2E93), "accent_exact" to "b:1", "backdrops" to everywhere("NEON"),
+            ),
+        ),
+        Look(
+            "soft", "Soft", builtIn = true, note = "Rounded type, extra-round corners, pastels",
+            values = mapOf(
+                "font_choice" to "s:ROUNDED", "corners" to "s:EXTRA", "spectrum_preset" to "s:CANDY", "color_source" to "s:CUSTOM",
+                "accent" to color(0xFFB79CFF), "backdrops" to everywhere("ROSE"),
+            ),
+        ),
+        Look(
+            "studio", "Studio", builtIn = true, note = "White light, no accent, compact, classic controls",
+            values = mapOf(
+                "light_style" to "s:WHITE", "color_source" to "s:CUSTOM", "accent" to color(0xFFFFFFFF), "ui_density" to "s:COMPACT",
+                "transport_style" to "s:GLYPHS", "font_choice" to "s:CLEAN", "corners" to "s:SUBTLE",
+            ),
+        ),
+    )
+
+    fun of(id: String): Look? = all.firstOrNull { it.id == id }
+}
+
+/** How a look setting and its value read in the undo bar and History ("Corners → Sharp"). */
+object LookLabels {
+    private val titles = mapOf(
+        "theme_mode" to "Theme", "pure_black" to "Pure black", "color_source" to "Accent from", "accent" to "Accent color",
+        "light_style" to "Light", "accent_exact" to "Exactly as picked", "accent_light" to "Light mode accent", "spectrum_preset" to "Spectrum",
+        "spectrum_stops" to "Your light's colors", "spectrum_bands" to "Spectrum in bands", "surface_tint" to "Page background",
+        "surface_tint_strength" to "Background strength", "surface_color" to "Background color", "contrast_level" to "Contrast",
+        "artwork_swatch" to "Cover color", "artwork_vivid" to "Always colorful", "artwork_change" to "Between songs",
+        "page_picture_accent" to "Pages in their picture's color", "liquid_glass" to "Liquid Glass", "glass_kind" to "Glass style",
+        "frosted_glass" to "Frosted Glass", "frosted_pages" to "Frosted pages", "backdrops" to "Backgrounds", "backdrop_dim" to "Background softness",
+        "backdrop_motion" to "Gentle motion", "reduce_motion" to "Reduce motion", "font_choice" to "Font", "app_font_name" to "Your font",
+        "lyrics_font" to "Lyrics font", "text_scale" to "Text size", "corners" to "Corners", "ui_density" to "Spacing", "title_size" to "Page titles",
+        "card_size" to "Cards", "nav_style" to "Tab bar", "nav_labels" to "Tab labels", "nav_hide_on_scroll" to "Shrink while scrolling",
+        "nav_tabs" to "Tabs", "start_tab" to "Start tab", "mini_player_style" to "Mini player", "mini_skip_buttons" to "Mini player's Next",
+        "mini_prev_button" to "Mini player's Previous", "mini_progress" to "Mini player progress", "player_background" to "Player background",
+        "player_backdrop_show" to "Player background showing", "player_art_corners" to "Cover corners", "transport_style" to "Controls",
+        "cover_size" to "Cover size", "scrubber_style" to "Progress bar", "art_shrink_on_pause" to "Cover shrinks on pause",
+        "show_output_device" to "Output device", "full_bleed_artwork" to "Edge-to-edge cover", "hide_volume_bar" to "Hide volume bar",
+        "show_playing_from" to "Playing from", "player_shuffle_repeat" to "Shuffle & repeat", "immersive_art" to "Immersive cover",
+        "immersive_lyrics" to "Immersive lyrics", "immersive_controls" to "Immersive controls", "lyrics_align" to "Lyrics alignment",
+        "lyrics_blur" to "Lyrics focus", "lyrics_progress_line" to "Lyrics progress line", "lyrics_scale" to "Lyrics size",
+        "library_view" to "Library view", "playlist_hero_cover" to "Playlist picture", "replay_theme_colors" to "Replay in your colors",
+        "replay_card" to "Replay card",
+    )
+
+    /** Settings whose stored names are enum names, with each name's label. */
+    private val choices: Map<String, Map<String, String>> by lazy {
+        fun <E : Enum<E>> e(entries: List<E>, label: (E) -> String) = entries.associate { it.name to label(it) }
+        val p = com.prism.music.data.prefs.ThemeMode.entries
+        mapOf(
+            "theme_mode" to e(p) { it.label },
+            "color_source" to e(com.prism.music.data.prefs.ColorSource.entries) { it.label },
+            "light_style" to e(com.prism.music.data.prefs.LightStyle.entries) { it.label },
+            "surface_tint" to e(com.prism.music.data.prefs.SurfaceTint.entries) { it.label },
+            "contrast_level" to e(com.prism.music.data.prefs.ContrastLevel.entries) { it.label },
+            "artwork_swatch" to e(com.prism.music.data.prefs.ArtworkSwatch.entries) { it.label },
+            "artwork_change" to e(com.prism.music.data.prefs.ArtworkChange.entries) { it.label },
+            "glass_kind" to e(com.prism.music.data.prefs.GlassKind.entries) { it.label },
+            "font_choice" to e(com.prism.music.data.prefs.FontChoice.entries) { it.label },
+            "lyrics_font" to e(com.prism.music.data.prefs.FontChoice.entries) { it.label } + ("" to "App font"),
+            "corners" to e(com.prism.music.data.prefs.Corners.entries) { it.label },
+            "ui_density" to e(com.prism.music.data.prefs.UiDensity.entries) { it.label },
+            "title_size" to e(com.prism.music.data.prefs.TitleSize.entries) { it.label },
+            "card_size" to e(com.prism.music.data.prefs.CardSize.entries) { it.label },
+            "nav_style" to e(com.prism.music.data.prefs.NavBarStyle.entries) { it.label },
+            "nav_labels" to e(com.prism.music.data.prefs.NavLabels.entries) { it.label },
+            "start_tab" to e(com.prism.music.data.prefs.NavTab.entries) { it.label },
+            "mini_player_style" to e(com.prism.music.data.prefs.MiniPlayerStyle.entries) { it.label },
+            "mini_progress" to e(com.prism.music.data.prefs.MiniProgress.entries) { it.label },
+            "player_background" to e(com.prism.music.data.prefs.PlayerBackground.entries) { it.label },
+            "transport_style" to e(com.prism.music.data.prefs.TransportStyle.entries) { it.label },
+            "cover_size" to e(com.prism.music.data.prefs.CoverSize.entries) { it.label },
+            "scrubber_style" to e(com.prism.music.data.prefs.ScrubberStyle.entries) { it.label },
+            "immersive_art" to e(com.prism.music.data.prefs.ImmersiveArt.entries) { it.label },
+            "immersive_lyrics" to e(com.prism.music.data.prefs.ImmersiveLyrics.entries) { it.label },
+            "lyrics_align" to e(com.prism.music.data.prefs.LyricsAlign.entries) { it.label },
+            "library_view" to e(com.prism.music.data.prefs.LibraryView.entries) { it.label },
+            "spectrum_preset" to com.prism.music.ui.theme.SpectrumPresets.all.associate { it.key to it.label } + ("CUSTOM" to "Your own"),
+        )
+    }
+
+    private val percent = setOf("text_scale", "lyrics_scale", "backdrop_dim", "player_backdrop_show", "surface_tint_strength")
+    private val colors = setOf("accent", "accent_light", "surface_color")
+
+    fun title(name: String): String = titles[name] ?: name.replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+    /** Whether [name] has its own words (LookTest: every look setting does). */
+    fun named(name: String): Boolean = name in titles
+
+    /** [tagged] as it reads ("Sharp", "On", "110%", "#3A86FF"); null is the setting's default. */
+    fun value(name: String, tagged: String?): String {
+        val v = LookValue.text(tagged) ?: return "As Prism comes"
+        return when (tagged!![0]) {
+            'b' -> if (v == "1") "On" else "Off"
+            'f' -> v.toFloatOrNull()?.let { if (name in percent) "${(it * 100).toInt()}%" else v } ?: v
+            'i' -> v.toIntOrNull()?.let { if (name in colors) "#%06X".format(it and 0xFFFFFF) else if (name == "player_art_corners") "$it dp" else v } ?: v
+            else -> when (name) {
+                "backdrops" -> "Changed"
+                "nav_tabs" -> v.split(',').joinToString(", ") { t -> choices["start_tab"]?.get(t) ?: t }
+                "spectrum_stops" -> "${v.split(',').size} colors"
+                "replay_card", "app_font_name" -> v.lowercase().replaceFirstChar { it.uppercase() }
+                else -> choices[name]?.get(v) ?: v
+            }
+        }
+    }
+
+    /** One change as it reads: "Corners → Sharp", or "Corners → Sharp and 2 more". */
+    fun change(before: Map<String, String>, after: Map<String, String>, order: List<String>): String? {
+        val changed = (before.keys + after.keys).filter { before[it] != after[it] }.sortedBy { order.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }
+        val first = changed.firstOrNull() ?: return null
+        val one = "${title(first)} → ${value(first, after[first])}"
+        return if (changed.size == 1) one else "$one and ${changed.size - 1} more"
+    }
+}

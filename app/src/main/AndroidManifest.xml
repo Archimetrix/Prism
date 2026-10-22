@@ -74,6 +74,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- Looks (1.7.3): a .prismlook file (a zip) sent to Prism or opened with it. -->
+            <intent-filter android:label="@string/open_in_prism">
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/zip" />
+            </intent-filter>
         </activity>
 
         <!-- App icons (Settings → Appearance → App icon, #20): exactly one of these launcher entries is enabled

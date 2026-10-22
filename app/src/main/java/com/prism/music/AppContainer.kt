@@ -165,6 +165,10 @@ class AppContainer(val app: Application) {
         prompt()
     }
     val settings = SettingsRepository(app, scope)
+    /** Looks (1.7.3): saved, Prism's own and shared looks, Undo for look changes, the day / night schedule. */
+    val looks = com.prism.music.data.looks.LookStore(app, settings, scope)
+    /** "Customize this" (1.7.3): with it on, the mini player, tab bar, player and Home's sections open their own settings. */
+    val customizing = MutableStateFlow(false)
 
     val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)

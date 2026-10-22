@@ -2,6 +2,28 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.3 (unreleased)
+
+The second customization update: Looks.
+
+### Looks
+- **Save your look.** Settings → Appearance → Looks keeps your colors, type, icons, backgrounds, and the player's and
+  lyrics' look together as a Look. Switch between them with one tap; everything changes at once.
+- **Prism's own Looks**: Prism (how it comes), Paper, Midnight, Neon, Soft and Studio. Copy one to make it your own.
+- **Share a Look** as a QR code, a code in a message, or a `.prismlook` file that can carry its background photos and
+  (if you tick it) your font. A Look someone sends shows first, with Use it and Save; it can only change how Prism looks.
+- **Day and night.** One Look by day and another by night, switched at sunrise and sunset (worked out from your time
+  zone, no location needed) or at times you set.
+- **Undo.** After every change to the look, an Undo bar says what changed ("Corners → Sharp"). Looks → History goes
+  back further (the last 10 changes).
+
+### Changing the look
+- **A live preview** at the top of every look page: Home with the mini player and tab bar, the player and the lyrics,
+  as your choices make them. It stays pinned under the bar as you scroll.
+- **Customize by tapping.** Turn it on in Appearance (or hold the Settings tab), then tap the mini player, the tab bar,
+  the player or any Home section to change just that, right there.
+- **Reset this page** on each look page, beside Appearance's Reset look.
+
 ## 1.7.2
 
 The first of the 1.7.x customization updates: color.

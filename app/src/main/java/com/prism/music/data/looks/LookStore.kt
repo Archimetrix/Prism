@@ -1,0 +1,440 @@
+package com.prism.music.data.looks
+
+import android.content.Context
+import com.prism.music.data.prefs.LookValue
+import com.prism.music.data.prefs.SettingsRepository
+import com.prism.music.ui.theme.AppFonts
+import com.prism.music.ui.theme.IconPack
+import com.prism.music.ui.theme.IconStyle
+import com.prism.music.ui.theme.IconWeight
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.security.MessageDigest
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
+/** One step in the look's history: what it was [before] a change, and the change as it reads ("Corners → Sharp"). */
+@Serializable
+data class LookStep(val label: String, val at: Long, val before: Map<String, String>, val keys: List<String> = emptyList(), val look: Boolean = false)
+
+/** "Undo: …" for the bar that shows after a change; [id] tells two notes with the same words apart. */
+data class UndoNote(val label: String, val id: Long)
+
+/**
+ * A Look for the day and one for the night (1.7.3), switched at sunrise and sunset ([SunClock], from the time zone, no
+ * location) or at [dayAt] / [nightAt] (minutes after midnight).
+ */
+@Serializable
+data class LookSchedule(
+    val on: Boolean = false,
+    val day: String = "prism",
+    val night: String = "midnight",
+    val sun: Boolean = true,
+    val dayAt: Int = 7 * 60,
+    val nightAt: Int = 20 * 60,
+)
+
+/**
+ * Looks (1.7.3): the listener's own (files/looks/<id>.json, in backups), Prism's ([BuiltInLooks]), switching between
+ * them in one settings edit, sharing them as codes and `.prismlook` files, the look's history for Undo, and the
+ * day / night schedule. Photos and fonts a Look uses are kept in files/looks/assets by content hash.
+ */
+class LookStore(private val app: Context, private val settings: SettingsRepository, private val scope: CoroutineScope) {
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val dir = File(app.filesDir, "looks")
+    private val assetDir = File(dir, "assets")
+    private val prefs get() = app.getSharedPreferences("looks", Context.MODE_PRIVATE)
+
+    private val _mine = MutableStateFlow(loadMine())
+    /** The listener's own Looks, oldest first. */
+    val mine: StateFlow<List<Look>> = _mine.asStateFlow()
+    val all: List<Look> get() = BuiltInLooks.all + _mine.value
+
+    fun find(id: String): Look? = BuiltInLooks.of(id) ?: _mine.value.firstOrNull { it.id == id }
+
+    /** A Look shared into Prism (a code from a message or a QR code, or a file), shown with Apply and Save first. */
+    val pending = MutableStateFlow<Look?>(null)
+
+    private val iconsVersion = MutableStateFlow(0)
+
+    /** The Look the app is in, when its settings and icons are exactly one's. */
+    val currentId: StateFlow<String?> = combine(settings.flow, _mine, iconsVersion) { s, mine, _ ->
+        val icons = currentIcons()
+        (BuiltInLooks.all + mine).firstOrNull { l -> l.icons == icons && settings.previewLook(resolved(l)) == s }?.id
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+
+    // ---------------------------------------------------------------- Keeping Looks
+
+    private fun loadMine(): List<Look> = (dir.listFiles { f -> f.isFile && f.name.endsWith(".json") && f.name.startsWith("my-") } ?: emptyArray())
+        .mapNotNull { f -> runCatching { json.decodeFromString(Look.serializer(), f.readText()) }.getOrNull() }
+        .map { LookCode.sanitized(it, settings.lookKinds).copy(builtIn = false) }
+        .sortedBy { it.created }
+
+    private fun write(look: Look) {
+        dir.mkdirs()
+        File(dir, "${look.id}.json").writeText(json.encodeToString(Look.serializer(), look))
+        _mine.value = (_mine.value.filterNot { it.id == look.id } + look).sortedBy { it.created }
+    }
+
+    private fun newId() = "my-" + java.lang.Long.toString(System.currentTimeMillis(), 36) + "-" + (1000..9999).random()
+
+    /**
+     * The app's look as it is now, as a Look named [name]: its photos and own font are kept with it, and the
+     * backgrounds then point at the kept photos, so picking another photo later can't take this one away.
+     */
+    suspend fun saveCurrent(name: String): Look = withContext(Dispatchers.IO) {
+        val v = settings.lookValues.value.toMutableMap()
+        v[Look.BACKDROPS]?.let { tagged ->
+            val kept = Backgrounds.parse(tagged).mapNotNull { (screen, value) ->
+                if (!value.startsWith("PHOTO|")) screen to value
+                else keep(File(value.substringAfter('|')))?.let { h -> screen to "PHOTO|${Backgrounds.ASSET}$h" }
+            }.toMap()
+            if (kept.isEmpty()) v.remove(Look.BACKDROPS) else v[Look.BACKDROPS] = Backgrounds.tag(kept)
+        }
+        val custom = LookValue.text(v[Look.FONT_CHOICE]) == "CUSTOM"
+        val font = if (custom) AppFonts.customFile(AppFonts.FontSlot.APP)?.let(::keep) else null
+        if (font == null) { v.remove(Look.APP_FONT_NAME); if (custom) v.remove(Look.FONT_CHOICE) }
+        // The lyrics' own font file stays outside Looks.
+        if (LookValue.text(v[Look.LYRICS_FONT]) == "CUSTOM") v.remove(Look.LYRICS_FONT)
+        val look = Look(newId(), name.trim().take(Look.MAX_NAME).ifBlank { "My Look" }, v, currentIcons(), font, System.currentTimeMillis())
+        write(look)
+        // The backgrounds now point at the kept photos (not a change to the look: no Undo for it).
+        val photos = Backgrounds.parse(look.values[Look.BACKDROPS]).filterValues { Backgrounds.assetOf(it) != null }
+        if (photos.isNotEmpty()) {
+            val resolvedMap = Backgrounds.parse(resolved(look)[Look.BACKDROPS])
+            expect = Expect(silent = true) { before, now -> changedKeys(before, now) == listOf(Look.BACKDROPS) }
+            settings.setBackdrops(resolvedMap)
+        }
+        look
+    }
+
+    /** Keeps [look] (a shared one, or a copy of Prism's own) as one of the listener's, under a new id. */
+    suspend fun keep(look: Look, name: String = look.name): Look = withContext(Dispatchers.IO) {
+        look.copy(id = newId(), name = name.trim().take(Look.MAX_NAME).ifBlank { look.name }, builtIn = false, note = "", created = System.currentTimeMillis())
+            .also(::write)
+    }
+
+    fun rename(id: String, name: String) {
+        val look = _mine.value.firstOrNull { it.id == id } ?: return
+        scope.launch(Dispatchers.IO) { write(look.copy(name = name.trim().take(Look.MAX_NAME).ifBlank { look.name })) }
+    }
+
+    fun delete(id: String) {
+        _mine.value = _mine.value.filterNot { it.id == id }
+        scope.launch(Dispatchers.IO) {
+            File(dir, "$id.json").delete()
+            if (_schedule.value.day == id || _schedule.value.night == id) setSchedule(_schedule.value.copy(on = false))
+            sweepAssets()
+        }
+    }
+
+    /** Photos and fonts no Look, background or undo step uses any more. */
+    private fun sweepAssets() {
+        val used = HashSet<String>()
+        _mine.value.forEach { l -> used += l.photoAssets; l.font?.let(used::add) }
+        val paths = (listOf(settings.lookValues.value) + _steps.value.map { it.before })
+            .flatMap { Backgrounds.parse(it[Look.BACKDROPS]).values }.map { it.substringAfter('|') }
+        assetDir.listFiles()?.forEach { f -> if (f.name !in used && paths.none { p -> p == f.absolutePath }) f.delete() }
+    }
+
+    /** A copy of [file] kept by its content's hash (only Prism's own files); its hash, or null if it isn't there. */
+    private fun keep(file: File): String? = runCatching {
+        if (!file.canonicalPath.startsWith(app.filesDir.canonicalPath) || !file.isFile) return null
+        val h = sha1(file.readBytes())
+        val out = File(assetDir, h)
+        if (!out.exists()) { assetDir.mkdirs(); file.copyTo(out, overwrite = true) }
+        h
+    }.getOrNull()
+
+    private fun sha1(bytes: ByteArray) = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    // ---------------------------------------------------------------- Switching
+
+    /** [look]'s settings as they're stored: kept photos as their files' paths, its own font only when it has the file. */
+    fun resolved(look: Look): Map<String, String> {
+        val v = look.values.toMutableMap()
+        v[Look.BACKDROPS]?.let { tagged ->
+            val map = Backgrounds.parse(tagged).mapNotNull { (screen, value) ->
+                val h = Backgrounds.assetOf(value)
+                when {
+                    h != null -> File(assetDir, h).takeIf { it.isFile }?.let { screen to "PHOTO|${it.absolutePath}" }
+                    value.startsWith("PHOTO|") -> null
+                    else -> screen to value
+                }
+            }.toMap()
+            if (map.isEmpty()) v.remove(Look.BACKDROPS) else v[Look.BACKDROPS] = Backgrounds.tag(map)
+        }
+        if (LookValue.text(v[Look.FONT_CHOICE]) == "CUSTOM" && look.font?.let { File(assetDir, it).isFile } != true) {
+            v.remove(Look.FONT_CHOICE); v.remove(Look.APP_FONT_NAME)
+        }
+        return v
+    }
+
+    /** The settings Prism would have with [look] (for its card's preview). */
+    fun preview(look: Look) = settings.previewLook(resolved(look))
+
+    /** Switches to [look] in one edit; it shows in the undo bar as [label]. */
+    suspend fun apply(look: Look, label: String = "Look → ${look.name}") = withContext(Dispatchers.IO) {
+        val values = resolved(look)
+        var fontChanged = false
+        if (LookValue.text(values[Look.FONT_CHOICE]) == "CUSTOM") look.font?.let { h ->
+            val dst = File(app.filesDir, "fonts/${AppFonts.FontSlot.APP.fileName}")
+            if (!dst.isFile || sha1(dst.readBytes()) != h) {
+                dst.parentFile?.mkdirs()
+                File(assetDir, h).copyTo(dst, overwrite = true)
+                fontChanged = true
+            }
+        }
+        expect = Expect(label = label) { _, _ -> true }
+        settings.applyLook(values, fontChanged)
+        applyIcons(look.icons)
+    }
+
+    fun currentIcons(): LookIcons {
+        val (w, r) = IconStyle.saved(app)
+        return LookIcons(IconStyle.savedPack(app).name, w.name, r, IconStyle.savedLikeStar(app))
+    }
+
+    private fun applyIcons(i: LookIcons) {
+        if (i == currentIcons()) return
+        IconStyle.save(app, IconWeight.entries.firstOrNull { it.name == i.weight } ?: IconWeight.REGULAR, i.rounded)
+        IconStyle.savePack(app, IconPack.entries.firstOrNull { it.name == i.pack } ?: IconPack.PRISM)
+        IconStyle.saveLikeStar(app, i.likeStar)
+        iconsChanged()
+    }
+
+    /** The icon style was changed in Settings (it's kept outside the settings, so Looks are told). */
+    fun iconsChanged() { iconsVersion.value++ }
+
+    /** Whether the saved icon style differs from the one drawn (icons are built as Prism starts). */
+    fun iconsNeedRestart(): Boolean {
+        val (w, r) = IconStyle.saved(app)
+        return w != IconStyle.weight || r != IconStyle.rounded || IconStyle.savedPack(app) != IconStyle.pack || IconStyle.savedLikeStar(app) != IconStyle.likeStar
+    }
+
+    // ---------------------------------------------------------------- Sharing
+
+    private fun withoutPhotos(look: Look): Look {
+        val b = look.values[Look.BACKDROPS] ?: return look
+        val designs = Backgrounds.parse(b).filterValues { !it.startsWith("PHOTO|") }
+        return look.copy(values = if (designs.isEmpty()) look.values - Look.BACKDROPS else look.values + (Look.BACKDROPS to Backgrounds.tag(designs)))
+    }
+
+    private fun withoutFont(look: Look): Look = look.copy(
+        font = null,
+        values = if (LookValue.text(look.values[Look.FONT_CHOICE]) == "CUSTOM") look.values - Look.FONT_CHOICE - Look.APP_FONT_NAME else look.values,
+    )
+
+    /** [look] without what can't go in a code: photos and its own font. */
+    private fun forCode(look: Look): Look = withoutFont(withoutPhotos(look))
+
+    /** [look] as a code to send or show as a QR code (no photos or own font: those need a file, [writeFile]). */
+    fun code(look: Look): String = LookCode.encode(forCode(look))
+
+    /** Whether [look] has photos or a font a code would leave out. */
+    fun hasFiles(look: Look): Boolean = look.photoAssets.isNotEmpty() || look.font != null
+
+    /** A shared Look in [text] (a code), checked, or null. */
+    fun decode(text: String?): Look? = LookCode.decode(text, settings.lookKinds)
+
+    /**
+     * [look] as a `.prismlook` file: a zip of its code and, when ticked, its photos ([withPhotos]) and own font
+     * ([withFont]). Throws when it would be over [MAX_FILE] bytes.
+     */
+    suspend fun writeFile(look: Look, out: OutputStream, withPhotos: Boolean, withFont: Boolean) = withContext(Dispatchers.IO) {
+        var l = look
+        if (!withPhotos) l = withoutPhotos(l)
+        if (!withFont) l = withoutFont(l)
+        val assets = (l.photoAssets + listOfNotNull(l.font)).distinct().map { File(assetDir, it) }.filter { it.isFile }
+        if (assets.sumOf { it.length() } > MAX_FILE) error("Its photos and font come to more than 8 MB. Untick one and try again.")
+        ZipOutputStream(out.buffered()).use { zip ->
+            zip.putNextEntry(ZipEntry(FILE_CODE))
+            zip.write(LookCode.encode(l).toByteArray())
+            zip.closeEntry()
+            assets.forEach { f ->
+                zip.putNextEntry(ZipEntry("assets/${f.name}"))
+                f.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
+        }
+    }
+
+    /** The Look in a `.prismlook` file; its photos and font are kept (checked against their hashes). Throws with a message. */
+    suspend fun readFile(input: InputStream): Look = withContext(Dispatchers.IO) {
+        var look: Look? = null
+        var total = 0L
+        val files = HashMap<String, ByteArray>()
+        ZipInputStream(input.buffered()).use { zip ->
+            while (true) {
+                val e = zip.nextEntry ?: break
+                if (e.isDirectory) continue
+                val bytes = readCapped(zip, MAX_FILE + 64 * 1024 - total) ?: error("That Look file is too big")
+                total += bytes.size
+                when {
+                    e.name == FILE_CODE -> look = decode(bytes.decodeToString())
+                    e.name.startsWith("assets/") -> e.name.removePrefix("assets/").takeIf(Backgrounds::isHash)?.let { files[it] = bytes }
+                }
+            }
+        }
+        val l = look ?: error("That file isn't a Prism Look")
+        val wanted = (l.photoAssets + listOfNotNull(l.font)).toSet()
+        files.filterKeys { it in wanted }.forEach { (h, bytes) ->
+            if (sha1(bytes) == h) { assetDir.mkdirs(); File(assetDir, h).writeBytes(bytes) }
+        }
+        l
+    }
+
+    private fun readCapped(input: InputStream, max: Long): ByteArray? {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(8192)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            out.write(buf, 0, n)
+            if (out.size() > max) return null
+        }
+        return out.toByteArray()
+    }
+
+    // ---------------------------------------------------------------- Undo and history
+
+    /** A change Prism is about to make itself: when [matches] the next one, it reads as [label] ([silent]: not kept at all). */
+    private class Expect(val label: String? = null, val silent: Boolean = false, val undo: Boolean = false, val matches: (Map<String, String>, Map<String, String>) -> Boolean)
+    @Volatile private var expect: Expect? = null
+
+    private val _steps = MutableStateFlow(loadSteps())
+    /** The last [MAX_STEPS] changes to the look, newest first. */
+    val steps: StateFlow<List<LookStep>> = _steps.asStateFlow()
+    private val _notes = MutableSharedFlow<UndoNote>(extraBufferCapacity = 4)
+    /** One for each change to the look, for the "Undo" bar. */
+    val notes: SharedFlow<UndoNote> = _notes
+    private var noteId = 0L
+
+    private fun loadSteps(): List<LookStep> = runCatching {
+        json.decodeFromString(ListSerializer(LookStep.serializer()), File(dir, HISTORY).readText())
+    }.getOrDefault(emptyList()).take(MAX_STEPS)
+
+    private fun saveSteps(steps: List<LookStep>) {
+        _steps.value = steps
+        scope.launch(Dispatchers.IO) { runCatching { dir.mkdirs(); File(dir, HISTORY).writeText(json.encodeToString(ListSerializer(LookStep.serializer()), steps)) } }
+    }
+
+    private fun changedKeys(before: Map<String, String>, now: Map<String, String>) =
+        (before.keys + now.keys).filter { before[it] != now[it] }.sorted()
+
+    private val order: List<String> by lazy { settings.lookKinds.keys.toList() }
+
+    private fun onChange(before: Map<String, String>, now: Map<String, String>) {
+        val e = expect?.takeIf { it.matches(before, now) }
+        expect = null
+        if (e?.silent == true || e?.undo == true) return
+        val keys = changedKeys(before, now)
+        if (keys.isEmpty()) return
+        val label = e?.label ?: LookLabels.change(before, now, order) ?: return
+        val steps = _steps.value
+        val top = steps.firstOrNull()
+        val at = System.currentTimeMillis()
+        // Dragging a slider or flicking one switch back and forth is one step.
+        val merged = e == null && top != null && !top.look && top.keys == keys && at - top.at < MERGE_MS
+        saveSteps(if (merged) listOf(top!!.copy(label = label, at = at)) + steps.drop(1) else (listOf(LookStep(label, at, before, keys, look = e != null)) + steps).take(MAX_STEPS))
+        _notes.tryEmit(UndoNote(label, ++noteId))
+    }
+
+    /** Takes back the last change. */
+    fun undo() = goBack(0)
+
+    /** Puts the look back as it was before step [index] (and everything after it). */
+    fun goBack(index: Int) {
+        val steps = _steps.value
+        val step = steps.getOrNull(index) ?: return
+        saveSteps(steps.drop(index + 1))
+        expect = Expect(undo = true) { _, now -> now == step.before }
+        scope.launch { settings.applyLook(step.before) }
+    }
+
+    // ---------------------------------------------------------------- Schedule
+
+    private val _schedule = MutableStateFlow(runCatching { json.decodeFromString(LookSchedule.serializer(), File(dir, SCHEDULE).readText()) }.getOrDefault(LookSchedule()))
+    val schedule: StateFlow<LookSchedule> = _schedule.asStateFlow()
+
+    fun setSchedule(s: LookSchedule) {
+        _schedule.value = s
+        scope.launch(Dispatchers.IO) { runCatching { dir.mkdirs(); File(dir, SCHEDULE).writeText(json.encodeToString(LookSchedule.serializer(), s)) } }
+    }
+
+    /** When the schedule next switches, and to which part ([SunClock.Turn]), for Settings to say. */
+    fun nextTurn(s: LookSchedule = _schedule.value): SunClock.Turn {
+        val zone = ZoneId.systemDefault()
+        return SunClock.around(Instant.now(), zone, s.sun, s.dayAt, s.nightAt, ZonePlaces.of(app, zone)).second
+    }
+
+    /**
+     * Keeps the schedule: at each sunrise and sunset (or set time) the part's Look goes on, once, so a Look picked by
+     * hand in between stays until the next turn. Turning the schedule on puts the part's Look on at once.
+     */
+    private fun runSchedule() = scope.launch {
+        _schedule.collectLatest { s ->
+            if (!s.on) return@collectLatest
+            while (true) {
+                val zone = ZoneId.systemDefault()
+                val now = Instant.now()
+                val (last, next) = SunClock.around(now, zone, s.sun, s.dayAt, s.nightAt, ZonePlaces.of(app, zone))
+                val id = if (last.to == SunClock.Part.DAY) s.day else s.night
+                val key = "${last.to}@${last.at.epochSecond / 60}|$id"
+                if (key != prefs.getString(LAST_TURN, null)) {
+                    find(id)?.let { apply(it, "${it.name} for the ${if (last.to == SunClock.Part.DAY) "day" else "night"}") }
+                    prefs.edit().putString(LAST_TURN, key).apply()
+                }
+                // Looked at again by the turn, and at least every 15 minutes (the clock or time zone may change).
+                delay(Duration.between(now, next.at).toMillis().plus(1_000).coerceIn(5_000, 15 * 60_000))
+            }
+        }
+    }
+
+    init {
+        scope.launch {
+            var last = settings.lookValues.value
+            settings.lookValues.collect { now ->
+                val before = last
+                last = now
+                if (before != now) onChange(before, now)
+            }
+        }
+        runSchedule()
+    }
+
+    companion object {
+        const val MAX_STEPS = 10
+        /** Bigger files' photos and fonts aren't taken (8 MB). */
+        const val MAX_FILE = 8L * 1024 * 1024
+        const val FILE_EXTENSION = "prismlook"
+        private const val FILE_CODE = "look.txt"
+        private const val HISTORY = "history.json"
+        private const val SCHEDULE = "schedule.json"
+        private const val LAST_TURN = "schedule_last"
+        private const val MERGE_MS = 4_000L
+    }
+}

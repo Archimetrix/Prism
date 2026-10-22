@@ -123,7 +123,9 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     COLOR("color", "Color", PrismIcons.Palette),
     TEXT("text", "Text", PrismIcons.Signature),
     ICONS("icons", "Icons & shapes", PrismIcons.Category),
-    GLASS("glass", "Glass & backgrounds", PrismIcons.Photo);
+    GLASS("glass", "Glass & backgrounds", PrismIcons.Photo),
+    /** Not on the hub: Appearance → Looks (1.7.3). */
+    LOOKS("looks", "Looks", PrismIcons.Looks);
 
     fun summary(s: AppSettings, dark: Boolean = true): String = when (this) {
         APPEARANCE -> listOf(s.themeMode.label + " theme", s.fontChoice.label + " font", when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }).joinToString(" · ")
@@ -147,7 +149,29 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         TEXT -> listOfNotNull(s.fontChoice.label + " font", if (s.textScale != 1f) "${(s.textScale * 100).roundToInt()}% size" else null).joinToString(" · ")
         ICONS -> "Icon pack and weight, app icon, corners"
         GLASS -> listOfNotNull(when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }, if (s.backdrops.isEmpty()) null else "Backgrounds", if (s.reduceMotion) "Reduced motion" else null).joinToString(" · ")
+        LOOKS -> "Save, switch and share whole looks; day and night"
     }
+
+    /** The look settings on this page, for its "Reset this page" (empty: the page has none, or its own reset). */
+    val lookKeys: List<String> get() = when (this) {
+        TEXT -> listOf("font_choice", "lyrics_font", "text_scale")
+        ICONS -> listOf("corners")
+        GLASS -> listOf("liquid_glass", "glass_kind", "frosted_glass", "frosted_pages", "backdrops", "backdrop_dim", "backdrop_motion", "reduce_motion")
+        INTERFACE -> listOf(
+            "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab", "mini_player_style", "mini_skip_buttons",
+            "mini_prev_button", "mini_progress", "ui_density", "title_size", "card_size",
+        )
+        PLAYER -> listOf(
+            "player_background", "player_backdrop_show", "transport_style", "scrubber_style", "cover_size", "player_art_corners",
+            "full_bleed_artwork", "art_shrink_on_pause", "show_playing_from", "player_shuffle_repeat", "hide_volume_bar",
+            "show_output_device", "immersive_art", "immersive_lyrics", "immersive_controls",
+        )
+        LYRICS -> listOf("lyrics_align", "lyrics_scale", "lyrics_blur", "lyrics_progress_line")
+        else -> emptyList()
+    }
+
+    /** Look pages show the live preview (Color has its own). */
+    val previewed: Boolean get() = this in setOf(APPEARANCE, TEXT, ICONS, GLASS, INTERFACE, PLAYER, LOOKS)
 
     companion object { fun of(key: String?) = entries.firstOrNull { it.key == key } }
 }
@@ -214,9 +238,19 @@ private fun SettingsPage(
         horizontalPadding = 16.dp,
         spacing = 22.dp,
         showBack = !isTab,
-        pinned = if (section == SettingsSection.COLOR) ({ ColorPreviewBar(pinned = true) }) else null,
-        pinnedKey = if (section == SettingsSection.COLOR) COLOR_PREVIEW_KEY else null,
+        pinned = when {
+            section == SettingsSection.COLOR -> ({ ColorPreviewBar(pinned = true) })
+            section?.previewed == true -> ({ LookStrip(pinned = true) })
+            else -> null
+        },
+        pinnedKey = when {
+            section == SettingsSection.COLOR -> COLOR_PREVIEW_KEY
+            section?.previewed == true -> LOOK_PREVIEW_KEY
+            else -> null
+        },
     ) {
+        // Look pages (1.7.3) open on the live preview (Looks has its own at its top).
+        if (section?.previewed == true && section != SettingsSection.LOOKS) item(key = LOOK_PREVIEW_KEY) { LookStrip() }
         when (section) {
             null -> {
                 item(key = "find") {
@@ -266,16 +300,17 @@ private fun SettingsPage(
                 }
             }
             SettingsSection.APPEARANCE -> appearance()
+            SettingsSection.LOOKS -> looksPage()
             SettingsSection.COLOR -> colorPage()
-            SettingsSection.TEXT -> item(key = "text") { TypeSettings() }
+            SettingsSection.TEXT -> item(key = "text") { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { TypeSettings(); ResetPage(section) } }
             SettingsSection.ICONS -> item(key = "icons") {
-                Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings() }
+                Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings(); ResetPage(section) }
             }
-            SettingsSection.GLASS -> item(key = "glass") { GlassSettings() }
+            SettingsSection.GLASS -> item(key = "glass") { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { GlassSettings(); ResetPage(section) } }
             SettingsSection.INTERFACE -> layoutAndNavigation()
-            SettingsSection.PLAYER -> item { PlayerSettings() }
+            SettingsSection.PLAYER -> item { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { PlayerSettings(); ResetPage(section) } }
             SettingsSection.SOUND -> item { SoundPage() }
-            SettingsSection.LYRICS -> item { LyricsSettings() }
+            SettingsSection.LYRICS -> item { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { LyricsSettings(); ResetPage(section) } }
             SettingsSection.DOWNLOADS -> item { DownloadSettings() }
             SettingsSection.CONNECT -> item { ConnectSettings() }
             SettingsSection.HOME -> item {
@@ -698,8 +733,27 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                 val s = LocalAppSettings.current
                 val nav = LocalNavigator.current
                 Group("Look") {
-                    listOf(SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
+                    listOf(SettingsSection.LOOKS, SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
                         NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current)) { nav.go(Routes.settings(sec.key)) }
+                    }
+                    // The rest of the look lives with what it's the look of.
+                    listOf(SettingsSection.INTERFACE, SettingsSection.PLAYER, SettingsSection.LYRICS).forEach { sec ->
+                        NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current)) { nav.go(Routes.settings(sec.key)) }
+                    }
+                }
+            }
+            // "Customize this" (1.7.3): tap the mini player, tab bar, player or a Home section to change it there.
+            Box {
+                val c = LocalContainer.current
+                val on by c.customizing.collectAsState()
+                val context = androidx.compose.ui.platform.LocalContext.current
+                Group("Customize this") {
+                    Toggle(
+                        "Customize by tapping", "Tap the mini player, tab bar, player or a Home section", on,
+                        info = "While it's on, those parts of Prism are outlined, and tapping one opens just its settings. Done, at the top of the screen, turns it off. Holding the Settings tab (when it's in the tab bar) turns it on and off too.",
+                    ) {
+                        c.customizing.value = it
+                        if (it) android.widget.Toast.makeText(context, "Tap anything outlined to change it", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -818,9 +872,11 @@ private fun IconSettings() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val drawn = com.prism.music.ui.theme.IconStyle.weight to com.prism.music.ui.theme.IconStyle.rounded
     var saved by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.saved(context)) }
+    val looks = LocalContainer.current.looks
     fun save(v: Pair<com.prism.music.ui.theme.IconWeight, Boolean>) {
         saved = v
         com.prism.music.ui.theme.IconStyle.save(context, v.first, v.second)
+        looks.iconsChanged()
     }
     var pack by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedPack(context)) }
     var likeStar by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedLikeStar(context)) }
@@ -829,6 +885,7 @@ private fun IconSettings() {
         Chips(com.prism.music.ui.theme.IconPack.entries, pack, { it.label }) {
             pack = it
             com.prism.music.ui.theme.IconStyle.savePack(context, it)
+            looks.iconsChanged()
         }
         Note(pack.detail)
         Label("Weight")
@@ -837,6 +894,7 @@ private fun IconSettings() {
         Toggle("Likes as stars", "A star instead of a heart for likes", likeStar) {
             likeStar = it
             com.prism.music.ui.theme.IconStyle.saveLikeStar(context, it)
+            looks.iconsChanged()
         }
         if (saved != drawn || pack != com.prism.music.ui.theme.IconStyle.pack || likeStar != com.prism.music.ui.theme.IconStyle.likeStar) {
             Item("Restart Prism to see them", "Playback stops for a moment", onClick = {
@@ -958,51 +1016,138 @@ private fun ResetLook() {
 private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation() {
     item(key = "layout") {
         Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            Box {
-                val s = LocalAppSettings.current
-                val prefs = LocalContainer.current.settings
-                Group("Navigation bar") {
-                    Label("Style")
-                    Chips(NavBarStyle.entries, s.navStyle, { it.label }) { prefs.setNavStyle(it) }
-                    // The Minimal bar has no labels to show.
-                    if (s.navStyle != NavBarStyle.MINIMAL) {
-                        Label("Labels")
-                        Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
-                    }
-                    Toggle("Shrink while scrolling", "Slims down as you scroll", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
-                }
-            }
+            NavBarGroup()
             TabsEditor()
-            Box {
-                val s = LocalAppSettings.current
-                val prefs = LocalContainer.current.settings
-                Group("Mini player") {
-                    Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
-                    Toggle("Previous button", "Swiping right goes back too", s.miniPrevButton) { prefs.setMiniPrevButton(it) }
-                    Toggle("Next button", "Swiping left skips too", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
-                    Label("Progress")
-                    Chips(MiniProgress.entries, s.miniProgress, { it.label }) { prefs.setMiniProgress(it) }
-                }
-            }
-            Box {
-                val s = LocalAppSettings.current
-                val prefs = LocalContainer.current.settings
-                Group("Pages") {
-                    Label("Spacing")
-                    Chips(UiDensity.entries, s.uiDensity, { it.label }) { prefs.setUiDensity(it) }
-                    Label("Page titles")
-                    Chips(TitleSize.entries, s.titleSize, { it.label }) { prefs.setTitleSize(it) }
-                    Label("Album & playlist cards")
-                    Chips(CardSize.entries, s.cardSize, { it.label }) { prefs.setCardSize(it) }
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
+            MiniPlayerGroup()
+            PagesGroup()
             Box {
                 val s = LocalAppSettings.current
                 val prefs = LocalContainer.current.settings
                 Group("Search") {
                     Toggle("Open the keyboard", "Ready to type when Search opens", s.searchKeyboard) { prefs.setSearchKeyboard(it) }
                 }
+            }
+            ResetPage(SettingsSection.INTERFACE)
+        }
+    }
+}
+
+@Composable
+private fun NavBarGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group("Navigation bar") {
+        Label("Style")
+        Chips(NavBarStyle.entries, s.navStyle, { it.label }) { prefs.setNavStyle(it) }
+        // The Minimal bar has no labels to show.
+        if (s.navStyle != NavBarStyle.MINIMAL) {
+            Label("Labels")
+            Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
+        }
+        Toggle("Shrink while scrolling", "Slims down as you scroll", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
+    }
+}
+
+@Composable
+private fun MiniPlayerGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group("Mini player") {
+        Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
+        Toggle("Previous button", "Swiping right goes back too", s.miniPrevButton) { prefs.setMiniPrevButton(it) }
+        Toggle("Next button", "Swiping left skips too", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
+        Label("Progress")
+        Chips(MiniProgress.entries, s.miniProgress, { it.label }) { prefs.setMiniProgress(it) }
+    }
+}
+
+@Composable
+private fun PagesGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group("Pages") {
+        Label("Spacing")
+        Chips(UiDensity.entries, s.uiDensity, { it.label }) { prefs.setUiDensity(it) }
+        Label("Page titles")
+        Chips(TitleSize.entries, s.titleSize, { it.label }) { prefs.setTitleSize(it) }
+        Label("Album & playlist cards")
+        Chips(CardSize.entries, s.cardSize, { it.label }) { prefs.setCardSize(it) }
+        Spacer(Modifier.height(6.dp))
+    }
+}
+
+/** "Reset this page" (1.7.3): this page's look settings back to how Prism comes, after asking. */
+@Composable
+private fun ResetPage(section: SettingsSection) {
+    val c = LocalContainer.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var ask by remember { mutableStateOf(false) }
+    PrismTextButton(onClick = { ask = true }, Modifier.fillMaxWidth()) {
+        Icon(PrismIcons.Refresh, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Reset this page")
+    }
+    if (ask) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text("Reset ${section.title}?") },
+        text = { Text("This page's look goes back to how Prism comes. Everything else stays, and Undo brings it back.") },
+        confirmButton = {
+            PrismTextButton(onClick = {
+                ask = false
+                c.settings.resetLookKeys(section.lookKeys)
+                // The icon style lives apart from the settings.
+                if (section == SettingsSection.ICONS) {
+                    com.prism.music.ui.theme.IconStyle.save(context, com.prism.music.ui.theme.IconWeight.REGULAR, true)
+                    com.prism.music.ui.theme.IconStyle.savePack(context, com.prism.music.ui.theme.IconPack.PRISM)
+                    com.prism.music.ui.theme.IconStyle.saveLikeStar(context, false)
+                    c.looks.iconsChanged()
+                }
+            }) { Text("Reset") }
+        },
+        dismissButton = { PrismTextButton(onClick = { ask = false }) { Text("Cancel") } },
+    )
+}
+
+/**
+ * "Customize this" (1.7.3): the settings for the element tapped, in a sheet, the same groups as on their pages, with a
+ * way to the whole page. A Home section also gets its own style.
+ */
+@Composable
+fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: String?, onDismiss: () -> Unit) {
+    val nav = LocalNavigator.current
+    val c = LocalContainer.current
+    val s = LocalAppSettings.current
+    val page = when (target) {
+        com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER, com.prism.music.ui.components.CustomizeTarget.TAB_BAR -> SettingsSection.INTERFACE
+        com.prism.music.ui.components.CustomizeTarget.PLAYER -> SettingsSection.PLAYER
+        com.prism.music.ui.components.CustomizeTarget.HOME_SECTION -> SettingsSection.HOME
+    }
+    val section = key?.let { k -> s.homeLayout.firstOrNull { it.key == k } }
+    com.prism.music.ui.components.ActionSheet(null, onDismiss) { close ->
+        Text(
+            section?.title ?: target.title, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
+        )
+        Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            when (target) {
+                com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER -> MiniPlayerGroup()
+                com.prism.music.ui.components.CustomizeTarget.TAB_BAR -> NavBarGroup()
+                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLookGroup(); PlayerCoverGroup(); LyricsLookGroup("Lyrics") }
+                com.prism.music.ui.components.CustomizeTarget.HOME_SECTION -> {
+                    if (section != null) Group("This section") {
+                        Label("Style")
+                        Chips(com.prism.music.data.prefs.SectionStyle.entries, section.style, { it.label }) { st ->
+                            c.settings.setHomeLayout(s.homeLayout.map { if (it.key == section.key) it.copy(style = st) else it })
+                        }
+                        Item("Hide this section", "Bring it back from Customize Home", onClick = {
+                            c.settings.setHomeLayout(s.homeLayout.map { if (it.key == section.key) it.copy(visible = false) else it })
+                            close {}
+                        })
+                    }
+                    PagesGroup()
+                    ShapeSettings()
+                }
+            }
+            PrismTextButton({ close { nav.go(Routes.settings(page.key)) } }, Modifier.fillMaxWidth()) {
+                Text("All ${page.title} settings"); Spacer(Modifier.width(6.dp)); Chevron()
             }
         }
     }
@@ -1052,32 +1197,8 @@ private fun PlayerSettings() {
     val container = LocalContainer.current
     val prefs = container.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        Group("Look") {
-            Label("Background")
-            Chips(PlayerBackground.entries, s.playerBackground, { it.label }) { prefs.setPlayerBackground(it) }
-            if (s.playerBackground == PlayerBackground.APPEARANCE) Note("Home's background from Appearance, darkened")
-            if (s.playerBackground == PlayerBackground.BLUR || s.playerBackground == PlayerBackground.APPEARANCE) SliderSetting(
-                "Show background", s.playerBackdropShow, 0f..1f, { if (it < 0.2f) "Subtle" else if (it < 0.7f) "Balanced" else "Vivid" },
-            ) { prefs.setPlayerBackdropShow(it) }
-            Label("Controls")
-            Chips(TransportStyle.entries, s.transportStyle, { it.label }) { prefs.setTransportStyle(it) }
-            Label("Progress bar")
-            Chips(ScrubberStyle.entries, s.scrubberStyle, { it.label }) { prefs.setScrubberStyle(it) }
-        }
-        Group("Cover") {
-            Label("Cover size")
-            Chips(CoverSize.entries, s.coverSize, { it.label }) { prefs.setCoverSize(it) }
-            SliderSetting("Corners", s.playerArtCorners.toFloat(), 0f..32f, { "${it.roundToInt()} dp" }, steps = 7) { prefs.setPlayerArtCorners(it.roundToInt()) }
-            Toggle(
-                "Full-bleed artwork", "Edge to edge at the top", s.fullBleedArtwork,
-                info = "The cover runs to the screen's edges at the top of the player and fades into the background. Cover size then sets how far down it reaches.",
-            ) { prefs.setFullBleedArtwork(it) }
-            Toggle("Shrink when paused", "The cover eases back while paused", s.artShrinkOnPause) { prefs.setArtShrinkOnPause(it) }
-            Toggle(
-                "Square video covers", "No black bars when a video plays as a song", s.squareVideoCovers,
-                info = "YouTube's video pictures are wide, with black bars above and below. On, Prism trims the bars and uses the middle of the picture as a square cover: on the player, in lists, the notification and Android Auto.",
-            ) { prefs.setSquareVideoCovers(it) }
-        }
+        PlayerLookGroup()
+        PlayerCoverGroup()
         // Top to bottom, as they sit on the player: tick what you want there.
         Group("Show on the player") {
             ShowChips(
@@ -1147,6 +1268,44 @@ private fun PlayerSettings() {
             if (s.doubleTapSeekSeconds > 0) Chips(listOf(3, 5, 10, 15), s.doubleTapSeekSeconds, { "$it s" }) { prefs.setDoubleTapSeekSeconds(it) }
             Toggle("Haptics", "A light tap on buttons and swipes", s.haptics) { prefs.setHaptics(it) }
         }
+    }
+}
+
+@Composable
+private fun PlayerLookGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group("Look") {
+        Label("Background")
+        Chips(PlayerBackground.entries, s.playerBackground, { it.label }) { prefs.setPlayerBackground(it) }
+        if (s.playerBackground == PlayerBackground.APPEARANCE) Note("Home's background from Appearance, darkened")
+        if (s.playerBackground == PlayerBackground.BLUR || s.playerBackground == PlayerBackground.APPEARANCE) SliderSetting(
+            "Show background", s.playerBackdropShow, 0f..1f, { if (it < 0.2f) "Subtle" else if (it < 0.7f) "Balanced" else "Vivid" },
+        ) { prefs.setPlayerBackdropShow(it) }
+        Label("Controls")
+        Chips(TransportStyle.entries, s.transportStyle, { it.label }) { prefs.setTransportStyle(it) }
+        Label("Progress bar")
+        Chips(ScrubberStyle.entries, s.scrubberStyle, { it.label }) { prefs.setScrubberStyle(it) }
+    }
+}
+
+@Composable
+private fun PlayerCoverGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group("Cover") {
+        Label("Cover size")
+        Chips(CoverSize.entries, s.coverSize, { it.label }) { prefs.setCoverSize(it) }
+        SliderSetting("Corners", s.playerArtCorners.toFloat(), 0f..32f, { "${it.roundToInt()} dp" }, steps = 7) { prefs.setPlayerArtCorners(it.roundToInt()) }
+        Toggle(
+            "Full-bleed artwork", "Edge to edge at the top", s.fullBleedArtwork,
+            info = "The cover runs to the screen's edges at the top of the player and fades into the background. Cover size then sets how far down it reaches.",
+        ) { prefs.setFullBleedArtwork(it) }
+        Toggle("Shrink when paused", "The cover eases back while paused", s.artShrinkOnPause) { prefs.setArtShrinkOnPause(it) }
+        Toggle(
+            "Square video covers", "No black bars when a video plays as a song", s.squareVideoCovers,
+            info = "YouTube's video pictures are wide, with black bars above and below. On, Prism trims the bars and uses the middle of the picture as a square cover: on the player, in lists, the notification and Android Auto.",
+        ) { prefs.setSquareVideoCovers(it) }
     }
 }
 
@@ -1405,18 +1564,26 @@ private fun SingSettings() {
     }
 }
 
+/** The lyrics' look; [title] names the group where "Look" alone wouldn't say whose (the player's Customize sheet). */
+@Composable
+private fun LyricsLookGroup(title: String = "Look") {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group(title) {
+        Label("Alignment")
+        Chips(LyricsAlign.entries, s.lyricsAlign, { it.label }) { prefs.setLyricsAlign(it) }
+        SliderSetting("Text size", s.lyricsScale, 0.75f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsScale(it) }
+        Toggle("Focus blur", "Lines away from the sung one soften", s.lyricsBlur) { prefs.setLyricsBlur(it) }
+        Toggle("Progress line", "Split light under the line being sung", s.lyricsProgressLine) { prefs.setLyricsProgressLine(it) }
+    }
+}
+
 @Composable
 private fun LyricsSettings() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        Group("Look") {
-            Label("Alignment")
-            Chips(LyricsAlign.entries, s.lyricsAlign, { it.label }) { prefs.setLyricsAlign(it) }
-            SliderSetting("Text size", s.lyricsScale, 0.75f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsScale(it) }
-            Toggle("Focus blur", "Lines away from the sung one soften", s.lyricsBlur) { prefs.setLyricsBlur(it) }
-            Toggle("Progress line", "Split light under the line being sung", s.lyricsProgressLine) { prefs.setLyricsProgressLine(it) }
-        }
+        LyricsLookGroup()
         Group("Language") {
             Toggle(
                 "Translate lyrics", "Your language under each line", s.lyricsTranslate,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import com.prism.music.ui.components.customizable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -224,6 +225,8 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
 
             layout.forEach { cfg ->
                 item(key = cfg.key) {
+                    // "Customize this" (1.7.3): a section opens its own style and Home's look.
+                    Column(Modifier.customizable(com.prism.music.ui.components.CustomizeTarget.HOME_SECTION, cfg.key)) {
                     when (cfg.key) {
                         HomeSections.GREETING -> GreetingSection(cfg, recent)
                         HomeSections.QUICK_PICKS -> {
@@ -273,6 +276,7 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                             val shelf = shelves.firstOrNull { shelfKey(it.title) == cfg.key }?.takeIf { it !== picks && it !== dial }
                             if (shelf != null) ShelfSection(cfg, shelf, openItem)
                         }
+                    }
                     }
                 }
             }

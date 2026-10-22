@@ -77,6 +77,40 @@ class DesignGalleryTest {
         glass = false,
     )
 
+    /**
+     * Looks (1.7.3): each of Prism's own Looks on its three preview phones (Home, the player, the lyrics), as the Looks
+     * page and its cards draw them, onto looks.png. The ambient frost needs what's playing, so Home shows its plain page.
+     */
+    @Test fun looks() {
+        val repo = com.prism.music.data.prefs.SettingsRepository(
+            org.robolectric.RuntimeEnvironment.getApplication(),
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
+        )
+        compose.setContent {
+            PrismTheme(AppSettings(themeMode = ThemeMode.DARK), artworkColor = null) {
+                androidx.compose.foundation.layout.Column(
+                    Modifier.width(412.dp).background(MaterialTheme.colorScheme.background).padding(8.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                ) {
+                    com.prism.music.data.looks.BuiltInLooks.all.forEach { look ->
+                        val s = repo.previewLook(look.values).copy(frostedPages = false)
+                        val dark = s.themeMode != ThemeMode.LIGHT
+                        androidx.compose.material3.Text(look.name + " · " + look.note, style = MaterialTheme.typography.labelMedium)
+                        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                            com.prism.music.ui.screens.PreviewPhone(118.dp) { com.prism.music.ui.screens.LookTheme(s, dark) { c -> com.prism.music.ui.screens.MiniHome(c, null) } }
+                            com.prism.music.ui.screens.PreviewPhone(118.dp) { com.prism.music.ui.screens.LookTheme(s, true) { c -> com.prism.music.ui.screens.MiniPlayerScreen(c, null) } }
+                            com.prism.music.ui.screens.PreviewPhone(118.dp) { com.prism.music.ui.screens.LookTheme(s, true) { c -> com.prism.music.ui.screens.MiniLyrics(c, null) } }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val bmp = compose.onRoot().captureToImage().asAndroidBitmap()
+        val dir = File("build/design-previews").apply { mkdirs() }
+        File(dir, "looks.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     /** The color wheel and the spectrum presets, dark and light. */
     @Test fun colorPickerDark() = colorPicker(true)
     @Test fun colorPickerLight() = colorPicker(false)

@@ -46,6 +46,7 @@ object SettingsIndex {
     private val T = SettingsSection.TEXT
     private val I = SettingsSection.ICONS
     private val G = SettingsSection.GLASS
+    private val LK = SettingsSection.LOOKS
     private val L = SettingsSection.INTERFACE
     private val P = SettingsSection.PLAYER
     private val S = SettingsSection.SOUND
@@ -71,6 +72,24 @@ object SettingsIndex {
         SettingEntry(A, "Look", "Text", "font typeface size"),
         SettingEntry(A, "Look", "Icons & shapes", "icon pack app icon corners"),
         SettingEntry(A, "Look", "Glass & backgrounds", "blur backgrounds motion"),
+        SettingEntry(A, "Look", "Looks", "theme preset save switch share style outfit skin"),
+        SettingEntry(A, "Customize this", "Customize by tapping", "edit mode customise tap long press mini player tab bar player home section"),
+        // Appearance → Looks (1.7.3)
+        SettingEntry(LK, "Prism's Looks", "Prism's Looks", "theme preset paper midnight neon soft studio built in"),
+        SettingEntry(LK, "Your Looks", "Your Looks", "saved theme preset save rename duplicate delete share qr code"),
+        SettingEntry(LK, "Get a Look", "Scan a Look's QR code", "camera theme share friend"),
+        SettingEntry(LK, "Get a Look", "Paste a Look code", "clipboard theme share"),
+        SettingEntry(LK, "Get a Look", "Open a Look file", "prismlook file import theme"),
+        SettingEntry(LK, "Day and night", "Day and night Looks", "schedule sunset sunrise automatic dark mode night time theme"),
+        SettingEntry(LK, "Day and night", "By day", "schedule day look morning"),
+        SettingEntry(LK, "Day and night", "By night", "schedule night look evening dark"),
+        SettingEntry(LK, "Day and night", "Switch", "schedule sunrise sunset set times"),
+        SettingEntry(LK, "Day and night", "Day starts at", "schedule time"),
+        SettingEntry(LK, "Day and night", "Night starts at", "schedule time"),
+        SettingEntry(LK, "History", "History", "undo go back changes revert"),
+        SettingEntry(LK, "Your Looks", "Include its photos", "share file"),
+        SettingEntry(LK, "Your Looks", "Include its font", "share file"),
+        SettingEntry(H, "This section", "Hide this section", "customize this home"),
         // Appearance → Color (1.7.2)
         SettingEntry(CO, "Spectrum", "Spectrum", "split light gradient rainbow preset sunset ocean aurora forest ember candy neon ice gold silver color-blind colour blind custom own colors style light colors"),
         SettingEntry(CO, "Spectrum", "White", "white light black monochrome neutral grey gray minimal colorless simple style"),

@@ -24,6 +24,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.prism.music.ui.components.customizable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -142,6 +145,8 @@ import kotlin.math.abs
  */
 /** A volume key press on a cast speaker or TV, out of 100. */
 private const val VOLUME_KEY_STEP = 4
+/** How .prismlook files are sent (a zip: the Look's code and any photos or font it carries). */
+private const val LOOK_MIME = "application/zip"
 
 open class MainActivity : ComponentActivity() {
     private val deepLink = MutableStateFlow<Uri?>(null)
@@ -248,7 +253,36 @@ open class MainActivity : ComponentActivity() {
             container.blends.pending.value = blendCode
             return Uri.parse("prism://blends")
         }
+        // A Look (1.7.3): a code in a message, or a .prismlook file sent or opened. Shown first, with Apply and Save.
+        val lookCode = if (intent?.action == Intent.ACTION_SEND) com.prism.music.data.looks.LookCode.findIn(intent.getStringExtra(Intent.EXTRA_TEXT)) else null
+        if (lookCode != null) {
+            container.looks.decode(lookCode)?.let { container.looks.pending.value = it }
+                ?: Toast.makeText(this, "That Look code couldn't be read", Toast.LENGTH_SHORT).show()
+            return Uri.parse("prism://looks")
+        }
+        lookFile(intent)?.let { file ->
+            container.scope.launch(Dispatchers.Main) {
+                val look = runCatching { contentResolver.openInputStream(file)?.use { container.looks.readFile(it) } }
+                look.getOrNull()?.let { container.looks.pending.value = it }
+                    ?: Toast.makeText(this@MainActivity, look.exceptionOrNull()?.message ?: "That file isn't a Prism Look", Toast.LENGTH_SHORT).show()
+            }
+            return Uri.parse("prism://looks")
+        }
         return linkOf(intent)
+    }
+
+    /** A .prismlook file sent to Prism or opened with it. */
+    private fun lookFile(intent: Intent?): Uri? {
+        val uri = when (intent?.action) {
+            Intent.ACTION_SEND -> androidx.core.content.IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+            Intent.ACTION_VIEW -> intent.data?.takeIf { it.scheme == "content" || it.scheme == "file" }
+            else -> null
+        } ?: return null
+        val type = intent?.type ?: contentResolver.getType(uri)
+        val name = runCatching {
+            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull() ?: uri.lastPathSegment
+        return uri.takeIf { name?.endsWith("." + com.prism.music.data.looks.LookStore.FILE_EXTENSION, ignoreCase = true) == true || type == LOOK_MIME }
     }
 
     private fun linkOf(intent: Intent?): Uri? = when (intent?.action) {
@@ -440,10 +474,13 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
             }
         }
 
+        // "Customize this" (1.7.3): the element tapped and, for a Home section, which one.
+        var customizing by remember { mutableStateOf<Pair<com.prism.music.ui.components.CustomizeTarget, String?>?>(null) }
         CompositionLocalProvider(
             LocalNavigator provides navigator,
             LocalHazeState provides haze,
             com.prism.music.ui.theme.LocalChromeStart provides railInset,
+            com.prism.music.ui.components.LocalCustomize provides { t, k -> customizing = t to k },
         ) {
             // While the full player is open it covers everything else, so TalkBack shouldn't reach the screen, tabs and
             // mini player under it (they're only drawn, not hidden, to keep the player's slide smooth).
@@ -507,6 +544,13 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             com.prism.music.ui.screens.BlendScanScreen { code ->
                                 navController.popBackStack()
                                 c.blends.pending.value = code
+                            }
+                        }
+                        composable(Routes.LOOK_SCAN) {
+                            com.prism.music.ui.screens.BlendScanScreen("Point at a Prism Look's code", com.prism.music.data.looks.LookCode::findIn) { code ->
+                                navController.popBackStack()
+                                c.looks.decode(code)?.let { c.looks.pending.value = it }
+                                    ?: Toast.makeText(context, "That Look code couldn't be read", Toast.LENGTH_SHORT).show()
                             }
                         }
                         composable("blend/{who}", listOf(navArgument("who") { type = NavType.StringType })) {
@@ -610,7 +654,7 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             TogetherPill(together, Modifier.padding(bottom = 8.dp)) { navigator.go(Routes.TOGETHER) }
                         }
                         AnimatedVisibility(song != null && !playerOpen, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                            MiniPlayer(Modifier.widthIn(max = 720.dp)) { playerOpen = true }
+                            MiniPlayer(Modifier.widthIn(max = 720.dp).customizable(com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER)) { playerOpen = true }
                         }
                     }
                 }
@@ -628,10 +672,11 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             // Spectrum's bar (the Card style over the docked tab bar) sits right on the tab bar, edge to edge.
                             val flush = docked && settings.miniPlayerStyle == MiniPlayerStyle.CARD && !(settings.liquidGlass || settings.frostedGlass)
                             MiniPlayer(
-                                if (flush) Modifier else Modifier.padding(bottom = 8.dp).then(if (docked) Modifier.padding(horizontal = 10.dp) else Modifier),
+                                (if (flush) Modifier else Modifier.padding(bottom = 8.dp).then(if (docked) Modifier.padding(horizontal = 10.dp) else Modifier))
+                                    .customizable(com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER),
                             ) { playerOpen = true }
                         }
-                        TabBar(tabs, route, barT, settings, selectTab)
+                        Box(Modifier.customizable(com.prism.music.ui.components.CustomizeTarget.TAB_BAR)) { TabBar(tabs, route, barT, settings, selectTab) }
                     }
                 }
 
@@ -640,7 +685,17 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                     enter = slideInVertically(tween(if (settings.reduceMotion) 260 else 420)) { it } + fadeIn(tween(200)),
                     exit = slideOutVertically(tween(if (settings.reduceMotion) 240 else 360)) { it } + fadeOut(tween(300)),
                 ) {
-                    NowPlayingScreen { playerOpen = false }
+                    Box(Modifier.customizable(com.prism.music.ui.components.CustomizeTarget.PLAYER)) { NowPlayingScreen { playerOpen = false } }
+                }
+
+                // Looks (1.7.3): "Undo" after each change to the look, and "Customize this" while it's on.
+                com.prism.music.ui.components.LookUndoBar(
+                    Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp)
+                        .padding(bottom = if (playerOpen && song != null) navInset + 120.dp else bottomPadding + 8.dp),
+                )
+                com.prism.music.ui.components.CustomizingPill(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
+                customizing?.let { (target, key) ->
+                    com.prism.music.ui.screens.CustomizeSheet(target, key) { customizing = null }
                 }
 
                 // The tour (1.7): the whole of it after setting up a new install or the first time a release with tours
@@ -787,6 +842,7 @@ private fun TabBar(tabs: List<Tab>, route: String?, compact: Float, settings: Ap
  * One tab: ink when it's the current one, quiet otherwise. [line]: Spectrum's mark, the split-light line along the
  * top of the current tab, instead of a tinted capsule behind it.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Float, modifier: Modifier, line: Boolean = false, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
@@ -796,8 +852,14 @@ private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Flo
     val indicator by animateColorAsState(if (selected && !line) lifted else Color.Transparent, label = "tab")
     val mark by animateFloatAsState(if (selected) 1f else 0f, tween(com.prism.music.ui.theme.PrismTokens.Motion.STANDARD), label = "tabLine")
     val dark = com.prism.music.ui.theme.LocalIsDark.current
-    val click = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = tab.label, onClick = onClick)
-        .semantics { this.selected = selected }
+    // Holding the Settings tab switches "Customize this" on and off (1.7.3).
+    val c = LocalContainer.current
+    val click = Modifier.combinedClickable(
+        interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = tab.label,
+        onLongClickLabel = if (tab.route == Routes.SETTINGS) "Customize this" else null,
+        onLongClick = if (tab.route == Routes.SETTINGS) ({ c.customizing.value = !c.customizing.value }) else null,
+        onClick = onClick,
+    ).semantics { this.selected = selected }
     val icon = if (selected) tab.selectedIcon else tab.icon
     val spectrumLine = Modifier.drawWithContent {
         drawContent()
@@ -872,6 +934,8 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
         // Release Radar's notification.
         uri.scheme == "prism" && uri.host == "releases" -> nav.go(Routes.NEW_RELEASES)
         uri.scheme == "prism" && uri.host == "blends" -> nav.go(Routes.BLENDS)
+        // A Look shared to Prism: Appearance → Looks, which shows it first.
+        uri.scheme == "prism" && uri.host == "looks" -> nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.LOOKS.key))
         // The Quick Settings tile: straight to listening.
         uri.scheme == "prism" && uri.host == "recognize" -> nav.go(Routes.RECOGNIZE + "?start=true")
         uri.scheme == "prism" && uri.host == "recognized" -> nav.go(Routes.RECOGNIZED)

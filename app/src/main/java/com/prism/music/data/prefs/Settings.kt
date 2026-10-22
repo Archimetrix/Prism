@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -765,6 +766,85 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 immersiveArt, immersiveLyrics, immersiveControls, playerShuffleRepeat, lightStyle,
             )
         }
+
+        /**
+         * What a Look holds (1.7.3): every key above and the colors, plus theme, glass, backgrounds and the lyrics' look,
+         * each with the kind of value it stores (b, i, f, s), so a Look shared by someone else can only ever set these, and
+         * only with the right kind of value. `LookTest` fails when a setting is in neither this list nor [notLook].
+         */
+        val lookSpec: List<Pair<Preferences.Key<*>, Char>> by lazy {
+            listOf(
+                themeMode to 's', pureBlack to 'b',
+                colorSource to 's', accent to 'i', lightStyle to 's', accentExact to 'b', accentLight to 'i', spectrumPreset to 's',
+                spectrumStops to 's', spectrumBands to 'b', surfaceTint to 's', surfaceTintStrength to 'f', surfaceColor to 'i', contrast to 's',
+                artworkSwatch to 's', artworkVivid to 'b', artworkChange to 's', pageColors to 'b',
+                liquidGlass to 'b', glassKind to 's', frostedGlass to 'b', frostedPages to 'b', backdrops to 's', backdropDim to 'f',
+                backdropMotion to 'b', reduceMotion to 'b',
+                fontChoice to 's', appFontName to 's', lyricsFont to 's', textScale to 'f', corners to 's', uiDensity to 's', titleSize to 's', cardSize to 's',
+                navStyle to 's', navLabels to 's', navHideOnScroll to 'b', navTabs to 's', startTab to 's',
+                miniPlayerStyle to 's', miniSkipButtons to 'b', miniPrevButton to 'b', miniProgress to 's',
+                playerBackground to 's', playerBackdropShow to 'f', playerArtCorners to 'i', transportStyle to 's', coverSize to 's',
+                scrubberStyle to 's', artShrinkOnPause to 'b', showOutputDevice to 'b', fullBleedArtwork to 'b', hideVolumeBar to 'b',
+                showPlayingFrom to 'b', playerShuffleRepeat to 'b', immersiveArt to 's', immersiveLyrics to 's', immersiveControls to 'b',
+                lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
+                libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's',
+            )
+        }
+
+        /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
+        val notLook: Set<String> by lazy {
+            setOf(
+                "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
+                "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
+                "soft_spatial", "soft_spatial_amount", "lyrics_on_player", "lyrics_order", "lyrics_off", "prefer_synced", "skip_censored",
+                "lyrics_translate", "lyrics_translate_to", "romanize_lyrics", "romanize_all", "sing_cellular", "sing_always_ready",
+                "sing_cache_mb", "dj_flow", "release_notifications", "rewind_notification", "web_remote", "handoff_available",
+                "car_lyrics", "car_lyrics_style", "car_lyrics_on_phone", "car_lyrics_keep_title", "auto_grid", "nerd_stats",
+                "show_quality", "square_video_covers", "lyrics_on_mobile_data", "best_part_button", "show_video_switch",
+                "hold_seek_seconds", "canvas_with_downloads", "canvas_with_downloads_cellular", "audio_quality", "cellular_quality",
+                "premium_stream", "autoplay", "autoplay_source", "radio_songs_only", "songs_everywhere", "show_track_length",
+                "audio_diagnostics", "search_keyboard", "double_tap_seek_seconds", "stop_on_swipe_away", "data_saver",
+                "video_continues", "lossless", "lossless_local", "normalize", "skip_silence", "mix", "mix_seconds", "mix_auto",
+                "mix_beat_match", "mix_tempo_cellular", "content_country", "video_max_height", "cache_size_mb", "download_wifi_only",
+                "download_likes", "smart_downloads", "smart_download_gb", "offline_gb", "smart_downloads_cellular", "eq",
+                "home_layout", "auto_add_sections", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
+                "home_recent_tiles", "home_playlists", "home_customize_button", "home_continue", "quick_picks_radio",
+                "home_customize_top_button", "home_podcasts_button", "font_stamp", "lyrics_font_name", "local_sections", "local_sort",
+                "library_start_tab", "library_tiles", "library_playlists_first",
+            )
+        }
+    }
+
+    /** Every setting's stored name (for `LookTest`: each is either in a Look or listed as not). */
+    val allKeyNames: Set<String> by lazy {
+        K::class.java.declaredFields.filter { Preferences.Key::class.java.isAssignableFrom(it.type) }
+            .mapNotNull { f -> f.isAccessible = true; (f.get(K) as? Preferences.Key<*>)?.name }.toSet()
+    }
+
+    /** Settings listed as not part of a Look ([K.notLook]). */
+    val notLookNames: Set<String> get() = K.notLook
+
+    /** What Reset look and Reset colors put back (every one of them is in a Look too). */
+    val resetNames: Set<String> get() = (K.look + K.colors).map { it.name }.toSet()
+
+    /** What a Look holds, by stored name, with each one's kind of value. */
+    val lookKinds: Map<String, Char> by lazy { K.lookSpec.associate { (k, t) -> k.name to t } }
+
+    private val lookKeysByName: Map<String, Preferences.Key<*>> by lazy { K.lookSpec.associate { (k, _) -> k.name to k } }
+
+    /** The look settings that are set in [p], as tagged text ("b:1", "f:0.35", "s:SHARP"…); missing ones are at their defaults. */
+    private fun lookOf(p: Preferences): Map<String, String> =
+        K.lookSpec.mapNotNull { (k, _) -> p[k]?.let { v -> LookValue.tag(v)?.let { k.name to it } } }.toMap()
+
+    /** Puts a Look's [values] in place of every look setting in [p] (those it doesn't set go back to their defaults). */
+    @Suppress("UNCHECKED_CAST")
+    private fun putLook(p: MutablePreferences, values: Map<String, String>) {
+        K.lookSpec.forEach { (k, _) -> p.remove(k as Preferences.Key<Any>) }
+        values.forEach { (name, tagged) ->
+            val key = lookKeysByName[name] ?: return@forEach
+            val v = LookValue.untag(tagged, lookKinds[name] ?: return@forEach) ?: return@forEach
+            p[key as Preferences.Key<Any>] = v
+        }
     }
 
     private inline fun <reified E : Enum<E>> Preferences.enum(key: Preferences.Key<String>, def: E): E =
@@ -962,11 +1042,36 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         )
     }
 
-    val flow: StateFlow<AppSettings> = context.dataStore.data.map(::read).stateIn(
-        scope, SharingStarted.Eagerly, runBlocking { read(context.dataStore.data.first()) }
+    /** The stored settings as they last read (what [previewLook] starts from). */
+    @Volatile private var raw: Preferences = runBlocking { context.dataStore.data.first() }
+
+    val flow: StateFlow<AppSettings> = context.dataStore.data.map { raw = it; read(it) }.stateIn(
+        scope, SharingStarted.Eagerly, read(raw)
     )
 
     val current: AppSettings get() = flow.value
+
+    /** The look settings now set ([lookOf]): what Looks are saved from and what undo steps back through. */
+    val lookValues: StateFlow<Map<String, String>> = context.dataStore.data.map(::lookOf)
+        .distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, lookOf(raw))
+
+    /** The settings as they'd be with [values] as the Look, without changing anything (Look cards draw from it). */
+    fun previewLook(values: Map<String, String>): AppSettings = read(raw.toMutablePreferences().also { putLook(it, values) })
+
+    /**
+     * Makes [values] the Look in one edit, so the app redraws once. [fontChanged]: an imported font file was swapped in
+     * for it, so text using it is drawn again.
+     */
+    suspend fun applyLook(values: Map<String, String>, fontChanged: Boolean = false) = editNow { p ->
+        putLook(p, values)
+        if (fontChanged) p[K.fontStamp] = System.currentTimeMillis()
+    }
+
+    /** Puts the look settings named [names] back to how Prism ships ("Reset this page"). */
+    @Suppress("UNCHECKED_CAST")
+    fun resetLookKeys(names: Collection<String>) = edit { p ->
+        names.forEach { n -> lookKeysByName[n]?.let { p.remove(it as Preferences.Key<Any>) } }
+    }
 
     private val writeScope = scope
 

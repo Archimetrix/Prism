@@ -51,6 +51,8 @@ object Routes {
     /** Blend: your code, scanning a friend's, and your Blends. */
     const val BLENDS = "blends"
     const val BLEND_SCAN = "blend_scan"
+    /** Scanning a Look's QR code (Appearance → Looks). */
+    const val LOOK_SCAN = "look_scan"
     fun blend(who: String) = "blend/${Uri.encode(who)}"
     /** Song recognition: listening, and what it found. */
     const val RECOGNIZE = "recognize"
