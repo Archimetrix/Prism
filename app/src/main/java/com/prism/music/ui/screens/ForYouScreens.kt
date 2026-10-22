@@ -2,6 +2,7 @@ package com.prism.music.ui.screens
 
 import com.prism.music.ui.components.pane
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import com.prism.music.ui.components.PrismButton
 import com.prism.music.ui.components.PrismTextButton
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -244,6 +245,16 @@ fun NewReleasesScreen(bottomPadding: Dp) {
             ?: java.time.Instant.ofEpochMilli(r.firstSeenAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         return ChronoUnit.DAYS.between(d, today)
     }
+    // Filters and order (Reddit 1.7: "just the albums out this week that I haven't saved"), kept between visits.
+    var within by remember { mutableStateOf(ReleaseWithin.entries.firstOrNull { it.name == c.library.sortOf("releases:within") } ?: ReleaseWithin.QUARTER) }
+    var kind by remember { mutableStateOf(ReleaseKind.entries.firstOrNull { it.name == c.library.sortOf("releases:kind") } ?: ReleaseKind.ALL) }
+    var order by remember { mutableStateOf(ReleaseOrder.entries.firstOrNull { it.name == c.library.sortOf("releases:order") } ?: ReleaseOrder.NEWEST) }
+    var hideSaved by remember { mutableStateOf(c.library.sortOf("releases:hide_saved") != null) }
+    val libraryAlbums by c.library.albums.collectAsState()
+    val savedHere by c.prismLibrary.albums.collectAsState()
+    val savedIds = remember(libraryAlbums, savedHere) {
+        (libraryAlbums.map { it.id } + libraryAlbums.mapNotNull { (it as? com.prism.music.data.model.AlbumItem)?.playlistId } + savedHere.map { it.id }).toSet()
+    }
     SubPage(
         com.prism.music.data.prefs.HomeSections.NEW_RELEASES_TITLE, bottomPadding, subtitle = "New albums, singles and EPs from artists you listen to",
         actions = { RoundAction(PrismIcons.Refresh, "Look now", glass = true, enabled = !running) { scope.launch { c.releaseRadar.refresh() } } },
@@ -255,8 +266,35 @@ fun NewReleasesScreen(bottomPadding: Dp) {
                 Text("Looking round your artists…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        val list = releases ?: return@SubPage
-        if (list.isEmpty() && !running) item("empty") {
+        val all = releases ?: return@SubPage
+        item("filters") {
+            ReleaseFilters(
+                within, kind, order, hideSaved,
+                onWithin = { within = it; c.library.setSort("releases:within", it.name) },
+                onKind = { kind = it; c.library.setSort("releases:kind", it.name) },
+                onOrder = { order = it; c.library.setSort("releases:order", it.name) },
+                onHideSaved = { hideSaved = it; c.library.setSort("releases:hide_saved", if (it) "on" else null) },
+            )
+        }
+        val list = all
+            .filter { age(it) <= within.days }
+            .filter { kind.accepts(it.kind) }
+            .filter { !hideSaved || (it.id !in savedIds && (it.playlistId == null || it.playlistId !in savedIds)) }
+        if (all.isNotEmpty() && list.isEmpty()) item("filtered-empty") {
+            Text(
+                "Nothing matches these filters. Try a longer time or another type.",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            )
+        }
+        // Sorted by artist or title: one list; newest first: grouped by week, month and earlier.
+        if (order != ReleaseOrder.NEWEST) {
+            val sorted = if (order == ReleaseOrder.ARTIST) list.sortedWith(compareBy<ReleaseEntity> { it.artistName.lowercase() }.thenBy { age(it) })
+                else list.sortedBy { it.title.lowercase() }
+            items(sorted, key = { it.id }) { r -> ReleaseRow(r, today) { nav.go(Routes.album(r.id)) } }
+            return@SubPage
+        }
+        if (all.isEmpty() && !running) item("empty") {
             Text(
                 "Nothing new from your artists in the last three months. Prism looks every few days at the artists you've starred, " +
                     "saved and play most; the first look only learns what's already out, so new music shows up from the next one.",
@@ -270,21 +308,53 @@ fun NewReleasesScreen(bottomPadding: Dp) {
             item("h:$title") {
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 6.dp))
             }
-            items(part, key = { it.id }) { r ->
-                Row(
-                    Modifier.fillMaxWidth().clickable { nav.go(Routes.album(r.id)) }.padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Artwork(r.thumbnail, Modifier.size(60.dp), LocalUi.current.art, placeholderIcon = PrismIcons.Album)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(r.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${r.kind} · ${r.artistName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Text(r.dateText(today), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            items(part, key = { it.id }) { r -> ReleaseRow(r, today) { nav.go(Routes.album(r.id)) } }
         }
+    }
+}
+
+private enum class ReleaseWithin(val label: String, val days: Long) { WEEK("This week", 7), MONTH("This month", 30), QUARTER("3 months", 90) }
+private enum class ReleaseKind(val label: String) {
+    ALL("All"), ALBUMS("Albums"), SINGLES("Singles & EPs");
+    fun accepts(kind: String) = this == ALL || (this == ALBUMS) == (kind == "Album")
+}
+private enum class ReleaseOrder(val label: String) { NEWEST("Newest"), ARTIST("Artist"), TITLE("Title") }
+
+/** The New releases page's filters: how far back, which kind, hide what's already in the library, and the order. */
+@Composable
+private fun ReleaseFilters(
+    within: ReleaseWithin, kind: ReleaseKind, order: ReleaseOrder, hideSaved: Boolean,
+    onWithin: (ReleaseWithin) -> Unit, onKind: (ReleaseKind) -> Unit, onOrder: (ReleaseOrder) -> Unit, onHideSaved: (Boolean) -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        com.prism.music.ui.components.Segmented(ReleaseWithin.entries, within, { it.label }, Modifier.fillMaxWidth(), onWithin)
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ReleaseKind.entries.forEach { k -> com.prism.music.ui.components.PrismChip(k == kind, { onKind(k) }, k.label) }
+            com.prism.music.ui.components.PrismChip(hideSaved, { onHideSaved(!hideSaved) }, "Not in my library", icon = if (hideSaved) PrismIcons.Check else null)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Sort by", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ReleaseOrder.entries.forEach { o -> com.prism.music.ui.components.PrismChip(o == order, { onOrder(o) }, o.label) }
+        }
+    }
+}
+
+@Composable
+private fun ReleaseRow(r: ReleaseEntity, today: LocalDate, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Artwork(r.thumbnail, Modifier.size(60.dp), LocalUi.current.art, placeholderIcon = PrismIcons.Album)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(r.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${r.kind} · ${r.artistName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(r.dateText(today), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

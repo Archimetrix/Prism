@@ -605,6 +605,10 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         return (tracks + subs).filterIsInstance<com.prism.music.data.model.ArtistItem>().distinctBy { it.id }
     }
 
+    /** Only the artists the account subscribes to (follows) on YouTube Music. */
+    suspend fun librarySubscriptions(): List<com.prism.music.data.model.ArtistItem> =
+        libraryItems("FEmusic_library_corpus_artists").filterIsInstance<com.prism.music.data.model.ArtistItem>().distinctBy { it.id }
+
     suspend fun history(): List<Song> = songsFrom(browse("FEmusic_history"))
 
     // ---------------------------------------------------------------- Podcasts

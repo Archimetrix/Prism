@@ -114,10 +114,16 @@ class ReleaseRadar(private val c: AppContainer) {
         }
     }
 
-    /** The artists to keep an eye on: starred, saved, then the most played lately (up to [MAX_ARTISTS]), less excluded ones. */
+    /**
+     * The artists to keep an eye on: starred, followed on YouTube Music (signed in; Reddit 1.7: "not only the ones I've
+     * played in Prism"), saved, then the most played lately (up to [MAX_ARTISTS]), less excluded ones. Only who's
+     * watched for new releases: Prism's own mixes from your music don't use this.
+     */
     private suspend fun artists(): List<FavoriteRef> {
         val out = LinkedHashMap<String, FavoriteRef>()
         c.artistPrefs.favorites.value.forEach { out.putIfAbsent(it.id, FavoriteRef(it.id, it.name)) }
+        if (c.settings.current.isLoggedIn) runCatching { withContext(Dispatchers.IO) { c.ytm.librarySubscriptions() } }.getOrNull()
+            ?.forEach { out.putIfAbsent(it.id, FavoriteRef(it.id, it.title)) }
         c.library.artists.value.forEach { out.putIfAbsent(it.id, FavoriteRef(it.id, it.title)) }
         val now = System.currentTimeMillis()
         c.db.plays().tasteTopArtists(now - 90L * 86_400_000, now, 60).filter { it.artistId != null }.take(30)

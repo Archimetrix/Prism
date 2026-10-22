@@ -110,7 +110,8 @@ data class ArtPalette(
      * deeper toward the bottom, rather than a near-black (or white).
      */
     fun field(dark: Boolean): List<Color> {
-        return if (dark) listOf(dominant.withLightness(0.20f, 1.05f), dominant.withLightness(0.15f, 1f), dominant.withLightness(0.11f, 0.95f))
+        // A little richer since 1.7.2 (Reddit: "black, not colourful like before"); still deep enough for white text.
+        return if (dark) listOf(dominant.withLightness(0.25f, 1.1f), dominant.withLightness(0.19f, 1.05f), dominant.withLightness(0.14f, 1f))
         else listOf(dominant.withLightness(0.84f, 0.85f), dominant.withLightness(0.89f, 0.75f), dominant.withLightness(0.93f, 0.65f))
     }
 }
@@ -190,8 +191,8 @@ private val greyscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSatur
  * a white or yellow cover no longer lights a dark page up behind white text, nor a black one a light page behind dark
  * text (AmbientContrastTest). [saturation] 0 is White light's greys.
  */
-private fun ambientTone(dark: Boolean, saturation: Float): ColorFilter {
-    val k = if (dark) 0.22f else 0.17f
+private fun ambientTone(dark: Boolean, saturation: Float, darkLevel: Float = 0.22f): ColorFilter {
+    val k = if (dark) darkLevel else 0.17f
     val off = if (dark) 0f else (1f - k) * 255f
     val tone = ColorMatrix(floatArrayOf(k, 0f, 0f, 0f, off, 0f, k, 0f, 0f, off, 0f, 0f, k, 0f, off, 0f, 0f, 0f, 1f, 0f))
     // Applied after the saturation (the tone's matrix times it).
@@ -202,6 +203,14 @@ private val ambientDark = ambientTone(dark = true, saturation = 1.35f)
 private val ambientLight = ambientTone(dark = false, saturation = 1.35f)
 private val ambientDarkGrey = ambientTone(dark = true, saturation = 0f)
 private val ambientLightGrey = ambientTone(dark = false, saturation = 0f)
+/**
+ * Below an album, playlist or artist picture on a dark page: more of the picture's colour than the app's own pages keep
+ * (Reddit 1.7: "the playlist and album pages are black, not colourful like before"). Their text sits on the colour
+ * itself, with the wash below on top, and stays readable (AmbientContrastTest).
+ */
+private val pageDark = ambientTone(dark = true, saturation = 1.35f, darkLevel = PAGE_DARK_LEVEL)
+private val pageDarkGrey = ambientTone(dark = true, saturation = 0f, darkLevel = PAGE_DARK_LEVEL)
+internal const val PAGE_DARK_LEVEL = 0.32f
 
 /**
  * A frosted page backdrop, after Apple Music's artist pages: [frost] (the hero picture, blurred)
@@ -250,7 +259,9 @@ internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFrostedBackdro
 ) {
         // Below the picture, where a page's text sits, the frost is always held to the theme's tone (as the whole Ambient
         // background is); under the picture itself (which dissolves into it) it keeps the picture's full colour.
-        val toned = if (dark) (if (mono) ambientDarkGrey else ambientDark) else (if (mono) ambientLightGrey else ambientLight)
+        val toned = if (dark) {
+            if (ambient) (if (mono) ambientDarkGrey else ambientDark) else (if (mono) pageDarkGrey else pageDark)
+        } else (if (mono) ambientLightGrey else ambientLight)
         val filter = if (ambient) toned else if (mono) greyscale else saturate
         @Suppress("NAME_SHADOWING") val palette = if (mono) palette?.grey() else palette
         val w = size.width
