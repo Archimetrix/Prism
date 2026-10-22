@@ -143,6 +143,9 @@ object AudioDiagnostics {
             buildString {
                 append("Prism playback diagnostics\n").append(about).append("\n\n")
                 append("===== Log =====\n").append(runCatching { file?.readText() }.getOrNull() ?: "(empty)").append('\n')
+                // Crashes kept on the phone (CrashLog), newest first: the details of a crash that happened before now.
+                val crashes = com.prism.music.CrashLog.text(context)
+                if (crashes.isNotBlank()) append("===== Crashes =====\n").append(crashes).append('\n')
                 append("===== This app's logcat =====\n").append(logcat)
             }
         )

@@ -111,6 +111,7 @@ class MixEngine(
             while (isActive) {
                 val wait = runCatching { tick() }.getOrElse { e ->
                     Log.w(TAG, "mix step failed", e)
+                    note("mix step failed: $e")
                     abort("error")
                     500L
                 }
@@ -178,7 +179,7 @@ class MixEngine(
         // (The tail can still load while it waits to play along, see [prepared], so only the lead-in itself is needed.)
         if (main.currentPosition > p.startMs - LEAD_MS - 1000) {
             // Too late to get the tail ready in time (a seek near the end): let this one end on its own.
-            Log.i(TAG, "no blend after ${item.mediaId}: too close to the end to get ready (at ${main.currentPosition} ms, blend at ${p.startMs} ms)")
+            note("no blend after ${item.mediaId}: too close to the end to get ready (at ${main.currentPosition} ms, blend at ${p.startMs} ms)")
             noPlanFor = item.mediaId
             return 1000
         }
@@ -194,14 +195,23 @@ class MixEngine(
         tail = t
         plan = p
         phase = Phase.PREPARED
-        Log.i(TAG, "planned ${p.fromId} -> ${p.toId}: blend at ${p.startMs} ms for ${p.lengthMs} ms, next from ${p.inMs} ms" +
+        note("planned ${p.fromId} -> ${p.toId}: blend at ${p.startMs} ms for ${p.lengthMs} ms, next from ${p.inMs} ms" +
             if (p.beats) ", tempo ×%.3f, on the beat".format(p.ratio) else "")
         return 50
     }
 
+    /**
+     * A step worth knowing about later: logcat (tag PrismMix) and Playback diagnostics' own log, which keeps it however
+     * long ago it was (GitHub #106's diagnostics had lost the crossfade's lines from logcat's short window).
+     */
+    private fun note(message: String) {
+        Log.i(TAG, message)
+        AudioDiagnostics.log("mix", message)
+    }
+
     /** Why a song isn't blended into the next, said once per song (in Share diagnostics), then null. */
     private fun noBlend(item: MediaItem, why: String): Plan? {
-        Log.i(TAG, "no blend after ${item.mediaId}: $why")
+        note("no blend after ${item.mediaId}: $why")
         return null
     }
 
@@ -344,7 +354,7 @@ class MixEngine(
                         p.startMs += by
                         p.lengthMs -= by
                         p.postponed++
-                        Log.i(TAG, "tail ${d ?: "?"} ms off at the blend: put off by $by ms (now ${p.lengthMs} ms long)")
+                        note("tail ${d ?: "?"} ms off at the blend: put off by $by ms (now ${p.lengthMs} ms long)")
                         return 10
                     }
                     // Put off as often as it may be and still apart: a plain blend (not on the beat) goes ahead anyway when
@@ -352,10 +362,10 @@ class MixEngine(
                     // "no crossfade happens at all"; a slower phone's readings can stay a few hundred ms apart).
                     val apart = d ?: drift
                     if (!p.beats && t.isPlaying && abs(apart) <= LAST_CHANCE_MS) {
-                        Log.i(TAG, "tail $apart ms off after ${p.postponed} tries: blending anyway, crossed over slowly")
+                        note("tail $apart ms off after ${p.postponed} tries: blending anyway, crossed over slowly")
                         LONG_HANDOVER_MS
                     } else {
-                        Log.w(TAG, "tail out of step by ${d ?: "an unknown amount"} ms at the blend")
+                        note("tail out of step by ${d ?: "an unknown amount"} ms at the blend")
                         return abort("out of step")
                     }
                 }
@@ -382,7 +392,7 @@ class MixEngine(
         rushedAt = 0L
         tailStalledAt = 0L
         phase = Phase.BLENDING
-        Log.i(TAG, "blend ${p.fromId} -> ${p.toId} started (tail $d ms off)")
+        note("blend ${p.fromId} -> ${p.toId} started (tail $d ms off)")
         return 20
     }
     private fun blending(): Long {
@@ -402,7 +412,7 @@ class MixEngine(
             rushedAt = now
             rushFrom = progress
             rushMs = RUSH_MS
-            Log.i(TAG, "${p.fromId} went quiet ${(tailPosition(t) - p.startMs)} ms into the blend: bringing ${p.toId} in now")
+            note("${p.fromId} went quiet ${(tailPosition(t) - p.startMs)} ms into the blend: bringing ${p.toId} in now")
         }
         // The ending song stopped to load (its data didn't come in time) while the next one plays: the blend's clock
         // would stand still with the next song held near silent, so the listener would hear nothing until the ending
@@ -414,13 +424,13 @@ class MixEngine(
             rushedAt = now
             rushFrom = progress
             rushMs = STALL_RUSH_MS
-            Log.i(TAG, "${p.fromId} stalled loading ${(tailPosition(t) - p.startMs)} ms into the blend: bringing ${p.toId} in now")
+            note("${p.fromId} stalled loading ${(tailPosition(t) - p.startMs)} ms into the blend: bringing ${p.toId} in now")
         }
         if (rushedAt != 0L) progress = maxOf(progress, (rushFrom + (now - rushedAt).toFloat() / rushMs * (1 - rushFrom)).coerceAtMost(1f))
         val ended = t.playbackState == Player.STATE_ENDED
         if (now - lastSyncLog >= 1000) {
             lastSyncLog = now
-            Log.i(TAG, "blending %.2f: ending at %d ms (%s, quiet %d ms), next at %d ms (%s)".format(
+            note("blending %.2f: ending at %d ms (%s, quiet %d ms), next at %d ms (%s)".format(
                 progress, tailPosition(t), stateName(t), shifter?.quietMs ?: 0L, main.currentPosition, stateName(main),
             ))
         }
@@ -432,7 +442,7 @@ class MixEngine(
             tail = null
             shifter = null
             main.volume = 1f
-            Log.i(TAG, "blend ${p.fromId} -> ${p.toId} done in ${SystemClock.elapsedRealtime() - blendStartedAt} ms")
+            note("blend ${p.fromId} -> ${p.toId} done in ${SystemClock.elapsedRealtime() - blendStartedAt} ms")
             if (main.playbackParameters.speed != 1f) {
                 settleFrom = main.playbackParameters.speed
                 settleStartedAt = SystemClock.elapsedRealtime()
@@ -513,7 +523,7 @@ class MixEngine(
     }
 
     private fun abort(why: String): Long {
-        if (phase != Phase.IDLE) Log.i(TAG, "blend stopped: $why")
+        if (phase != Phase.IDLE) note("blend stopped: $why")
         tail?.let { runCatching { it.release() } }
         tail = null
         shifter = null

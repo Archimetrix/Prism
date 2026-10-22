@@ -61,6 +61,12 @@ What changed in each release. Older releases are described on the [Releases page
 - **DJ mode was laggy on some phones.** It now reads one song's key at a time while music plays.
 - **"Ready offline"** now says it's a mix of songs already on your phone (it doesn't download anything).
 - With Reduce motion on, the playing bars no longer animate behind the scenes.
+- **DJ mode made the queue lag.** Each key it read reordered the queue one song at a time, and every move redrew the player and the queue. The new order now goes in at once, at most every second and a half.
+- **Stutters on slower phones.** Background song scans (loudness, tempo, keys, music-video timing) now step aside while the sound runs dry, instead of competing with playback.
+- **Starting Prism** does less before the first screen appears: scheduled jobs and resumed downloads wait until it's up.
+- **Typing in Search could lag** with a big library: your listening taste is now worked out off the main thread (#91).
+- **Your own uploaded songs** that YouTube refuses twice are now asked for with your account (#101).
+- **Crash details stay on your phone.** If Prism closes unexpectedly, Settings → About → Diagnostics shows "Last crash", and you can share it. Crossfade's steps are now in the Playback diagnostics log too, so a report shows what a blend did.
 
 ## 1.7.1
 

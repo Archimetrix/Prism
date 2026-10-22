@@ -544,6 +544,7 @@ class MixTempo(
                         }
                     }
                 }
+                ease()
                 val o = dec.dequeueOutputBuffer(info, 5_000)
                 if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     val f = dec.outputFormat
@@ -587,6 +588,25 @@ class MixTempo(
         private const val TAG = "PrismMix"
         /** DJ mode's quick scans running at once. */
         private const val QUICK_AT_ONCE = 3
+
+        /** When the sound last ran dry (SystemClock.elapsedRealtime; set by the playback service). */
+        @Volatile var lastUnderrunAt = 0L
+
+        /**
+         * A scan's decoding steps aside while the sound has run dry in the last few seconds (GitHub #103: on a budget
+         * phone, a song scan of a minute's work kept running while the output starved, again and again). Called from
+         * the decode loops, off the main thread.
+         */
+        fun ease() {
+            var waited = 0
+            while (android.os.SystemClock.elapsedRealtime() - lastUnderrunAt < EASE_AFTER_UNDERRUN_MS && waited < MAX_EASE_MS) {
+                Thread.sleep(250); waited += 250
+            }
+        }
+
+        private const val EASE_AFTER_UNDERRUN_MS = 4_000L
+        /** At most this long per step, so a scan still finishes on a phone that keeps running dry. */
+        private const val MAX_EASE_MS = 4_000
         /** Longer than this (a DJ set, an hour-long mix) isn't measured past this point. */
         private const val MAX_SECONDS = 15 * 60
         /**

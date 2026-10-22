@@ -63,6 +63,12 @@ class TasteRepository(private val c: AppContainer) {
      */
     suspend fun searchTaste(): SearchRank.Taste {
         searchCached?.let { (at, t) -> if (System.currentTimeMillis() - at < 5 * 60_000) return t }
+        // Worked out off the main thread: Search asks as you type, and with thousands of liked songs this took long
+        // enough to stall typing (GitHub #91: "searching makes the app very laggy").
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { buildSearchTaste() }
+    }
+
+    private suspend fun buildSearchTaste(): SearchRank.Taste {
         val now = System.currentTimeMillis()
         val since = now - 365L * 86_400_000
         val plays = c.db.plays()

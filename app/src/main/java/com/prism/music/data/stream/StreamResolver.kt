@@ -355,7 +355,12 @@ class StreamResolver(
      */
     fun invalidate(videoId: String, refused: Boolean = false) {
         cache.remove(videoId)
-        if (refused) directRefused += videoId
+        // Turned away a second time (the direct link and then NewPipe's): a song only the account may play, such as
+        // music the listener uploaded themselves (GitHub #101, "response code: 403"). Asked for as the account from then on.
+        if (refused && !directRefused.add(videoId) && settings.current.isLoggedIn) {
+            needsAccount += videoId
+            Log.i("PrismStream", "$videoId refused twice: asking as the signed-in account from now on")
+        }
     }
 
     /** Songs whose direct ([directFormats]) links were turned away: looked up through NewPipe from then on. */

@@ -76,6 +76,7 @@ object QuickScan {
                             }
                         }
                     }
+                    MixTempo.ease()
                     val o = dec.dequeueOutputBuffer(info, 5_000)
                     if (o == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                         val f = dec.outputFormat

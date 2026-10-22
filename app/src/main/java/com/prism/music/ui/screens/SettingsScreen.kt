@@ -408,19 +408,30 @@ private fun DiagnosticsGroup() {
             "Playback diagnostics", "A log for tracking down stutters", s.audioDiagnostics,
             info = "Keeps a log on this phone of what the audio does. Nothing is sent anywhere unless you share it. When you hear a stutter, tap \"Mark a stutter\" in the player's ⋯ menu, then share the log here.",
         ) { c.settings.setAudioDiagnostics(it) }
+        fun share() {
+            scope.launch {
+                val file = withContext(Dispatchers.IO) { com.prism.music.playback.AudioDiagnostics.export(context, com.prism.music.playback.AudioDiagnostics.about(c)) }
+                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.share", file)
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    .putExtra(android.content.Intent.EXTRA_SUBJECT, "Prism playback diagnostics")
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                send.clipData = android.content.ClipData.newRawUri(null, uri)
+                context.startActivity(android.content.Intent.createChooser(send, "Share diagnostics"))
+            }
+        }
+        // A crash kept on the phone (CrashLog): there to share whether or not diagnostics are on.
+        var crashAt by remember { mutableStateOf(com.prism.music.CrashLog.lastAt(context)) }
+        crashAt?.let { at ->
+            Item(
+                "Last crash", "${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(at))} · tap to share its details",
+                onClick = { share() },
+                info = "Prism closed unexpectedly. What went wrong is kept on this phone (only the last few crashes). Sharing it, through GitHub for example, helps fix it. Nothing is sent anywhere unless you share it.",
+            ) { Chevron() }
+            Item("Forget crashes", null, onClick = { com.prism.music.CrashLog.clear(context); crashAt = null })
+        }
         if (s.audioDiagnostics) {
-            Item("Share diagnostics", "The log and audio settings, as text", onClick = {
-                scope.launch {
-                    val file = withContext(Dispatchers.IO) { com.prism.music.playback.AudioDiagnostics.export(context, com.prism.music.playback.AudioDiagnostics.about(c)) }
-                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.share", file)
-                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-                        .putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Prism playback diagnostics")
-                        .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    send.clipData = android.content.ClipData.newRawUri(null, uri)
-                    context.startActivity(android.content.Intent.createChooser(send, "Share diagnostics"))
-                }
-            })
+            Item("Share diagnostics", "The log and audio settings, as text", onClick = { share() })
             Item("Clear diagnostics", "Starts the log again", onClick = {
                 scope.launch(Dispatchers.IO) { com.prism.music.playback.AudioDiagnostics.clear { com.prism.music.playback.AudioDiagnostics.about(c) } }
                 android.widget.Toast.makeText(context, "Diagnostics cleared", android.widget.Toast.LENGTH_SHORT).show()

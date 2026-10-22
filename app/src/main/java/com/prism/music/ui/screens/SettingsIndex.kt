@@ -260,6 +260,8 @@ object SettingsIndex {
         SettingEntry(B, "Diagnostics", "Playback diagnostics", "stutter judder skip glitch lag bluetooth airpods log debug"),
         SettingEntry(B, "Diagnostics", "Share diagnostics", "log send report"),
         SettingEntry(B, "Diagnostics", "Clear diagnostics", "log reset"),
+        SettingEntry(B, "Diagnostics", "Last crash", "crash closed unexpectedly error report stack trace"),
+        SettingEntry(B, "Diagnostics", "Forget crashes", "crash delete clear"),
     )
 
     /**

@@ -1309,7 +1309,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                     }
                     publish()
                     c.dj.bump()
-                    if (r == MixTempo.QuickResult.KEYED) resequence()
+                    if (r == MixTempo.QuickResult.KEYED) resequenceSoon()
                 }
             }
             android.util.Log.i("PrismDj", "looked at ${ids.size} songs in ${SystemClock.elapsedRealtime() - started} ms: $keyed keyed, $needNetwork waiting for Wi-Fi")
@@ -1352,18 +1352,23 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         } + " (+${items.size - known.size} not scanned)")
         val ordered = set.map { it.id.toInt() }
         val desired = ordered + items.indices.filter { tracks[it] == null }
-        val arrangement = items.indices.toMutableList()
+        if (desired == items.indices.toList()) return
+        // One change for the whole new order (Reddit/owner 1.7.2: the queue lagged with DJ mode on): it used to be one
+        // move per song, each a separate queue change sent on to the player screen, the session and the car.
         djMoving = true
         try {
-            for ((j, want) in desired.withIndex()) {
-                val at = arrangement.indexOf(want)
-                if (at == j) continue
-                player.moveMediaItem(base + at, base + j)
-                arrangement.add(j, arrangement.removeAt(at))
-            }
+            player.replaceMediaItems(base, end, desired.map { items[it] })
         } finally {
             djMoving = false
         }
+    }
+
+    private var resequenceJob: kotlinx.coroutines.Job? = null
+
+    /** [resequence] once things settle: scans landing one after another reorder the queue once, not each time. */
+    private fun resequenceSoon() {
+        if (resequenceJob?.isActive == true) return
+        resequenceJob = scope.launch { delay(RESEQUENCE_GAP_MS); resequence() }
     }
 
     /**
@@ -1805,7 +1810,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             bufferSize: Int,
             bufferSizeMs: Long,
             elapsedSinceLastFeedMs: Long,
-        ) = update { copy(underruns = underruns + 1) }
+        ): Unit {
+            // Background scans back off while the sound is running dry (MixTempo.ease).
+            MixTempo.lastUnderrunAt = SystemClock.elapsedRealtime()
+            update { copy(underruns = underruns + 1) }
+        }
     }
 
     // ------------------------------------------------------------ Playback diagnostics
@@ -1870,6 +1879,8 @@ private const val MIN_MIDSONG_CHANGE_DB = 1.5f
 private const val UNDER_WAY_MS = 5_000L
 /** How many songs ahead DJ mode scans and orders (a quick scan each: three stretches of the song, a few at once). */
 private const val DJ_WINDOW = 40
+/** How long DJ mode waits for more scans before putting the queue in order again. */
+private const val RESEQUENCE_GAP_MS = 1_500L
 /** How many songs ahead (in play order) Smart Shuffle places its picks among. */
 private const val SMART_LOOK_AHEAD = 12
 /** How many queued songs ahead are got ready (their loudness and edges). */

@@ -73,6 +73,8 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // A crash's details kept on the phone (Settings → About → Diagnostics), from the very start.
+        CrashLog.install(this)
         // A restore from a backup goes in before anything opens the files it replaces.
         com.prism.music.data.Backup.applyPending(this)
         // Before any icon is built: they're drawn in the style picked in Settings → Appearance → Icons.
@@ -81,20 +83,30 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         container = AppContainer(this)
         runCatching { com.prism.music.data.Notifications.createChannels(this) }
         // Long-press the app icon: Search, Recognize a song, Liked songs, Downloads (Reddit 1.7).
-        runCatching { com.prism.music.AppShortcuts.publish(this) }
+        // Off the main thread: it talks to the launcher's service and loads their icons, and start-up shouldn't wait.
+        Thread({ runCatching { com.prism.music.AppShortcuts.publish(this) } }, "PrismShortcuts").start()
         // For you (1.7): Home gets its sections once, and Release Radar looks round every few days.
         container.settings.addNewHomeSections()
-        runCatching { com.prism.music.data.foryou.ReleaseRadar.schedule(this) }
-        // Rewind: the 1 December notification, and last year kept once it's over (after start-up has settled).
-        runCatching { com.prism.music.data.Rewinds.schedule(this) }
-        // DJ mode: the songs played most and liked get their key read once a day, on Wi-Fi while charging.
-        runCatching { com.prism.music.playback.DjPrescanWorker.schedule(this) }
+        // The scheduled jobs are set up off the main thread: WorkManager opens its own database the first time, and on a
+        // slow phone start-up shouldn't wait for it (GitHub #103: a budget phone's Prism kept restarting).
+        container.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { com.prism.music.data.foryou.ReleaseRadar.schedule(this@PrismApp) }
+            // Rewind: the 1 December notification, and last year kept once it's over (after start-up has settled).
+            runCatching { com.prism.music.data.Rewinds.schedule(this@PrismApp) }
+            // DJ mode: the songs played most and liked get their key read once a day, on Wi-Fi while charging.
+            runCatching { com.prism.music.playback.DjPrescanWorker.schedule(this@PrismApp) }
+        }
         container.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             kotlinx.coroutines.delay(45_000)
             container.quietNetwork()
             runCatching { container.rewind.freezeLastYear() }
         }
-        runCatching { container.backup.resumeDownloads() }
+        // Downloads a restore left waiting carry on once the first screen is up (the download manager stays on the
+        // main thread, where it was made).
+        container.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            kotlinx.coroutines.delay(1_500)
+            runCatching { container.backup.resumeDownloads() }
+        }
         // A lyrics save into a music file that Prism closing cut short is put right (#16).
         if (java.io.File(filesDir, "lyrics-tags").list()?.isNotEmpty() == true) {
             container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { container.lyricsToFiles.recover() } }
