@@ -13,6 +13,9 @@ import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.os.Build
 import com.prism.music.data.prefs.EqSettings
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
 object EqPresets {
@@ -48,48 +51,125 @@ data class SpatialInfo(
 )
 
 /**
+ * The order audio-effect work runs in, on one thread of its own ([executor]). Every effect call is a round trip to
+ * Android's audio server, which can stall for seconds (a stuck audioserver after a reboot, a Bluetooth route change,
+ * an OEM effect engine): on the main thread that froze Prism ("isn't responding", seen on the emulator in
+ * `DynamicsProcessing.setNumberArray`). Here the caller never waits.
+ *
+ * [run] keeps strict order. [applyLatest] is for "make the effects match the settings": while one is waiting its turn,
+ * more requests don't queue more work, since the waiting one reads the newest settings when it runs (a dragged EQ
+ * slider is one apply, not hundreds behind a stalled server). [close] runs its last task after everything already
+ * queued, then stops taking work.
+ */
+internal class EffectQueue(private val executor: ExecutorService) {
+    private val applyQueued = AtomicBoolean(false)
+
+    fun run(task: () -> Unit) {
+        try {
+            executor.execute {
+                try { task() } catch (e: Throwable) { android.util.Log.w("PrismEffects", "effect work failed", e) }
+            }
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            // Closed: the service is gone, so there's nothing left to change.
+        }
+    }
+
+    fun applyLatest(task: () -> Unit) {
+        if (applyQueued.compareAndSet(false, true)) run { applyQueued.set(false); task() }
+    }
+
+    fun close(last: () -> Unit) {
+        run(last)
+        executor.shutdown()
+    }
+
+    companion object {
+        fun thread(): ExecutorService = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "PrismEffects").apply { isDaemon = true }
+        }
+    }
+}
+
+/**
  * Owns the audio effect chain attached to the player's audio session:
  * a 10-band EQ (DynamicsProcessing on API 28+, platform Equalizer otherwise),
  * bass boost, virtualizer, loudness enhancer and loudness normalization.
  * It also announces the session so system / OEM engines such as Dolby Atmos
  * can attach their own processing.
+ *
+ * Callers (the playback service, on the main thread) only hand work over: every effect is created, changed and
+ * released on [EffectQueue]'s own thread, in the order asked, and the effect objects and session are only touched
+ * there. What callers set ([wanted], [wantedNormalizationDb]) is read by that thread when it gets to it.
  */
-class AudioEffects(private val context: Context) {
+class AudioEffects(private val context: Context, executor: ExecutorService = EffectQueue.thread()) {
+    private val queue = EffectQueue(executor)
+
+    // Touched only on the effects thread.
     private var sessionId = 0
     private var dynamics: DynamicsProcessing? = null
     private var equalizer: Equalizer? = null
     private var bass: BassBoost? = null
     private var virtualizer: Virtualizer? = null
     private var loudness: LoudnessEnhancer? = null
-    private var settings = EqSettings()
-    private var normalizationDb = 0f
+
+    // Set by callers, read by the effects thread: the newest settings always win.
+    @Volatile private var wanted = EqSettings()
+    @Volatile private var wantedNormalizationDb = 0f
+    /** Whether the 10-band DynamicsProcessing EQ is the one in use (for [activeSummary]). */
+    @Volatile private var tenBand = false
 
     val activeSummary: String
-        get() = buildList {
-            if (settings.enabled) add(if (dynamics != null) "EQ 10-band" else "EQ")
-            if (settings.enabled && settings.bassBoost > 0) add("Bass")
-            if (normalizationDb != 0f) add("Normalize %.1f dB".format(normalizationDb))
-        }.joinToString(" · ").ifEmpty { "None" }
+        get() {
+            val s = wanted
+            val norm = wantedNormalizationDb
+            return buildList {
+                if (s.enabled) add(if (tenBand) "EQ 10-band" else "EQ")
+                if (s.enabled && s.bassBoost > 0) add("Bass")
+                if (norm != 0f) add("Normalize %.1f dB".format(norm))
+            }.joinToString(" · ").ifEmpty { "None" }
+        }
 
+    /** Moves the effects to the player's audio session [newSession] (0 is ignored). */
     fun attach(newSession: Int) {
-        if (newSession == sessionId || newSession == 0) return
-        release(broadcast = true)
+        if (newSession == 0) return
+        queue.run { attachNow(newSession) }
+    }
+
+    fun setNormalization(gainDb: Float) {
+        wantedNormalizationDb = gainDb
+        queue.applyLatest { applyNow() }
+    }
+
+    fun apply(s: EqSettings) {
+        wanted = s
+        queue.applyLatest { applyNow() }
+    }
+
+    /** Lets go of the effects and tells other effect engines the session is closed. */
+    fun release(broadcast: Boolean = true) {
+        queue.run { releaseNow(broadcast) }
+    }
+
+    /** The service is going: the effects are released after anything still queued, and the thread then ends. */
+    fun shutdown() {
+        queue.close { releaseNow(broadcast = true); sessionId = 0 }
+    }
+
+    private fun attachNow(newSession: Int) {
+        if (newSession == sessionId) return
+        releaseNow(broadcast = true)
         sessionId = newSession
         context.sendBroadcast(Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
             putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
             putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
             putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
         })
-        apply(settings)
+        applyNow()
     }
 
-    fun setNormalization(gainDb: Float) {
-        normalizationDb = gainDb
-        apply(settings)
-    }
-
-    fun apply(s: EqSettings) {
-        settings = s
+    private fun applyNow() {
+        val s = wanted
+        val normalizationDb = wantedNormalizationDb
         if (sessionId == 0) return
         val preGain = normalizationDb + if (s.enabled) s.preampDb else 0f
         if (Build.VERSION.SDK_INT >= 28) {
@@ -109,8 +189,9 @@ class AudioEffects(private val context: Context) {
                 dp.setInputGainAllChannelsTo(preGain)
                 dp.setLimiterAllChannelsTo(DynamicsProcessing.Limiter(true, true, 1, 1f, 60f, 10f, -1f, 0f))
                 dp.enabled = s.enabled || preGain != 0f
-            }.onFailure { dynamics = null; applyLegacyEq(s) }
-        } else applyLegacyEq(s)
+            }.onFailure { dynamics = null; applyLegacyEq(s, normalizationDb) }
+        } else applyLegacyEq(s, normalizationDb)
+        tenBand = dynamics != null
 
         runCatching {
             val b = bass ?: BassBoost(0, sessionId).also { bass = it }
@@ -129,7 +210,7 @@ class AudioEffects(private val context: Context) {
         }
     }
 
-    private fun applyLegacyEq(s: EqSettings) {
+    private fun applyLegacyEq(s: EqSettings, normalizationDb: Float) {
         runCatching {
             val eq = equalizer ?: Equalizer(0, sessionId).also { equalizer = it }
             val range = eq.bandLevelRange
@@ -144,7 +225,7 @@ class AudioEffects(private val context: Context) {
         }
     }
 
-    fun release(broadcast: Boolean = true) {
+    private fun releaseNow(broadcast: Boolean) {
         if (sessionId != 0 && broadcast) {
             context.sendBroadcast(Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
@@ -153,6 +234,7 @@ class AudioEffects(private val context: Context) {
         }
         listOf(dynamics, equalizer, bass, virtualizer, loudness).forEach { runCatching { it?.release() } }
         dynamics = null; equalizer = null; bass = null; virtualizer = null; loudness = null
+        tenBand = false
     }
 
     companion object {

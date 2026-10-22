@@ -422,7 +422,8 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         c.cast.detach(player)
         c.player.detach()
         carLyrics.stop()
-        effects.release()
+        // Released on the effects thread, after anything still queued there: a stalled audio server can't hold this up.
+        effects.shutdown()
         session.release()
         player.release()
         scope.cancel()
