@@ -20,6 +20,8 @@ fun Song.toMediaItem(videoId: String? = null): MediaItem {
     val uri = if (isLive) Uri.Builder().scheme("prism").authority("live").appendPath(id).build()
     else Uri.Builder().scheme("prism").authority("audio").appendPath(id).apply {
         if (videoId != null) appendQueryParameter("video", videoId)
+        // The listener's own upload (#101): asked for as their account from the start.
+        if (isUpload) appendQueryParameter("upload", "1")
     }.build()
     val extras = Bundle().apply {
         putString(EXTRA_SONG, InnerTube.json.encodeToString(Song.serializer(), this@toMediaItem))

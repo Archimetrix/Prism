@@ -110,6 +110,9 @@ fun NerdStatsPanel(modifier: Modifier = Modifier) {
     }
 }
 
+/** How far lyrics can be moved either way, in ms (#109). */
+const val MAX_LYRIC_OFFSET_MS = 120_000L
+
 /**
  * Per-song lyric timing: nudge earlier / later, plus how the lyrics were
  * matched to the music video when one is playing.
@@ -124,7 +127,10 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
     val videoMode by pc.videoMode.collectAsState()
     val scheme = MaterialTheme.colorScheme
     fun fmt(ms: Long) = (if (ms > 0) "+" else if (ms < 0) "−" else "") + "%.1f s".format(kotlin.math.abs(ms) / 1000f)
-    fun nudge(d: Long) = pc.setLyricOffset((offset + d).coerceIn(-15_000, 15_000))
+    // Up to two minutes either way (#109: some lyrics are an intro or a whole verse out, and 15 s wasn't enough).
+    fun nudge(d: Long) = pc.setLyricOffset((offset + d).coerceIn(-MAX_LYRIC_OFFSET_MS, MAX_LYRIC_OFFSET_MS))
+    // The slider spans ±15 s, and grows to keep a bigger offset (set with the buttons) on it with room to spare.
+    val reach = maxOf(15f, kotlin.math.ceil(kotlin.math.abs(offset) / 5000f) * 5f + 5f).coerceAtMost(MAX_LYRIC_OFFSET_MS / 1000f)
     // The same frosted sheet as the player's ⋯ menu it opens from.
     com.prism.music.ui.components.ActionSheet(song?.thumbnail, onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp)) {
@@ -140,11 +146,11 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
             )
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf(-500L to "−0.5", -100L to "−0.1", 100L to "+0.1", 500L to "+0.5").forEach { (d, label) ->
+                listOf(-5000L to "−5", -500L to "−0.5", -100L to "−0.1", 100L to "+0.1", 500L to "+0.5", 5000L to "+5").forEach { (d, label) ->
                     Text(
-                        label, style = MaterialTheme.typography.titleMedium,
+                        label, style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.clip(RoundedCornerShape(50)).background(com.prism.music.ui.components.quietFill())
-                            .clickable { nudge(d) }.padding(horizontal = 18.dp, vertical = 10.dp),
+                            .clickable(onClickLabel = "Lyrics ${label.replace("−", "-")} seconds") { nudge(d) }.padding(horizontal = 11.dp, vertical = 10.dp),
                     )
                 }
             }
@@ -152,7 +158,11 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
                 Text("Later", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                 Text("Earlier", style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
             }
-            PrismSlider(offset / 1000f, { pc.setLyricOffset((it * 10).roundToInt() * 100L) }, valueRange = -10f..10f)
+            PrismSlider(offset / 1000f, { pc.setLyricOffset((it * 10).roundToInt() * 100L) }, valueRange = -reach..reach)
+            Text(
+                "Kept on this phone, for this song only",
+                style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+            )
             if (offset != 0L) PrismTextButton(onClick = { pc.setLyricOffset(0) }, Modifier.align(Alignment.End)) { Text("Reset") }
             if (videoMode) {
                 Spacer(Modifier.height(10.dp))

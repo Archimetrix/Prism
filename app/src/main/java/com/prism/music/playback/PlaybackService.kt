@@ -873,8 +873,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     suspend fun videoIdFor(song: Song): VideoLookup {
         // An episode is a YouTube video already: its video is itself.
         if (song.isVideo || song.isEpisode) return VideoLookup(song.id)
-        // A file on the phone has no music video.
-        if (song.isLocal) return VideoLookup(null)
+        // A file on the phone has no music video, and neither has the listener's own upload (#101: the lookup found the
+        // official recording's video for it by title).
+        if (song.isLocal || song.isUpload) return VideoLookup(null)
         // A saved video plays offline, so it's known without asking YouTube.
         c.downloads.downloadedVideoId(song.id)?.let { return VideoLookup(it) }
         c.queue.counterparts[song.id]?.let { return VideoLookup(it) }

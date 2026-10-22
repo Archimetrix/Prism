@@ -363,6 +363,11 @@ class StreamResolver(
         }
     }
 
+    /** [videoId] is the listener's own upload (#101): asked for as the signed-in account from the start. */
+    fun forAccount(videoId: String) {
+        if (settings.current.isLoggedIn && needsAccount.add(videoId)) Log.i("PrismStream", "$videoId is an upload: asking as the account")
+    }
+
     /** Songs whose direct ([directFormats]) links were turned away: looked up through NewPipe from then on. */
     private val directRefused = ConcurrentHashMap.newKeySet<String>()
 

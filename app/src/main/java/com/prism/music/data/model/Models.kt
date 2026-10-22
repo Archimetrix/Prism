@@ -27,6 +27,11 @@ data class Song(
     val isEpisode: Boolean = false,
     /** An episode's show (its browse id, "MPSP…"), for "Go to podcast". */
     val podcastId: String? = null,
+    /**
+     * Music the listener uploaded to YouTube Music (#101): a song, but only their account may play it, and it's never
+     * swapped for YouTube's own recording or given its music video.
+     */
+    val isUpload: Boolean = false,
 ) {
     val artistText: String get() = artists.joinToString(", ") { it.name }.ifBlank { UNKNOWN_ARTIST }
     val primaryArtist: String get() = artists.firstOrNull()?.name ?: ""

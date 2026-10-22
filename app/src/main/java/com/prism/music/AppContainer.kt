@@ -445,6 +445,9 @@ class AppContainer(val app: Application) {
                 return spec.buildUpon().setKey(id).build()
             }
         }
+        // The listener's own upload (#101): only their account may play it, so it's asked for that way at once instead of
+        // after two refusals.
+        if (uri.getQueryParameter("upload") == "1") streams.forAccount(id)
         val s = try {
             streams.resolve(id)
         } catch (e: Exception) {

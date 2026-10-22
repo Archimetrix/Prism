@@ -34,6 +34,11 @@ The second customization update: Looks.
   you liked again elsewhere used to keep its old place.
 - **Songs not available in your country (#93)** now play their music video's sound instead of stopping, when the video
   is allowed where you are.
+- **Your own uploads (#101)** play as themselves. YouTube Music marks them apart from its own songs, and Prism took them
+  for videos, so "Songs, not videos" swapped an upload for YouTube's own recording of the same name (a 6-minute full
+  version played as the short one). They're songs now, are asked for with your account from the start, and never get
+  a music video looked up.
+- **Lyrics timing (#109)** goes up to two minutes either way, with ±5 s steps. It's kept on your phone, for that song.
 - **Section headings (#104, #107)** are a little bolder, the same on every page, and the whole heading row opens the
   section, with its arrow at the far end where your thumb reaches it.
 

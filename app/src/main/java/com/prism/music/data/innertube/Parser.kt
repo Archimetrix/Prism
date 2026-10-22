@@ -27,6 +27,14 @@ object Parser {
     /** A podcast show: browse id "MPSP" + its playlist id. */
     private const val PODCAST = "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
     private const val EPISODE_VIDEO = "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+    /** Music the listener uploaded to YouTube Music themselves (#101). */
+    private const val UPLOAD = "MUSIC_VIDEO_TYPE_PRIVATELY_OWNED_TRACK"
+
+    /**
+     * Whether a watch endpoint's type is a video: anything but YouTube's own songs ("ATV") and the listener's uploads,
+     * which are songs too (#101: as "videos", "Songs, not videos" swapped an upload for YouTube's own, shorter, recording).
+     */
+    fun isVideoType(vt: String?): Boolean = vt != null && vt != "MUSIC_VIDEO_TYPE_ATV" && vt != UPLOAD
     private val typeLabels = setOf(
         "Song", "Video", "Album", "Single", "EP", "Artist", "Playlist", "Episode", "Podcast", "Profile", "Station",
     )
@@ -155,7 +163,7 @@ object Parser {
                     album = albumFromRuns(restRuns),
                     durationSec = parseDuration(duration),
                     thumbnail = thumb,
-                    isVideo = vt != null && vt != "MUSIC_VIDEO_TYPE_ATV",
+                    isVideo = isVideoType(vt), isUpload = vt == UPLOAD,
                     explicit = explicit,
                 )
             )
@@ -224,7 +232,7 @@ object Parser {
                     album = albumFromRuns(subtitleRuns),
                     durationSec = parseDuration(subtitleRuns.map { it.str("text") ?: "" }.lastOrNull { durationRegex.matches(it.trim()) }),
                     thumbnail = thumb,
-                    isVideo = vt != null && vt != "MUSIC_VIDEO_TYPE_ATV",
+                    isVideo = isVideoType(vt), isUpload = vt == UPLOAD,
                 )
             )
         }
@@ -271,7 +279,7 @@ object Parser {
                 Song(
                     id = id, title = title, artists = artistsFromRuns(subtitleRuns),
                     album = albumFromRuns(subtitleRuns), thumbnail = thumb,
-                    isVideo = vt != null && vt != "MUSIC_VIDEO_TYPE_ATV",
+                    isVideo = isVideoType(vt), isUpload = vt == UPLOAD,
                 )
             )
         }
@@ -305,7 +313,7 @@ object Parser {
             album = albumFromRuns(byline),
             durationSec = parseDuration(r.obj("lengthText").text()),
             thumbnail = r.obj("thumbnail").bestThumbnail(),
-            isVideo = vt != null && vt != "MUSIC_VIDEO_TYPE_ATV",
+            isVideo = isVideoType(vt), isUpload = vt == UPLOAD,
         )
     }
 
