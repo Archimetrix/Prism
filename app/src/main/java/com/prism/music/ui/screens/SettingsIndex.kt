@@ -77,6 +77,10 @@ object SettingsIndex {
         // Appearance → Looks (1.7.3)
         SettingEntry(LK, "Prism's Looks", "Prism's Looks", "theme preset paper midnight neon soft studio built in"),
         SettingEntry(LK, "Your Looks", "Your Looks", "saved theme preset save rename duplicate delete share qr code"),
+        SettingEntry(LK, "From the community", "Browse community Looks", "gallery github themes shared download others community"),
+        SettingEntry(LK, "From the community", "Couldn't load the gallery", "gallery offline"),
+        SettingEntry(LK, "From the community", "Refresh the list", "gallery github themes"),
+        SettingEntry(LK, "From the community", "Add your Look", "gallery github pull request contribute share theme"),
         SettingEntry(LK, "Get a Look", "Scan a Look's QR code", "camera theme share friend"),
         SettingEntry(LK, "Get a Look", "Paste a Look code", "clipboard theme share"),
         SettingEntry(LK, "Get a Look", "Open a Look file", "prismlook file import theme"),

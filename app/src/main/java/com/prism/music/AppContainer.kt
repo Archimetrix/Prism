@@ -167,6 +167,8 @@ class AppContainer(val app: Application) {
     val settings = SettingsRepository(app, scope)
     /** Looks (1.7.3): saved, Prism's own and shared looks, Undo for look changes, the day / night schedule. */
     val looks = com.prism.music.data.looks.LookStore(app, settings, scope)
+    /** Looks people shared on GitHub (themes/ in Prism's repository), fetched only when the listener opens the list. */
+    val lookGallery by lazy { com.prism.music.data.looks.LookGallery(http, java.io.File(app.filesDir, "looks"), { settings.lookKinds }) }
     /** "Customize this" (1.7.3): with it on, the mini player, tab bar, player and Home's sections open their own settings. */
     val customizing = MutableStateFlow(false)
 

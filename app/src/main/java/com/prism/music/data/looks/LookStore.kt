@@ -73,7 +73,10 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     val mine: StateFlow<List<Look>> = _mine.asStateFlow()
     val all: List<Look> get() = BuiltInLooks.all + _mine.value
 
-    fun find(id: String): Look? = BuiltInLooks.of(id) ?: _mine.value.firstOrNull { it.id == id }
+    fun find(id: String): Look? = BuiltInLooks.of(id) ?: _mine.value.firstOrNull { it.id == id } ?: _other.value?.takeIf { it.id == id }
+
+    /** The last Look put on that's neither Prism's nor yours (from the gallery or a friend), so the page can name it. */
+    private val _other = MutableStateFlow<Look?>(null)
 
     /** A Look shared into Prism (a code from a message or a QR code, or a file), shown with Apply and Save first. */
     val pending = MutableStateFlow<Look?>(null)
@@ -81,9 +84,9 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     private val iconsVersion = MutableStateFlow(0)
 
     /** The Look the app is in, when its settings and icons are exactly one's. */
-    val currentId: StateFlow<String?> = combine(settings.flow, _mine, iconsVersion) { s, mine, _ ->
+    val currentId: StateFlow<String?> = combine(settings.flow, _mine, iconsVersion, _other) { s, mine, _, other ->
         val icons = currentIcons()
-        (BuiltInLooks.all + mine).firstOrNull { l -> l.icons == icons && settings.previewLook(resolved(l)) == s }?.id
+        (BuiltInLooks.all + mine + listOfNotNull(other)).firstOrNull { l -> l.icons == icons && settings.previewLook(resolved(l)) == s }?.id
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
 
     // ---------------------------------------------------------------- Keeping Looks
@@ -209,6 +212,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
             }
         }
         expect = Expect(label = label) { _, _ -> true }
+        if (BuiltInLooks.of(look.id) == null && _mine.value.none { it.id == look.id }) _other.value = look.copy(id = look.id.ifBlank { "shared" })
         settings.applyLook(values, fontChanged)
         applyIcons(look.icons)
     }

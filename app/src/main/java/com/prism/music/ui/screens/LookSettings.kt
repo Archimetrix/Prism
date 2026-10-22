@@ -176,6 +176,7 @@ private fun LooksSettings() {
             if (mine.isEmpty()) Note("Looks you save show here. Save one above, or get one from a friend below.")
             else LookGrid(mine, current, onPick = ::apply, onMore = { acting = it })
         }
+        CommunityGroup(current)
         Group("Get a Look") {
             Item("Scan a Look's QR code", "From a friend's Prism", icon = PrismIcons.Camera, onClick = { nav.go(Routes.LOOK_SCAN) }) { Chevron() }
             Item("Paste a Look code", "A code someone sent you", icon = PrismIcons.Copy, onClick = { take(c.looks.decode(clipboard.getText()?.text)) })
@@ -203,13 +204,82 @@ private fun LooksSettings() {
     pending?.let { look -> PendingLookDialog(look) }
 }
 
+/** What the community gallery is showing: nothing asked yet, loading, its Looks, or why it couldn't load. */
+private sealed interface GalleryState {
+    data object Closed : GalleryState
+    data object Loading : GalleryState
+    data class Shown(val looks: List<com.prism.music.data.looks.GalleryLook>) : GalleryState
+    data class Failed(val why: String) : GalleryState
+}
+
+/** Kept while Prism runs, so the list doesn't close every time the page is left. */
+private val galleryState = mutableStateOf<GalleryState>(GalleryState.Closed)
+
+/**
+ * Looks people shared on GitHub (themes/ in Prism's repository, added by pull request). Nothing is downloaded until
+ * the listener asks; a gallery Look opens as a preview first, like any shared one.
+ */
+@Composable
+private fun CommunityGroup(current: String?) {
+    val c = LocalContainer.current
+    val context = LocalContext.current
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val scope = rememberCoroutineScope()
+    var state by galleryState
+    var opening by remember { mutableStateOf<String?>(null) }
+    fun load(refresh: Boolean) = scope.launch {
+        state = GalleryState.Loading
+        state = runCatching { c.lookGallery.looks(refresh) }.fold(
+            { GalleryState.Shown(it) },
+            { GalleryState.Failed(if (it is java.net.UnknownHostException) "You're offline" else it.message ?: "Couldn't reach GitHub") },
+        )
+    }
+    Group("From the community") {
+        when (val s = state) {
+            GalleryState.Closed -> Item(
+                "Browse community Looks", "Looks people shared on GitHub", icon = PrismIcons.Globe,
+                info = "The list is downloaded from Prism's GitHub repository when you open it (GitHub sees the download, nothing else is sent). Each Look shows as a preview first, and can only change how Prism looks.",
+                onClick = { load(false) },
+            ) { Chevron() }
+            GalleryState.Loading -> Row(Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.Center) {
+                com.prism.music.ui.components.PrismSpinner(Modifier.size(28.dp))
+            }
+            is GalleryState.Failed -> Item("Couldn't load the gallery", "${s.why} · tap to try again", onClick = { load(true) })
+            is GalleryState.Shown -> {
+                if (s.looks.isEmpty()) Note("No community Looks yet. Yours could be the first.")
+                else LookGrid(
+                    s.looks.map { it.look }, current,
+                    onPick = { look ->
+                        val g = s.looks.first { it.look.id == look.id }
+                        if (opening == null) scope.launch {
+                            opening = g.entry.id
+                            runCatching { c.lookGallery.fetch(g, c.looks) }
+                                .onSuccess { c.looks.pending.value = it }
+                                .onFailure { Toast.makeText(context, it.message ?: "Couldn't download that Look", Toast.LENGTH_SHORT).show() }
+                            opening = null
+                        }
+                    },
+                    onMore = null,
+                )
+                if (opening != null) Note("Downloading its photos…")
+                Item("Refresh the list", "From GitHub", onClick = { load(true) })
+            }
+        }
+        Item(
+            "Add your Look", "By pull request on GitHub", icon = PrismIcons.OpenInNew,
+            info = "Save your Look, share it as text, and add its code to themes/index.json in Prism's repository. The page says how.",
+            onClick = { runCatching { uri.openUri(com.prism.music.data.looks.LookGallery.ADD_YOURS) } },
+        )
+    }
+}
+
 /** [looks] two to a row, each a card with the Look on two small phones; [current] is ringed. */
 @Composable
-private fun LookGrid(looks: List<Look>, current: String?, onPick: (Look) -> Unit, onMore: (Look) -> Unit) {
+private fun LookGrid(looks: List<Look>, current: String?, onPick: (Look) -> Unit, onMore: ((Look) -> Unit)?) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         looks.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { look -> LookCard(look, look.id == current, Modifier.weight(1f), { onPick(look) }, { onMore(look) }) }
+                row.forEach { look -> LookCard(look, look.id == current, Modifier.weight(1f), { onPick(look) }, onMore?.let { m -> { m(look) } }) }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }

@@ -190,6 +190,7 @@ object Tour {
             listOf(
                 "Try Prism's own: Paper, Midnight, Neon, Soft and Studio",
                 "Save yours, and share it as a QR code, a code or a file",
+                "Browse Looks people shared, under From the community",
                 "One Look by day and another by night, at sunrise and sunset",
                 "Every look page shows Home, the player and lyrics as you change them; Undo takes a change back",
                 "Customize by tapping: hold the Settings tab, or turn it on in Appearance, then tap the mini player, tab bar, player or a Home section",

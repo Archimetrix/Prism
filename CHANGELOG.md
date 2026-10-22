@@ -12,6 +12,9 @@ The second customization update: Looks.
 - **Prism's own Looks**: Prism (how it comes), Paper, Midnight, Neon, Soft and Studio. Copy one to make it your own.
 - **Share a Look** as a QR code, a code in a message, or a `.prismlook` file that can carry its background photos and
   (if you tick it) your font. A Look someone sends shows first, with Use it and Save; it can only change how Prism looks.
+- **Community Looks.** Looks → From the community lists Looks people added to Prism's GitHub repository (`themes/`, by
+  pull request; its README says how). The list is downloaded only when you open it, and each Look shows as a preview
+  first. Four to start: Aurora Glass, Graphite, Sunset Drive and Forest Walk.
 - **Day and night.** One Look by day and another by night, switched at sunrise and sunset (worked out from your time
   zone, no location needed) or at times you set.
 - **Undo.** After every change to the look, an Undo bar says what changed ("Corners → Sharp"). Looks → History goes
