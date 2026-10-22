@@ -29,7 +29,19 @@ fun SongCreditsSheet(song: Song, onDismiss: () -> Unit) {
     val c = LocalContainer.current
     // null while loading; an empty list when YouTube has none.
     val credits by produceState<Result<List<Pair<String, List<String>>>>?>(null, song.id) {
-        value = withContext(Dispatchers.IO) { runCatching { c.ytm.credits(song.id) } }
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                // Another upload of the song (a video, a remaster's own id) often has none: the same song by title and
+                // artist from the songs search then stands in.
+                c.ytm.credits(song.id).ifEmpty {
+                    val want = com.prism.music.data.innertube.SearchRank.norm(song.title)
+                    val twin = c.ytm.search("${song.title} ${song.primaryArtist}", com.prism.music.data.innertube.SearchFilter.SONGS).items
+                        .filterIsInstance<com.prism.music.data.model.SongItem>().map { it.song }
+                        .firstOrNull { it.id != song.id && com.prism.music.data.innertube.SearchRank.norm(it.title) == want }
+                    twin?.let { c.ytm.credits(it.id) }.orEmpty()
+                }
+            }
+        }
     }
     PrismSheet(onDismiss) { _ ->
         Column(

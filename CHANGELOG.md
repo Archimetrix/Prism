@@ -30,6 +30,37 @@ What changed in each release. Older releases are described on the [Releases page
   - The colour picker shows how Prism will look with the colour as you drag.
   - Choices are explained in plain words ("Song's cover", "Softened" or "Exactly as picked", "Plain" background).
   - "Reset colours" at the bottom puts everything back.
+- **App icon shortcuts.** Press and hold Prism's icon for Search, Recognize a song, Liked songs and Downloads.
+- **Song credits.** A song's menu (and the player's ⋯) shows who performed, wrote and produced it.
+- **Library your way.**
+  - Pick and order the tiles at the top of Library ("Edit tiles", or Settings → Library & Replay → Library tiles).
+  - Albums can be sorted with downloaded ones first.
+- **Downloads.** The songs' search, genre filter and sort now apply to the downloaded albums and playlists above them.
+- **New releases.**
+  - Filter by time (this week, this month, 3 months) and by type (albums, or singles and EPs).
+  - Hide what's already in your library.
+  - Sort by newest, artist or title.
+- **Release Radar** also watches the artists you follow on YouTube Music, not only the ones you've played in Prism.
+- **Save from a long press.** Holding an album or playlist now has a button to add it to (or remove it from) your library. Holding an artist has a star to favourite them.
+- **Likes as stars.** Settings → Appearance → Icons & shapes → "Likes as stars" draws likes as a star instead of a heart.
+- **Immersive mode** can keep previous, play and next on screen ("Keep controls on screen").
+- **Casting is easier to find.**
+  - The line under the player shows the cast mark.
+  - The player's ⋯ has "Play on a speaker or TV".
+- **Android Auto.**
+  - Four tabs along the top: Home, Made for you, Recents and Library, with Liked songs and Downloads inside Library.
+  - With "Covers in a grid" (on by default; Settings → Lyrics → Android Auto), Home shows its sections as rows of covers under their headings, and Library and Made for you show as covers.
+- **Premium quality.** Signed in with YouTube Music Premium, Playback & sound → "Premium quality" plays Premium's 256 kbps streams. Songs may take a moment longer to start. Without Premium, Prism notices and plays as usual.
+
+### Fixed
+- **Pure black stayed grey.** The frosted background made from the playing cover was drawn over it. With Pure black on in dark mode, pages are now black.
+- **A white accent drew a grey progress bar** on the player and mini player. It's white now.
+- **Album and playlist pages looked black below the picture.** They keep more of the picture's colour again, and text still reads.
+- **Crossfade not happening at all on some phones.** When the second player still couldn't line up after two tries, the blend was dropped. A plain blend now goes ahead anyway, crossed over slowly. Every reason a song isn't blended is written to Playback diagnostics.
+- **A hiccup a few seconds into songs.** When a song's measured loudness came in, its volume moved several dB in a tenth of a second. Changes now ease in over two seconds, and small ones mid-song are skipped.
+- **DJ mode was laggy on some phones.** It now reads one song's key at a time while music plays.
+- **"Ready offline"** now says it's a mix of songs already on your phone (it doesn't download anything).
+- With Reduce motion on, the playing bars no longer animate behind the scenes.
 
 ## 1.7.1
 
