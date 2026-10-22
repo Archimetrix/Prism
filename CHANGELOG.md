@@ -2,9 +2,11 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
-## 1.7.2 (unreleased)
+## 1.7.2
 
-### New
+The first of the 1.7.x customization updates: color.
+
+### Color
 - **Pick any color.** A new color picker is used everywhere Prism asks for a color. You can:
   - pick on a color wheel, or set exact RGB and HSL values;
   - type or paste a color code (#3A86FF);
@@ -12,77 +14,58 @@ What changed in each release. Older releases are described on the [Releases page
   - star colors to keep them; your recent colors are kept too.
 
   Before you use a color, it shows how readable it is on dark and light pages.
-- **Your light.** The split light that runs through Prism (progress, rings, switches, what's playing) comes in 12 palettes: Prism, Sunset, Ocean, Aurora, Forest, Ember, Candy, Neon, Ice, Gold, Silver and a color-blind-safe one. You can also build your own from 2 to 7 colors, and show any of them as hard bands like the logo's bars. White light is now one of these presets, called **White** (**Black** in light mode). It's the same size as the others, and its light really is white (or black): your accent no longer stands in for it.
-- **More accent options.**
-  - The accent can be set with any light, not only White light.
-  - **Exact shade** uses your color just as picked, instead of Prism's own tones of it.
-  - Light mode can have an accent of its own.
-- **Background tint.** Pages can be neutral grey, tinted with the accent, or tinted with a color of your own, with a strength slider.
-- **Contrast.** Choose Standard, Medium or High, for firmer secondary text, lines and accent.
-- **Cover colors.**
-  - With "Now playing" as the accent, you choose which of the cover's colors to use (vibrant, muted or main) and whether grey covers still give a color ("Keep it lively").
-  - You also choose how the color moves between songs: at once, a fade, a slow fade, or only when the album changes.
-- **Page colors.** Artist, album and playlist pages (and the menus opened from them) now use your accent, like the rest of Prism. Before, they always took a color from their picture, so the accent you picked hardly showed. Their frosted backgrounds still take the picture's colors. To have them take their picture's color instead, set Color → Artist & album pages → **Picture's color**. An artist's page can also have a color you pick (⋯ → Page color).
-- **Appearance is tidier.** Appearance now holds the theme and four pages: Color, Text, Icons & shapes, and Glass & backgrounds.
-- **A Color page you can see.**
-  - A preview of Prism's Now playing (your song's cover, the title, the artist in the accent, the light on Play, progress and a switch), in dark or light mode. It stays pinned at the top while you scroll, as one compact row. It numbers the three parts colors apply to: ① the light, ② the accent and ③ the background.
-  - Every choice is a card that shows what it looks like before you pick it.
-  - The color picker shows how Prism will look with the color as you drag.
-  - Choices are explained in plain words ("Song's cover", "Softened" or "Exactly as picked", "Plain" background).
-  - "Reset colors" at the bottom puts everything back.
+- **Your light.** The light that runs through Prism (progress, the Play ring, switches, the song that's playing) comes in 12 presets: Prism, Sunset, Ocean, Aurora, Forest, Ember, Candy, Neon, Ice, Gold, Silver and a color-blind-safe one. There's also **White** (**Black** in light mode), and you can build your own from 2 to 7 colors, smooth or as hard bands like the logo's bars. White light is now this White preset, with its light really white (or black).
+- **Your accent.** The accent comes from the song's cover, your wallpaper or a color you pick. It can be used **exactly as picked** or softened to suit dark and light pages, and light mode can have an accent of its own. With the song's cover, you choose which of its colors to use, whether grey covers still give a color, and how the color moves between songs.
+- **Your accent on every page.** Artist, album and playlist pages (and the menus opened from them) now use your accent, like the rest of Prism. Before, they always took a color from their picture, so the accent you picked hardly showed. Their frosted backgrounds still take the picture's colors. To have them take their picture's color instead, set Color → Artist & album pages → **Picture's color** (black-and-white pictures keep your accent). An artist's page can also have a color of its own (⋯ → Page color).
+- **Page background.** Automatic, plain grey, tinted with your accent, or a color of your own, with a strength slider. It colors the frosted background behind Home, Search, Library, Replay and Settings, and sheets and dialogs.
+- **Text contrast.** Standard, Medium or High, for firmer secondary text, lines and accent.
+- **A Color page you can see.** A preview of your Prism (a small album page on your real background, in dark or light mode) stays pinned at the top while you scroll, with the three parts numbered: ① the light, ② the accent and ③ the background. Every choice is a card that shows what it looks like, each group lists everything it changes in the app, the color picker shows Prism with the color as you drag, and "Reset colors" at the bottom puts everything back.
+- **Appearance is tidier.** It now holds the theme and four pages: Color, Text, Icons & shapes, and Glass & backgrounds.
+- **"Color" is spelled the US way** throughout Prism.
+
+### New
 - **App icon shortcuts.** Press and hold Prism's icon for Search, Recognize a song, Liked songs and Downloads.
 - **Song credits.** A song's menu (and the player's ⋯) shows who performed, wrote and produced it.
 - **Library your way.**
   - Pick and order the tiles at the top of Library ("Edit tiles", or Settings → Library & Replay → Library tiles).
+  - Put your playlists above the tiles (Edit tiles → "Where your playlists go" → Playlists first).
   - Albums can be sorted with downloaded ones first.
-- **Downloads.** The songs' search, genre filter and sort now apply to the downloaded albums and playlists above them.
-- **New releases.**
-  - Filter by time (this week, this month, 3 months) and by type (albums, or singles and EPs).
-  - Hide what's already in your library.
-  - Sort by newest, artist or title.
-- **Release Radar** also watches the artists you follow on YouTube Music, not only the ones you've played in Prism.
-- **Save from a long press.** Holding an album or playlist now has a button to add it to (or remove it from) your library. Holding an artist has a star to favourite them.
-- **Likes as stars.** Settings → Appearance → Icons & shapes → "Likes as stars" draws likes as a star instead of a heart.
+- **Pin Prism playlists to Home.** Customize Home → Pinned playlists lists your Prism playlists as well as YouTube Music's.
+- **Square video covers** (#92). A video played as a song no longer shows YouTube's black bars in its cover: the bars are trimmed and the middle of the picture is used, on the player, in lists, in the notification and in Android Auto. Turn it off under Settings → Player → Cover.
+- **Lyrics on mobile data** (#95). Turn it off under Settings → Lyrics → Sources, and on mobile data Prism looks lyrics up only once you open them. Lyrics already saved on the phone still show.
+- **Which downloads failed, and why** (#98). Under "N downloads failed", **See which** lists each song with the reason (YouTube refusing the link, the phone going offline or running out of space…), and you can try each one again or remove it.
+- **Downloads.** The songs' search, genre filter and sort also apply to the downloaded albums and playlists above them.
+- **New releases.** Filter by time (this week, this month, 3 months) and type (albums, or singles and EPs), hide what's already in your library, and sort by newest, artist or title.
+- **Release Radar** also watches the artists you follow on YouTube Music.
+- **Save from a long press.** Holding an album or playlist has a button to add it to (or remove it from) your library; holding an artist has a star to favourite them.
+- **Likes as stars.** Settings → Appearance → Icons & shapes → "Likes as stars".
 - **Immersive mode** can keep previous, play and next on screen ("Keep controls on screen").
-- **Casting is easier to find.**
-  - The line under the player shows the cast mark.
-  - The player's ⋯ has "Play on a speaker or TV".
+- **Casting is easier to find.** The line under the player shows the cast mark, and the player's ⋯ has "Play on a speaker or TV".
+- **Premium quality.** Signed in with YouTube Music Premium, Playback & sound → "Premium quality" plays Premium's 256 kbps streams. Without Premium, Prism notices and plays as usual.
+- **The Ring Replay card** says "Your top songs, artists and genres" like the other cards, and shows how far through the year it is to a tenth of a percent.
+- **Pure black covers every background.** In dark mode with Pure black on, every screen background (the color ones, Simple patterns, Designs, Now playing) sits on true black, its colors kept but quieter.
 - **Android Auto.**
-  - Four tabs along the top: Home, Made for you, Recents and Library, with Liked songs and Downloads inside Library.
-  - With "Covers in a grid" (on by default; Settings → Lyrics → Android Auto), Home shows its sections as rows of covers under their headings, and Library and Made for you show as covers.
-- **Premium quality.** Signed in with YouTube Music Premium, Playback & sound → "Premium quality" plays Premium's 256 kbps streams. Songs may take a moment longer to start. Without Premium, Prism notices and plays as usual.
-- **Square video covers** (#92). A video played as a song no longer shows YouTube's black bars in its cover. The bars are trimmed and the middle of the picture is used as a square cover, on the player, in lists, in the notification and in Android Auto. It's on by default; turn it off under Settings → Player → Cover.
-- **Lyrics on mobile data** (#95). Turn it off under Settings → Lyrics → Sources, and on mobile data Prism looks lyrics up only once you open them. Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.
-- **Which downloads failed, and why** (#98). Under "N downloads failed", **See which** lists each song with the reason, for example YouTube refusing the link, the phone going offline or running out of space. You can try each one again or remove it.
-- **"Color" is spelled the US way** throughout Prism.
-- **No more freezes from the sound effects.** The equalizer, bass boost and loudness effects are now set up on a thread of their own. When Android's audio service is slow to answer (after a restart, during a Bluetooth switch, with some phone makers' sound engines), Prism no longer stops responding while it waits.
-- **The Color page says what each setting changes.** Every group now has a "Changes" line naming everywhere it shows: the player, the mini player, song lists, Home, Settings, album and artist pages, menus, widgets. The preview is a small album page that shows only what each part really colors: the artist in the accent, the song that's playing in the light, the mini player's progress and Play ring, a switch. It sits on your real page background. Fixes found along the way:
-  - **Page background did almost nothing** with the Ambient background: the frost from the playing cover covered it. Now Plain turns the frost grey, and Accent tint or Your color tint the frost in that color (the strength slider included), in light and dark mode.
-  - **Accent tint with Wallpaper** tinted pages with your old picked color instead of the wallpaper's.
-  - In White light, "Plain" is no longer offered beside "Automatic" (they were the same).
-  - **Album and artist pages showed a paler accent than the preview.** A black-and-white cover gave the page a grey accent. Now a picture with no color of its own keeps your accent, and colorful pictures give a deeper accent, as lively as your own. Secondary text (an album's year line, its description, song rows' artists) no longer turns pink with a strong page tint, so it no longer looks like a faded accent.
-  - The page no longer says the accent colors the song that's playing (it's the light that does), and it now says that "Picture's color" also colors the menus you open from songs, albums and artists.
-- **Pin Prism playlists to Home.** Customize Home → Pinned playlists lists your Prism playlists as well as YouTube Music's. A pinned Prism playlist keeps its current name and cover.
-- **Playlists above the tiles.** Library → Edit tiles → "Where your playlists go": **Playlists first** puts your playlists at the top of Library, with the tiles (Liked songs, Downloads…) after them.
-- **The Ring Replay card** says "Your top songs, artists and genres" like the other cards, and shows how far through the year it is to a tenth of a percent (81.3%).
-- **Pure black covers every background.** In dark mode with Pure black on, every screen background (the color ones, Simple patterns, Designs, Now playing) now sits on true black, with its colors kept but quieter. Before, only Ambient and the plain page went black.
-- **Android Auto.** Your Prism playlists are in the car's Library, and YouTube Music's own mixes in your library (My Supermix, Discover mix…) show their covers there.
+  - Four tabs along the top: Home, Made for you, Recents and Library, with Liked songs, Downloads and your Prism playlists inside Library.
+  - With "Covers in a grid" (on by default; Settings → Lyrics → Android Auto), Home shows its sections as rows of covers, and Library and Made for you show as covers.
+  - YouTube Music's own mixes in your library (My Supermix, Discover mix…) show their covers.
+- **Crash details stay on your phone.** If Prism closes unexpectedly, Settings → About → Diagnostics shows "Last crash", and you can share it.
 
 ### Fixed
-- **Pure black stayed grey.** The frosted background made from the playing cover was drawn over it. With Pure black on in dark mode, pages are now black.
-- **A white accent drew a grey progress bar** on the player and mini player. It's white now.
+- **Crossfade not happening at all on some phones.** When the second player couldn't line up after two tries, the blend was dropped. A plain blend now goes ahead anyway, crossed over slowly, and every reason a song isn't blended is written to Playback diagnostics.
+- **A hiccup a few seconds into songs.** When a song's measured loudness came in, its volume jumped several dB at once. Changes now ease in over two seconds, and small ones mid-song are skipped.
+- **DJ mode was laggy.** It reads one song's key at a time while music plays, and its new order goes into the queue at once (at most every second and a half) instead of one move per song.
+- **Stutters on slower phones.** Background song scans (loudness, tempo, keys, music-video timing) step aside when the sound runs short.
+- **Freezes when Android's audio service is slow** (after a restart, during a Bluetooth switch, with some phone makers' sound engines): the equalizer and sound effects are now set up on a thread of their own.
+- **Starting Prism** does less before the first screen appears.
+- **Typing in Search could lag** with a big library (#91).
+- **Your own uploaded songs** that YouTube refuses twice are asked for with your account (#101).
+- **Pure black stayed grey** behind the frosted background in dark mode.
+- **A white accent drew a grey progress bar** on the player and mini player.
 - **Album and playlist pages looked black below the picture.** They keep more of the picture's color again, and text still reads.
-- **Crossfade not happening at all on some phones.** When the second player still couldn't line up after two tries, the blend was dropped. A plain blend now goes ahead anyway, crossed over slowly. Every reason a song isn't blended is written to Playback diagnostics.
-- **A hiccup a few seconds into songs.** When a song's measured loudness came in, its volume moved several dB in a tenth of a second. Changes now ease in over two seconds, and small ones mid-song are skipped.
-- **DJ mode was laggy on some phones.** It now reads one song's key at a time while music plays.
-- **"Ready offline"** now says it's a mix of songs already on your phone (it doesn't download anything).
+- **Page background did almost nothing** behind the Ambient background, and **Accent tint with Wallpaper** used your old picked color instead of the wallpaper's.
+- **Secondary text turned pink** with a strong page tint, so it looked like a faded accent.
+- **"Ready offline"** now says it's a mix of songs already on your phone.
 - With Reduce motion on, the playing bars no longer animate behind the scenes.
-- **DJ mode made the queue lag.** Each key it read reordered the queue one song at a time, and every move redrew the player and the queue. The new order now goes in at once, at most every second and a half.
-- **Stutters on slower phones.** Background song scans (loudness, tempo, keys, music-video timing) now step aside while the sound runs dry, instead of competing with playback.
-- **Starting Prism** does less before the first screen appears: scheduled jobs and resumed downloads wait until it's up.
-- **Typing in Search could lag** with a big library: your listening taste is now worked out off the main thread (#91).
-- **Your own uploaded songs** that YouTube refuses twice are now asked for with your account (#101).
-- **Crash details stay on your phone.** If Prism closes unexpectedly, Settings → About → Diagnostics shows "Last crash", and you can share it. Crossfade's steps are now in the Playback diagnostics log too, so a report shows what a blend did.
 
 ## 1.7.1
 

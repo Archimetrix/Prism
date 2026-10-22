@@ -32,6 +32,8 @@ data class TourStep(
 object Tour {
     /** Prism 1.7 (build 39): the redesign and its features. Everyone, new or updating, sees all of these once. */
     private const val V1_7 = 39
+    /** Prism 1.7.2 (build 41): color, and the smaller things that came with it. */
+    private const val V1_7_2 = 41
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -156,6 +158,30 @@ object Tour {
             ),
             listOf(PrismIcons.Customize, PrismIcons.Settings),
             showMe = Routes.settings("appearance"),
+        ),
+        TourStep(
+            V1_7_2, PrismIcons.Palette, "Color, your way",
+            "Settings → Appearance → Color: every choice shows what it looks like before you pick it.",
+            listOf(
+                "The light: 12 presets, White (Black in light mode), or your own colors",
+                "Your accent: any color, from a wheel, a code or the eyedropper",
+                "The page background: plain, tinted with your accent, or a color of your own",
+                "Each group says everything it changes in the app",
+            ),
+            listOf(PrismIcons.Customize),
+            showMe = Routes.settings("color"),
+        ),
+        TourStep(
+            V1_7_2, PrismIcons.LibraryFilled, "Also new",
+            "Smaller things that make Prism yours.",
+            listOf(
+                "Hold Prism's icon for Search, Recognize, Liked songs and Downloads",
+                "Library: pick its tiles, or put your playlists first (Edit tiles)",
+                "Pin Prism playlists to Home (Customize Home → Pinned playlists)",
+                "Song credits in any song's menu",
+                "See which downloads failed, and why",
+            ),
+            listOf(PrismIcons.Edit),
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",

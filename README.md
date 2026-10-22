@@ -15,7 +15,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 
 ### [⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)
 
-[What's new in 1.7](../../releases/tag/v1.7.0) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
+[What's new in 1.7.2](../../releases/tag/v1.7.2) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
 
 <a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
 
@@ -29,11 +29,19 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 > [!NOTE]
 > Prism is an independent, unofficial app. It is not affiliated with, endorsed by, or connected to Google, YouTube or YouTube Music.
 
+## New in 1.7.2: color
+
+The first of the 1.7.x customization updates.
+
+- **Color, your way.** A full color picker (wheel, codes, eyedropper), 12 light presets plus White / Black or your own colors, any accent, a tinted page background and a text contrast setting. Every choice shows what it looks like, and each one says everything it changes in the app.
+- **Also new:** app icon shortcuts, song credits, Library tiles you pick (and playlists first), Prism playlists pinned to Home, New releases filters, square covers for videos, lyrics only when opened on mobile data, a list of which downloads failed and why, and an Android Auto with tabs and covers.
+- **Fixes** for crossfade, DJ mode lag, volume hiccups, stutters on slower phones, slow start-up, Pure black and more. See the [changelog](CHANGELOG.md).
+
 ## What's new in 1.7
 
 The biggest update yet: a complete redesign, and a set of features that run on your phone.
 
-- **A new look.** Color from what's playing under frosted glass, with Prism's split light on what's playing, progress and the Play ring. New icons, new app icons, seven bundled fonts, and lyrics that thicken word by word as they're sung. Prefer it quieter? Try **White light**.
+- **A new look.** Color from what's playing under frosted glass, with Prism's split light on what's playing, progress and the Play ring. New icons, new app icons, seven bundled fonts, and lyrics that thicken word by word as they're sung. Prefer it quieter? Try the **White** light.
 - **Sing.** Takes the singer's voice out of the song that's playing, on your phone. Leave a little in, or none, and move the key.
 - **DJ mode.** Orders your queue by key and tempo so every song blends into the next, beat-matched.
 - **Made for you.** Daily Mixes, a time-of-day mix, Release Radar, Smart Shuffle, and an autoplay radio built from your own listening.
