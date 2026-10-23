@@ -52,6 +52,11 @@ Settings → Appearance → Player, or the player's ⋯ → Player settings. Eve
   player: next or previous song, skip back or ahead, play / pause, like, up next, lyrics, sleep timer, video, Sing, the
   song's menu, stop, or nothing.
 - **Vinyl**, a new Look built around the record player.
+- **Drag to reorder, everywhere you put things in order:** the player's buttons, the notification and car buttons, the
+  order under the title, the tabs, lyric sources, Library's tiles, Local files' sections, Customize Home and your
+  playlists. Hold a row (or drag its grip) and it lifts onto a card edged in your light; the others slide out of its
+  way, and holding it near the top or bottom of the screen scrolls the page, so the last one can go first in one move.
+  The up and down arrows are still there.
 
 ### Fixes
 - **Prism closed by itself on some Android 12+ phones** (#100's log) when a download started or restarted while it was

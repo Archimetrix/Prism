@@ -186,16 +186,22 @@ fun PlayerButtonsGroup() {
                 horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
             ) { chosen.forEach { Icon(buttonIcon(it), it.label, Modifier.size(22.dp), tint = Color.White.copy(alpha = 0.85f)) } }
         }
-        Note("Pick ${PlayerButton.MIN} to ${PlayerButton.MAX} for the row under the controls, in your order. The rest stay in the player's ⋯ menu.")
-        (chosen + PlayerButton.entries.filter { it !in chosen }).forEach { b ->
-            val on = b in chosen
-            val i = chosen.indexOf(b)
+        Note("Pick ${PlayerButton.MIN} to ${PlayerButton.MAX} for the row under the controls. Hold one (or drag its grip) to put them in your order. The rest stay in the player's ⋯ menu.")
+        // The picked ones, in their order, to drag; then the rest to pick from.
+        com.prism.music.ui.components.ReorderList(chosen, { it }, { prefs.setPlayerButtons(it) }) { b, i, held, mod ->
             OrderRow(
-                b.label, buttonIcon(b), on,
-                canCheck = if (on) chosen.size > PlayerButton.MIN else chosen.size < PlayerButton.MAX,
-                onCheck = { v -> prefs.setPlayerButtons(if (v) chosen + b else chosen - b) },
-                onUp = if (on && i > 0) ({ prefs.setPlayerButtons(chosen.toMutableList().apply { add(i - 1, removeAt(i)) }) }) else null,
-                onDown = if (on && i < chosen.lastIndex) ({ prefs.setPlayerButtons(chosen.toMutableList().apply { add(i + 1, removeAt(i)) }) }) else null,
+                b.label, buttonIcon(b), true,
+                canCheck = chosen.size > PlayerButton.MIN,
+                onCheck = { v -> if (!v) prefs.setPlayerButtons(chosen - b) },
+                onUp = if (i > 0) ({ prefs.setPlayerButtons(chosen.toMutableList().apply { add(i - 1, removeAt(i)) }) }) else null,
+                onDown = if (i < chosen.lastIndex) ({ prefs.setPlayerButtons(chosen.toMutableList().apply { add(i + 1, removeAt(i)) }) }) else null,
+                modifier = mod, grip = Modifier.dragHandle(), held = held,
+            )
+        }
+        PlayerButton.entries.filter { it !in chosen }.forEach { b ->
+            OrderRow(
+                b.label, buttonIcon(b), false, canCheck = chosen.size < PlayerButton.MAX,
+                onCheck = { v -> if (v) prefs.setPlayerButtons(chosen + b) }, onUp = null, onDown = null,
             )
         }
         if (chosen != PlayerButton.DEFAULT) com.prism.music.ui.components.PrismTextButton({ prefs.setPlayerButtons(PlayerButton.DEFAULT) }, Modifier.padding(start = 12.dp)) {
@@ -222,15 +228,20 @@ private fun SessionButtonsGroup() {
                 chosen.getOrNull(1)?.let { Icon(sessionIcon(it), it.label, Modifier.size(20.dp), tint = Ink) }
             }
         }
-        Note("Your phone's notification and lock screen show the first two beside play; Android Auto shows them all, in this order.")
-        (chosen + SessionButton.entries.filter { it !in chosen }).forEach { b ->
-            val on = b in chosen
-            val i = chosen.indexOf(b)
+        Note("Your phone's notification and lock screen show the first two beside play; Android Auto shows them all, in this order. Hold one to move it.")
+        com.prism.music.ui.components.ReorderList(chosen, { it }, { prefs.setSessionButtons(it) }) { b, i, held, mod ->
             OrderRow(
-                b.label, sessionIcon(b), on, canCheck = true,
-                onCheck = { v -> prefs.setSessionButtons(if (v) chosen + b else chosen - b) },
-                onUp = if (on && i > 0) ({ prefs.setSessionButtons(chosen.toMutableList().apply { add(i - 1, removeAt(i)) }) }) else null,
-                onDown = if (on && i < chosen.lastIndex) ({ prefs.setSessionButtons(chosen.toMutableList().apply { add(i + 1, removeAt(i)) }) }) else null,
+                b.label, sessionIcon(b), true, canCheck = true,
+                onCheck = { v -> if (!v) prefs.setSessionButtons(chosen - b) },
+                onUp = if (i > 0) ({ prefs.setSessionButtons(chosen.toMutableList().apply { add(i - 1, removeAt(i)) }) }) else null,
+                onDown = if (i < chosen.lastIndex) ({ prefs.setSessionButtons(chosen.toMutableList().apply { add(i + 1, removeAt(i)) }) }) else null,
+                modifier = mod, grip = Modifier.dragHandle(), held = held,
+            )
+        }
+        SessionButton.entries.filter { it !in chosen }.forEach { b ->
+            OrderRow(
+                b.label, sessionIcon(b), false, canCheck = true,
+                onCheck = { v -> if (v) prefs.setSessionButtons(chosen + b) }, onUp = null, onDown = null,
             )
         }
         if (chosen != SessionButton.DEFAULT) com.prism.music.ui.components.PrismTextButton({ prefs.setSessionButtons(SessionButton.DEFAULT) }, Modifier.padding(start = 12.dp)) {
@@ -239,22 +250,27 @@ private fun SessionButtonsGroup() {
     }
 }
 
-/** A tickable row with its icon, and up / down to move it while it's ticked. */
+/**
+ * A tickable row with its icon, and up / down to move it while it's ticked; in a [com.prism.music.ui.components.ReorderList]
+ * it also takes the list's [modifier] (hold to carry it) and shows a [grip] to drag it at once.
+ */
 @Composable
 private fun OrderRow(
     label: String, icon: ImageVector, on: Boolean, canCheck: Boolean,
     onCheck: (Boolean) -> Unit, onUp: (() -> Unit)?, onDown: (() -> Unit)?,
+    modifier: Modifier = Modifier, grip: Modifier? = null, held: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         PrismCheck(on, enabled = canCheck, label = label, onChange = onCheck)
         Icon(icon, null, Modifier.size(20.dp), tint = if (on) scheme.onSurface else scheme.onSurfaceVariant)
         Spacer(Modifier.width(12.dp))
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (on) scheme.onSurface else scheme.onSurfaceVariant)
-        if (on) {
+        if (on && !held) {
             IconButton(onClick = { onUp?.invoke() }, enabled = onUp != null) { Icon(PrismIcons.ChevronUp, "Move $label up") }
             IconButton(onClick = { onDown?.invoke() }, enabled = onDown != null) { Icon(PrismIcons.ChevronDown, "Move $label down") }
-        }
+        } else if (held) Spacer(Modifier.width(96.dp))
+        if (grip != null) com.prism.music.ui.components.DragGrip(grip.padding(start = 4.dp, end = 8.dp), "Drag $label")
     }
 }
 
@@ -296,8 +312,8 @@ fun PlayerArrangeGroup() {
     val prefs = LocalContainer.current.settings
     val order = s.playerDeck
     Group("Under the title") {
-        Note("Top to bottom, as they sit on the player. The progress bar, controls and buttons are always there.")
-        order.forEachIndexed { i, part ->
+        Note("Top to bottom, as they sit on the player; hold one to move it. The progress bar, controls and buttons are always there.")
+        com.prism.music.ui.components.ReorderList(order, { it }, { prefs.setPlayerDeck(it) }) { part, i, held, mod ->
             val shown = when (part) { DeckPart.STRIP -> s.lyricsOnPlayer; DeckPart.VOLUME -> !s.hideVolumeBar; else -> true }
             val hideable = part == DeckPart.STRIP || part == DeckPart.VOLUME
             OrderRow(
@@ -305,6 +321,7 @@ fun PlayerArrangeGroup() {
                 onCheck = { v -> if (part == DeckPart.STRIP) prefs.setLyricsOnPlayer(v) else prefs.setHideVolumeBar(!v) },
                 onUp = if (i > 0) ({ prefs.setPlayerDeck(order.toMutableList().apply { add(i - 1, removeAt(i)) }) }) else null,
                 onDown = if (i < order.lastIndex) ({ prefs.setPlayerDeck(order.toMutableList().apply { add(i + 1, removeAt(i)) }) }) else null,
+                modifier = mod, grip = Modifier.dragHandle(), held = held,
             )
         }
         if (order != DeckPart.entries) com.prism.music.ui.components.PrismTextButton({ prefs.setPlayerDeck(DeckPart.entries) }, Modifier.padding(start = 12.dp)) {

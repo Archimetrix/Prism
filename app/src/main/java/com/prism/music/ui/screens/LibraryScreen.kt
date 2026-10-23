@@ -403,8 +403,7 @@ private fun RearrangePlaylists(playlists: List<com.prism.music.data.model.Browse
         Modifier.padding(horizontal = 8.dp).pane(ui.card).padding(vertical = 6.dp),
     ) { p, i, held, drag ->
         Row(
-            drag.fillMaxWidth().then(if (held) Modifier.background(scheme.surfaceContainerHighest) else Modifier)
-                .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            drag.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             com.prism.music.ui.components.Artwork(
@@ -416,9 +415,12 @@ private fun RearrangePlaylists(playlists: List<com.prism.music.data.model.Browse
                 p.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            IconButton(onClick = { move(i, i - 1) }, enabled = i > 0) { Icon(PrismIcons.ChevronUp, "Move ${p.title} up") }
-            IconButton(onClick = { move(i, i + 1) }, enabled = i < playlists.lastIndex) { Icon(PrismIcons.ChevronDown, "Move ${p.title} down") }
-            Icon(PrismIcons.DragHandle, null, Modifier.padding(end = 8.dp).size(20.dp), tint = scheme.onSurfaceVariant.copy(alpha = 0.6f))
+            if (!held) {
+                IconButton(onClick = { move(i, i - 1) }, enabled = i > 0) { Icon(PrismIcons.ChevronUp, "Move ${p.title} up") }
+                IconButton(onClick = { move(i, i + 1) }, enabled = i < playlists.lastIndex) { Icon(PrismIcons.ChevronDown, "Move ${p.title} down") }
+            } else Spacer(Modifier.width(96.dp))
+            // The grip moves the playlist at once; the rest of the row after a hold.
+            com.prism.music.ui.components.DragGrip(Modifier.dragHandle().padding(end = 8.dp), "Drag ${p.title}")
         }
     }
 }
@@ -492,20 +494,20 @@ fun LibraryTilesSheet(onDismiss: () -> Unit) {
         Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 24.dp)) {
             Text("Library tiles", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
             Text(
-                "Tick the tiles to show at the top of Library and put them in your order.",
+                "Tick the tiles to show at the top of Library; hold one to move it.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp),
             )
-            (tiles + LibraryTile.entries.filter { it !in tiles }).forEach { t ->
+            @Composable
+            fun TileRow(t: LibraryTile, i: Int, modifier: Modifier, grip: Modifier?, held: Boolean) {
                 val on = t in tiles
-                val i = tiles.indexOf(t)
-                Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     PrismCheck(on, label = t.label) { v -> prefs.setLibraryTiles(if (v) tiles + t else tiles - t) }
                     Text(
                         t.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
                         color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (on) {
+                    if (on && !held) {
                         androidx.compose.material3.IconButton(onClick = { prefs.setLibraryTiles(tiles.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
                             Icon(PrismIcons.ChevronUp, "Move ${t.label} up")
                         }
@@ -513,8 +515,11 @@ fun LibraryTilesSheet(onDismiss: () -> Unit) {
                             Icon(PrismIcons.ChevronDown, "Move ${t.label} down")
                         }
                     }
+                    if (grip != null) com.prism.music.ui.components.DragGrip(grip.padding(horizontal = 4.dp), "Drag ${t.label}")
                 }
             }
+            com.prism.music.ui.components.ReorderList(tiles, { it }, { prefs.setLibraryTiles(it) }) { t, i, held, mod -> TileRow(t, i, mod, Modifier.dragHandle(), held) }
+            LibraryTile.entries.filter { it !in tiles }.forEach { t -> TileRow(t, -1, Modifier, null, false) }
             PrismTextButton({ prefs.setLibraryTiles(LibraryTile.entries) }, Modifier.padding(start = 12.dp, top = 8.dp)) { Text("Show all, in Prism's order") }
             Text(
                 "Where your playlists go", style = MaterialTheme.typography.titleMedium,

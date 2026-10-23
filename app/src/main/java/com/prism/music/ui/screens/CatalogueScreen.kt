@@ -89,12 +89,8 @@ fun CatalogueScreen(bottomPadding: Dp) {
         .distinctBy { it.key }
     var adding by remember { mutableStateOf(false) }
     var pinning by remember { mutableStateOf(false) }
-    var dragKey by remember { mutableStateOf<String?>(null) }
-    var dragOrder by remember { mutableStateOf<List<HomeSectionConfig>?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
     // The tiles only show while their section is on Home.
     val tilesOn = layout.any { it.key == HomeSections.GREETING && it.visible }
-    val currentLayout by rememberUpdatedState(layout)
 
     fun save(list: List<HomeSectionConfig>) = c.settings.setHomeLayout(list)
 
@@ -112,58 +108,19 @@ fun CatalogueScreen(bottomPadding: Dp) {
         }
         item(key = "sections") {
             Group("Sections") {
-                Note("Hold and drag a section to move it")
-                // While a row is held, the list is reordered here and saved when it's let go.
-                val rows = dragOrder ?: layout
-                val haptics = LocalHapticFeedback.current
-                val step = with(LocalDensity.current) { 1.dp.toPx() } // the divider between rows
-                rows.forEachIndexed { i, cfg ->
-                    key(cfg.key) {
-                        if (i > 0) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                        val held = dragKey == cfg.key
-                        var height by remember { mutableIntStateOf(0) }
+                Note("Hold a section (or drag its grip) to move it; tap it to show or hide it")
+                com.prism.music.ui.components.ReorderList(layout, { it.key }, { save(it) }) { cfg, i, held, mod ->
+                    Column(mod) {
+                        if (i > 0 && !held) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         SectionRow(
                             cfg,
                             canUp = i > 0,
-                            canDown = i < rows.lastIndex,
+                            canDown = i < layout.lastIndex,
                             onMove = { by -> save(layout.toMutableList().apply { add(i + by, removeAt(i)) }) },
                             onChange = { new -> save(layout.map { if (it.key == cfg.key) new else it }) },
                             onRemove = { save(layout.filterNot { it.key == cfg.key }) },
                             held = held,
-                            modifier = Modifier
-                                .onSizeChanged { height = it.height }
-                                .zIndex(if (held) 1f else 0f)
-                                .graphicsLayer {
-                                    if (held) { translationY = dragOffset; scaleX = 1.02f; scaleY = 1.02f; shadowElevation = 12.dp.toPx() }
-                                }
-                                .then(if (held) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest) else Modifier)
-                                .pointerInput(cfg.key) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            dragOrder = currentLayout; dragKey = cfg.key; dragOffset = 0f
-                                        },
-                                        onDrag = { change, amount ->
-                                            change.consume()
-                                            val list = dragOrder ?: return@detectDragGesturesAfterLongPress
-                                            dragOffset += amount.y
-                                            val at = list.indexOfFirst { it.key == cfg.key }
-                                            val h = height + step
-                                            val to = when {
-                                                dragOffset > h / 2 && at < list.lastIndex -> at + 1
-                                                dragOffset < -h / 2 && at > 0 -> at - 1
-                                                else -> at
-                                            }
-                                            if (to != at) {
-                                                dragOrder = list.toMutableList().apply { add(to, removeAt(at)) }
-                                                dragOffset -= (to - at) * h
-                                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            }
-                                        },
-                                        onDragEnd = { dragOrder?.let { if (it != currentLayout) save(it) }; dragKey = null; dragOrder = null; dragOffset = 0f },
-                                        onDragCancel = { dragKey = null; dragOrder = null; dragOffset = 0f },
-                                    )
-                                },
+                            grip = Modifier.dragHandle(),
                         )
                     }
                 }
@@ -235,6 +192,8 @@ private fun SectionRow(
     onRemove: () -> Unit,
     held: Boolean = false,
     modifier: Modifier = Modifier,
+    /** Dragging the grip moves the section at once (the row itself after a hold). */
+    grip: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
     var menu by remember { mutableStateOf(false) }
@@ -254,7 +213,7 @@ private fun SectionRow(
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
             )
         }
-        Icon(PrismIcons.DragHandle, null, Modifier.size(20.dp), tint = scheme.onSurfaceVariant.copy(alpha = 0.6f))
+        com.prism.music.ui.components.DragGrip(grip, "Drag ${cfg.title}")
         IconButton(onClick = { menu = true }) {
             Icon(PrismIcons.MoreVertical, "Options for ${cfg.title}", tint = scheme.onSurfaceVariant)
             DropdownMenu(menu, { menu = false }) {

@@ -1171,14 +1171,13 @@ private fun TabsEditor() {
     val prefs = LocalContainer.current.settings
     val tabs = s.navTabs
     Group("Tabs") {
-        Note("Tick and order your tabs; keep Home, Library or Settings")
-        val ordered = tabs + NavTab.entries.filter { it !in tabs }
+        Note("Tick your tabs and hold one to move it; keep Home, Library or Settings")
         // Settings opens from Home and Library, or is a tab itself: one of them always stays.
         fun allowed(next: List<NavTab>) = next.size >= 2 && next.any { it == NavTab.HOME || it == NavTab.LIBRARY || it == NavTab.SETTINGS }
-        ordered.forEach { t ->
+        @Composable
+        fun TabRow(t: NavTab, i: Int, modifier: Modifier, grip: Modifier?, held: Boolean) {
             val on = t in tabs
-            val i = tabs.indexOf(t)
-            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 PrismCheck(on, enabled = !on || allowed(tabs - t), label = t.label) { v ->
                     val next = if (v) tabs + t else tabs - t
                     if (allowed(next)) {
@@ -1187,12 +1186,15 @@ private fun TabsEditor() {
                     }
                 }
                 Text(t.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                if (on) {
-                    IconButton(onClick = { prefs.setNavTabs(tabs.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) { Icon(PrismIcons.ChevronUp, "Move up") }
-                    IconButton(onClick = { prefs.setNavTabs(tabs.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < tabs.lastIndex) { Icon(PrismIcons.ChevronDown, "Move down") }
+                if (on && !held) {
+                    IconButton(onClick = { prefs.setNavTabs(tabs.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) { Icon(PrismIcons.ChevronUp, "Move ${t.label} up") }
+                    IconButton(onClick = { prefs.setNavTabs(tabs.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < tabs.lastIndex) { Icon(PrismIcons.ChevronDown, "Move ${t.label} down") }
                 }
+                if (grip != null) com.prism.music.ui.components.DragGrip(grip.padding(horizontal = 4.dp), "Drag ${t.label}")
             }
         }
+        com.prism.music.ui.components.ReorderList(tabs, { it }, { prefs.setNavTabs(it) }) { t, i, held, mod -> TabRow(t, i, mod, Modifier.dragHandle(), held) }
+        NavTab.entries.filter { it !in tabs }.forEach { t -> TabRow(t, -1, Modifier, null, false) }
         Label("Open Prism on")
         Chips(tabs, if (s.startTab in tabs) s.startTab else tabs.first(), { it.label }) { prefs.setStartTab(it) }
         Note("From Prism's next start")
@@ -1640,10 +1642,10 @@ private fun LyricsSettings() {
                 info = "Off, Prism doesn't look up lyrics on mobile data until you open them (the player's lyrics, Immersive mode or the source list). Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.",
             ) { prefs.setLyricsOnMobileData(it) }
             Label("Order")
-            Note("Tried top to bottom; switch source per song from the player's ⋯")
-            s.lyricsOrder.forEachIndexed { i, src ->
+            Note("Tried top to bottom; hold one to move it. Switch source per song from the player's ⋯")
+            com.prism.music.ui.components.ReorderList(s.lyricsOrder, { it }, { prefs.setLyricsOrder(it) }) { src, i, held, mod ->
                 val on = src !in s.lyricsOff
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(mod.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier.size(26.dp).clip(CircleShape).background(if (i == 0 && on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest),
                         contentAlignment = Alignment.Center,
@@ -1661,12 +1663,15 @@ private fun LyricsSettings() {
                         enabled = !on || s.lyricsOrder.count { it !in s.lyricsOff } > 1,
                         modifier = Modifier.scale(0.8f),
                     )
-                    IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
-                        Icon(PrismIcons.ChevronUp, "Move ${src.label} up")
-                    }
-                    IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < s.lyricsOrder.lastIndex) {
-                        Icon(PrismIcons.ChevronDown, "Move ${src.label} down")
-                    }
+                    if (!held) {
+                        IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
+                            Icon(PrismIcons.ChevronUp, "Move ${src.label} up")
+                        }
+                        IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < s.lyricsOrder.lastIndex) {
+                            Icon(PrismIcons.ChevronDown, "Move ${src.label} down")
+                        }
+                    } else Spacer(Modifier.width(96.dp))
+                    com.prism.music.ui.components.DragGrip(Modifier.dragHandle().padding(start = 2.dp), "Drag ${src.label}")
                 }
             }
         }

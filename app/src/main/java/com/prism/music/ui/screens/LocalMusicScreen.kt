@@ -377,27 +377,29 @@ private fun SectionsEditor(sections: List<LocalSection>, onDismiss: () -> Unit) 
     com.prism.music.ui.components.PrismSheet(onDismiss = onDismiss) {
         Text("Sections", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 20.dp))
         Text(
-            "Tick the sections you want and use the arrows to order them.", style = MaterialTheme.typography.bodyMedium,
+            "Tick the sections you want; hold one (or its grip) to move it.", style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp),
         )
-        val ordered = sections + LocalSection.entries.filter { it !in sections }
-        ordered.forEach { s ->
+        @Composable
+        fun SectionRow(s: LocalSection, i: Int, modifier: Modifier, grip: Modifier?, held: Boolean) {
             val on = s in sections
-            val i = sections.indexOf(s)
-            Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Checkbox(on, { v -> prefs.setLocalSections(if (v) sections + s else sections - s) }, enabled = !on || sections.size > 1)
+            Row(modifier.fillMaxWidth().padding(start = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                PrismCheck(on, enabled = !on || sections.size > 1, label = s.label) { v -> prefs.setLocalSections(if (v) sections + s else sections - s) }
                 Text(s.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
                     color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                if (on) {
+                if (on && !held) {
                     androidx.compose.material3.IconButton(onClick = { prefs.setLocalSections(sections.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
-                        androidx.compose.material3.Icon(PrismIcons.ChevronUp, "Move up")
+                        androidx.compose.material3.Icon(PrismIcons.ChevronUp, "Move ${s.label} up")
                     }
                     androidx.compose.material3.IconButton(onClick = { prefs.setLocalSections(sections.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < sections.lastIndex) {
-                        androidx.compose.material3.Icon(PrismIcons.ChevronDown, "Move down")
+                        androidx.compose.material3.Icon(PrismIcons.ChevronDown, "Move ${s.label} down")
                     }
                 }
+                if (grip != null) com.prism.music.ui.components.DragGrip(grip.padding(start = 4.dp), "Drag ${s.label}")
             }
         }
+        com.prism.music.ui.components.ReorderList(sections, { it }, { prefs.setLocalSections(it) }) { s, i, held, mod -> SectionRow(s, i, mod, Modifier.dragHandle(), held) }
+        LocalSection.entries.filter { it !in sections }.forEach { s -> SectionRow(s, -1, Modifier, null, false) }
         Spacer(Modifier.height(24.dp))
     }
 }
