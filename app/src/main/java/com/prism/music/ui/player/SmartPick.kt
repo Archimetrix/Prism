@@ -9,6 +9,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,7 +34,7 @@ fun SmartPickButton(song: Song) {
     val c = LocalContainer.current
     val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
-    val source = c.queue.source.value
+    val source by c.queue.source.collectAsState()
     val playlist = source.originId?.takeIf { source.kind == QueueKind.PLAYLIST && c.settings.current.isLoggedIn && it.startsWith("PL") }
     Box {
         CircleGlyph(PrismIcons.SmartShuffle, "Smart Shuffle pick", active = true) { open = true }

@@ -63,7 +63,11 @@ import kotlin.math.roundToInt
 data class VideoLookup(val id: String?, val lookupFailed: Boolean = false)
 
 @Serializable
-private data class SavedQueue(val songs: List<Song>, val index: Int, val positionMs: Long, val title: String)
+private data class SavedQueue(
+    val songs: List<Song>, val index: Int, val positionMs: Long, val title: String,
+    // Shuffle (with its order) and repeat, so a restart keeps them (#101: shuffle was off again after Prism restarted).
+    val shuffle: Boolean = false, val shuffleOrder: List<Int> = emptyList(), val repeat: Int = Player.REPEAT_MODE_OFF,
+)
 
 @OptIn(UnstableApi::class)
 open class PlaybackService : MediaLibraryService(), Player.Listener {
@@ -308,6 +312,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             allowed = ::mayBlend,
             scanFromPhone = { id -> scope.launch { c.mixTempo.measure(id, network = false) } },
             buildTail = ::buildTailPlayer,
+            onSettled = ::restoreMusicSpeed,
         ).also { it.start() }
         // Prism Connect: the speaker or TV being cast to plays what this player plays, and its volume is the session's.
         sessionPlayer.remote = object : LyricsOverlayPlayer.Remote {
@@ -504,7 +509,8 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         } else {
             // Songs at the speed picked with the Speed button (1.7.4; 1× unless picked, always 1× live or casting).
             val speed = if (c.cast.casting || song.isLive) 1f else musicSpeed
-            if (player.playbackParameters.speed != speed && (lastWasEpisode || speed != 1f || !mixing())) player.setPlaybackSpeed(speed)
+            // Not mid-blend: the blend sets the tempo itself, and the picked speed comes back once it settles.
+            if (player.playbackParameters.speed != speed && (lastWasEpisode || !mixing())) player.setPlaybackSpeed(speed)
             // Watching a podcast isn't a wish for music videos: music after it starts as the song.
             if (lastWasEpisode) videoWanted = false
         }
@@ -568,7 +574,15 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     private fun mixing() = ::mix.isInitialized && mix.blending
 
     override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
-        if (musicSpeed == 1f || playbackParameters.speed != 1f || mixing()) return
+        if (playbackParameters.speed == 1f) restoreMusicSpeed()
+    }
+
+    /**
+     * The picked speed back on a song, once nothing else is steering it: after a blend, which ends at 1× either by
+     * settling (still marked as blending while it sets 1×) or without changing the speed at all.
+     */
+    private fun restoreMusicSpeed() {
+        if (musicSpeed == 1f || mixing() || player.playbackParameters.speed == musicSpeed) return
         val song = player.currentMediaItem?.toSong() ?: return
         if (!song.isEpisode && !song.isLive && !c.cast.casting) player.setPlaybackSpeed(musicSpeed)
     }
@@ -639,11 +653,13 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         updateButtons()
         // Shuffling picks a different next song.
         prefetchNext()
+        scheduleSave()
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
         vocals.repeatMode = repeatMode
         updateButtons()
+        scheduleSave()
     }
 
     override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -1577,7 +1593,15 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     private fun saveQueue() {
         if (!::player.isInitialized) return
         val songs = (0 until player.mediaItemCount).mapNotNull { player.getMediaItemAt(it).toSong() }
-        val q = SavedQueue(songs, player.currentMediaItemIndex, player.currentPosition, c.queue.source.value.title)
+        // The play order while shuffled, walked from its first song (only when every item made it into the list).
+        val order = if (player.shuffleModeEnabled && songs.size == player.mediaItemCount) player.shuffleOrder.let { so ->
+            generateSequence(so.firstIndex.takeIf { it != androidx.media3.common.C.INDEX_UNSET }) { i -> so.getNextIndex(i).takeIf { it != androidx.media3.common.C.INDEX_UNSET } }
+                .take(songs.size).toList()
+        } else emptyList()
+        val q = SavedQueue(
+            songs, player.currentMediaItemIndex, player.currentPosition, c.queue.source.value.title,
+            shuffle = player.shuffleModeEnabled, shuffleOrder = order, repeat = player.repeatMode,
+        )
         val text = InnerTube.json.encodeToString(SavedQueue.serializer(), q)
         scope.launch(Dispatchers.IO) { runCatching { queueFile.writeText(text) } }
     }
@@ -1587,6 +1611,14 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         if (q.songs.isEmpty()) return
         c.queue.source.value = QueueSource(QueueKind.OTHER, q.title)
         player.setMediaItems(q.songs.map { it.toMediaItem() }, q.index.coerceIn(0, q.songs.lastIndex), q.positionMs)
+        // Shuffle and repeat as they were, in the same order.
+        if (q.shuffle) {
+            if (q.shuffleOrder.size == q.songs.size && q.shuffleOrder.sorted() == q.songs.indices.toList()) {
+                player.setShuffleOrder(HistoryShuffleOrder(q.shuffleOrder.toIntArray()) { player.currentMediaItemIndex })
+            } else reshuffle()
+            player.shuffleModeEnabled = true
+        }
+        if (q.repeat != Player.REPEAT_MODE_OFF) player.repeatMode = q.repeat
         // The mini player shows this song: get it ready, so Play starts it straight away.
         player.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }?.let { id -> scope.launch(Dispatchers.IO) { c.warmUp(id) } }
         // And the one after it (otherwise only a song coming up warms its successor).
@@ -1938,7 +1970,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             AudioDiagnostics.log("state", (if (isPlaying) "playing" else "not playing (${player.playbackSuppressionReason.let { if (it == 0) "paused or waiting" else "suppressed: $it" }})") + " ${at(eventTime)}")
 
         override fun onMediaItemTransition(eventTime: AnalyticsListener.EventTime, mediaItem: MediaItem?, reason: Int) =
-            AudioDiagnostics.log("song", "${mediaItem?.mediaMetadata?.title} – ${mediaItem?.mediaMetadata?.artist} (${mediaItem?.mediaId}), reason $reason")
+            AudioDiagnostics.log(
+                "song",
+                if (mediaItem == null) "none (the queue is empty), reason $reason"
+                else "${mediaItem.mediaMetadata.title} – ${mediaItem.mediaMetadata.artist} (${mediaItem.mediaId}), reason $reason",
+            )
 
         override fun onPlayerError(eventTime: AnalyticsListener.EventTime, error: PlaybackException) =
             AudioDiagnostics.log("error", "${error.errorCodeName}: ${error.message} ${at(eventTime)}")

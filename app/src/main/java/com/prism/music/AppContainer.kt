@@ -123,6 +123,9 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         // Diagnostics also watch the screen's thread (1.7.4, #100): work that holds it up long enough to drop frames is
         // logged with where it was. The test copy (".dev") also says so in logcat (PrismStall).
         com.prism.music.playback.AudioDiagnostics.init(this)
+        // How the last run ended, when it wasn't a Java crash (killed for memory, ANR, native crash: #103), off the
+        // main thread (an ANR's trace can be large).
+        container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { CrashLog.recordExits(this@PrismApp) } }
         com.prism.music.playback.MainThreadWatch.toLogcat = BuildConfig.APPLICATION_ID.endsWith(".dev")
         container.scope.launch {
             container.settings.flow.map { it.audioDiagnostics }.distinctUntilChanged().collect { on ->

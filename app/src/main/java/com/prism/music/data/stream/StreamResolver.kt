@@ -143,7 +143,14 @@ class YouTubeStreamInterceptor(
         if (chunkClient != null && clen != null && end != null && end - start + 1 > chunkSize) {
             val firstEnd = minOf(end, start + chunkSize - 1)
             val first = withRetry(streamRequest(req, start, firstEnd, true), chain::proceed)
-            if (!first.isSuccessful) return first
+            if (!first.isSuccessful) {
+                runCatching {
+                    com.prism.music.playback.AudioDiagnostics.log(
+                        "stream", "refused: HTTP ${first.code} at byte $start of ${url.queryParameter("id") ?: "?"} (itag ${url.queryParameter("itag")}, client ${url.queryParameter("c")})",
+                    )
+                }
+                return first
+            }
             val len = end - start + 1
             val body = ChunkedBody(first, start, end, req)
             val rb = first.newBuilder().body(body).removeHeader("Content-Length").removeHeader("Content-Range")
@@ -209,7 +216,13 @@ class YouTubeStreamInterceptor(
             }
             if (!resp.isSuccessful) {
                 resp.close()
-                throw IOException("Stream chunk at $pos failed: HTTP ${resp.code}")
+                // Which of YouTube's clients the link came from, and how far in (#114/#100: the first chunk played, then
+                // 403 at 1 MB for one listener on every song): the diagnostics say so, so the next log can tell why.
+                val u = base.url
+                val what = "HTTP ${resp.code} at byte $pos of ${u.queryParameter("id") ?: "?"} (itag ${u.queryParameter("itag")}, client ${u.queryParameter("c")}, " +
+                    "${if (u.queryParameter("pot") != null) "with" else "no"} PO token, chunk ${chunkSize / 1024} KB)"
+                runCatching { com.prism.music.playback.AudioDiagnostics.log("stream", "refused: $what") }
+                throw IOException("Stream chunk at $pos failed: $what")
             }
             current = resp
             currentEnd = minOf(end, pos + chunkSize - 1)
@@ -311,6 +324,8 @@ class StreamResolver(
         /** A live stream (a YouTube Music "Listen together" station, a 24/7 radio): only playable from [hlsUrl]. */
         val live: Boolean = false,
         val hlsUrl: String? = null,
+        /** Which way it was asked for (NewPipe, visionOS, or the account's client), for the diagnostics. */
+        val via: String = "",
     )
 
     private val solver = PlayerJsSolver(context, http)
@@ -390,7 +405,9 @@ class StreamResolver(
         try {
             val started = System.nanoTime()
             val f = load(videoId)
-            Log.i("PrismStream", "$videoId resolved in ${(System.nanoTime() - started) / 1_000_000} ms")
+            val took = (System.nanoTime() - started) / 1_000_000
+            Log.i("PrismStream", "$videoId resolved via ${f.via} in $took ms")
+            runCatching { com.prism.music.playback.AudioDiagnostics.log("stream", "$videoId resolved via ${f.via} in $took ms") }
             cache[videoId] = f
             mine.complete(f)
             return f
@@ -532,7 +549,7 @@ class StreamResolver(
         val live = info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM
         return Formats(
             audio, info.videoOnlyStreams.filter(progressive).map(::video), info.videoStreams.filter(progressive).map(::video), info.duration, expire,
-            live = live, hlsUrl = info.hlsUrl?.takeIf { it.isNotBlank() },
+            live = live, hlsUrl = info.hlsUrl?.takeIf { it.isNotBlank() }, via = "NewPipe",
         )
     }
 
@@ -558,7 +575,7 @@ class StreamResolver(
                 reason = res.str("playabilityStatus", "reason") ?: reason
                 continue
             }
-            val f = parsePlayer(res, player?.first)
+            val f = parsePlayer(res, player?.first, via = "account (${client.name})")
             if (f.live && f.hlsUrl == null) { liveWithoutHls = liveWithoutHls ?: f; continue }
             if (f.audio.isNotEmpty() || (f.live && f.hlsUrl != null)) return f
         }
@@ -582,7 +599,7 @@ class StreamResolver(
     }
 
     /** [playerId] is the player JS whose signature timestamp the request sent; its ciphers are solved with it. */
-    private fun parsePlayer(res: JsonObject, playerId: String?): Formats {
+    private fun parsePlayer(res: JsonObject, playerId: String?, via: String = "visionOS"): Formats {
         val data = res.obj("streamingData")
         fun fmt(o: JsonObject): Fmt? {
             val mimeFull = o.str("mimeType") ?: return null
@@ -615,6 +632,7 @@ class StreamResolver(
             expiresAtMs = System.currentTimeMillis() + expiresIn * 1000 - 10 * 60_000,
             live = res.str("videoDetails", "isLive") == "true" || res.str("videoDetails", "isLiveContent") == "true" && data.str("hlsManifestUrl") != null,
             hlsUrl = data.str("hlsManifestUrl"),
+            via = via,
         )
     }
 

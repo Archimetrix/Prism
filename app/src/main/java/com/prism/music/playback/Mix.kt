@@ -59,6 +59,8 @@ class MixEngine(
     private val scanFromPhone: (String) -> Unit,
     /** A second player for the ending song: same sources and effects as the main one (plus [ShiftProcessor] first), no audio focus. */
     private val buildTail: (ShiftProcessor) -> ExoPlayer,
+    /** A blend is over (done or stopped) and the main player is back to normal: the listener's own speed can return. */
+    private val onSettled: () -> Unit = {},
 ) {
     private class Plan(
         val fromId: String,
@@ -515,6 +517,7 @@ class MixEngine(
         phase = Phase.IDLE
         plan = null
         noPlanFor = null
+        onSettled()
     }
 
     private fun stateName(p: ExoPlayer): String = when {
@@ -526,7 +529,8 @@ class MixEngine(
     }
 
     private fun abort(why: String): Long {
-        if (phase != Phase.IDLE) note("blend stopped: $why")
+        val wasOn = phase != Phase.IDLE
+        if (wasOn) note("blend stopped: $why")
         tail?.let { runCatching { it.release() } }
         tail = null
         shifter = null
@@ -536,6 +540,7 @@ class MixEngine(
         catchUpUntil = 0L
         phase = Phase.IDLE
         plan = null
+        if (wasOn) onSettled()
         return 500
     }
 

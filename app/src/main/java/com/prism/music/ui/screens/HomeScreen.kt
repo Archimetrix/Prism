@@ -672,8 +672,9 @@ private fun SpeedDialPages(items: List<BrowseItem>, open: (BrowseItem) -> Unit) 
     Column {
         androidx.compose.foundation.pager.HorizontalPager(
             pager,
-            // The next page peeks in from the side, so it's clear there's more.
-            contentPadding = PaddingValues(start = 16.dp, end = if (pages.size > 1) 40.dp else 16.dp),
+            // Even margins on both sides (#67 again on 1.7.1: the next page peeking in at the right read as the grid
+            // being off-centre); the dots under it say there's more.
+            contentPadding = PaddingValues(horizontal = 16.dp),
             // As wide as the start padding, so the page before doesn't show as a sliver at the left edge (#67).
             pageSpacing = 16.dp,
             verticalAlignment = Alignment.Top,

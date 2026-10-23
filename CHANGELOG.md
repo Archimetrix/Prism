@@ -62,6 +62,26 @@ Settings → Appearance → Player, or the player's ⋯ → Player settings. Eve
 - **Prism closed by itself on some Android 12+ phones** (#100's log) when a download started or restarted while it was
   in the background (Wi-Fi coming back, a stalled download restarted). Downloads now wait for Prism to be opened in
   that case; ones already running carry on.
+- **Shuffle and repeat come back after Prism restarts** (#101): the queue did, but shuffle was off again. Now shuffle
+  returns in the same order, and repeat as it was.
+- **A live version no longer plays as the studio song** (#113): with "Songs, not videos", Prism only swaps a video for a
+  song when it's the same recording: anything in brackets that isn't just "Official Video", "Lyric Video" and the like
+  (a live album, a session, another edition) tells them apart, and the lengths must match.
+- **The font picker lines up** (#117): an even grid across the page, every card in a row the same height, also with
+  larger text.
+- **The browser remote's queue lines up** (#112): the now-playing card's style was spilling onto the queue's song.
+- **"Last crash" says when the phone closed Prism** (#103): on Android 11 and later, Prism asks Android why it ended
+  last time (not responding, out of memory while playing, a crash in a library) and saves that as a crash too, with
+  Android's own trace, so the diagnostics no longer show an older crash instead.
+- **Diagnostics say more about refused streams** (#114): which way the song was asked for, and for a refused part of a
+  song, how far in it was, which of YouTube's apps the link came from and whether it carried a PO token.
+- The speed you picked no longer stays at 1× after a crossfade (it came back only when the blend happened to change the
+  song's speed).
+- **Android 8 with Bluetooth headphones:** opening the player could close Prism (it asked for the device's address,
+  which Android only has from 9 on).
+- **Speed dial** has even margins on both sides (#67): the next page no longer peeks in at the right; the dots say
+  there's more.
+- The Smart Shuffle button on the player follows the queue when it changes while the player is open.
 
 ## 1.7.3
 

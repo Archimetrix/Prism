@@ -49,7 +49,7 @@ data class Renderer(
 internal object Xml {
     /** Null for anything that isn't well-formed, and for documents with a DOCTYPE or entities (nothing UPnP needs them). */
     fun parse(text: String): Document? {
-        val body = text.trim().removePrefix("﻿")
+        val body = text.trim().removePrefix("\uFEFF")
         if (body.contains("<!DOCTYPE", ignoreCase = true) || body.contains("<!ENTITY", ignoreCase = true)) return null
         return runCatching {
             val f = DocumentBuilderFactory.newInstance()

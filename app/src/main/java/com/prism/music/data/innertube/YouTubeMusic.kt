@@ -43,6 +43,12 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
     companion object {
         /** An artist page "id" that's looked up by name ([artistIdByName]). */
         const val ARTIST_BY_NAME = "name:"
+
+        /** Words that only describe a video, not the recording ([songForVideo]). */
+        internal val VIDEO_WORDS = setOf("official", "music", "lyric", "lyrics", "video", "audio", "hd", "4k", "visualizer", "visualiser", "mv", "clip", "oficial")
+        private val SONG_FOR_VIDEO_BRACKETS = Regex("\\(.*?\\)|\\[.*?]")
+        /** How far a video's length may be from its song's (an intro or outro on the video). */
+        internal const val SONG_FOR_VIDEO_SLACK_SEC = 8
     }
 
     private suspend fun browse(browseId: String, params: String? = null): JsonObject {
@@ -420,9 +426,13 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         val r = next(video.id)
         r.counterpartSongs[video.id]?.takeIf { !it.isVideo }?.let { return it }
         r.songs.firstOrNull { !it.isVideo && r.counterparts[it.id] == video.id }?.let { return it }
+        // Without YouTube's own pairing it must be the same recording (GitHub #113: a live album's track,
+        // "Nos siguen pegando abajo (Pecado mortal)", played as the studio song from another album). So only the video's
+        // own words go ("Official Video", "(Lyric Video)", "HD"); anything else in brackets, and live or session takes,
+        // tell recordings apart; and the lengths must agree.
         fun norm(s: String) = s.lowercase()
-            .replace(Regex("\\(.*?\\)|\\[.*?]"), " ")
-            .replace(Regex("\\b(official|music|lyric|lyrics|video|audio|live|performance|session|hd|4k|visualizer)\\b"), " ")
+            .replace(SONG_FOR_VIDEO_BRACKETS) { m -> if (m.value.trim('(', ')', '[', ']', ' ').split(Regex("\\s+")).all { it in VIDEO_WORDS }) " " else m.value }
+            .replace(Regex("\\b(${VIDEO_WORDS.joinToString("|")})\\b"), " ")
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
         // "Artist - Title (Live at …)" videos put the artist in the title.
         val artist = norm(video.primaryArtist)
@@ -436,7 +446,8 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         return search(query, SearchFilter.SONGS).items.filterIsInstance<SongItem>().map { it.song }
             .filter { s ->
                 !s.isVideo && norm(s.title) == title &&
-                    (artist.isBlank() || s.artists.any { a -> norm(a.name).let { it.isNotBlank() && (it.contains(artist) || artist.contains(it)) } })
+                    (artist.isBlank() || s.artists.any { a -> norm(a.name).let { it.isNotBlank() && (it.contains(artist) || artist.contains(it)) } }) &&
+                    (video.durationSec <= 0 || s.durationSec <= 0 || kotlin.math.abs(s.durationSec - video.durationSec) <= SONG_FOR_VIDEO_SLACK_SEC)
             }
             .minByOrNull { s -> if (video.durationSec > 0 && s.durationSec > 0) kotlin.math.abs(s.durationSec - video.durationSec) else 0 }
     }

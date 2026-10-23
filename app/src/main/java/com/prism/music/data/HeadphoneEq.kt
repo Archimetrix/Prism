@@ -23,6 +23,9 @@ import java.io.File
 import java.io.IOException
 import java.net.URLDecoder
 
+/** A Bluetooth device's address, or "" before Android 9 (where it doesn't exist and calling it crashes). */
+fun AudioDeviceInfo.addressOrBlank(): String = if (android.os.Build.VERSION.SDK_INT >= 28) address else ""
+
 /**
  * Headphone correction (AutoEq): measured correction curves for thousands of headphones, from the AutoEq project's
  * results on GitHub (MIT), each kept for the headphones it was picked for. Plugging those in (or connecting them)
@@ -192,7 +195,7 @@ class HeadphoneEq(
         /** Which headphones these are, across reconnects: a Bluetooth pair by address, others by kind and name. */
         fun keyOf(d: AudioDeviceInfo): String = when (d.type) {
             AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER ->
-                "bt:" + d.address.ifBlank { d.productName.toString() }
+                "bt:" + d.addressOrBlank().ifBlank { d.productName.toString() }
             AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> "usb:" + d.productName
             // Wired headphones don't say which they are: one choice for whatever's plugged in.
             AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET -> "wired"

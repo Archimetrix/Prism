@@ -94,6 +94,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import androidx.compose.foundation.border
+import com.prism.music.data.addressOrBlank
 import com.prism.music.data.prefs.PlayerButton
 import com.prism.music.data.prefs.ScrubberStyle
 import com.prism.music.data.prefs.TransportStyle
@@ -1036,7 +1037,7 @@ fun outputOptions(context: Context): List<AudioDeviceInfo> {
     return am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
         .filter { it.type in OUTPUT_TYPES }
         // One row per physical device (LE Audio and A2DP can both show for the same earbuds).
-        .distinctBy { if (isBluetooth(it.type)) "bt:" + (it.address.ifBlank { it.productName.toString() }) else "t:${it.type}:${it.productName}" }
+        .distinctBy { if (isBluetooth(it.type)) "bt:" + (it.addressOrBlank().ifBlank { it.productName.toString() }) else "t:${it.type}:${it.productName}" }
         .sortedBy { if (it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) 0 else if (isBluetooth(it.type)) 2 else 1 }
 }
 

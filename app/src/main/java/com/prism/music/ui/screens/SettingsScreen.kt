@@ -952,27 +952,39 @@ private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, on
     val ui = LocalUi.current
     // "Your font" is always pickable: without a file yet, picking it asks for one.
     val missing = remember(stamp) { FontChoice.entries.filterNot { it == FontChoice.CUSTOM || AppFonts.available(it) } }
-    FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FontChoice.entries.forEach { f ->
-            val on = f == current
-            val usable = f !in missing
-            Column(
-                Modifier.width(96.dp).clip(ui.tile)
-                    .background(com.prism.music.ui.components.glassFill(if (on) 2.6f else 1f))
-                    .then(if (on) Modifier.border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.tile) else Modifier)
-                    .clickable(enabled = usable) { onPick(f) }
-                    .then(if (usable) Modifier else Modifier.alpha(0.38f))
-                    .padding(10.dp),
-            ) {
-                Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Medium, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = scheme.onSurface)
-                Text(
-                    if (f == FontChoice.CUSTOM) customName ?: "Your font…" else f.label,
-                    style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
-                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                )
-                // The typeface's own name, quietly, so it can be looked up (and matched to a file for Your font).
-                f.face?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    // An even grid across the page (#117: fixed-width cards left a gap at the side and came out at different heights
+    // with larger text): as many columns as fit at ~100 dp, every card in a row as tall as the tallest.
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        // Wider with larger text, so names like "Geometric" still fit.
+        val card = 100.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val columns = ((maxWidth + 8.dp) / (card + 8.dp)).toInt().coerceIn(2, 5)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FontChoice.entries.chunked(columns).forEach { rowFonts ->
+                Row(Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowFonts.forEach { f ->
+                        val on = f == current
+                        val usable = f !in missing
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight().clip(ui.tile)
+                                .background(com.prism.music.ui.components.glassFill(if (on) 2.6f else 1f))
+                                .then(if (on) Modifier.border(1.5.dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.tile) else Modifier)
+                                .clickable(enabled = usable) { onPick(f) }
+                                .then(if (usable) Modifier else Modifier.alpha(0.38f))
+                                .padding(10.dp),
+                        ) {
+                            Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Medium, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = scheme.onSurface)
+                            Text(
+                                if (f == FontChoice.CUSTOM) customName ?: "Your font…" else f.label,
+                                style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
+                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            // The typeface's own name, quietly, so it can be looked up (and matched to a file for Your font).
+                            f.face?.let {
+                                Text(it, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                    repeat(columns - rowFonts.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
