@@ -15,7 +15,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 
 ### [⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)
 
-[What's new in 1.7.2](../../releases/tag/v1.7.2) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
+[What's new in 1.7.3](../../releases/tag/v1.7.3) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
 
 <a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
 
@@ -29,7 +29,21 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 > [!NOTE]
 > Prism is an independent, unofficial app. It is not affiliated with, endorsed by, or connected to Google, YouTube or YouTube Music.
 
-## New in 1.7.2: color
+## New in 1.7.3: Looks
+
+The second of the 1.7.x customization updates.
+
+<img src="docs/screenshots/looks.jpg" width="24%" alt="The Looks page: a live preview of Home, the player and lyrics, and Update for the Look you're on">
+<img src="docs/screenshots/community.jpg" width="24%" alt="Community Looks from Prism's GitHub repository">
+<img src="docs/screenshots/customize.jpg" width="24%" alt="Customize by tapping: everything outlined can be changed in place">
+<img src="docs/screenshots/customize-sheet.jpg" width="24%" alt="The mini player's settings, opened by tapping it">
+
+- **Looks.** Save your colors, type, icons, backgrounds, player and lyrics as a Look and switch with one tap. Six of Prism's own to start from, your own ones updated as you change them, a different Look by day and by night, and Undo for every change.
+- **Share and browse.** Send a Look as a QR code, a code or a `.prismlook` file, or pick one made by the community ([`themes/`](themes/), added by pull request). Every Look shows as a preview before it changes anything.
+- **Customize by tapping.** Tap the mini player, the tab bar, the player or a Home section to change just that, right where it is. Every look page has a live preview pinned at the top.
+- **Fixes:** a crash on low-memory phones (#103), Liked songs order (#99), songs not available in your country (#93), your own uploads (#101), lyric timing up to two minutes (#109), the time-of-day mix's name, and Android Auto pictures. See the [changelog](CHANGELOG.md).
+
+## 1.7.2: color
 
 The first of the 1.7.x customization updates.
 
@@ -127,7 +141,7 @@ A **Prism Account** is just a name and picture on your phone: no email, no passw
 | **Offline** | Downloads with saved lyrics and covers, Smart Downloads (songs you'll likely play next, fetched ahead), and your own music files. |
 | **Music videos** | Switch any song to its official video in one tap, lyrics still in sync, full screen in landscape. |
 | **Best part** | Jump straight to the part listeners replay most, or set your own. |
-| **Make it yours** | Fonts (or your own), corners, glass, backgrounds, tab bar and mini player styles, icon weight, six app icons and an optional Cupertino icon pack. |
+| **Make it yours** | Looks you save, share and switch (by day and night too), community Looks, customize by tapping, a full color picker, fonts (or your own), corners, glass, backgrounds, tab bar and mini player styles, icon weight, six app icons and an optional Cupertino icon pack. |
 | **Tablets and foldables** | A side rail, the player beside its lyrics or queue, and a tabletop layout for half-open foldables. |
 | **Android Auto** | Your library, Made for you, Shuffle play and Play as a DJ set, extra buttons, and lyrics on the car screen. |
 | **Share** | Story cards and links for songs, albums, playlists and artists, and "Play in Prism" for YouTube links. Discord status with album covers (optional). |
