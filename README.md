@@ -15,7 +15,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 
 ### [⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)
 
-[What's new in 1.7.3](../../releases/tag/v1.7.3) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
+[What's new in 1.7.4](../../releases/tag/v1.7.4) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
 
 <a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
 
@@ -29,14 +29,25 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 > [!NOTE]
 > Prism is an independent, unofficial app. It is not affiliated with, endorsed by, or connected to Google, YouTube or YouTube Music.
 
-## New in 1.7.3: Looks
+## New in 1.7.4: the player, your way
+
+The third of the 1.7.x customization updates, and a faster Prism on older phones.
+
+<img src="docs/screenshots/player-cassette.jpg" width="24%" alt="The Cassette player: the cover on a tape whose reels turn as it plays">
+<img src="docs/screenshots/player-layouts.jpg" width="24%" alt="Player settings: six layouts, each shown as it looks">
+<img src="docs/screenshots/player-vinyl.jpg" width="24%" alt="The Vinyl player: the cover as a record's label, with a tonearm">
+<img src="docs/screenshots/reorder.jpg" width="24%" alt="Drag to reorder: a button lifted onto a card edged in your light">
+
+- **Six layouts:** Standard, Cover, Lyrics, Minimal, **Vinyl** (the cover as a record's label, turning as it plays) and **Cassette** (reels turning as it plays). Every choice shows what it looks like.
+- **Make it yours:** pick three to six buttons under the controls (now with a **speed** button), choose the notification and car buttons, order everything under the title, a waveform progress bar, thinner or thicker with a dot, line or ring, the title's size and alignment, the background (any of Prism's or your own photo, just for the player), and what swipes, a double tap and a long press do.
+- **A visualizer**, off unless you pick one: bars, a wave, a ring around the cover, a pulsing progress bar or a glow. It listens to Prism's own sound (no microphone) and costs nothing when it's off.
+- **Drag to reorder** anywhere you put things in order: hold a row and drag it, all the way from the bottom to the top in one move.
+- **Faster:** Prism carries a startup profile and updates from the update banner are compiled while they install, the player redraws far less while music plays, and Home and Search do less work as you scroll.
+- **Fixes:** shuffle and repeat after a restart (#101), live versions played as the studio song (#113), the font picker (#117), the browser remote's queue (#112), Speed dial margins (#67), a crash on Android 8 with Bluetooth headphones, and "Last crash" now says when the phone itself closed Prism (#103). See the [changelog](CHANGELOG.md).
+
+## 1.7.3: Looks
 
 The second of the 1.7.x customization updates.
-
-<img src="docs/screenshots/looks.jpg" width="24%" alt="The Looks page: a live preview of Home, the player and lyrics, and Update for the Look you're on">
-<img src="docs/screenshots/community.jpg" width="24%" alt="Community Looks from Prism's GitHub repository">
-<img src="docs/screenshots/customize.jpg" width="24%" alt="Customize by tapping: everything outlined can be changed in place">
-<img src="docs/screenshots/customize-sheet.jpg" width="24%" alt="The mini player's settings, opened by tapping it">
 
 - **Looks.** Save your colors, type, icons, backgrounds, player and lyrics as a Look and switch with one tap. Six of Prism's own to start from, your own ones updated as you change them, a different Look by day and by night, and Undo for every change.
 - **Share and browse.** Send a Look as a QR code, a code or a `.prismlook` file, or pick one made by the community ([`themes/`](themes/), added by pull request). Every Look shows as a preview before it changes anything.
