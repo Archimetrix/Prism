@@ -10,8 +10,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -52,8 +55,15 @@ class ForYou(private val c: AppContainer) {
     private val json = Json { ignoreUnknownKeys = true }
     private val songList = ListSerializer(Song.serializer())
     private val lock = Mutex()
+    private var retitledAt = 0L
 
-    val mixes: Flow<List<Mix>> = c.db.mixes().allFlow().map { list -> list.map(::toMix).sortedBy(::order) }
+    /**
+     * The mixes, read once per change and kept (null until the first read). Their songs are stored as JSON; decoding a
+     * few hundred songs happened on the main thread every time Made for you scrolled back onto Home (1.7.4).
+     */
+    val mixes: StateFlow<List<Mix>?> = c.db.mixes().allFlow().map { list -> list.map(::toMix).sortedBy(::order) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(c.scope, SharingStarted.Eagerly, null)
 
     suspend fun mix(id: String): Mix? = c.db.mixes().get(id)?.let(::toMix)
 
@@ -80,7 +90,11 @@ class ForYou(private val c: AppContainer) {
         val bucket = MadeForYou.TimeBucket.of(hour)
         val dailyDue = force || prefs.getString(DAILY_DAY, null) != today
         val timeDue = force || prefs.getString(TIME_KEY, null) != "$today|${bucket.name}"
-        if (!timeDue) runCatching { retitleTimeMix() }.onFailure { Log.w(TAG, "time mix title failed", it) }
+        // Made for you asks for this each time it comes into view on Home: the name is looked at again every ten minutes.
+        if (!timeDue && System.currentTimeMillis() - retitledAt > 10 * 60_000L) {
+            retitledAt = System.currentTimeMillis()
+            runCatching { retitleTimeMix() }.onFailure { Log.w(TAG, "time mix title failed", it) }
+        }
         if (!dailyDue && !timeDue) return@withLock
         c.quietNetwork()
         val data = withContext(Dispatchers.IO) { Listening.load(c) } ?: return@withLock

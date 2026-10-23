@@ -111,6 +111,58 @@ class DesignGalleryTest {
         File(dir, "looks.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
+    /**
+     * The player, your way (1.7.4): the Looks preview's player (as the pinned preview on Settings → Player draws it) in
+     * each layout, and with the details changed (centred large title, accent bar, time left only, waveform, other
+     * buttons, the deck in another order), onto player174.png.
+     */
+    @Test fun playerYourWay() {
+        val base = AppSettings(themeMode = ThemeMode.DARK, frostedPages = false)
+        val variants = com.prism.music.data.prefs.PlayerLayout.entries.map { it.label to base.copy(playerLayout = it) } + listOf(
+            "Centred, large, accent, time left" to base.copy(
+                playerTitleAlign = com.prism.music.data.prefs.PlayerTitleAlign.CENTER, playerTitleSize = com.prism.music.data.prefs.PlayerTitleSize.LARGE,
+                scrubberColor = com.prism.music.data.prefs.ScrubberColor.ACCENT, playerTimes = com.prism.music.data.prefs.PlayerTimes.LEFT,
+            ),
+            "Waveform, five buttons" to base.copy(
+                scrubberStyle = com.prism.music.data.prefs.ScrubberStyle.WAVE,
+                playerButtons = listOf(
+                    com.prism.music.data.prefs.PlayerButton.LIKE, com.prism.music.data.prefs.PlayerButton.LYRICS, com.prism.music.data.prefs.PlayerButton.QUEUE,
+                    com.prism.music.data.prefs.PlayerButton.SLEEP, com.prism.music.data.prefs.PlayerButton.DJ,
+                ),
+            ),
+            "Buttons first, lyric last" to base.copy(
+                playerDeck = listOf(
+                    com.prism.music.data.prefs.DeckPart.BUTTONS, com.prism.music.data.prefs.DeckPart.SCRUBBER, com.prism.music.data.prefs.DeckPart.TRANSPORT,
+                    com.prism.music.data.prefs.DeckPart.VOLUME, com.prism.music.data.prefs.DeckPart.STRIP,
+                ),
+                lyricsOnPlayer = true,
+            ),
+        )
+        compose.setContent {
+            PrismTheme(base, artworkColor = null) {
+                androidx.compose.foundation.layout.Column(
+                    Modifier.width(412.dp).background(MaterialTheme.colorScheme.background).padding(8.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) {
+                    variants.chunked(3).forEach { row ->
+                        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
+                            row.forEach { (name, s) ->
+                                androidx.compose.foundation.layout.Column {
+                                    androidx.compose.material3.Text(name, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                                    com.prism.music.ui.screens.PreviewPhone(122.dp) { com.prism.music.ui.screens.LookTheme(s, true) { c -> com.prism.music.ui.screens.MiniPlayerScreen(c, null) } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        val bmp = compose.onRoot().captureToImage().asAndroidBitmap()
+        val dir = File("build/design-previews").apply { mkdirs() }
+        File(dir, "player174.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     /** The color wheel and the spectrum presets, dark and light. */
     @Test fun colorPickerDark() = colorPicker(true)
     @Test fun colorPickerLight() = colorPicker(false)

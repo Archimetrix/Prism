@@ -8,6 +8,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
     id("androidx.room")
+    id("androidx.baselineprofile")
 }
 
 // Room writes each database version's schema here (checked in); MigrationTest builds old versions from them.
@@ -23,11 +24,13 @@ android {
         applicationId = "com.prism.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 42
-        versionName = "1.7.3"
+        versionCode = 43
+        versionName = "1.7.4"
         vectorDrawables { useSupportLibrary = true }
         // The name under the launcher icon; a side-by-side build (below) is called "Prism Dev" so it can't be mistaken for Prism.
         manifestPlaceholders["appLabel"] = "@string/app_name"
+        // Only the side-by-side test copy can be profiled from adb (simpleperf / Perfetto), for chasing jank (1.7.4).
+        manifestPlaceholders["profileable"] = "false"
         // Optional: `lastfm.apiKey=…` in local.properties lets genre detection ask Last.fm too.
         val localProps = Properties().apply {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
@@ -62,6 +65,12 @@ android {
         release {
             // Kept unminified: NewPipeExtractor + Rhino rely on reflection.
             isMinifyEnabled = false
+            // `-Pr8` (1.7.4 trial, not for releases yet): R8 optimizes Prism's, Compose's and Kotlin's own code and keeps
+            // every other library whole (r8-trial.pro), for measuring what it does to jank.
+            if (project.hasProperty("r8")) {
+                isMinifyEnabled = true
+                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "r8-trial.pro")
+            }
             signingConfig = signingConfigs.getByName(if (useReleaseKey) "release" else "debug")
             // `-PsideBySide` on a release build: the same "Prism Dev" test copy, but optimised like a release (debug
             // builds run Prism's own audio code slower, which matters when chasing stutters). Always the debug key, so
@@ -69,6 +78,7 @@ android {
             if (project.hasProperty("sideBySide")) {
                 applicationIdSuffix = "." + (project.property("sideBySide") as String).ifBlank { "dev" }
                 manifestPlaceholders["appLabel"] = "Prism Dev"
+                manifestPlaceholders["profileable"] = "true"
                 signingConfig = signingConfigs.getByName("debug")
             }
         }
@@ -117,6 +127,14 @@ ksp {
     arg("room.generateKotlin", "true")
 }
 
+// The builds :baselineprofile makes from release (benchmarkRelease, nonMinifiedRelease) can be traced and profiled from
+// adb, as the side-by-side test copy can; the real release can't.
+androidComponents {
+    onVariants { v ->
+        if (v.buildType != "release") v.manifestPlaceholders.put("profileable", "true")
+    }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 
@@ -138,6 +156,10 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("androidx.palette:palette-ktx:1.0.0")
+    // Hands the APK's baseline profile (src/main/generated/baselineProfiles, written by :baselineprofile) to Android, so
+    // Prism's busiest code is compiled ahead instead of interpreted after an install or update (1.7.4). Apache-2.0.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    baselineProfile(project(":baselineprofile"))
 
     val media3 = "1.11.1"
     implementation("androidx.media3:media3-exoplayer:$media3")

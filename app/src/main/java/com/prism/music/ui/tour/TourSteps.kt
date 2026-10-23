@@ -35,6 +35,8 @@ object Tour {
     /** Prism 1.7.2 (build 41): color, and the smaller things that came with it. */
     private const val V1_7_2 = 41
     private const val V1_7_3 = 42
+    /** Prism 1.7.4 (build 43): the player, your way, and a faster Prism. */
+    private const val V1_7_4 = 43
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -188,7 +190,7 @@ object Tour {
             V1_7_3, PrismIcons.Looks, "Looks",
             "Settings → Appearance → Looks: your whole look, saved, switched and shared in one tap.",
             listOf(
-                "Try Prism's own: Paper, Midnight, Neon, Soft and Studio",
+                "Try Prism's own: Paper, Midnight, Neon, Soft, Studio and Vinyl",
                 "Save yours, update it when you change it, and share it as a QR code, a code or a file",
                 "Browse Looks people shared, under From the community",
                 "One Look by day and another by night, at sunrise and sunset",
@@ -197,6 +199,28 @@ object Tour {
             ),
             listOf(PrismIcons.Sun, PrismIcons.Moon, PrismIcons.Undo),
             showMe = Routes.settings("looks"),
+        ),
+        TourStep(
+            V1_7_4, PrismIcons.PlayCircle, "The player, your way",
+            "Settings → Appearance → Player, or ⋯ → Player settings on the player itself.",
+            listOf(
+                "Layouts: Standard, a big Cover, Lyrics first, Minimal, or Vinyl (a record that turns as it plays)",
+                "Pick the buttons under the controls, and the two beside play in your notification and car",
+                "Put the lyric line, progress bar, controls and volume in your order",
+                "A waveform progress bar, its color, the title centred or bigger, and which times show",
+                "Choose what swipes, a double tap and a long press do on the cover and the mini player",
+            ),
+            listOf(PrismIcons.Turntable, PrismIcons.Customize),
+            showMe = Routes.settings("player"),
+        ),
+        TourStep(
+            V1_7_4, PrismIcons.Speed, "Faster",
+            "Prism scrolls, searches and opens the player more smoothly, most of all on older phones.",
+            listOf(
+                "Prism tells Android which of its parts to get ready ahead, and updates from the banner come ready, so they no longer run slow",
+                "Less work while lists scroll, while you type in Search, and while a song plays",
+                "If something still stutters, Settings → About → Diagnostics notes where it happened, to share",
+            ),
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",

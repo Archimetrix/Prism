@@ -52,6 +52,11 @@
         android:theme="@style/Theme.Prism"
         tools:targetApi="36">
 
+        <!-- Profiling from adb: only the side-by-side test copy ("Prism Dev", build.gradle.kts). -->
+        <profileable
+            android:shell="${profileable}"
+            tools:targetApi="29" />
+
         <!-- The app's one screen. Its launcher entries are the aliases below, one per app icon (#20). -->
         <activity
             android:name=".PrismActivity"

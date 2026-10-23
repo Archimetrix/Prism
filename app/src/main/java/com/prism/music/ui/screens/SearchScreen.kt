@@ -47,6 +47,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -294,24 +295,30 @@ private fun PhoneResults(query: String, bottomPadding: Dp, onPlay: () -> Unit) {
     val tracks by c.localMusic.tracks.collectAsState()
     val dls by c.downloads.downloads.collectAsState()
     val current by c.player.currentSong.collectAsState()
-    val (files, downloads) = remember(query, tracks, dls) {
-        val q = phoneNorm(query)
-        val words = q.split(' ').filter { it.isNotBlank() }
-        fun rank(s: com.prism.music.data.model.Song): Int? {
-            val title = phoneNorm(s.title)
-            val hay = "$title ${phoneNorm(s.artistText)} ${phoneNorm(s.album?.title.orEmpty())}"
-            if (words.isEmpty() || !words.all { it in hay }) return null
-            return when {
-                title.startsWith(q) -> 0
-                words.all { it in title } -> 1
-                words.all { it in phoneNorm(s.artistText) } -> 2
-                else -> 3
+    // Matched off the main thread: with a few thousand files and downloads, every letter typed went through all of
+    // them while the screen waited (1.7.4). Null until the first answer for this query is in.
+    val found by produceState<Pair<List<com.prism.music.data.model.Song>, List<com.prism.music.data.model.Song>>?>(null, query, tracks, dls) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val q = phoneNorm(query)
+            val words = q.split(' ').filter { it.isNotBlank() }
+            fun rank(s: com.prism.music.data.model.Song): Int? {
+                val title = phoneNorm(s.title)
+                val artist = phoneNorm(s.artistText)
+                val hay = "$title $artist ${phoneNorm(s.album?.title.orEmpty())}"
+                if (words.isEmpty() || !words.all { it in hay }) return null
+                return when {
+                    title.startsWith(q) -> 0
+                    words.all { it in title } -> 1
+                    words.all { it in artist } -> 2
+                    else -> 3
+                }
             }
+            fun find(songs: List<com.prism.music.data.model.Song>) =
+                songs.mapNotNull { s -> rank(s)?.let { it to s } }.sortedWith(compareBy({ it.first }, { it.second.title.lowercase() })).map { it.second }
+            find(tracks.map { it.song }) to find(c.downloads.completedSongs())
         }
-        fun find(songs: List<com.prism.music.data.model.Song>) =
-            songs.mapNotNull { s -> rank(s)?.let { it to s } }.sortedWith(compareBy({ it.first }, { it.second.title.lowercase() })).map { it.second }
-        find(tracks.map { it.song }) to find(c.downloads.completedSongs())
     }
+    val (files, downloads) = found ?: return
     if (files.isEmpty() && downloads.isEmpty()) {
         com.prism.music.ui.components.EmptyState(
             PrismIcons.Phone, "Nothing on this phone matches",
@@ -337,7 +344,10 @@ private fun PhoneResults(query: String, bottomPadding: Dp, onPlay: () -> Unit) {
 
 /** Lower case, without accents or punctuation, so "Beyonce" finds "Beyoncé" and "ac dc" finds "AC/DC". */
 private fun phoneNorm(s: String): String = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
-    .replace(Regex("\\p{Mn}+"), "").replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+    .replace(MARKS, "").replace(NOT_WORDS, " ").trim()
+
+private val MARKS = Regex("\\p{Mn}+")
+private val NOT_WORDS = Regex("[^\\p{L}\\p{N}]+")
 
 /** The top card's play button: plays the song, the album or playlist from the start, or shuffles the artist. */
 private suspend fun playTop(c: com.prism.music.AppContainer, item: BrowseItem) {

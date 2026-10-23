@@ -18,6 +18,7 @@ import com.prism.music.data.model.Shelf
 import com.prism.music.data.model.Song
 import com.prism.music.data.model.SongItem
 import com.prism.music.data.model.hiRes
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.Request
@@ -135,7 +136,7 @@ class MediaTree(private val c: AppContainer) {
         parentId == MADE_FOR_YOU -> {
             // What's kept is listed straight away (the car waits for nothing); anything due is made behind it.
             c.scope.launch { runCatching { c.forYou.refresh() } }
-            c.forYou.mixes.first().filter { it.songs.isNotEmpty() }.map { m ->
+            c.forYou.mixes.filterNotNull().first().filter { it.songs.isNotEmpty() }.map { m ->
                 folder("fy:${m.id}", m.title, m.subtitle, m.covers.firstOrNull(), MediaMetadata.MEDIA_TYPE_PLAYLIST)
             }
         }

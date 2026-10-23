@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -92,6 +94,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import androidx.compose.foundation.border
+import com.prism.music.data.prefs.PlayerButton
 import com.prism.music.data.prefs.ScrubberStyle
 import com.prism.music.data.prefs.TransportStyle
 import com.prism.music.playback.AudioEffects
@@ -130,6 +133,10 @@ fun ThinSlider(
     spectrum: Boolean = false,
     /** Points (0–1) marked with a tick (the best part); dragging across one gives a haptic step. */
     marks: List<Float> = emptyList(),
+    /** The played part's own fill (Settings → Player → progress bar color), over [spectrum]. */
+    fill: Brush? = null,
+    /** The song's loudness outline (0–1 a point, [ScrubberStyle.WAVE]): drawn as bars instead of a line. */
+    wave: FloatArray? = null,
 ) {
     var dragging by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
@@ -176,16 +183,31 @@ fun ThinSlider(
     ) {
         Canvas(Modifier.fillMaxWidth().height(height)) {
             val r = CornerRadius(size.height / 2f)
-            drawRoundRect(Color.White.copy(alpha = 0.20f), cornerRadius = r)
-            if (secondary > 0f) drawRoundRect(Color.White.copy(alpha = 0.12f), size = Size(size.width * secondary.coerceIn(0f, 1f), size.height), cornerRadius = r)
             val filled = size.width * value.coerceIn(0f, 1f)
-            val played = Size(filled.coerceAtLeast(size.height).coerceAtMost(size.width), size.height)
-            if (filled > 0f) {
-                if (spectrum) drawRoundRect(
-                    // The player is always dark: White light's white (not its mid grey) on it (Reddit: "white is giving gray").
-                    Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors(true).toTypedArray(), startX = 0f, endX = size.width),
-                    size = played, cornerRadius = r,
-                ) else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
+            // The player is always dark: White light's white (not its mid grey) on it (Reddit: "white is giving gray").
+            val brush = fill ?: if (spectrum) Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors(true).toTypedArray(), startX = 0f, endX = size.width) else null
+            if (wave != null && wave.isNotEmpty()) {
+                // The waveform: a bar per point, its height the song's loudness there; the played part in the fill.
+                val step = size.width / wave.size
+                val w = (step * 0.6f).coerceAtLeast(1f)
+                val bars = CornerRadius(w / 2)
+                wave.forEachIndexed { i, v ->
+                    val h = size.height * (0.18f + 0.82f * v.coerceIn(0f, 1f))
+                    val x = step * i + (step - w) / 2
+                    val top = Offset(x, (size.height - h) / 2)
+                    val bar = Size(w, h)
+                    if (x + w / 2 <= filled) {
+                        if (brush != null) drawRoundRect(brush, top, bar, bars) else drawRoundRect(Color.White.copy(alpha = 0.92f), top, bar, bars)
+                    } else drawRoundRect(Color.White.copy(alpha = 0.22f), top, bar, bars)
+                }
+            } else {
+                drawRoundRect(Color.White.copy(alpha = 0.20f), cornerRadius = r)
+                if (secondary > 0f) drawRoundRect(Color.White.copy(alpha = 0.12f), size = Size(size.width * secondary.coerceIn(0f, 1f), size.height), cornerRadius = r)
+                val played = Size(filled.coerceAtLeast(size.height).coerceAtMost(size.width), size.height)
+                if (filled > 0f) {
+                    if (brush != null) drawRoundRect(brush, size = played, cornerRadius = r)
+                    else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
+                }
             }
             // Ticks: a faint hairline that stands just past the line, there if you look, never in the way.
             marks.forEach { m ->
@@ -200,6 +222,37 @@ fun ThinSlider(
         }
     }
 }
+
+/**
+ * The progress bar's played part in [color] (Settings → Player, 1.7.4); null keeps the split light. The player is
+ * always dark, so an accent too deep to see on it is lifted, and the cover's color is its brightest swatch.
+ */
+@Composable
+fun scrubberFill(color: com.prism.music.data.prefs.ScrubberColor, cover: String?): Brush? = when (color) {
+    com.prism.music.data.prefs.ScrubberColor.SPECTRUM -> null
+    com.prism.music.data.prefs.ScrubberColor.WHITE -> androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.92f))
+    com.prism.music.data.prefs.ScrubberColor.ACCENT -> androidx.compose.ui.graphics.SolidColor(onDark(MaterialTheme.colorScheme.primary))
+    com.prism.music.data.prefs.ScrubberColor.COVER -> {
+        val palette = com.prism.music.ui.components.rememberArtPalette(cover)
+        androidx.compose.ui.graphics.SolidColor(onDark(palette?.vibrant ?: MaterialTheme.colorScheme.primary))
+    }
+}
+
+/** [c] lightened until it reads on the player's dark background. */
+private fun onDark(c: Color): Color {
+    var out = c.copy(alpha = 1f)
+    var n = 0
+    while (out.luminance() < 0.28f && n++ < 6) out = androidx.compose.ui.graphics.lerp(out, Color.White, 0.18f)
+    return out
+}
+
+/**
+ * [PlayerScrubber] reading the playhead itself ([rememberPositionState]): as the song plays only the bar and its times
+ * recompose, not the player around them (1.7.4; the whole player was redone four times a second).
+ */
+@Composable
+fun PlayheadScrubber(position: androidx.compose.runtime.State<Long>, durationMs: Long, centerLabel: @Composable BoxScope.() -> Unit = {}) =
+    PlayerScrubber(position.value, durationMs, centerLabel)
 
 /** Seek bar with elapsed / remaining under it and a centre label between them. */
 @Composable
@@ -234,22 +287,35 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
     val bestMark = best?.takeIf { it.songId == current?.id && LocalAppSettings.current.bestPartButton }
         ?.startMs?.let { ((it - shift).toFloat() / duration).takeIf { f -> f in 0.01f..0.99f } }
     val times = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
+    val settings = LocalAppSettings.current
+    val fill = scrubberFill(settings.scrubberColor, current?.thumbnail)
+    // Waveform: the song's outline from its scan (a plain bar until there is one).
+    val waveStamp by c.waves.stamp.collectAsState()
+    val wave by androidx.compose.runtime.produceState<FloatArray?>(null, style, current?.id, waveStamp) {
+        val id = current?.id
+        value = if (style != ScrubberStyle.WAVE || id == null) null else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.waves.get(id) }
+    }
+    val waved = wave != null
     Column(Modifier.fillMaxWidth()) {
-        // Spectrum: a thin line, the played part in the split light.
+        // Spectrum: a thin line, the played part in the split light (or the color picked for it).
         ThinSlider(
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
-            idleHeight = when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD -> 9.dp; ScrubberStyle.THUMB -> 4.dp },
-            activeHeight = when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD -> 14.dp; ScrubberStyle.THUMB -> 6.dp },
+            idleHeight = if (waved) 22.dp else when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 9.dp; ScrubberStyle.THUMB -> 4.dp },
+            activeHeight = if (waved) 26.dp else when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 14.dp; ScrubberStyle.THUMB -> 6.dp },
             thumb = style == ScrubberStyle.THUMB,
             spectrum = true,
             marks = listOfNotNull(bestMark),
+            fill = fill,
+            wave = wave,
         )
-        Box(Modifier.fillMaxWidth().offset(y = (-9).dp)) {
+        Box(Modifier.fillMaxWidth().offset(y = (-9).dp).heightIn(min = 16.dp)) {
+            val elapsed = settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.BOTH || settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.ELAPSED
+            val left = settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.BOTH || settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.LEFT
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(formatTime((shown * duration).toLong()), style = times, color = Color.White.copy(alpha = 0.55f))
-                Text(
+                if (elapsed) Text(formatTime((shown * duration).toLong()), style = times, color = Color.White.copy(alpha = 0.55f)) else Spacer(Modifier.width(1.dp))
+                if (left) Text(
                     if (showLength) formatTime(duration) else "−" + formatTime(duration - (shown * duration).toLong()),
                     style = times, color = Color.White.copy(alpha = 0.55f),
                     modifier = Modifier
@@ -370,6 +436,19 @@ fun TransportRow(isPlaying: Boolean, isLoading: Boolean, previousEnabled: Boolea
             repeat != Player.REPEAT_MODE_OFF,
             badge = if (repeat == Player.REPEAT_MODE_ONE) "1" else null,
         ) { pc.cycleRepeat() }
+    }
+}
+
+/** The Minimal player's one control (1.7.4): play / pause, large, in the Controls style picked; gestures do the rest. */
+@Composable
+fun MinimalPlay(isPlaying: Boolean, isLoading: Boolean) {
+    val pc = LocalContainer.current.player
+    val style = LocalAppSettings.current.transportStyle
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        if (style == TransportStyle.GLYPHS) {
+            if (isLoading) CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.padding(26.dp).size(40.dp))
+            else TransportGlyph(if (isPlaying) PrismIcons.Pause else PrismIcons.Play, if (isPlaying) "Pause" else "Play", 84.dp, 100.dp) { pc.togglePlay() }
+        } else PlayDisc(isPlaying, isLoading, filled = style == TransportStyle.BUTTON, size = 88.dp) { pc.togglePlay() }
     }
 }
 
@@ -554,8 +633,10 @@ fun VolumeRow(volume: PlayerVolume) {
 }
 
 /**
- * Lyrics, the capsule, and the queue. The capsule is Song / Video normally,
- * and shuffle / repeat / autoplay while the queue is up.
+ * The player's bottom row, one capsule of glass: the buttons the listener picked (Settings → Player → Buttons, 1.7.4;
+ * lyrics, the music video and the queue as 1.7 had it). While the queue is up the middle is shuffle / repeat /
+ * autoplay instead, beside the queue's own button (to close it). Buttons that open something over the player (sleep
+ * timer, add to playlist, share…) go to [onButton], which the player handles.
  */
 @Composable
 fun PlayerActionRow(
@@ -567,6 +648,7 @@ fun PlayerActionRow(
     onToggleQueue: () -> Unit,
     onVideoMode: (Boolean) -> Unit,
     episode: Boolean = false,
+    onButton: (PlayerButton) -> Unit = {},
 ) {
     val c = LocalContainer.current
     val pc = c.player
@@ -576,13 +658,15 @@ fun PlayerActionRow(
     val repeat by pc.repeatMode.collectAsState()
     val settings by c.settings.flow.collectAsState()
     val videoLoading by pc.videoLoading.collectAsState()
-    // Aura × Spectrum: lyrics, video and the queue together in one capsule of glass.
+    // Settings → Player → "Song / Video switch" off: audio only, the Video button goes.
+    val chosen = settings.playerButtons.filter { it != PlayerButton.VIDEO || settings.showVideoSwitch }
+    // Six to a row still fits a small phone: the buttons narrow a little past four.
+    val glyph = when { chosen.size >= 6 -> 46.dp; chosen.size == 5 -> 50.dp; else -> 56.dp }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Row(
             Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape).padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
-            BottomGlyph(if (lyricsOpen) PrismIcons.LyricsFilled else PrismIcons.Lyrics, if (lyricsOpen) "Close lyrics" else "Lyrics", lyricsOpen, onToggleLyrics)
             AnimatedContent(
                 queueOpen,
                 transitionSpec = {
@@ -590,35 +674,98 @@ fun PlayerActionRow(
                 },
                 label = "pill",
             ) { modes ->
-                if (modes) Pill {
-                    PillSegment(
-                        if (smart) PrismIcons.SmartShuffle else PrismIcons.Shuffle, if (smart) "Smart Shuffle" else "Shuffle", shuffle,
-                        width = PILL_SEGMENT_WIDTH_TRIPLE,
-                    ) { pc.toggleShuffle() }
-                    PillDivider()
-                    PillSegment(
-                        if (repeat == Player.REPEAT_MODE_ONE) null else PrismIcons.Repeat, "Repeat",
-                        repeat != Player.REPEAT_MODE_OFF, label = if (repeat == Player.REPEAT_MODE_ONE) "1" else null, width = PILL_SEGMENT_WIDTH_TRIPLE,
-                    ) { pc.cycleRepeat() }
-                    PillDivider()
-                    PillSegment(PrismIcons.Autoplay, "Autoplay", settings.autoplay, width = PILL_SEGMENT_WIDTH_TRIPLE) { c.settings.setAutoplay(!settings.autoplay) }
-                } else if (!settings.showVideoSwitch) {
-                    // Settings → Player → "Song / Video switch" off: audio only, lyrics and queue keep their places.
-                    Spacer(Modifier.size(1.dp))
-                } else {
-                    // Spectrum: one Video toggle instead of a Song / Video capsule. On (marked) plays the music video;
-                    // tapping again goes back to the song.
-                    PillSegment(
-                        PrismIcons.Video,
-                        when { videoMode -> "Back to the song"; videoAvailable -> "Music video"; else -> "No music video for this song" },
-                        videoMode || videoLoading, enabled = videoAvailable || videoMode, loading = videoLoading, width = 56.dp,
-                    ) {
-                        if (videoMode || videoLoading) onVideoMode(false) else onVideoMode(true)
+                if (modes) Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (PlayerButton.LYRICS in chosen) BottomGlyph(PrismIcons.Lyrics, "Lyrics", false, onToggleLyrics)
+                    Pill {
+                        PillSegment(
+                            if (smart) PrismIcons.SmartShuffle else PrismIcons.Shuffle, if (smart) "Smart Shuffle" else "Shuffle", shuffle,
+                            width = PILL_SEGMENT_WIDTH_TRIPLE,
+                        ) { pc.toggleShuffle() }
+                        PillDivider()
+                        PillSegment(
+                            if (repeat == Player.REPEAT_MODE_ONE) null else PrismIcons.Repeat, "Repeat",
+                            repeat != Player.REPEAT_MODE_OFF, label = if (repeat == Player.REPEAT_MODE_ONE) "1" else null, width = PILL_SEGMENT_WIDTH_TRIPLE,
+                        ) { pc.cycleRepeat() }
+                        PillDivider()
+                        PillSegment(PrismIcons.Autoplay, "Autoplay", settings.autoplay, width = PILL_SEGMENT_WIDTH_TRIPLE) { c.settings.setAutoplay(!settings.autoplay) }
                     }
+                    BottomGlyph(PrismIcons.Queue, "Up next", true, onToggleQueue)
+                } else Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    for (b in chosen) PlayerButtonGlyph(b, glyph, lyricsOpen, videoMode, videoAvailable, videoLoading, onToggleLyrics, onToggleQueue, onVideoMode, onButton)
                 }
             }
-            BottomGlyph(PrismIcons.Queue, "Up next", queueOpen, onToggleQueue)
         }
+    }
+}
+
+/** One of the bottom row's buttons ([PlayerButton]), as it stands for the song playing (liked, downloaded, DJ on…). */
+@Composable
+private fun PlayerButtonGlyph(
+    b: PlayerButton,
+    width: Dp,
+    lyricsOpen: Boolean,
+    videoMode: Boolean,
+    videoAvailable: Boolean,
+    videoLoading: Boolean,
+    onToggleLyrics: () -> Unit,
+    onToggleQueue: () -> Unit,
+    onVideoMode: (Boolean) -> Unit,
+    onButton: (PlayerButton) -> Unit,
+) {
+    val c = LocalContainer.current
+    val pc = c.player
+    val song by pc.currentSong.collectAsState()
+    val s = song ?: return
+    when (b) {
+        PlayerButton.LYRICS -> BottomGlyph(if (lyricsOpen) PrismIcons.LyricsFilled else PrismIcons.Lyrics, if (lyricsOpen) "Close lyrics" else "Lyrics", lyricsOpen, onToggleLyrics, width)
+        // One Video toggle: on (marked) plays the music video; tapping again goes back to the song.
+        PlayerButton.VIDEO -> PillSegment(
+            PrismIcons.Video,
+            when { videoMode -> "Back to the song"; videoAvailable -> "Music video"; else -> "No music video for this song" },
+            videoMode || videoLoading, enabled = videoAvailable || videoMode, loading = videoLoading, width = width,
+        ) { onVideoMode(!(videoMode || videoLoading)) }
+        PlayerButton.QUEUE -> BottomGlyph(PrismIcons.Queue, "Up next", false, onToggleQueue, width)
+        PlayerButton.LIKE -> {
+            val liked by c.library.likedIds.collectAsState()
+            val on = s.id in liked
+            BottomGlyph(if (on) PrismIcons.HeartFilled else PrismIcons.Heart, if (on) "Remove from liked" else "Like", on, { c.library.toggleLike(s) }, width)
+        }
+        PlayerButton.DISLIKE -> {
+            val disliked by c.library.dislikedIds.collectAsState()
+            val on = s.id in disliked
+            BottomGlyph(if (on) PrismIcons.ThumbDownFilled else PrismIcons.ThumbDown, "Not for me", on, {
+                c.library.setDisliked(s, !on)
+                if (!on && pc.hasNext.value) pc.next()
+            }, width)
+        }
+        PlayerButton.DOWNLOAD -> {
+            val downloads by c.downloads.downloads.collectAsState()
+            val d = downloads[s.id]
+            val done = d?.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED
+            BottomGlyph(
+                if (done) PrismIcons.DownloadDone else PrismIcons.Download,
+                when { done -> "Downloaded"; d != null -> "Downloading"; else -> "Download" }, done || d != null,
+                { if (d != null) c.downloads.remove(s.id) else c.downloads.download(s) }, width, enabled = !s.isLocal && !s.isLive,
+            )
+        }
+        PlayerButton.RADIO -> BottomGlyph(PrismIcons.Radio, "Start radio", false, { pc.playRadio(s) }, width, enabled = !s.isLocal)
+        PlayerButton.DJ -> {
+            val on by c.dj.on.collectAsState()
+            BottomGlyph(if (on) PrismIcons.TurntableFilled else PrismIcons.Turntable, if (on) "DJ mode off" else "DJ mode", on, { c.dj.setOn(!on) }, width)
+        }
+        PlayerButton.SLEEP -> {
+            val at by pc.sleepAt.collectAsState()
+            val end by pc.sleepEndOfSong.collectAsState()
+            BottomGlyph(PrismIcons.Moon, "Sleep timer", at > 0 || end, { onButton(b) }, width)
+        }
+        PlayerButton.SING -> {
+            val on by c.sing.on.collectAsState()
+            BottomGlyph(PrismIcons.Mic, "Sing", on, { onButton(b) }, width, enabled = !s.isEpisode)
+        }
+        PlayerButton.OUTPUT -> BottomGlyph(PrismIcons.Cast, "Play on", false, { onButton(b) }, width)
+        PlayerButton.ADD_TO_PLAYLIST -> BottomGlyph(PrismIcons.PlaylistAdd, "Add to playlist", false, { onButton(b) }, width)
+        PlayerButton.SHARE -> BottomGlyph(PrismIcons.Share, "Share", false, { onButton(b) }, width, enabled = !s.isLocal)
+        PlayerButton.EQUALIZER -> BottomGlyph(PrismIcons.Equalizer, "Equalizer", false, { onButton(b) }, width)
     }
 }
 
@@ -712,17 +859,17 @@ private fun PillSegment(
 }
 
 @Composable
-private fun BottomGlyph(icon: ImageVector, description: String, highlighted: Boolean, onClick: () -> Unit) {
+private fun BottomGlyph(icon: ImageVector, description: String, highlighted: Boolean, onClick: () -> Unit, width: Dp = 56.dp, enabled: Boolean = true) {
     val haptics = rememberHaptics()
     Box(
-        Modifier.size(width = 56.dp, height = BOTTOM_ACTION_SIZE).clip(CircleShape)
-            .background(if (highlighted) Color.White.copy(alpha = 0.16f) else Color.Transparent)
+        Modifier.size(width = width, height = BOTTOM_ACTION_SIZE).clip(CircleShape)
+            .background(if (highlighted && enabled) Color.White.copy(alpha = 0.16f) else Color.Transparent)
             .semantics { selected = highlighted }
-            .clickable(remember { MutableInteractionSource() }, indication = null) { haptics.tick(); onClick() },
+            .clickable(remember { MutableInteractionSource() }, indication = null, enabled = enabled) { haptics.tick(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, description, tint = Color.White.copy(alpha = if (highlighted) 1f else 0.7f), modifier = Modifier.size(25.dp))
-        OnMark(highlighted)
+        Icon(icon, description, tint = Color.White.copy(alpha = when { !enabled -> 0.25f; highlighted -> 1f; else -> 0.7f }), modifier = Modifier.size(25.dp))
+        OnMark(highlighted && enabled)
     }
 }
 

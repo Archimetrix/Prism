@@ -4,7 +4,11 @@ import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -100,7 +104,18 @@ fun rememberArtworkMesh(url: String?): ArtworkMesh? {
  * edge sits) and stretched over everything below, its first row held above.
  */
 @Composable
-fun ArtworkMeshBackdrop(mesh: ArtworkMesh?, modifier: Modifier = Modifier, seam: Dp = 0.dp) {
+fun ArtworkMeshBackdrop(
+    mesh: ArtworkMesh?,
+    modifier: Modifier = Modifier,
+    seam: Dp = 0.dp,
+    /**
+     * Settings → Player → Background (1.7.4): [speed] 0 holds it still (as before), up to 1 it drifts and breathes
+     * slowly; [intensity] its colors' strength (1 as before); [blur] how soft (1 as before).
+     */
+    speed: Float = 0f,
+    intensity: Float = 1f,
+    blur: Float = 1f,
+) {
     var shown by remember { mutableStateOf(mesh) }
     var incoming by remember { mutableStateOf<ArtworkMesh?>(null) }
     val fade = remember { Animatable(0f) }
@@ -117,26 +132,45 @@ fun ArtworkMeshBackdrop(mesh: ArtworkMesh?, modifier: Modifier = Modifier, seam:
         shown = next
         incoming = null
     }
+    // The drift moves the drawn layer only (scaled up a little so its edges never show): what's drawn and blurred
+    // inside it stays as it is, so it costs the GPU a transform a frame, not a redraw.
+    val still = speed <= 0.01f || com.prism.music.ui.theme.LocalUi.current.reduceMotion
+    val drift = if (still) null else rememberInfiniteTransition(label = "meshDrift").animateFloat(
+        0f, (2 * Math.PI).toFloat(),
+        infiniteRepeatable(tween((48_000 / speed.coerceIn(0.1f, 1f)).roundToInt(), easing = LinearEasing)),
+        label = "drift",
+    )
+    val tone = remember(intensity) {
+        if (kotlin.math.abs(intensity - 1f) < 0.01f) null
+        else androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(intensity) })
+    }
     Canvas(
         modifier
             .fillMaxSize()
             .background(PlayerFallbackBackdrop)
-            .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(32.dp) else Modifier),
+            .graphicsLayer {
+                val t = drift?.value ?: return@graphicsLayer
+                val s = 1.12f + 0.04f * kotlin.math.sin(t * 2)
+                scaleX = s; scaleY = s
+                translationX = size.width * 0.04f * kotlin.math.cos(t)
+                translationY = size.height * 0.03f * kotlin.math.sin(t)
+            }
+            .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(32.dp * blur.coerceIn(0.3f, 2f)) else Modifier),
     ) {
         val seamY = seam.toPx().coerceIn(0f, size.height)
-        shown?.let { drawMesh(it, seamY, 1f) }
-        incoming?.let { drawMesh(it, seamY, fade.value) }
+        shown?.let { drawMesh(it, seamY, 1f, tone) }
+        incoming?.let { drawMesh(it, seamY, fade.value, tone) }
         // Aura × Spectrum (1.7): the cover's colors glow, deepening under the controls so the white type reads.
         drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.08f), 0.55f to Color.Black.copy(alpha = 0.22f), 1f to Color.Black.copy(alpha = 0.42f)))
     }
 }
 
-private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float) {
+private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float, tone: androidx.compose.ui.graphics.ColorFilter? = null) {
     if (alpha <= 0.001f) return
     val img = mesh.image
     val w = size.width.roundToInt()
-    if (seamY > 0.5f) drawImage(img, IntOffset.Zero, IntSize(img.width, 1), IntOffset.Zero, IntSize(w, seamY.roundToInt()), alpha = alpha, filterQuality = FilterQuality.Low)
-    drawImage(img, IntOffset.Zero, IntSize(img.width, img.height), IntOffset(0, seamY.roundToInt()), IntSize(w, (size.height - seamY).roundToInt()), alpha = alpha, filterQuality = FilterQuality.Low)
+    if (seamY > 0.5f) drawImage(img, IntOffset.Zero, IntSize(img.width, 1), IntOffset.Zero, IntSize(w, seamY.roundToInt()), alpha = alpha, colorFilter = tone, filterQuality = FilterQuality.Low)
+    drawImage(img, IntOffset.Zero, IntSize(img.width, img.height), IntOffset(0, seamY.roundToInt()), IntSize(w, (size.height - seamY).roundToInt()), alpha = alpha, colorFilter = tone, filterQuality = FilterQuality.Low)
 }
 
 private fun argb(r: Int, g: Int, b: Int) = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
@@ -240,16 +274,23 @@ private fun meshOf(src: Bitmap, seed: Int): ArtworkMesh? {
     return ArtworkMesh(Bitmap.createBitmap(tex, TEX, TEX, Bitmap.Config.ARGB_8888).asImageBitmap())
 }
 
-/** A small, pre-blurred copy of the cover for the lyrics and queue views. */
+/**
+ * A small, pre-blurred copy of the cover for the lyrics and queue views; [strength] (Settings → Player → Background,
+ * 1.7.4) makes it softer or clearer than 1, as before.
+ */
 @Composable
-fun rememberFullArtworkBlur(url: String?): ImageBitmap? {
+fun rememberFullArtworkBlur(url: String?, strength: Float = 1f): ImageBitmap? {
     val context = LocalContext.current
-    var image by remember(url) { mutableStateOf(url?.let(blurCache::get)) }
-    LaunchedEffect(url) {
-        if (url == null || image != null) return@LaunchedEffect
+    val step = (strength.coerceIn(0.4f, 1.8f) * 10).roundToInt()
+    val key = url?.let { if (step == 10) it else "$it@$step" }
+    var image by remember(key) { mutableStateOf(key?.let(blurCache::get)) }
+    LaunchedEffect(key) {
+        if (url == null || key == null || image != null) return@LaunchedEffect
         val bmp = runCatching { decodeSmall(context, url, 128) }.getOrNull() ?: return@LaunchedEffect
-        val blurred = withContext(Dispatchers.Default) { capLuminance(boxBlur(bmp, 3), BLUR_CEILING) }.asImageBitmap()
-        blurCache[url] = blurred
+        val blurred = withContext(Dispatchers.Default) {
+            capLuminance(boxBlur(bmp, 3, ((minOf(bmp.width, bmp.height) / 12f) * step / 10f).roundToInt().coerceAtLeast(1)), BLUR_CEILING)
+        }.asImageBitmap()
+        blurCache[key] = blurred
         image = blurred
     }
     return image

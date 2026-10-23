@@ -2,6 +2,53 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.4 (unreleased)
+
+The third customization update: the player, your way. And a faster Prism.
+
+### Faster
+- **Prism no longer runs slow after an update.** After every install or update, Android ran much of Prism's code in
+  its slow interpreter until it got round to compiling the app, often overnight while charging, and only the parts it
+  had seen used. Prism now carries a startup profile (the code starting up, Home, Search, the player and the lyrics
+  use), and **updates from Prism's own update banner are compiled while they install** (Android 9 and later), the way
+  the Play Store does it for its apps. That starts with the update after this one: this one is installed by the
+  Prism you have now. Installed some other way, Prism is compiled from the profile at the phone's next maintenance.
+  On an Android 13 test device, starting Prism compiled took 2.4 s instead of 3.9 s.
+- **Smoother while music plays.** The player and the mini player were rebuilt four times a second just to move the
+  progress bar; now only the bar redraws. The full player is noticeably lighter to open, close and swipe.
+- **Search on this phone** (your music files and downloads) is matched off the screen's thread, so typing doesn't stall
+  with a big library, and lists of covers do less work as they scroll.
+- **Home scrolls more smoothly** with a lot of listening history: the Replay card no longer reads the whole year from
+  the database (and jumps the list) every time it scrolls back into view, and Made for you no longer unpacks every mix
+  on the screen's thread.
+- **Diagnostics see stutters too:** with Settings → About → Diagnostics on, anything that holds up the screen for more
+  than a couple of frames is noted with where it happened, so a log shared from a slow phone says what to fix (#100).
+
+### The player, your way
+Settings → Appearance → Player, or the player's ⋯ → Player settings. Every choice shows what it looks like.
+- **Layouts:** Standard, **Cover** (a big cover; tap it for the controls), **Lyrics** (opens on the lyrics, a small
+  cover beside the title), **Minimal** (the title and play; gestures do the rest) and **Vinyl** (the cover as a record's
+  label, turning as it plays and slowing to a stop on pause, with a tonearm if you like).
+- **Your buttons:** pick three to six for the row under the controls, in your order: lyrics, video, up next, play on,
+  sleep timer, like, not for me, add to playlist, share, Sing, DJ mode, equalizer, download, start radio.
+- **Notification and car buttons:** choose and order the buttons beside play. Your phone's notification and lock screen
+  show the first two, Android Auto shows them all; Back 10 s and Ahead 30 s are new choices.
+- **Your order:** the current lyric, progress bar, controls, volume and buttons, top to bottom as you like.
+- **A waveform progress bar**, drawn from each song's own loudness (from Prism's song scan; nothing extra downloaded),
+  and the progress bar in your light, your accent, white or the cover's color.
+- **The title** left or centred, small, medium or large, scrolling or not; and which times show under the bar.
+- **The background:** the color mesh can drift slowly (it stays still unless you ask), its colors softer or richer, the
+  blur softer or clearer; and an animated cover can fill the whole player.
+- **Gestures:** what swiping left, right and up, a double tap and a long press do on the cover, and swipes on the mini
+  player: next or previous song, skip back or ahead, play / pause, like, up next, lyrics, sleep timer, video, Sing, the
+  song's menu, stop, or nothing.
+- **Vinyl**, a new Look built around the record player.
+
+### Fixes
+- **Prism closed by itself on some Android 12+ phones** (#100's log) when a download started or restarted while it was
+  in the background (Wi-Fi coming back, a stalled download restarted). Downloads now wait for Prism to be opened in
+  that case; ones already running carry on.
+
 ## 1.7.3
 
 The second customization update: Looks.

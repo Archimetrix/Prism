@@ -301,6 +301,8 @@ class MixTempo(
     private val yieldToPlaying: () -> Unit = {},
     /** Music is playing right now (DJ mode's quick scans then go one at a time). */
     private val playing: () -> Boolean = { false },
+    /** Where each scanned song's outline goes, for the waveform progress bar (1.7.4). */
+    private val waves: com.prism.music.data.SongWaves? = null,
 ) {
     private val prefs = context.getSharedPreferences("mix_tempo", Context.MODE_PRIVATE)
     /** Song id -> integrated loudness (LUFS; NaN when it couldn't be measured). Also marks a song as scanned. */
@@ -431,10 +433,10 @@ class MixTempo(
      * Scans the song now if it hasn't been ([network]: whether its audio may be downloaded when it isn't on the phone),
      * and returns its tempo; null when it has none that's clear, or it can't be scanned yet. [edges]: a song scanned
      * before its fade-out and intro were measured is scanned again (only Crossfade's automatic length needs them), and
-     * with [key], one scanned before its key was (DJ mode).
+     * with [key], one scanned before its key was (DJ mode), and with [wave], one with no outline for the waveform bar.
      */
-    suspend fun measure(id: String, network: Boolean = true, edges: Boolean = true, key: Boolean = false): Tempo? {
-        fun done() = scanned(id) && !(edges && old(id)) && !(key && !keyed(id))
+    suspend fun measure(id: String, network: Boolean = true, edges: Boolean = true, key: Boolean = false, wave: Boolean = false): Tempo? {
+        fun done() = scanned(id) && !(edges && old(id)) && !(key && !keyed(id)) && !(wave && waves?.has(id) == false)
         if (done() || id in failed) return cached(id)
         return lock.withLock {
             if (done()) return@withLock cached(id)
@@ -490,6 +492,8 @@ class MixTempo(
             }
             val (pcm, rate) = decodeAll(uri) ?: throw java.io.IOException("couldn't decode its audio")
             val lufs = integratedLoudness(pcm, rate)?.let { it + MONO_TO_STEREO_DB }
+            // The waveform progress bar's outline, from the same audio (1.7.4).
+            waves?.let { w -> runCatching { w.put(id, com.prism.music.data.SongWaves.outline(pcm)) } }
             // Debug builds keep the decoded audio when asked (adb shell touch …/files/mix_dump), for tuning [Tempo.analyze].
             if (com.prism.music.BuildConfig.DEBUG) context.getExternalFilesDir(null)?.let { dir ->
                 if (File(dir, "mix_dump").exists()) runCatching {

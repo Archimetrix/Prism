@@ -155,43 +155,139 @@ fun MiniPlayerScreen(c: ThemeColors, song: Song?) {
             PlayerBackground.THEME -> Box(Modifier.fillMaxSize().background(c.scheme.background))
             PlayerBackground.BLACK -> {}
         }
-        val side = if (s.fullBleedArtwork) 0.dp else 28.dp - s.coverSize.extra.dp
-        Column(Modifier.fillMaxSize().padding(top = if (s.fullBleedArtwork) 0.dp else 64.dp)) {
-            val coverShape = if (s.fullBleedArtwork || s.coverSize == CoverSize.FULL) RoundedCornerShape(0.dp) else RoundedCornerShape(s.playerArtCorners.dp)
-            StandIn(song, Modifier.padding(horizontal = side.coerceAtLeast(0.dp)).fillMaxWidth().aspectRatio(1f), coverShape, hues)
-            Column(Modifier.padding(horizontal = 28.dp).padding(top = 28.dp)) {
-                Text(song?.title ?: "Northern Lights", style = MaterialTheme.typography.headlineSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song?.artistText ?: "Prism Sample", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
-                Spacer(Modifier.height(22.dp))
-                val bar = when (s.scrubberStyle) { ScrubberStyle.BOLD -> 6.dp; ScrubberStyle.HAIRLINE -> 2.dp; ScrubberStyle.THUMB -> 3.dp }
-                Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
-                    Box(Modifier.fillMaxWidth().height(bar).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)))
-                    Box(Modifier.fillMaxWidth(0.4f).height(bar).clip(CircleShape).background(light))
-                    if (s.scrubberStyle == ScrubberStyle.THUMB) Row {
-                        Spacer(Modifier.fillMaxWidth(0.38f))
-                        Box(Modifier.size(14.dp).clip(CircleShape).background(Color.White))
+        // Settings → Player (1.7.4): the layout, the title, the parts under it in their order, the buttons.
+        val layout = s.playerLayout
+        val vinyl = layout == com.prism.music.data.prefs.PlayerLayout.VINYL
+        val fullBleed = s.fullBleedArtwork && !vinyl
+        val extra = if (layout == com.prism.music.data.prefs.PlayerLayout.COVER) maxOf(s.coverSize.extra, CoverSize.LARGE.extra) else s.coverSize.extra
+        val side = if (fullBleed) 0.dp else 28.dp - extra.dp
+        Column(Modifier.fillMaxSize().padding(top = if (fullBleed) 0.dp else 64.dp)) {
+            val coverShape = if (fullBleed || s.coverSize == CoverSize.FULL) RoundedCornerShape(0.dp) else RoundedCornerShape(s.playerArtCorners.dp)
+            val centred = s.playerTitleAlign == com.prism.music.data.prefs.PlayerTitleAlign.CENTER
+            val title = @Composable {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start) {
+                    val big = MaterialTheme.typography.headlineSmall.let { it.copy(fontSize = it.fontSize * s.playerTitleSize.scale) }
+                    Text(song?.title ?: "Northern Lights", style = big, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(song?.artistText ?: "Prism Sample", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
+                }
+            }
+            if (layout == com.prism.music.data.prefs.PlayerLayout.LYRICS) {
+                // The lyrics layout: a small cover beside the title, the lyrics under them.
+                Row(Modifier.padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically) {
+                    StandIn(song, Modifier.size(56.dp), RoundedCornerShape(8.dp), hues)
+                    Spacer(Modifier.width(14.dp))
+                    Box(Modifier.weight(1f)) { title() }
+                }
+                Column(Modifier.padding(horizontal = 28.dp).padding(top = 40.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    listOf("Somewhere a light is turning on", "Every color finds its way", "We follow the line of the sound").forEachIndexed { i, l ->
+                        Text(l, style = MaterialTheme.typography.headlineSmall, color = Color.White.copy(alpha = if (i == 1) 1f else 0.35f))
                     }
                 }
-                Spacer(Modifier.height(26.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(PrismIcons.Previous, null, Modifier.size(34.dp), tint = Color.White)
-                    when (s.transportStyle) {
-                        TransportStyle.GLYPHS -> Icon(PrismIcons.Pause, null, Modifier.size(52.dp), tint = Color.White)
-                        TransportStyle.BUTTON -> Box(
-                            Modifier.size(76.dp).clip(CircleShape).background(Color.White).border(2.dp, Brush.sweepGradient(c.ring), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(PrismIcons.Pause, null, Modifier.size(34.dp), tint = Color.Black) }
-                        TransportStyle.OUTLINE -> Box(
-                            Modifier.size(76.dp).clip(CircleShape).border(1.5.dp, Brush.sweepGradient(c.ring), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(PrismIcons.Pause, null, Modifier.size(34.dp), tint = Color.White) }
+                return@Column
+            }
+            if (vinyl) {
+                // A record: the cover as its label.
+                Box(Modifier.padding(horizontal = 28.dp).fillMaxWidth().aspectRatio(1f)) {
+                    Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF0E0E10)), contentAlignment = Alignment.Center) {
+                        listOf(0.95f, 0.8f, 0.65f).forEach { f -> Box(Modifier.fillMaxSize(f).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.06f), CircleShape)) }
+                        StandIn(song, Modifier.fillMaxSize(0.42f), CircleShape, hues)
                     }
-                    Icon(PrismIcons.Next, null, Modifier.size(34.dp), tint = Color.White)
+                    if (s.vinylTonearm) Box(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 6.dp).size(6.dp, 200.dp).graphicsLayer { rotationZ = 24f; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }.background(Color(0xFFCFCFD6), CircleShape))
+                }
+            } else StandIn(song, Modifier.padding(horizontal = side.coerceAtLeast(0.dp)).fillMaxWidth().aspectRatio(1f), coverShape, hues)
+            Column(Modifier.padding(horizontal = 28.dp).padding(top = 28.dp)) {
+                title()
+                when (layout) {
+                    com.prism.music.data.prefs.PlayerLayout.COVER -> {}
+                    com.prism.music.data.prefs.PlayerLayout.MINIMAL -> {
+                        Spacer(Modifier.height(30.dp))
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { PreviewPlay(s, c, 92.dp) }
+                    }
+                    else -> s.playerDeck.forEach { part ->
+                        when (part) {
+                            com.prism.music.data.prefs.DeckPart.STRIP -> if (s.lyricsOnPlayer) {
+                                Spacer(Modifier.height(16.dp))
+                                Text("Every color finds its way", style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
+                            }
+                            com.prism.music.data.prefs.DeckPart.SCRUBBER -> { Spacer(Modifier.height(20.dp)); PreviewBar(s, light) }
+                            com.prism.music.data.prefs.DeckPart.TRANSPORT -> {
+                                Spacer(Modifier.height(20.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(PrismIcons.Previous, null, Modifier.size(34.dp), tint = Color.White)
+                                    PreviewPlay(s, c, 76.dp)
+                                    Icon(PrismIcons.Next, null, Modifier.size(34.dp), tint = Color.White)
+                                }
+                            }
+                            com.prism.music.data.prefs.DeckPart.VOLUME -> if (!s.hideVolumeBar) {
+                                Spacer(Modifier.height(18.dp))
+                                Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f))) {
+                                    Box(Modifier.fillMaxWidth(0.65f).height(5.dp).background(Color.White.copy(alpha = 0.85f)))
+                                }
+                            }
+                            com.prism.music.data.prefs.DeckPart.BUTTONS -> {
+                                Spacer(Modifier.height(18.dp))
+                                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                    Row(
+                                        Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape).padding(horizontal = 14.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                    ) { s.playerButtons.forEach { Icon(buttonIcon(it), null, Modifier.size(24.dp), tint = Color.White.copy(alpha = 0.8f)) } }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** The preview's play button, in the Controls style picked. */
+@Composable
+private fun PreviewPlay(s: AppSettings, c: ThemeColors, size: Dp) {
+    when (s.transportStyle) {
+        TransportStyle.GLYPHS -> Icon(PrismIcons.Pause, null, Modifier.size(size * 0.68f), tint = Color.White)
+        TransportStyle.BUTTON -> Box(
+            Modifier.size(size).clip(CircleShape).background(Color.White).border(2.dp, Brush.sweepGradient(c.ring), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { Icon(PrismIcons.Pause, null, Modifier.size(size * 0.45f), tint = Color.Black) }
+        TransportStyle.OUTLINE -> Box(
+            Modifier.size(size).clip(CircleShape).border(1.5.dp, Brush.sweepGradient(c.ring), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { Icon(PrismIcons.Pause, null, Modifier.size(size * 0.45f), tint = Color.White) }
+    }
+}
+
+/** The preview's progress bar: its style (a waveform's bars too), color and the times under it. */
+@Composable
+private fun PreviewBar(s: AppSettings, light: Brush) {
+    val fill = com.prism.music.ui.player.scrubberFill(s.scrubberColor, null) ?: light
+    if (s.scrubberStyle == ScrubberStyle.WAVE) {
+        Row(Modifier.fillMaxWidth().height(22.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            PREVIEW_WAVE.forEachIndexed { i, v ->
+                Box(Modifier.weight(1f).fillMaxSize(v).clip(CircleShape).background(if (i < PREVIEW_WAVE.size * 0.4f) fill else androidx.compose.ui.graphics.SolidColor(Color.White.copy(alpha = 0.22f))))
+            }
+        }
+    } else {
+        val bar = when (s.scrubberStyle) { ScrubberStyle.BOLD -> 6.dp; ScrubberStyle.HAIRLINE -> 2.dp; else -> 3.dp }
+        Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.fillMaxWidth().height(bar).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)))
+            Box(Modifier.fillMaxWidth(0.4f).height(bar).clip(CircleShape).background(fill))
+            if (s.scrubberStyle == ScrubberStyle.THUMB) Row {
+                Spacer(Modifier.fillMaxWidth(0.38f))
+                Box(Modifier.size(14.dp).clip(CircleShape).background(Color.White))
+            }
+        }
+    }
+    val times = s.playerTimes
+    if (times != com.prism.music.data.prefs.PlayerTimes.NONE) Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        val st = MaterialTheme.typography.labelMedium
+        Text(if (times == com.prism.music.data.prefs.PlayerTimes.LEFT) "" else "1:12", style = st, color = Color.White.copy(alpha = 0.55f))
+        Text(if (times == com.prism.music.data.prefs.PlayerTimes.ELAPSED) "" else "−2:31", style = st, color = Color.White.copy(alpha = 0.55f))
+    }
+}
+
+/** A made-up song shape for the preview's waveform. */
+private val PREVIEW_WAVE = listOf(0.3f, 0.45f, 0.6f, 0.5f, 0.7f, 0.85f, 0.75f, 0.9f, 0.6f, 0.5f, 0.8f, 0.95f, 0.85f, 0.7f, 0.9f, 1f, 0.8f, 0.6f, 0.75f, 0.9f, 0.7f, 0.5f, 0.4f, 0.3f)
 
 /**
  * The lyrics as [c]'s settings draw them: alignment, size, the lyrics font, focus blur and the progress line. The lines are

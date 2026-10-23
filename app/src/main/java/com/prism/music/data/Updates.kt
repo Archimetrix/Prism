@@ -1,5 +1,6 @@
 package com.prism.music.data
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -8,6 +9,8 @@ import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.profileinstaller.DeviceProfileWriter
+import androidx.profileinstaller.ProfileInstaller
 import com.prism.music.BuildConfig
 import com.prism.music.container
 import com.prism.music.data.innertube.InnerTube
@@ -23,6 +26,9 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.util.zip.CRC32
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /** A newer Prism on GitHub: its version and where to get it (the APK itself when the release has one). */
 data class AppUpdate(val version: String, val url: String) {
@@ -214,11 +220,16 @@ class UpdateChecker(private val context: Context, private val http: OkHttpClient
     /** Android's "uninstall Prism?" prompt. */
     fun uninstallIntent(): Intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${context.packageName}"))
 
-    private fun startSession(apk: File) {
+    /** The APK being installed and whether its session carried [dexMetadata], for one try without it. */
+    @Volatile private var installing: Pair<File, Boolean>? = null
+
+    private fun startSession(apk: File, withProfile: Boolean = true) {
+        val profile = if (withProfile) dexMetadata(apk) else null
+        installing = apk to (profile != null)
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(context.packageName)
-            setSize(apk.length())
+            setSize(apk.length() + (profile?.length() ?: 0L))
             // Once Prism installed itself, later updates can go through without the confirm screen (Android 12+).
             if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
@@ -228,10 +239,61 @@ class UpdateChecker(private val context: Context, private val http: OkHttpClient
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
             }
+            // Named after the APK: that's how Android pairs the two.
+            if (profile != null) session.openWrite("Prism.dm", 0, profile.length()).use { out ->
+                profile.inputStream().use { it.copyTo(out) }
+                session.fsync(out)
+            }
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
             val callback = PendingIntent.getBroadcast(context, id, Intent(context, UpdateInstallReceiver::class.java), flags)
             session.commit(callback.intentSender)
         }
+    }
+
+    /**
+     * The new Prism's startup profile as a dex metadata file, in this phone's own profile format (Android 9+), so
+     * Android compiles the update's busiest code (starting up, Home, Search, the player) while installing it (1.7.4).
+     * Without it an update ran partly in Android's slow interpreter, sometimes for days, until the phone's overnight
+     * maintenance compiled it: the "slow after updating" people saw. The Play Store does the same for its apps; Prism
+     * makes the file from the profile inside the new APK, with the converter Prism already uses on its own first start
+     * (androidx.profileinstaller). Null if anything about it fails: the update then installs as before.
+     */
+    @SuppressLint("RestrictedApi")
+    private fun dexMetadata(apk: File): File? {
+        // Android 8's installer turns down any file in a session that isn't an APK.
+        if (Build.VERSION.SDK_INT < 28) return null
+        return runCatching {
+            val pm = context.packageManager
+            @Suppress("DEPRECATION")
+            val app = pm.getPackageArchiveInfo(apk.path, 0)?.applicationInfo ?: return null
+            app.sourceDir = apk.path
+            app.publicSourceDir = apk.path
+            val prof = File(dir, "primary.prof").apply { delete() }
+            val writer = DeviceProfileWriter(
+                pm.getResourcesForApplication(app).assets, Runnable::run, NoDiagnostics,
+                "base.apk", "dexopt/baseline.prof", "dexopt/baseline.profm", prof,
+            )
+            if (!writer.deviceAllowsProfileInstallerAotWrites() || !writer.read().transcodeIfNeeded().write()) return null
+            val bytes = prof.readBytes().also { prof.delete() }
+            if (bytes.isEmpty()) return null
+            File(dir, "Prism.dm").apply {
+                ZipOutputStream(outputStream()).use { zip ->
+                    zip.putNextEntry(ZipEntry("primary.prof").apply {
+                        method = ZipEntry.STORED
+                        size = bytes.size.toLong()
+                        compressedSize = size
+                        crc = CRC32().apply { update(bytes) }.value
+                    })
+                    zip.write(bytes)
+                    zip.closeEntry()
+                }
+            }
+        }.getOrNull()
+    }
+
+    private object NoDiagnostics : ProfileInstaller.DiagnosticsCallback {
+        override fun onDiagnosticReceived(code: Int, data: Any?) {}
+        override fun onResultReceived(code: Int, data: Any?) {}
     }
 
     internal fun onInstallerResult(intent: Intent) {
@@ -245,7 +307,7 @@ class UpdateChecker(private val context: Context, private val http: OkHttpClient
             // On success Android replaces Prism and closes it; there's nothing left to do here.
             PackageInstaller.STATUS_SUCCESS -> _progress.value = UpdateProgress.Idle
             PackageInstaller.STATUS_FAILURE_ABORTED -> _progress.value = UpdateProgress.Idle
-            else -> _progress.value = UpdateProgress.Failed(
+            else -> if (!retryWithoutProfile(status)) _progress.value = UpdateProgress.Failed(
                 when (status) {
                     PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
                         "Android wouldn't install it over this Prism (it's signed differently)"
@@ -254,6 +316,22 @@ class UpdateChecker(private val context: Context, private val http: OkHttpClient
                 }
             )
         }
+    }
+
+    /**
+     * If Android turned down a session that carried the profile (it shouldn't), the same update goes in again without
+     * it, to be compiled later as before. Returns whether it's trying again.
+     */
+    private fun retryWithoutProfile(status: Int): Boolean {
+        if (status != PackageInstaller.STATUS_FAILURE && status != PackageInstaller.STATUS_FAILURE_INVALID) return false
+        val (apk, hadProfile) = installing ?: return false
+        if (!hadProfile || !apk.exists()) return false
+        installing = null
+        scope.launch(Dispatchers.IO) {
+            runCatching { startSession(apk, withProfile = false) }
+                .onFailure { _progress.value = UpdateProgress.Failed(it.friendlyMessage("The update didn't install")) }
+        }
+        return true
     }
 
     companion object {

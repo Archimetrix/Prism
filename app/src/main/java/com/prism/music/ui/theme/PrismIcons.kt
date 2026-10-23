@@ -247,6 +247,9 @@ object PrismIcons {
     val Radio = drawn("Radio").or { Cupertino.Radio }
     val Spatial = drawn("Spatial")
     val Equalizer = drawn("Equalizer")
+    /** A record and its tonearm: DJ mode, and the Vinyl player (1.7.4). */
+    val Turntable = drawn("Turntable")
+    val TurntableFilled = drawn("Turntable", filled = true)
     val AnimatedCover = drawn("AnimatedCover")
     val Explicit = drawn("Explicit")
     val VolumeDown = drawn("VolumeDown")

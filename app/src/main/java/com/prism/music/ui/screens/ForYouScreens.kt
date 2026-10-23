@@ -131,7 +131,7 @@ fun MixCover(mix: Mix, modifier: Modifier = Modifier, showTitle: Boolean = true)
 fun MadeForYouSection(cfg: HomeSectionConfig, offline: Boolean = false, yours: List<Mix> = emptyList()) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
-    val mixes by c.forYou.mixes.collectAsState(initial = null)
+    val mixes by c.forYou.mixes.collectAsState()
     val favorites by c.artistPrefs.favorites.collectAsState()
     val recent by c.library.recent.collectAsState()
     // Made when due (once a day; the time-of-day one as the day moves on), in the app's scope so leaving Home

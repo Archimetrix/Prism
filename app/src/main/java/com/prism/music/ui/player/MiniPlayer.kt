@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.prism.music.data.prefs.MiniPlayerStyle
 import com.prism.music.data.prefs.MiniProgress
+import com.prism.music.data.prefs.PlayerGesture
 import com.prism.music.ui.components.Artwork
 import com.prism.music.ui.theme.GlassSurface
 import com.prism.music.ui.theme.LocalAppSettings
@@ -70,7 +71,8 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     val s = song ?: return
     val settings = LocalAppSettings.current
     val ui = LocalUi.current
-    val position = rememberPosition(fast = false)
+    // Read only in the progress drawing below, so the playhead moving redraws that line, not the whole mini player.
+    val position = rememberPositionState(fast = false)
     val drag = remember { Animatable(0f) }
     // Pulled down far enough, it stops the music and goes (#59).
     val pull = remember { Animatable(0f) }
@@ -80,6 +82,26 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     val style = settings.miniPlayerStyle
     var menu by remember { mutableStateOf(false) }
     if (menu) com.prism.music.ui.components.SongActionsSheet(s) { menu = false }
+    val container = LocalContainer.current
+    var sleep by remember { mutableStateOf(false) }
+    if (sleep) SleepTimerDialog { sleep = false }
+    // The mini player's swipes (Settings → Player → Gestures): what doesn't need the full player.
+    fun runMiniGesture(g: PlayerGesture) {
+        when (g) {
+            PlayerGesture.NEXT -> pc.next()
+            PlayerGesture.PREVIOUS -> pc.previous()
+            PlayerGesture.SEEK_BACK -> pc.seekBy(-10_000L)
+            PlayerGesture.SEEK_AHEAD -> pc.seekBy(10_000L)
+            PlayerGesture.PLAY_PAUSE -> pc.togglePlay()
+            PlayerGesture.LIKE -> container.library.toggleLike(s)
+            PlayerGesture.SLEEP -> sleep = true
+            PlayerGesture.MENU -> menu = true
+            PlayerGesture.STOP -> pc.stop()
+            // The ones about the full player open it.
+            PlayerGesture.QUEUE, PlayerGesture.LYRICS, PlayerGesture.VIDEO, PlayerGesture.SING -> onOpen()
+            PlayerGesture.SEEK_SIDES, PlayerGesture.NONE -> {}
+        }
+    }
 
     // Card is Spectrum's bar (1.7): flat, edge to edge over the tab bar, the split-light progress line along its top.
     val bar = style == MiniPlayerStyle.CARD
@@ -91,7 +113,7 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     }
     val artSize = when (style) { MiniPlayerStyle.CARD -> 44.dp; MiniPlayerStyle.SLIM -> 40.dp; MiniPlayerStyle.PILL -> 44.dp }
     val artShape = if (style == MiniPlayerStyle.PILL) CircleShape else if (bar) ui.smallArt else ui.shape(9.dp)
-    val fraction = (position.toFloat() / pc.duration.coerceAtLeast(1)).coerceIn(0f, 1f)
+    fun fraction() = (position.value.toFloat() / pc.duration.coerceAtLeast(1)).coerceIn(0f, 1f)
     val glass = settings.liquidGlass || settings.frostedGlass
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     val surface: @Composable (Modifier, @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) -> Unit = { m, content ->
@@ -99,9 +121,10 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
             m.clip(shape).background(scheme.surfaceContainerLow)
                 .drawBehind {
                     drawLine(scheme.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx() * 0.75f)
-                    if (settings.miniProgress == MiniProgress.LINE && fraction > 0f) drawRect(
+                    val f = fraction()
+                    if (settings.miniProgress == MiniProgress.LINE && f > 0f) drawRect(
                         androidx.compose.ui.graphics.Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors(dark).toTypedArray(), startX = 0f, endX = size.width),
-                        Offset(0f, 0f), androidx.compose.ui.geometry.Size(size.width * fraction, 2.dp.toPx()),
+                        Offset(0f, 0f), androidx.compose.ui.geometry.Size(size.width * f, 2.dp.toPx()),
                     )
                 },
             content = content,
@@ -120,11 +143,18 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = {
                         scope.launch {
-                            if (pull.value > stopAt) {
+                            // Pulled down: stop (#59) or whatever's set in Settings → Player → Gestures (1.7.4).
+                            val down = container.settings.current.miniSwipeDown
+                            if (pull.value > stopAt && down != PlayerGesture.NONE) {
                                 haptics.gestureEnd()
-                                pull.animateTo(height.toPx() * 1.6f)
-                                pc.stop()
-                                pull.snapTo(0f)
+                                if (down == PlayerGesture.STOP) {
+                                    pull.animateTo(height.toPx() * 1.6f)
+                                    pc.stop()
+                                    pull.snapTo(0f)
+                                } else {
+                                    runMiniGesture(down)
+                                    pull.animateTo(0f)
+                                }
                             } else pull.animateTo(0f)
                         }
                     },
@@ -140,10 +170,13 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
                         scope.launch {
-                            when {
-                                drag.value < -140 -> { haptics.gestureEnd(); pc.next() }
-                                drag.value > 140 -> { haptics.gestureEnd(); pc.previous() }
+                            val now = container.settings.current
+                            val g = when {
+                                drag.value < -140 -> now.miniSwipeLeft
+                                drag.value > 140 -> now.miniSwipeRight
+                                else -> PlayerGesture.NONE
                             }
+                            if (g != PlayerGesture.NONE) { haptics.gestureEnd(); runMiniGesture(g) }
                             drag.animateTo(0f)
                         }
                     },
@@ -159,9 +192,10 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
         // end; White light's accent or greys).
         if (settings.miniProgress == MiniProgress.FILL) Box(
             Modifier.matchParentSize().drawBehind {
-                if (fraction > 0f) drawRect(
+                val f = fraction()
+                if (f > 0f) drawRect(
                     com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width),
-                    size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height), alpha = if (dark) 0.22f else 0.18f,
+                    size = androidx.compose.ui.geometry.Size(size.width * f, size.height), alpha = if (dark) 0.22f else 0.18f,
                 )
             },
         )
@@ -208,8 +242,9 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
             Canvas(Modifier.fillMaxWidth().height(2.dp).align(Alignment.BottomCenter).padding(horizontal = if (style == MiniPlayerStyle.PILL) 28.dp else 18.dp)) {
                 drawLine(scheme.onSurface.copy(alpha = 0.12f), Offset(0f, 0f), Offset(size.width, 0f), 2.5.dp.toPx(), StrokeCap.Round)
                 // Progress in split light (deeper on light glass).
-                if (fraction > 0f) drawLine(
-                    com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width), Offset(0f, 0f), Offset(size.width * fraction, 0f), 2.5.dp.toPx(), StrokeCap.Round,
+                val f = fraction()
+                if (f > 0f) drawLine(
+                    com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width), Offset(0f, 0f), Offset(size.width * f, 0f), 2.5.dp.toPx(), StrokeCap.Round,
                 )
             }
         }

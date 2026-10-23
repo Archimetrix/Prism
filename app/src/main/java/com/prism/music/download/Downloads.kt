@@ -212,6 +212,7 @@ class DownloadRepository(private val context: Context, private val c: AppContain
                     }
                     Download.STATE_COMPLETED -> noteFailure(download.request.id, null)
                 }
+                holdInBackground()
                 // A pick that arrived takes its space from the song cache.
                 if (download.state == Download.STATE_COMPLETED && download.request.id in _smartIds.value) c.trimSongCache()
                 if (download.state == Download.STATE_COMPLETED) download.info().song?.let { s ->
@@ -267,6 +268,37 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         scope.launch {
             c.settings.flow.collect { applyRequirements() }
         }
+        scope.launch(Dispatchers.Main) { c.visible.collect { holdInBackground() } }
+    }
+
+    /** Downloads held back while Prism is out of sight ([holdInBackground]); they go on when it's opened. */
+    private var heldInBackground = false
+
+    /**
+     * Android 12+ only lets the download service put up its notification (become a foreground service) while Prism is
+     * on screen. A download that started or restarted with Prism in the background (Wi-Fi coming back, a stalled one
+     * restarted) made Android throw, which closed Prism (GitHub #100's log, 1.7.2). So while Prism isn't showing and
+     * nothing is downloading, the downloads wait; ones already running carry on (their notification is already up).
+     * Main thread.
+     */
+    private fun holdInBackground() {
+        if (android.os.Build.VERSION.SDK_INT < 31) return
+        if (c.visible.value) {
+            if (heldInBackground) { heldInBackground = false; manager.resumeDownloads() }
+        } else if (!heldInBackground && manager.currentDownloads.none { it.state == Download.STATE_DOWNLOADING }) {
+            heldInBackground = true
+            manager.pauseDownloads()
+        }
+    }
+
+    /**
+     * Starts a download: through the download service while Prism is showing (it puts up the progress notification),
+     * else straight into the download manager, since Android doesn't let an app start a service from the background
+     * (Smart Downloads' worker ran into that).
+     */
+    private fun add(request: DownloadRequest) {
+        if (c.visible.value) DownloadService.sendAddDownload(context, PrismDownloadService::class.java, request, false)
+        else mainHandler.post { manager.addDownload(request) }
     }
 
 
@@ -323,7 +355,8 @@ class DownloadRepository(private val context: Context, private val c: AppContain
             kotlinx.coroutines.delay(60_000)
             val running = manager.currentDownloads.filter { it.state == Download.STATE_DOWNLOADING }
             progressSeen.keys.retainAll(running.map { it.request.id }.toSet())
-            if (!c.network.online.value) continue
+            // Not while Prism is out of sight: a restarted download couldn't put its notification back (Android 12+).
+            if (!c.network.online.value || !c.visible.value) continue
             for (d in running) {
                 val id = d.request.id
                 val (bytes, still) = progressSeen[id] ?: (-1L to 0)
@@ -399,7 +432,7 @@ class DownloadRepository(private val context: Context, private val c: AppContain
             // ...and its loudness, so normalization works offline.
             if (!c.loudness.contains(song.id)) runCatching { c.ytm.playerExtras(song.id, c.streams.signatureTimestamp()).loudnessDb?.let { c.loudness.edit().putFloat(song.id, it.toFloat()).apply() } }
         }
-        DownloadService.sendAddDownload(context, PrismDownloadService::class.java, request, false)
+        add(request)
         // Downloads show their progress in a notification: the first one the listener starts asks, if nothing has.
         if (appOnScreen()) c.askNotifications()
     }
@@ -427,11 +460,11 @@ class DownloadRepository(private val context: Context, private val c: AppContain
             val data = InnerTube.json.encodeToString(VideoPart.serializer(), VideoPart(song, videoId)).toByteArray()
             val picture = DownloadRequest.Builder(VIDEO_PICTURE + song.id, android.net.Uri.parse("prism://video/$videoId"))
                 .setCustomCacheKey("video:$videoId").setData(data).build()
-            DownloadService.sendAddDownload(context, PrismDownloadService::class.java, picture, false)
+            add(picture)
             if (videoId != song.id) {
                 val audio = DownloadRequest.Builder(VIDEO_AUDIO + song.id, android.net.Uri.parse("prism://audio/$videoId"))
                     .setCustomCacheKey(videoId).setData(data).build()
-                DownloadService.sendAddDownload(context, PrismDownloadService::class.java, audio, false)
+                add(audio)
             }
         }
     }

@@ -13,6 +13,7 @@ import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import com.prism.music.data.prefs.SessionButton
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -88,7 +89,10 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     private val lyricsCommand = SessionCommand("prism.CAR_LYRICS", Bundle.EMPTY)
     private val radioCommand = SessionCommand("prism.RADIO", Bundle.EMPTY)
     private val dislikeCommand = SessionCommand("prism.DISLIKE", Bundle.EMPTY)
-    private val customCommands get() = listOf(likeCommand, shuffleCommand, repeatCommand, lyricsCommand, radioCommand, dislikeCommand)
+    // 1.7.4: buttons the listener can put beside play (Settings → Player → Buttons → Notification and car).
+    private val back10Command = SessionCommand("prism.BACK_10", Bundle.EMPTY)
+    private val ahead30Command = SessionCommand("prism.AHEAD_30", Bundle.EMPTY)
+    private val customCommands get() = listOf(likeCommand, shuffleCommand, repeatCommand, lyricsCommand, radioCommand, dislikeCommand, back10Command, ahead30Command)
     /** What the media session (Android Auto, the notification) sees: the player, with lyrics laid over the title and cover. */
     private lateinit var sessionPlayer: LyricsOverlayPlayer
     private lateinit var carLyrics: CarLyrics
@@ -219,6 +223,14 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch { c.settings.flow.map { it.eq }.distinctUntilChanged().collect { effects.apply(it) } }
         scope.launch { c.settings.flow.map { it.skipSilence }.distinctUntilChanged().collect { player.skipSilenceEnabled = it } }
         scope.launch { c.settings.flow.map { it.audioDiagnostics }.distinctUntilChanged().collect { on -> AudioDiagnostics.setEnabled(on) { AudioDiagnostics.about(c) } } }
+        // The buttons beside play follow Settings → Player → Buttons as soon as they're changed.
+        scope.launch { c.settings.flow.map { it.sessionButtons }.distinctUntilChanged().drop(1).collect { updateButtons() } }
+        // The waveform progress bar picked: the playing song (and what's next) get their outlines now, not at the next song.
+        scope.launch {
+            c.settings.flow.map { it.scrubberStyle == com.prism.music.data.prefs.ScrubberStyle.WAVE }.distinctUntilChanged().drop(1).collect { on ->
+                if (on && ::player.isInitialized) scanAhead(player.currentMediaItem, *upcoming(QUEUE_AHEAD).toTypedArray())
+            }
+        }
         scope.launch { c.settings.flow.map { it.autoplay }.distinctUntilChanged().drop(1).collect { onAutoplayChanged(it) } }
         // "Keep playing videos" switched off: songs already lined up as their videos go back to songs.
         scope.launch { c.settings.flow.map { it.videoContinues }.distinctUntilChanged().drop(1).collect { if (it) armNextVideo() else disarmVideos() } }
@@ -750,7 +762,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
      */
     private fun scanAhead(vararg items: MediaItem?) {
         val s = c.settings.current
-        if (!s.mix && !s.normalize) return
+        // The waveform progress bar is drawn from the scan too (1.7.4).
+        val wave = s.scrubberStyle == com.prism.music.data.prefs.ScrubberStyle.WAVE
+        if (!s.mix && !s.normalize && !wave) return
         val network = s.mixTempoOnCellular || getSystemService(android.net.ConnectivityManager::class.java)?.isActiveNetworkMetered == false
         val songs = items.mapNotNull { it?.toSong() }.filter { !it.isLive && !it.isEpisode }.distinctBy { it.id }
         if (songs.isEmpty()) return
@@ -769,8 +783,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             }
             // Then measured, the queued songs first (their volume is set as they start); the playing one last (only
             // Crossfade needs it, near its end).
-            for (song in songs.sortedBy { it.id == playing }) {
-                c.mixTempo.measure(song.id, network, edges)
+            // With the waveform bar, the playing song goes first: its bar is waiting for it.
+            for (song in songs.sortedBy { if (wave) it.id != playing else it.id == playing }) {
+                c.mixTempo.measure(song.id, network, edges, wave = wave)
                 // Measured while it's just begun: its own figure takes over (later in the song, a jump would be heard).
                 if (trackedSong?.id == song.id && settling()) applyNormalization()
             }
@@ -1396,8 +1411,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     /**
-     * Buttons beside play/pause/skip. The phone's media controls show the first two (like, shuffle);
-     * the watch keeps previous/next beside play (see the session extras); Android Auto shows them all: like, shuffle, repeat, lyrics, start radio and "not for me".
+     * Buttons beside play/pause/skip, in the listener's order (Settings → Player → Buttons, 1.7.4; like, shuffle, repeat,
+     * lyrics, start radio and "not for me" by default). The phone's media controls show the first two; the watch keeps
+     * previous/next beside play (see the session extras); Android Auto shows them all.
      */
     private fun updateButtons() {
         if (!::session.isInitialized) return
@@ -1405,6 +1421,23 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         val liked = id != null && id in c.library.likedIds.value
         fun button(icon: Int, name: String, command: SessionCommand) =
             CommandButton.Builder(icon).setDisplayName(name).setSessionCommand(command).setSlots(CommandButton.SLOT_OVERFLOW).build()
+        val custom = c.settings.current.sessionButtons.map { b ->
+            when (b) {
+                SessionButton.LIKE -> button(if (liked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED, if (liked) "Remove from liked" else "Like", likeCommand)
+                SessionButton.SHUFFLE -> button(if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF, if (player.shuffleModeEnabled) "Shuffle off" else "Shuffle", shuffleCommand)
+                SessionButton.REPEAT -> when (player.repeatMode) {
+                    Player.REPEAT_MODE_ALL -> button(CommandButton.ICON_REPEAT_ALL, "Repeat one", repeatCommand)
+                    Player.REPEAT_MODE_ONE -> button(CommandButton.ICON_REPEAT_ONE, "Repeat off", repeatCommand)
+                    else -> button(CommandButton.ICON_REPEAT_OFF, "Repeat", repeatCommand)
+                }
+                SessionButton.CAR_LYRICS -> if (c.settings.current.carLyrics) button(CommandButton.ICON_SUBTITLES, "Hide lyrics", lyricsCommand)
+                    else button(CommandButton.ICON_SUBTITLES_OFF, "Show lyrics", lyricsCommand)
+                SessionButton.RADIO -> button(CommandButton.ICON_RADIO, "Start radio", radioCommand)
+                SessionButton.DISLIKE -> button(CommandButton.ICON_THUMB_DOWN_UNFILLED, "Not for me", dislikeCommand)
+                SessionButton.BACK_10 -> button(CommandButton.ICON_SKIP_BACK_10, "Back 10 seconds", back10Command)
+                SessionButton.AHEAD_30 -> button(CommandButton.ICON_SKIP_FORWARD_30, "Ahead 30 seconds", ahead30Command)
+            }
+        }
         // Previous/next are named for their slots outright: with only custom buttons, a controller that lays out by
         // slots (the Pixel Watch's media controls) filled the back/forward places with like and shuffle.
         val buttons = listOf(
@@ -1412,18 +1445,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS).setSlots(CommandButton.SLOT_BACK).build(),
             CommandButton.Builder(CommandButton.ICON_NEXT).setDisplayName("Next")
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT).setSlots(CommandButton.SLOT_FORWARD).build(),
-            button(if (liked) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED, if (liked) "Remove from liked" else "Like", likeCommand),
-            button(if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF, if (player.shuffleModeEnabled) "Shuffle off" else "Shuffle", shuffleCommand),
-            when (player.repeatMode) {
-                Player.REPEAT_MODE_ALL -> button(CommandButton.ICON_REPEAT_ALL, "Repeat one", repeatCommand)
-                Player.REPEAT_MODE_ONE -> button(CommandButton.ICON_REPEAT_ONE, "Repeat off", repeatCommand)
-                else -> button(CommandButton.ICON_REPEAT_OFF, "Repeat", repeatCommand)
-            },
-            if (c.settings.current.carLyrics) button(CommandButton.ICON_SUBTITLES, "Hide lyrics", lyricsCommand)
-            else button(CommandButton.ICON_SUBTITLES_OFF, "Show lyrics", lyricsCommand),
-            button(CommandButton.ICON_RADIO, "Start radio", radioCommand),
-            button(CommandButton.ICON_THUMB_DOWN_UNFILLED, "Not for me", dislikeCommand),
-        )
+        ) + custom
         session.setMediaButtonPreferences(buttons)
         pushWidgets()
     }
@@ -1586,6 +1608,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 dislikeCommand.customAction -> player.currentMediaItem?.toSong()?.let { song ->
                     c.library.setDisliked(song, true)
                     if (player.hasNextMediaItem()) player.seekToNextMediaItem()
+                }
+                back10Command.customAction -> player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
+                ahead30Command.customAction -> {
+                    val end = player.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
+                    player.seekTo((player.currentPosition + 30_000).coerceAtMost((end - 1_000).coerceAtLeast(0)))
                 }
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

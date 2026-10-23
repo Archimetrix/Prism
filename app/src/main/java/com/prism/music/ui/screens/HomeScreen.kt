@@ -751,14 +751,43 @@ internal fun HeroRow(items: List<BrowseItem>, open: (BrowseItem) -> Unit) {
     }
 }
 
+/**
+ * The Replay card's year so far, kept for the session: the card is a list item, so it read the year from the database
+ * again (and popped back in empty, moving the list) every time it scrolled back into view (1.7.4). Read again after
+ * five minutes.
+ */
+private class YearSoFar(
+    val at: Long, val ms: Long, val months: List<Long>,
+    val topSong: com.prism.music.data.db.SongPlays?, val topArtist: com.prism.music.data.db.ArtistPlays?,
+)
+private val yearSoFar = MutableStateFlow<YearSoFar?>(null)
+
+private suspend fun loadYearSoFar(c: com.prism.music.AppContainer): YearSoFar = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val now = System.currentTimeMillis()
+    val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
+    val months = Calendar.getInstance().let { today ->
+        (0..today.get(Calendar.MONTH)).map { m ->
+            val from = Calendar.getInstance().apply { set(Calendar.MONTH, m); set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+            val to = (from.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+            runCatching { c.db.plays().totalMs(from.timeInMillis, minOf(to.timeInMillis, now)) }.getOrDefault(0L)
+        }
+    }
+    val top = runCatching { c.db.plays().topSongs(start, now, 20).mergeUploads().firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull() }
+        .getOrDefault(null to null)
+    YearSoFar(now, c.db.plays().totalMs(start, now), months, top.first, top.second)
+}
+
 @Composable
 private fun ReplayTeaser(cfg: HomeSectionConfig) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
-    val ms by produceState(-1L) {
-        val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
-        value = c.db.plays().totalMs(start, System.currentTimeMillis())
+    val kept by produceState(yearSoFar.value) {
+        val have = yearSoFar.value
+        if (have != null && System.currentTimeMillis() - have.at < 5 * 60_000L) return@produceState
+        value = runCatching { loadYearSoFar(c) }.getOrNull()?.also { yearSoFar.value = it } ?: have
     }
+    val soFar = kept ?: return
+    val ms = soFar.ms
     if (ms < 60_000) return
     val total = listenTotal(ms)
     val year = remember { Calendar.getInstance().get(Calendar.YEAR) }
@@ -767,12 +796,8 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
     val ui = com.prism.music.ui.theme.LocalUi.current
     // Spotlight (the default) is the big card below; the other styles show the year so far as a few cards or rows:
     // the time listened, the top song and the top artist, each opening Replay.
+    val top = soFar.topSong to soFar.topArtist
     if (cfg.style != SectionStyle.HERO) {
-        val top by produceState<Pair<com.prism.music.data.db.SongPlays?, com.prism.music.data.db.ArtistPlays?>>(null to null) {
-            val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
-            val now = System.currentTimeMillis()
-            value = c.db.plays().topSongs(start, now, 20).mergeUploads().firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull()
-        }
         val open: () -> Unit = { if (rewind) c.rewindRequest.value = year; nav.go(Routes.REPLAY) }
         val dark = com.prism.music.ui.theme.LocalIsDark.current
         SectionHeader(if (rewind) "Rewind $year" else "Replay $year", strapline = "Your year so far", onMore = open)
@@ -789,24 +814,10 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
     // is set large and light in plain ink.
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     val scheme = MaterialTheme.colorScheme
-    val months by produceState<List<Long>>(emptyList()) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val now = Calendar.getInstance()
-            (0..now.get(Calendar.MONTH)).map { m ->
-                val from = Calendar.getInstance().apply { set(Calendar.MONTH, m); set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
-                val to = (from.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                runCatching { c.db.plays().totalMs(from.timeInMillis, minOf(to.timeInMillis, System.currentTimeMillis())) }.getOrDefault(0L)
-            }
-        }
-    }
+    val months = soFar.months
     // The listener's pick of looks (Settings → Home screen → Replay card); December's Rewind card keeps its own below.
     if (!rewind) {
         val look = ReplayCardStyle.entries.firstOrNull { it.name == LocalAppSettings.current.replayCard } ?: ReplayCardStyle.WASH
-        val top by produceState<Pair<com.prism.music.data.db.SongPlays?, com.prism.music.data.db.ArtistPlays?>>(null to null) {
-            val start = Calendar.getInstance().apply { set(Calendar.DAY_OF_YEAR, 1); set(Calendar.HOUR_OF_DAY, 0) }.timeInMillis
-            val now = System.currentTimeMillis()
-            value = runCatching { c.db.plays().topSongs(start, now, 20).mergeUploads().firstOrNull() to c.db.plays().topArtists(start, now, 1).firstOrNull() }.getOrDefault(null to null)
-        }
         val coverUrl = top.first?.thumbnail?.takeIf { look == ReplayCardStyle.COVER }
         val art = if (coverUrl != null) coil3.compose.rememberAsyncImagePainter(coverUrl) else null
         // How far through the year, to the minute; looked at again every 10 minutes while Home is open (the Ring shows

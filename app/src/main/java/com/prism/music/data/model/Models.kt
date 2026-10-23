@@ -309,14 +309,17 @@ fun hiRes(url: String?, size: Int = 1080): String? {
     if (url == null) return null
     return when {
         url.contains("googleusercontent.com") || url.contains("ggpht.com") -> {
-            val sized = Regex("=(w\\d+-h\\d+|s\\d+)[^/]*$")
-            if (sized.containsMatchIn(url)) url.replace(sized, "=w$size-h$size-l90-rj")
+            if (GOOGLE_SIZE.containsMatchIn(url)) url.replace(GOOGLE_SIZE, "=w$size-h$size-l90-rj")
             else "$url=w$size-h$size-l90-rj"
         }
-        url.contains("i.ytimg.com/vi/") -> url.replace(Regex("/[a-z0-9_]+default\\.jpg.*$"), "/hqdefault.jpg")
+        url.contains("i.ytimg.com/vi/") -> url.replace(YTIMG_NAME, "/hqdefault.jpg")
         else -> url
     }
 }
+
+// Compiled once: [hiRes] runs for every cover each time it's drawn into a list (it built both every call, 1.7.4).
+private val GOOGLE_SIZE = Regex("=(w\\d+-h\\d+|s\\d+)[^/]*$")
+private val YTIMG_NAME = Regex("/[a-z0-9_]+default\\.jpg.*$")
 
 /** "1 song", "12 songs". */
 fun songCount(n: Int): String = if (n == 1) "1 song" else "$n songs"

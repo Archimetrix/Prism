@@ -1130,7 +1130,7 @@ fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: S
             when (target) {
                 com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER -> MiniPlayerGroup()
                 com.prism.music.ui.components.CustomizeTarget.TAB_BAR -> NavBarGroup()
-                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLookGroup(); PlayerCoverGroup(); LyricsLookGroup("Lyrics") }
+                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLayoutGroup(); PlayerLookGroup(); PlayerCoverGroup(); PlayerButtonsGroup(); LyricsLookGroup("Lyrics") }
                 com.prism.music.ui.components.CustomizeTarget.HOME_SECTION -> {
                     if (section != null) Group("This section") {
                         Label("Style")
@@ -1206,18 +1206,21 @@ private fun PlayerSettings() {
     val container = LocalContainer.current
     val prefs = container.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        // The player, your way (1.7.4): its layout first, then its look, buttons and order (PlayerYourWay.kt).
+        PlayerLayoutGroup()
         PlayerLookGroup()
         PlayerCoverGroup()
-        // Top to bottom, as they sit on the player: tick what you want there.
+        PlayerButtonsGroup()
+        PlayerArrangeGroup()
+        PlayerTitleGroup()
+        // Tick what else you want there (the current lyric and volume are in "Under the title").
         Group("Show on the player") {
             ShowChips(
                 listOf(
                     ShowOption("From the album", s.showPlayingFrom) { prefs.setShowPlayingFrom(it) },
-                    ShowOption("Current lyric", s.lyricsOnPlayer) { prefs.setLyricsOnPlayer(it) },
                     ShowOption("Best part", s.bestPartButton) { prefs.setBestPartButton(it) },
                     ShowOption("Stream quality", s.showQuality) { prefs.setShowQuality(it) },
                     ShowOption("Shuffle & repeat", s.playerShuffleRepeat) { prefs.setPlayerShuffleRepeat(it) },
-                    ShowOption("Volume", !s.hideVolumeBar) { prefs.setHideVolumeBar(!it) },
                     ShowOption("Song / Video", s.showVideoSwitch) {
                         prefs.setShowVideoSwitch(it)
                         if (!it) container.player.setVideoMode(false)
@@ -1261,20 +1264,21 @@ private fun PlayerSettings() {
                 prefs.setCanvasWithDownloadsCellular(it)
                 if (it) container.downloads.saveCanvases()
             }
+            if (s.canvasEnabled) Toggle(
+                "Fill the player", "The animated cover plays behind everything", s.canvasFillsBackground,
+                info = "The moving artwork fills the whole player, darkened under the controls, and the cover itself shows the still picture. Not with full-bleed artwork, which already shows it edge to edge.",
+            ) { prefs.setCanvasFillsBackground(it) }
             if (s.canvasEnabled) CanvasStorage()
         }
-        Group("Gestures") {
+        // Swipes, double tap and long press (#79's seeking among them), then the buttons' own.
+        PlayerGesturesGroup()
+        Group("Buttons and touch") {
             Toggle("Hold previous / next to seek", "A tap still changes songs", s.holdSeekSeconds > 0) {
                 prefs.setHoldSeekSeconds(if (it) 10 else 0)
             }
             if (s.holdSeekSeconds > 0) SliderSetting("Each step", s.holdSeekSeconds.toFloat(), 1f..20f, { "${it.roundToInt()} s" }, steps = 18) {
                 prefs.setHoldSeekSeconds(it.roundToInt())
             }
-            // #79, as on YouTube Music.
-            Toggle("Double-tap the cover to seek", "Left side back, right side ahead", s.doubleTapSeekSeconds > 0) {
-                prefs.setDoubleTapSeekSeconds(if (it) 10 else 0)
-            }
-            if (s.doubleTapSeekSeconds > 0) Chips(listOf(3, 5, 10, 15), s.doubleTapSeekSeconds, { "$it s" }) { prefs.setDoubleTapSeekSeconds(it) }
             Toggle("Haptics", "A light tap on buttons and swipes", s.haptics) { prefs.setHaptics(it) }
         }
     }
@@ -1291,10 +1295,13 @@ private fun PlayerLookGroup() {
         if (s.playerBackground == PlayerBackground.BLUR || s.playerBackground == PlayerBackground.APPEARANCE) SliderSetting(
             "Show background", s.playerBackdropShow, 0f..1f, { if (it < 0.2f) "Subtle" else if (it < 0.7f) "Balanced" else "Vivid" },
         ) { prefs.setPlayerBackdropShow(it) }
+        // The mesh's motion and colors, the blur's softness (1.7.4).
+        PlayerBackgroundTuning()
         Label("Controls")
         Chips(TransportStyle.entries, s.transportStyle, { it.label }) { prefs.setTransportStyle(it) }
         Label("Progress bar")
         Chips(ScrubberStyle.entries, s.scrubberStyle, { it.label }) { prefs.setScrubberStyle(it) }
+        if (s.scrubberStyle == ScrubberStyle.WAVE) Note("Each song's own shape, from Prism's scan of it: a plain bar until a song has been scanned (a few seconds into it).")
     }
 }
 

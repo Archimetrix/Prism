@@ -85,7 +85,8 @@ internal fun WidePlayerContent(
     song: Song,
     isPlaying: Boolean,
     buffering: Boolean,
-    position: Long,
+    /** Read only in the scrubber (and Previous's 3 s rule), so the player isn't recomposed as the song plays. */
+    position: androidx.compose.runtime.State<Long>,
     hasNext: Boolean,
     hasPrevious: Boolean,
     videoMode: Boolean,
@@ -104,6 +105,8 @@ internal fun WidePlayerContent(
     onCollapse: () -> Unit,
     onSing: () -> Unit = {},
     onSingNeedsDownload: () -> Unit = onSing,
+    /** The bottom row's buttons that open something over the player. */
+    onButton: (com.prism.music.data.prefs.PlayerButton) -> Unit = {},
 ) {
     val c = LocalContainer.current
     val pc = c.player
@@ -111,15 +114,16 @@ internal fun WidePlayerContent(
     val window = LocalWindowLayout.current
     val density = LocalDensity.current
 
+    val pastStart by androidx.compose.runtime.remember { androidx.compose.runtime.derivedStateOf { position.value > 3000 } }
     val deck: @Composable (short: Boolean) -> Unit = { short ->
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            PlayerScrubber(position, pc.duration) {
+            PlayheadScrubber(position, pc.duration) {
                 if (!BestPartChip() && settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = pane == PlayerPane.STATS) {
                     onPane(if (pane == PlayerPane.STATS) PlayerPane.LYRICS else PlayerPane.STATS)
                 }
             }
             Spacer(Modifier.height(if (short) 2.dp else 8.dp))
-            TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || position > 3000, nextEnabled = hasNext, compact = short, episode = song.isEpisode)
+            TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || pastStart, nextEnabled = hasNext, compact = short, episode = song.isEpisode)
             if (!short) {
                 Spacer(Modifier.height(10.dp))
                 if (!settings.hideVolumeBar) VolumeRow(volume)
@@ -130,7 +134,8 @@ internal fun WidePlayerContent(
                 onToggleLyrics = { onPane(PlayerPane.LYRICS) },
                 onToggleQueue = { onPane(if (pane == PlayerPane.QUEUE) PlayerPane.LYRICS else PlayerPane.QUEUE) },
                 onVideoMode = { pc.setVideoMode(it) },
-                            episode = song.isEpisode,
+                episode = song.isEpisode,
+                onButton = onButton,
             )
             if (!short && settings.showOutputDevice) {
                 Spacer(Modifier.height(10.dp))
@@ -248,7 +253,7 @@ private fun WideCover(
                     val ahead = at.x > size.width / 2
                     haptics.gestureEnd()
                     pc.seekBy(if (ahead) seekStep * 1000L else -seekStep * 1000L)
-                    seekFlash = SeekFlash(ahead, if (seekFlash?.ahead == ahead) seekFlash!!.steps + 1 else 1, System.nanoTime())
+                    seekFlash = SeekFlash(ahead, if (seekFlash?.ahead == ahead) seekFlash!!.steps + 1 else 1, System.nanoTime(), seekStep)
                 })
             }
             .pointerInput(Unit) {
@@ -282,7 +287,7 @@ private fun WideCover(
                 canvas?.let { clip -> CanvasPlayer(clip, canvasSaved, isPlaying, Modifier.fillMaxSize(), onCoverChanged = { canvasCover = it }, hold = covered) }
             }
         }
-        seekFlash?.let { f -> SeekLabel(f, seekStep, Modifier.align(if (f.ahead) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 18.dp)) }
+        seekFlash?.let { f -> SeekLabel(f, Modifier.align(if (f.ahead) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 18.dp)) }
     }
 }
 
@@ -309,12 +314,14 @@ private fun PaneTabs(pane: PlayerPane, onPane: (PlayerPane) -> Unit, modifier: M
     }
 }
 
-/** Title and artist (each opens its page), like, and the song's menu. */
+/** Title and artist (each opens its page), like (unless the buttons row has it), and the song's menu. */
 @Composable
 internal fun PlayerCredits(song: Song, onMore: () -> Unit, onCollapse: () -> Unit) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
     val liked by c.library.likedIds.collectAsState()
+    val settings by c.settings.flow.collectAsState()
+    val heart = com.prism.music.data.prefs.PlayerButton.LIKE !in settings.playerButtons
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             PlayerMarquee(
@@ -341,8 +348,10 @@ internal fun PlayerCredits(song: Song, onMore: () -> Unit, onCollapse: () -> Uni
         }
         Spacer(Modifier.width(10.dp))
         val isLiked = song.id in liked
-        CircleGlyph(if (isLiked) PrismIcons.HeartFilled else PrismIcons.Heart, if (isLiked) "Remove from liked" else "Like", isLiked) { c.library.toggleLike(song) }
-        Spacer(Modifier.width(8.dp))
+        if (heart) {
+            CircleGlyph(if (isLiked) PrismIcons.HeartFilled else PrismIcons.Heart, if (isLiked) "Remove from liked" else "Like", isLiked) { c.library.toggleLike(song) }
+            Spacer(Modifier.width(8.dp))
+        }
         CircleGlyph(PrismIcons.More, "Song options", onClick = onMore)
     }
 }

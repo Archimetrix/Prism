@@ -146,7 +146,78 @@ enum class Preload(val label: String, val songs: Int) { START("Next song's start
 /** Where immersive mode's lyrics go: a line at a time high, in the middle or low on the screen, or all of them over it. */
 enum class ImmersiveLyrics(val label: String) { HIGH("High"), MIDDLE("Middle"), LOW("Low"), FULL("Full screen") }
 enum class ImmersiveArt(val label: String, val zoom: Float) { FILL("Fill the screen", 1f), ZOOMED("Zoomed out", 0.4f), WHOLE("Whole cover", 0f) }
-enum class ScrubberStyle(val label: String) { HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb") }
+/** [WAVE] (1.7.4): the song's own loudness, drawn from its scan, as the bar (a plain line until the song's been scanned). */
+enum class ScrubberStyle(val label: String) { HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb"), WAVE("Waveform") }
+
+// ---------------------------------------------------------------------------- The player, your way (1.7.4)
+
+/** How the player is laid out: presets that reuse the same pieces (cover, deck, lyrics), each still tweakable. */
+enum class PlayerLayout(val label: String, val note: String) {
+    STANDARD("Standard", "The cover, then everything under it"),
+    COVER("Cover", "A big cover; tap it for the controls"),
+    LYRICS("Lyrics", "Opens on the lyrics, a small cover beside the title"),
+    MINIMAL("Minimal", "The title and play; gestures do the rest"),
+    VINYL("Vinyl", "The cover as a record's label, turning as it plays"),
+}
+
+/** The parts under the player's title, in the order the listener arranged them. */
+enum class DeckPart(val label: String) { STRIP("Current lyric"), SCRUBBER("Progress bar"), TRANSPORT("Controls"), VOLUME("Volume"), BUTTONS("Buttons") }
+
+/** What a button in the player's bottom row does: the listener picks three to six, in order. */
+enum class PlayerButton(val label: String) {
+    LYRICS("Lyrics"), VIDEO("Video"), QUEUE("Up next"), OUTPUT("Play on"), SLEEP("Sleep timer"), LIKE("Like"),
+    DISLIKE("Not for me"), ADD_TO_PLAYLIST("Add to playlist"), SHARE("Share"), SING("Sing"), DJ("DJ mode"),
+    EQUALIZER("Equalizer"), DOWNLOAD("Download"), RADIO("Start radio");
+
+    companion object {
+        /** As 1.7 had it: lyrics, the music video and the queue. */
+        val DEFAULT = listOf(LYRICS, VIDEO, QUEUE)
+        const val MIN = 3
+        const val MAX = 6
+    }
+}
+
+/**
+ * The buttons beside previous / play / next in the media session, in order: the phone's notification and lock screen
+ * show the first two, Android Auto and other controllers show them all.
+ */
+enum class SessionButton(val label: String) {
+    LIKE("Like"), SHUFFLE("Shuffle"), REPEAT("Repeat"), CAR_LYRICS("Lyrics in the car"), RADIO("Start radio"),
+    DISLIKE("Not for me"), BACK_10("Back 10 s"), AHEAD_30("Ahead 30 s");
+
+    companion object {
+        /** As 1.7 had them (like and shuffle beside play on the phone). */
+        val DEFAULT = listOf(LIKE, SHUFFLE, REPEAT, CAR_LYRICS, RADIO, DISLIKE)
+    }
+}
+
+/** The progress bar's color. */
+enum class ScrubberColor(val label: String) { SPECTRUM("Your light"), ACCENT("Accent"), WHITE("White"), COVER("From the cover") }
+enum class PlayerTitleAlign(val label: String) { START("Left"), CENTER("Centred") }
+enum class PlayerTitleSize(val label: String, val scale: Float) { SMALL("Small", 0.82f), MEDIUM("Medium", 1f), LARGE("Large", 1.2f) }
+/** The times under the progress bar. */
+enum class PlayerTimes(val label: String) { BOTH("Both"), ELAPSED("Elapsed"), LEFT("Time left"), NONE("None") }
+
+/** What a gesture on the player's cover (or the mini player) does. */
+enum class PlayerGesture(val label: String) {
+    NEXT("Next song"), PREVIOUS("Previous song"), SEEK_BACK("Back 10 s"), SEEK_AHEAD("Ahead 10 s"),
+    /** Double tap only: the cover's left half goes back, its right half ahead (#79). */
+    SEEK_SIDES("Seek by side"),
+    PLAY_PAUSE("Play / pause"), LIKE("Like"), QUEUE("Up next"), LYRICS("Lyrics"), SLEEP("Sleep timer"), VIDEO("Video"),
+    SING("Sing"), MENU("Song menu"), STOP("Stop"), NONE("Nothing");
+
+    companion object {
+        /** The choices offered for a gesture ([double]: double tap, which also has [SEEK_SIDES]; [mini]: the mini player). */
+        fun choices(double: Boolean = false, mini: Boolean = false): List<PlayerGesture> = entries.filter {
+            when (it) {
+                SEEK_SIDES -> double
+                STOP -> mini
+                LYRICS, VIDEO, SING -> !mini
+                else -> true
+            }
+        }
+    }
+}
 enum class LyricsAlign(val label: String) { START("Left"), CENTER("Centre") }
 /** Lyrics in a script the listener can't read, in Latin letters too: under each line, or in its place. */
 enum class RomanizeMode(val label: String) { OFF("Off"), UNDER("Under each line"), INSTEAD("Instead") }
@@ -555,6 +626,40 @@ data class AppSettings(
     val artShrinkOnPause: Boolean = true,
     val showOutputDevice: Boolean = true,
     val lyricsAlign: LyricsAlign = LyricsAlign.START,
+    // The player, your way (1.7.4). Every default is the player as 1.7 had it.
+    val playerLayout: PlayerLayout = PlayerLayout.STANDARD,
+    /** Vinyl: the tonearm swings onto the record while it plays. */
+    val vinylTonearm: Boolean = true,
+    /** The parts under the title, in this order (what's switched off elsewhere still hides). */
+    val playerDeck: List<DeckPart> = DeckPart.entries,
+    val playerButtons: List<PlayerButton> = PlayerButton.DEFAULT,
+    /** The buttons beside play in the notification, on the lock screen and in Android Auto, in order. */
+    val sessionButtons: List<SessionButton> = SessionButton.DEFAULT,
+    val scrubberColor: ScrubberColor = ScrubberColor.SPECTRUM,
+    val playerTitleAlign: PlayerTitleAlign = PlayerTitleAlign.START,
+    val playerTitleSize: PlayerTitleSize = PlayerTitleSize.MEDIUM,
+    /** A title too long for the line scrolls across (off: it's cut short with "…"). */
+    val playerTitleScroll: Boolean = true,
+    val playerTimes: PlayerTimes = PlayerTimes.BOTH,
+    /**
+     * The color mesh behind the player: how fast it drifts (0 still, as before, … 1) and how strong its colors are
+     * (0.4 soft … 1.6 rich; 1 as before).
+     */
+    val meshSpeed: Float = 0f,
+    val meshIntensity: Float = 1f,
+    /** How soft the blurred cover is (0.5 … 1.5; 1 as before). */
+    val playerBlur: Float = 1f,
+    /** An animated cover fills the whole player behind everything, not only the cover. */
+    val canvasFillsBackground: Boolean = false,
+    // Gestures on the player's cover and on the mini player.
+    val coverSwipeLeft: PlayerGesture = PlayerGesture.NEXT,
+    val coverSwipeRight: PlayerGesture = PlayerGesture.PREVIOUS,
+    val coverSwipeUp: PlayerGesture = PlayerGesture.QUEUE,
+    val coverDoubleTap: PlayerGesture = PlayerGesture.SEEK_SIDES,
+    val coverLongPress: PlayerGesture = PlayerGesture.NONE,
+    val miniSwipeLeft: PlayerGesture = PlayerGesture.NEXT,
+    val miniSwipeRight: PlayerGesture = PlayerGesture.PREVIOUS,
+    val miniSwipeDown: PlayerGesture = PlayerGesture.STOP,
     // Library & Replay
     val libraryView: LibraryView = LibraryView.LIST,
     val libraryStartTab: String = "PLAYLISTS",
@@ -749,6 +854,28 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val artShrinkOnPause = booleanPreferencesKey("art_shrink_on_pause")
         val showOutputDevice = booleanPreferencesKey("show_output_device")
         val lyricsAlign = stringPreferencesKey("lyrics_align")
+        val playerLayout = stringPreferencesKey("player_layout")
+        val vinylTonearm = booleanPreferencesKey("vinyl_tonearm")
+        val playerDeck = stringPreferencesKey("player_deck")
+        val playerButtons = stringPreferencesKey("player_buttons")
+        val sessionButtons = stringPreferencesKey("session_buttons")
+        val scrubberColor = stringPreferencesKey("scrubber_color")
+        val playerTitleAlign = stringPreferencesKey("player_title_align")
+        val playerTitleSize = stringPreferencesKey("player_title_size")
+        val playerTitleScroll = booleanPreferencesKey("player_title_scroll")
+        val playerTimes = stringPreferencesKey("player_times")
+        val meshSpeed = floatPreferencesKey("mesh_speed")
+        val meshIntensity = floatPreferencesKey("mesh_intensity")
+        val playerBlur = floatPreferencesKey("player_blur")
+        val canvasFillsBackground = booleanPreferencesKey("canvas_fills_background")
+        val coverSwipeLeft = stringPreferencesKey("cover_swipe_left")
+        val coverSwipeRight = stringPreferencesKey("cover_swipe_right")
+        val coverSwipeUp = stringPreferencesKey("cover_swipe_up")
+        val coverDoubleTap = stringPreferencesKey("cover_double_tap")
+        val coverLongPress = stringPreferencesKey("cover_long_press")
+        val miniSwipeLeft = stringPreferencesKey("mini_swipe_left")
+        val miniSwipeRight = stringPreferencesKey("mini_swipe_right")
+        val miniSwipeDown = stringPreferencesKey("mini_swipe_down")
         val libraryView = stringPreferencesKey("library_view")
         val libraryStartTab = stringPreferencesKey("library_start_tab")
         val libraryTiles = stringPreferencesKey("library_tiles")
@@ -764,6 +891,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 navTabs, startTab, miniPlayerStyle, miniSkipButtons, miniPrevButton, miniProgress, playerBackground, playerBackdropShow, playerArtCorners, transportStyle,
                 coverSize, scrubberStyle, artShrinkOnPause, showOutputDevice, lyricsAlign, libraryView, playlistHeroCover, frostedPages, replayThemeColors,
                 immersiveArt, immersiveLyrics, immersiveControls, playerShuffleRepeat, lightStyle,
+                playerLayout, vinylTonearm, playerDeck, playerButtons, scrubberColor, playerTitleAlign, playerTitleSize, playerTitleScroll,
+                playerTimes, meshSpeed, meshIntensity, playerBlur, canvasFillsBackground,
             )
         }
 
@@ -786,6 +915,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerBackground to 's', playerBackdropShow to 'f', playerArtCorners to 'i', transportStyle to 's', coverSize to 's',
                 scrubberStyle to 's', artShrinkOnPause to 'b', showOutputDevice to 'b', fullBleedArtwork to 'b', hideVolumeBar to 'b',
                 showPlayingFrom to 'b', playerShuffleRepeat to 'b', immersiveArt to 's', immersiveLyrics to 's', immersiveControls to 'b',
+                playerLayout to 's', vinylTonearm to 'b', playerDeck to 's', playerButtons to 's', scrubberColor to 's', playerTitleAlign to 's',
+                playerTitleSize to 's', playerTitleScroll to 'b', playerTimes to 's', meshSpeed to 'f', meshIntensity to 'f', playerBlur to 'f',
+                canvasFillsBackground to 'b',
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
                 libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's',
             )
@@ -811,6 +943,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "home_recent_tiles", "home_playlists", "home_customize_button", "home_continue", "quick_picks_radio",
                 "home_customize_top_button", "home_podcasts_button", "font_stamp", "lyrics_font_name", "local_sections", "local_sort",
                 "library_start_tab", "library_tiles", "library_playlists_first",
+                // 1.7.4: what buttons and gestures do is how you use Prism, not how it looks.
+                "session_buttons", "cover_swipe_left", "cover_swipe_right", "cover_swipe_up", "cover_double_tap", "cover_long_press",
+                "mini_swipe_left", "mini_swipe_right", "mini_swipe_down",
             )
         }
     }
@@ -849,6 +984,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
 
     private inline fun <reified E : Enum<E>> Preferences.enum(key: Preferences.Key<String>, def: E): E =
         this[key]?.let { v -> enumValues<E>().firstOrNull { it.name == v } } ?: def
+
+    /** A comma-separated list of enum names (unknown ones skipped); [def] when unset or nothing in it is known. */
+    private inline fun <reified E : Enum<E>> Preferences.enumList(key: Preferences.Key<String>, def: List<E>): List<E> =
+        this[key]?.split(',')?.mapNotNull { n -> enumValues<E>().firstOrNull { it.name == n } }?.distinct()?.ifEmpty { null } ?: def
 
     private fun read(p: Preferences): AppSettings {
         val d = AppSettings()
@@ -1032,6 +1171,29 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             artShrinkOnPause = p[K.artShrinkOnPause] ?: d.artShrinkOnPause,
             showOutputDevice = p[K.showOutputDevice] ?: d.showOutputDevice,
             lyricsAlign = p.enum(K.lyricsAlign, d.lyricsAlign),
+            playerLayout = p.enum(K.playerLayout, d.playerLayout),
+            vinylTonearm = p[K.vinylTonearm] ?: d.vinylTonearm,
+            // Every part is in the order, a part added later at the end.
+            playerDeck = p.enumList(K.playerDeck, d.playerDeck).let { it + (DeckPart.entries - it.toSet()) },
+            playerButtons = p.enumList(K.playerButtons, d.playerButtons),
+            sessionButtons = p.enumList(K.sessionButtons, d.sessionButtons),
+            scrubberColor = p.enum(K.scrubberColor, d.scrubberColor),
+            playerTitleAlign = p.enum(K.playerTitleAlign, d.playerTitleAlign),
+            playerTitleSize = p.enum(K.playerTitleSize, d.playerTitleSize),
+            playerTitleScroll = p[K.playerTitleScroll] ?: d.playerTitleScroll,
+            playerTimes = p.enum(K.playerTimes, d.playerTimes),
+            meshSpeed = p[K.meshSpeed] ?: d.meshSpeed,
+            meshIntensity = p[K.meshIntensity] ?: d.meshIntensity,
+            playerBlur = p[K.playerBlur] ?: d.playerBlur,
+            canvasFillsBackground = p[K.canvasFillsBackground] ?: d.canvasFillsBackground,
+            coverSwipeLeft = p.enum(K.coverSwipeLeft, d.coverSwipeLeft),
+            coverSwipeRight = p.enum(K.coverSwipeRight, d.coverSwipeRight),
+            coverSwipeUp = p.enum(K.coverSwipeUp, d.coverSwipeUp),
+            coverDoubleTap = p.enum(K.coverDoubleTap, d.coverDoubleTap),
+            coverLongPress = p.enum(K.coverLongPress, d.coverLongPress),
+            miniSwipeLeft = p.enum(K.miniSwipeLeft, d.miniSwipeLeft),
+            miniSwipeRight = p.enum(K.miniSwipeRight, d.miniSwipeRight),
+            miniSwipeDown = p.enum(K.miniSwipeDown, d.miniSwipeDown),
             libraryView = p.enum(K.libraryView, d.libraryView),
             libraryStartTab = p[K.libraryStartTab] ?: d.libraryStartTab,
             libraryPlaylistsFirst = p[K.libraryPlaylistsFirst] ?: d.libraryPlaylistsFirst,
@@ -1300,6 +1462,28 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setTransportStyle(v: TransportStyle) = edit { it[K.transportStyle] = v.name }
     fun setCoverSize(v: CoverSize) = edit { it[K.coverSize] = v.name }
     fun setScrubberStyle(v: ScrubberStyle) = edit { it[K.scrubberStyle] = v.name }
+    fun setPlayerLayout(v: PlayerLayout) = edit { it[K.playerLayout] = v.name }
+    fun setVinylTonearm(v: Boolean) = edit { it[K.vinylTonearm] = v }
+    fun setPlayerDeck(v: List<DeckPart>) = edit { it[K.playerDeck] = v.joinToString(",") { p -> p.name } }
+    fun setPlayerButtons(v: List<PlayerButton>) = edit { it[K.playerButtons] = v.joinToString(",") { b -> b.name } }
+    fun setSessionButtons(v: List<SessionButton>) = edit { it[K.sessionButtons] = v.joinToString(",") { b -> b.name } }
+    fun setScrubberColor(v: ScrubberColor) = edit { it[K.scrubberColor] = v.name }
+    fun setPlayerTitleAlign(v: PlayerTitleAlign) = edit { it[K.playerTitleAlign] = v.name }
+    fun setPlayerTitleSize(v: PlayerTitleSize) = edit { it[K.playerTitleSize] = v.name }
+    fun setPlayerTitleScroll(v: Boolean) = edit { it[K.playerTitleScroll] = v }
+    fun setPlayerTimes(v: PlayerTimes) = edit { it[K.playerTimes] = v.name }
+    fun setMeshSpeed(v: Float) = edit { it[K.meshSpeed] = v }
+    fun setMeshIntensity(v: Float) = edit { it[K.meshIntensity] = v }
+    fun setPlayerBlur(v: Float) = edit { it[K.playerBlur] = v }
+    fun setCanvasFillsBackground(v: Boolean) = edit { it[K.canvasFillsBackground] = v }
+    /** One of the gestures ([which]: "cover_swipe_left" … "mini_swipe_down", the setting's stored name). */
+    fun setGesture(which: String, v: PlayerGesture) = edit { p ->
+        val key = gestureKeys[which] ?: return@edit
+        p[key] = v.name
+    }
+    private val gestureKeys = listOf(
+        K.coverSwipeLeft, K.coverSwipeRight, K.coverSwipeUp, K.coverDoubleTap, K.coverLongPress, K.miniSwipeLeft, K.miniSwipeRight, K.miniSwipeDown,
+    ).associateBy { it.name }
     fun setArtShrinkOnPause(v: Boolean) = edit { it[K.artShrinkOnPause] = v }
     fun setShowOutputDevice(v: Boolean) = edit { it[K.showOutputDevice] = v }
     fun setLyricsAlign(v: LyricsAlign) = edit { it[K.lyricsAlign] = v.name }

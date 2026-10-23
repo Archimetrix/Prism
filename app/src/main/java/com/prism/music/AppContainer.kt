@@ -83,6 +83,17 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         com.prism.music.ui.theme.IconStyle.load(this)
         com.prism.music.ui.theme.AppFonts.init(this)
         container = AppContainer(this)
+        // Whether any of Prism's screens is showing: what Android 12+ allows depends on it (DownloadRepository).
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+            override fun onActivityStarted(activity: android.app.Activity) { started++; container.visible.value = true }
+            override fun onActivityStopped(activity: android.app.Activity) { started = (started - 1).coerceAtLeast(0); container.visible.value = started > 0 }
+            override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) {}
+            override fun onActivityResumed(activity: android.app.Activity) {}
+            override fun onActivityPaused(activity: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, state: android.os.Bundle) {}
+            override fun onActivityDestroyed(activity: android.app.Activity) {}
+        })
         runCatching { com.prism.music.data.Notifications.createChannels(this) }
         // Long-press the app icon: Search, Recognize a song, Liked songs, Downloads (Reddit 1.7).
         // Off the main thread: it talks to the launcher's service and loads their icons, and start-up shouldn't wait.
@@ -108,6 +119,15 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
         container.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
             kotlinx.coroutines.delay(1_500)
             runCatching { container.backup.resumeDownloads() }
+        }
+        // Diagnostics also watch the screen's thread (1.7.4, #100): work that holds it up long enough to drop frames is
+        // logged with where it was. The test copy (".dev") also says so in logcat (PrismStall).
+        com.prism.music.playback.AudioDiagnostics.init(this)
+        com.prism.music.playback.MainThreadWatch.toLogcat = BuildConfig.APPLICATION_ID.endsWith(".dev")
+        container.scope.launch {
+            container.settings.flow.map { it.audioDiagnostics }.distinctUntilChanged().collect { on ->
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { com.prism.music.playback.MainThreadWatch.setEnabled(on) }
+            }
         }
         // A lyrics save into a music file that Prism closing cut short is put right (#16).
         if (java.io.File(filesDir, "lyrics-tags").list()?.isNotEmpty() == true) {
@@ -139,6 +159,9 @@ val Context.container: AppContainer get() = (applicationContext as PrismApp).con
 @OptIn(UnstableApi::class)
 class AppContainer(val app: Application) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** One of Prism's screens is showing (an activity is started); set by [PrismApp]. */
+    val visible = MutableStateFlow(false)
 
     /**
      * Shows Android's notification prompt (set by the activity on screen). It isn't asked at start-up any more, with
@@ -202,7 +225,9 @@ class AppContainer(val app: Application) {
     }
     val videoSync by lazy { com.prism.music.playback.VideoSync(app, streamHttp, streams, scope) }
     /** Songs' tempo and edges, for Mix, and their loudness, for normalization. */
-    val mixTempo by lazy { com.prism.music.playback.MixTempo(app, streamHttp, streams, ::audioOnPhone, { yieldToPlaying(null) }, { player.isPlaying.value }) }
+    val mixTempo by lazy { com.prism.music.playback.MixTempo(app, streamHttp, streams, ::audioOnPhone, { yieldToPlaying(null) }, { player.isPlaying.value }, waves) }
+    /** Songs' loudness outlines, for the waveform progress bar (made by the song scan). */
+    val waves by lazy { com.prism.music.data.SongWaves(app) }
 
     /**
      * Where a song's audio is on the phone, for scanning it without the network: a local file as it is; a download or

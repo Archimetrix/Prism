@@ -304,15 +304,16 @@ fun ImmersivePlayer(
         }
 
         // ---- How far through the song: a hairline of split light along the very bottom, quiet enough to stay immersive.
-        val position = rememberPosition(fast = false, hold = covered)
-        val duration = c.player.duration.coerceAtLeast(1L)
+        // Read in the drawing only: the playhead moving redraws the line, not immersive mode around it.
+        val position = rememberPositionState(fast = false, hold = covered)
         val dark = true
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(2.dp).drawBehind {
+                val duration = c.player.duration.coerceAtLeast(1L)
                 drawRect(Color.White.copy(alpha = 0.12f))
                 drawRect(
                     com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width),
-                    size = size.copy(width = size.width * (position.toFloat() / duration).coerceIn(0f, 1f)), alpha = 0.85f,
+                    size = size.copy(width = size.width * (position.value.toFloat() / duration).coerceIn(0f, 1f)), alpha = 0.85f,
                 )
             },
         )

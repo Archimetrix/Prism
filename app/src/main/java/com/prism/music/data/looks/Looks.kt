@@ -183,6 +183,15 @@ object BuiltInLooks {
                 "transport_style" to "s:GLYPHS", "font_choice" to "s:CLEAN", "corners" to "s:SUBTLE",
             ),
         ),
+        // Waited for 1.7.4's Vinyl player (planned with the Looks in 1.7.3).
+        Look(
+            "vinyl", "Vinyl", builtIn = true, note = "A record on the player, warm amber, serif titles",
+            values = mapOf(
+                "theme_mode" to "s:DARK", "font_choice" to "s:SERIF", "spectrum_preset" to "s:GOLD", "color_source" to "s:CUSTOM",
+                "accent" to color(0xFFE0A15A), "player_layout" to "s:VINYL", "vinyl_tonearm" to "b:1", "player_background" to "s:BLUR",
+                "player_title_align" to "s:CENTER", "scrubber_color" to "s:ACCENT", "transport_style" to "s:OUTLINE", "player_times" to "s:BOTH",
+            ),
+        ),
     )
 
     fun of(id: String): Look? = all.firstOrNull { it.id == id }
@@ -211,6 +220,10 @@ object LookLabels {
         "lyrics_blur" to "Lyrics focus", "lyrics_progress_line" to "Lyrics progress line", "lyrics_scale" to "Lyrics size",
         "library_view" to "Library view", "playlist_hero_cover" to "Playlist picture", "replay_theme_colors" to "Replay in your colors",
         "replay_card" to "Replay card",
+        "player_layout" to "Player layout", "vinyl_tonearm" to "Tonearm", "player_deck" to "Player's order", "player_buttons" to "Player buttons",
+        "scrubber_color" to "Progress bar color", "player_title_align" to "Title alignment", "player_title_size" to "Title size",
+        "player_title_scroll" to "Scrolling titles", "player_times" to "Times", "mesh_speed" to "Mesh motion", "mesh_intensity" to "Mesh colors",
+        "player_blur" to "Blur strength", "canvas_fills_background" to "Animated cover fills the player",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -245,11 +258,20 @@ object LookLabels {
             "immersive_lyrics" to e(com.prism.music.data.prefs.ImmersiveLyrics.entries) { it.label },
             "lyrics_align" to e(com.prism.music.data.prefs.LyricsAlign.entries) { it.label },
             "library_view" to e(com.prism.music.data.prefs.LibraryView.entries) { it.label },
+            "player_layout" to e(com.prism.music.data.prefs.PlayerLayout.entries) { it.label },
+            "scrubber_color" to e(com.prism.music.data.prefs.ScrubberColor.entries) { it.label },
+            "player_title_align" to e(com.prism.music.data.prefs.PlayerTitleAlign.entries) { it.label },
+            "player_title_size" to e(com.prism.music.data.prefs.PlayerTitleSize.entries) { it.label },
+            "player_times" to e(com.prism.music.data.prefs.PlayerTimes.entries) { it.label },
+            "player_deck" to e(com.prism.music.data.prefs.DeckPart.entries) { it.label },
+            "player_buttons" to e(com.prism.music.data.prefs.PlayerButton.entries) { it.label },
             "spectrum_preset" to com.prism.music.ui.theme.SpectrumPresets.all.associate { it.key to it.label } + ("CUSTOM" to "Your own"),
         )
     }
 
-    private val percent = setOf("text_scale", "lyrics_scale", "backdrop_dim", "player_backdrop_show", "surface_tint_strength")
+    private val percent = setOf(
+        "text_scale", "lyrics_scale", "backdrop_dim", "player_backdrop_show", "surface_tint_strength", "mesh_speed", "mesh_intensity", "player_blur",
+    )
     private val colors = setOf("accent", "accent_light", "surface_color")
 
     fun title(name: String): String = titles[name] ?: name.replace('_', ' ').replaceFirstChar { it.uppercase() }
@@ -267,6 +289,7 @@ object LookLabels {
             else -> when (name) {
                 "backdrops" -> "Changed"
                 "nav_tabs" -> v.split(',').joinToString(", ") { t -> choices["start_tab"]?.get(t) ?: t }
+                "player_deck", "player_buttons" -> v.split(',').joinToString(", ") { t -> choices[name]?.get(t) ?: t }
                 "spectrum_stops" -> "${v.split(',').size} colors"
                 "replay_card", "app_font_name" -> v.lowercase().replaceFirstChar { it.uppercase() }
                 else -> choices[name]?.get(v) ?: v
@@ -290,6 +313,8 @@ object LookLabels {
         "player" to setOf(
             "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",
             "show_output_device", "full_bleed_artwork", "hide_volume_bar", "show_playing_from", "player_shuffle_repeat", "immersive_art", "immersive_lyrics", "immersive_controls",
+            "player_layout", "vinyl_tonearm", "player_deck", "player_buttons", "scrubber_color", "player_title_align", "player_title_size",
+            "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
         ),
         "lyrics" to setOf("lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale"),
     )
