@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -92,7 +93,11 @@ fun LookTheme(s: AppSettings, dark: Boolean, content: @Composable (ThemeColors) 
 fun PreviewPhone(width: Dp, modifier: Modifier = Modifier, screen: @Composable () -> Unit) {
     val shape = RoundedCornerShape(width * 0.12f)
     Box(
-        modifier.size(width, width * 2.05f).clip(shape)
+        modifier.size(width, width * 2.05f)
+            // Drawn once into a layer of its own and then only moved: the Looks page has twenty of these, and redrawing
+            // each one's whole little screen every frame made scrolling it drop half its frames.
+            .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            .clip(shape)
             .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), shape),
     ) {
         val outer = LocalDensity.current

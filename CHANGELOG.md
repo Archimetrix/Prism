@@ -19,12 +19,16 @@ The second customization update: Looks.
   zone, no location needed) or at times you set.
 - **Undo.** After every change to the look, an Undo bar says what changed ("Corners → Sharp"). Looks → History goes
   back further (the last 10 changes).
+- **Nothing gets lost.** Switching to a Look while your own mix isn't saved keeps it as a "Before <Look>" card, so you
+  can always go back to it. Each Look's menu (or a long press on its card) says what it changes, and so does a Look
+  someone sends you, before you use it.
 
 ### Changing the look
 - **A live preview** at the top of every look page: Home with the mini player and tab bar, the player and the lyrics,
   as your choices make them. It stays pinned under the bar as you scroll.
 - **Customize by tapping.** Turn it on in Appearance (or hold the Settings tab), then tap the mini player, the tab bar,
-  the player or any Home section to change just that, right there.
+  the player or any Home section to change just that, right there, with an Undo in the sheet. The player's ⋯ →
+  Player settings opens the same sheet over the player.
 - **Reset this page** on each look page, beside Appearance's Reset look.
 
 ### Fixes and smaller changes

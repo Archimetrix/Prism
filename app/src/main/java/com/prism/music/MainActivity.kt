@@ -695,7 +695,8 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                 )
                 com.prism.music.ui.components.CustomizingPill(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
                 customizing?.let { (target, key) ->
-                    com.prism.music.ui.screens.CustomizeSheet(target, key) { customizing = null }
+                    // Going to the whole settings page leaves the player (it would cover the page).
+                    com.prism.music.ui.screens.CustomizeSheet(target, key, onLeave = { playerOpen = false }) { customizing = null }
                 }
 
                 // The tour (1.7): the whole of it after setting up a new install or the first time a release with tours

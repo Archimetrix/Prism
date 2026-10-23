@@ -1055,6 +1055,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     val lookValues: StateFlow<Map<String, String>> = context.dataStore.data.map(::lookOf)
         .distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, lookOf(raw))
 
+    /** The look settings as [lookValues] will read them once [values] is the Look (what a switch is expected to land on). */
+    fun lookAfter(values: Map<String, String>): Map<String, String> = lookOf(raw.toMutablePreferences().also { putLook(it, values) })
+
     /** The settings as they'd be with [values] as the Look, without changing anything (Look cards draw from it). */
     fun previewLook(values: Map<String, String>): AppSettings = read(raw.toMutablePreferences().also { putLook(it, values) })
 

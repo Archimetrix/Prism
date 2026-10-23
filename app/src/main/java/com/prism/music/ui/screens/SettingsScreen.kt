@@ -1111,7 +1111,7 @@ private fun ResetPage(section: SettingsSection) {
  * way to the whole page. A Home section also gets its own style.
  */
 @Composable
-fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: String?, onDismiss: () -> Unit) {
+fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: String?, onLeave: () -> Unit = {}, onDismiss: () -> Unit) {
     val nav = LocalNavigator.current
     val c = LocalContainer.current
     val s = LocalAppSettings.current
@@ -1146,7 +1146,16 @@ fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: S
                     ShapeSettings()
                 }
             }
-            PrismTextButton({ close { nav.go(Routes.settings(page.key)) } }, Modifier.fillMaxWidth()) {
+            // The Undo bar sits under the sheet: a change made here can be taken back here.
+            val steps by c.looks.steps.collectAsState()
+            val openedAt = remember { System.currentTimeMillis() }
+            steps.firstOrNull()?.takeIf { it.at >= openedAt }?.let { step ->
+                PrismTextButton({ c.looks.undo() }, Modifier.fillMaxWidth()) {
+                    Icon(PrismIcons.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text("Undo: ${step.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            PrismTextButton({ close { onLeave(); nav.go(Routes.settings(page.key)) } }, Modifier.fillMaxWidth()) {
                 Text("All ${page.title} settings"); Spacer(Modifier.width(6.dp)); Chevron()
             }
         }

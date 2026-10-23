@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -26,12 +27,20 @@ enum class SyncState { IDLE, SYNCING, DONE, ERROR }
  */
 internal fun <T> kotlinx.coroutines.flow.Flow<T>.resilient(what: String, stepMs: Long = 1_000L): kotlinx.coroutines.flow.Flow<T> =
     retryWhen { cause, attempt ->
-        if (cause is kotlinx.coroutines.CancellationException) return@retryWhen false
+        if (cause is kotlinx.coroutines.CancellationException || attempt >= MAX_READ_TRIES) return@retryWhen false
         runCatching { android.util.Log.w("PrismLibrary", "Reading $what failed (try ${attempt + 1}), reading it again: $cause") }
         com.prism.music.playback.AudioDiagnostics.log("library", "reading $what failed, read again: ${cause.javaClass.simpleName}")
         kotlinx.coroutines.delay(stepMs * (attempt + 1).coerceAtMost(10))
         true
+    }.catch { cause ->
+        // Still failing after every try: the list keeps what it had (Prism keeps running) until it's next opened.
+        if (cause is kotlinx.coroutines.CancellationException) throw cause
+        runCatching { android.util.Log.e("PrismLibrary", "Gave up reading $what: $cause") }
+        com.prism.music.playback.AudioDiagnostics.log("library", "gave up reading $what: ${cause.javaClass.simpleName}")
     }
+
+/** How many times a failed library read is tried again ([resilient]) before giving up. */
+private const val MAX_READ_TRIES = 20L
 
 /** Local mirror of the signed-in user's YouTube Music library, with two-way like sync. */
 class LibraryRepository(private val c: AppContainer) {

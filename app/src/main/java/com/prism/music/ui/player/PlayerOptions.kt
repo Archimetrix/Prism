@@ -188,8 +188,13 @@ fun PlayerOptionsSheet(
         // A file on the phone: no radio, download or music video (a Prism playlist is fine).
         QuickActions(if (song.isLocal) quick.filter { it.label == "Sleep" || it.label == "Playlist" } else quick) { runAction(it, close) }
         ActionGroup("Lyrics", lyrics) { runAction(it, close) }
-        // The player's settings, one tap away (Settings → Player).
-        val settingsRow = ActionItem(PrismIcons.Settings, "Player settings") { onCollapse(); nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.PLAYER.key)) }
+        // The player's look, changed right here over the player ("Customize this", 1.7.3), with the whole Player page a
+        // tap further; Settings → Player where there's no sheet to open.
+        val customize = com.prism.music.ui.components.LocalCustomize.current
+        val settingsRow = ActionItem(PrismIcons.Settings, "Player settings") {
+            if (customize != null) customize(com.prism.music.ui.components.CustomizeTarget.PLAYER, null)
+            else { onCollapse(); nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.PLAYER.key)) }
+        }
         ActionGroup("Player", (if (song.isLocal) player.filter { it.label == "Play on a speaker or TV" || it.label == "Stats for nerds" || it.label == "Immersive mode" || it.label == "Mark a stutter" || it.label == "Your best part" } else player) + settingsRow) { runAction(it, close) }
         ActionGroup("More", go) { runAction(it, close) }
     }

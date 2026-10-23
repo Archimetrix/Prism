@@ -259,7 +259,7 @@ object LookLabels {
 
     /** [tagged] as it reads ("Sharp", "On", "110%", "#3A86FF"); null is the setting's default. */
     fun value(name: String, tagged: String?): String {
-        val v = LookValue.text(tagged) ?: return "As Prism comes"
+        val v = LookValue.text(tagged) ?: return "Default"
         return when (tagged!![0]) {
             'b' -> if (v == "1") "On" else "Off"
             'f' -> v.toFloatOrNull()?.let { if (name in percent) "${(it * 100).toInt()}%" else v } ?: v
@@ -272,6 +272,40 @@ object LookLabels {
                 else -> choices[name]?.get(v) ?: v
             }
         }
+    }
+
+    /** The parts of Prism's look, in the order they're named, and the settings each is made of. */
+    private val areaOf: List<Pair<String, Set<String>>> = listOf(
+        "theme" to setOf("theme_mode", "pure_black"),
+        "colors" to setOf(
+            "color_source", "accent", "light_style", "accent_exact", "accent_light", "spectrum_preset", "spectrum_stops", "spectrum_bands",
+            "surface_tint", "surface_tint_strength", "surface_color", "contrast_level", "artwork_swatch", "artwork_vivid", "artwork_change", "page_picture_accent",
+        ),
+        "type" to setOf("font_choice", "app_font_name", "lyrics_font", "text_scale"),
+        "backgrounds" to setOf("liquid_glass", "glass_kind", "frosted_glass", "frosted_pages", "backdrops", "backdrop_dim", "backdrop_motion", "reduce_motion"),
+        "layout" to setOf(
+            "corners", "ui_density", "title_size", "card_size", "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab",
+            "mini_player_style", "mini_skip_buttons", "mini_prev_button", "mini_progress", "library_view", "playlist_hero_cover", "replay_theme_colors", "replay_card",
+        ),
+        "player" to setOf(
+            "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",
+            "show_output_device", "full_bleed_artwork", "hide_volume_bar", "show_playing_from", "player_shuffle_repeat", "immersive_art", "immersive_lyrics", "immersive_controls",
+        ),
+        "lyrics" to setOf("lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale"),
+    )
+
+    /**
+     * What a switch would change, in a line ("Changes your theme, colors and icons"), from the settings that differ
+     * ([keys]) and whether the icon style does; null when nothing would.
+     */
+    fun summary(keys: Collection<String>, icons: Boolean): String? {
+        val parts = areaOf.filter { (_, set) -> keys.any { it in set } }.map { it.first }.toMutableList()
+        // Anything not in a part above (a setting added later) still counts as the look.
+        if (keys.any { k -> areaOf.none { k in it.second } } && parts.isEmpty()) parts += "look"
+        if (icons) parts += "icons"
+        if (parts.isEmpty()) return null
+        val list = if (parts.size == 1) parts[0] else parts.dropLast(1).joinToString(", ") + " and " + parts.last()
+        return "Changes your $list"
     }
 
     /** One change as it reads: "Corners → Sharp", or "Corners → Sharp and 2 more". */

@@ -84,10 +84,14 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     private val iconsVersion = MutableStateFlow(0)
 
     /** The Look the app is in, when its settings and icons are exactly one's. */
-    val currentId: StateFlow<String?> = combine(settings.flow, _mine, iconsVersion, _other) { s, mine, _, other ->
+    val currentId: StateFlow<String?> = combine(settings.flow, _mine, iconsVersion, _other) { s, _, _, _ -> lookNow(s)?.id }
+        .flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** The Look whose settings and icons [s] are exactly; your own Looks first (one saved from Paper as it is is yours). */
+    private fun lookNow(s: com.prism.music.data.prefs.AppSettings): Look? {
         val icons = currentIcons()
-        (BuiltInLooks.all + mine + listOfNotNull(other)).firstOrNull { l -> l.icons == icons && settings.previewLook(resolved(l)) == s }?.id
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+        return (_mine.value + listOfNotNull(_other.value) + BuiltInLooks.all).firstOrNull { l -> l.icons == icons && settings.previewLook(resolved(l)) == s }
+    }
 
     // ---------------------------------------------------------------- Keeping Looks
 
@@ -108,7 +112,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
      * The app's look as it is now, as a Look named [name]: its photos and own font are kept with it, and the
      * backgrounds then point at the kept photos, so picking another photo later can't take this one away.
      */
-    suspend fun saveCurrent(name: String): Look = withContext(Dispatchers.IO) {
+    suspend fun saveCurrent(name: String, id: String = newId(), note: String = "", repoint: Boolean = true): Look = withContext(Dispatchers.IO) {
         val v = settings.lookValues.value.toMutableMap()
         v[Look.BACKDROPS]?.let { tagged ->
             val kept = Backgrounds.parse(tagged).mapNotNull { (screen, value) ->
@@ -122,14 +126,14 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         if (font == null) { v.remove(Look.APP_FONT_NAME); if (custom) v.remove(Look.FONT_CHOICE) }
         // The lyrics' own font file stays outside Looks.
         if (LookValue.text(v[Look.LYRICS_FONT]) == "CUSTOM") v.remove(Look.LYRICS_FONT)
-        val look = Look(newId(), name.trim().take(Look.MAX_NAME).ifBlank { "My Look" }, v, currentIcons(), font, System.currentTimeMillis())
+        val look = Look(id, name.trim().take(Look.MAX_NAME).ifBlank { "My Look" }, v, currentIcons(), font, System.currentTimeMillis(), note = note)
         write(look)
         // The backgrounds now point at the kept photos (not a change to the look: no Undo for it).
         val photos = Backgrounds.parse(look.values[Look.BACKDROPS]).filterValues { Backgrounds.assetOf(it) != null }
-        if (photos.isNotEmpty()) {
-            val resolvedMap = Backgrounds.parse(resolved(look)[Look.BACKDROPS])
-            expect = Expect(silent = true) { before, now -> changedKeys(before, now) == listOf(Look.BACKDROPS) }
-            settings.setBackdrops(resolvedMap)
+        if (repoint && photos.isNotEmpty()) {
+            val repointed = settings.lookValues.value + (Look.BACKDROPS to resolved(look).getValue(Look.BACKDROPS))
+            expect = Expect(settings.lookAfter(repointed), silent = true)
+            settings.applyLook(repointed)
         }
         look
     }
@@ -199,8 +203,22 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     /** The settings Prism would have with [look] (for its card's preview). */
     fun preview(look: Look) = settings.previewLook(resolved(look))
 
-    /** Switches to [look] in one edit; it shows in the undo bar as [label]. */
+    /** What switching to [look] would change, in a line ("Changes your theme, colors and type"); null for nothing. */
+    fun changes(look: Look): String? {
+        val now = settings.lookValues.value
+        val after = settings.lookAfter(resolved(look))
+        return LookLabels.summary((now.keys + after.keys).filter { now[it] != after[it] }, look.icons != currentIcons())
+    }
+
+    /**
+     * Switches to [look] in one edit; it shows in the undo bar as [label]. Settings that aren't any Look are kept first,
+     * as "Before <Look>" in Your Looks ([BEFORE_ID], one, replaced each time), so they're a tap away however many changes
+     * later: History only goes back ten.
+     */
     suspend fun apply(look: Look, label: String = "Look → ${look.name}") = withContext(Dispatchers.IO) {
+        if (look.id != BEFORE_ID && lookNow(settings.current) == null) runCatching {
+            saveCurrent("Before ${look.name}", BEFORE_ID, "Your own settings from before you picked ${look.name}", repoint = false)
+        }
         val values = resolved(look)
         var fontChanged = false
         if (LookValue.text(values[Look.FONT_CHOICE]) == "CUSTOM") look.font?.let { h ->
@@ -211,7 +229,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
                 fontChanged = true
             }
         }
-        expect = Expect(label = label) { _, _ -> true }
+        expect = Expect(settings.lookAfter(values), label = label)
         if (BuiltInLooks.of(look.id) == null && _mine.value.none { it.id == look.id }) _other.value = look.copy(id = look.id.ifBlank { "shared" })
         settings.applyLook(values, fontChanged)
         applyIcons(look.icons)
@@ -325,8 +343,20 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
 
     // ---------------------------------------------------------------- Undo and history
 
-    /** A change Prism is about to make itself: when [matches] the next one, it reads as [label] ([silent]: not kept at all). */
-    private class Expect(val label: String? = null, val silent: Boolean = false, val undo: Boolean = false, val matches: (Map<String, String>, Map<String, String>) -> Boolean)
+    /**
+     * A change Prism is about to make itself: when the look lands exactly on [target] (within a few seconds), it reads as
+     * [label] ([silent]: not kept at all; [undo]: a step taken back). Anything else is the listener's own change, so a
+     * Look picked again with nothing to change can't label the next real change as a switch.
+     */
+    private class Expect(
+        val target: Map<String, String>,
+        val label: String? = null,
+        val silent: Boolean = false,
+        val undo: Boolean = false,
+        val until: Long = System.currentTimeMillis() + 5_000,
+    ) {
+        fun matches(now: Map<String, String>) = now == target && System.currentTimeMillis() < until
+    }
     @Volatile private var expect: Expect? = null
 
     private val _steps = MutableStateFlow(loadSteps())
@@ -352,8 +382,10 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     private val order: List<String> by lazy { settings.lookKinds.keys.toList() }
 
     private fun onChange(before: Map<String, String>, now: Map<String, String>) {
-        val e = expect?.takeIf { it.matches(before, now) }
-        expect = null
+        val pending = expect
+        val e = pending?.takeIf { it.matches(now) }
+        // Kept for the change it's waiting for until it lands or runs out (a change of the listener's may come first).
+        if (e != null || (pending != null && System.currentTimeMillis() >= pending.until)) expect = null
         if (e?.silent == true || e?.undo == true) return
         val keys = changedKeys(before, now)
         if (keys.isEmpty()) return
@@ -375,7 +407,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         val steps = _steps.value
         val step = steps.getOrNull(index) ?: return
         saveSteps(steps.drop(index + 1))
-        expect = Expect(undo = true) { _, now -> now == step.before }
+        expect = Expect(settings.lookAfter(step.before), undo = true)
         scope.launch { settings.applyLook(step.before) }
     }
 
@@ -432,6 +464,8 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
 
     companion object {
         const val MAX_STEPS = 10
+        /** The one "Before <Look>" kept by [apply]. */
+        const val BEFORE_ID = "my-before"
         /** Bigger files' photos and fonts aren't taken (8 MB). */
         const val MAX_FILE = 8L * 1024 * 1024
         const val FILE_EXTENSION = "prismlook"

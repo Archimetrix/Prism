@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -127,10 +128,16 @@ fun LyricsTimingSheet(onDismiss: () -> Unit) {
     val videoMode by pc.videoMode.collectAsState()
     val scheme = MaterialTheme.colorScheme
     fun fmt(ms: Long) = (if (ms > 0) "+" else if (ms < 0) "−" else "") + "%.1f s".format(kotlin.math.abs(ms) / 1000f)
+    // The slider spans ±15 s, and grows to keep a bigger offset (set with the buttons) on it with room to spare; only the
+    // buttons grow it, so it never shifts under a dragging finger.
+    fun reachFor(ms: Long) = maxOf(15f, kotlin.math.ceil(kotlin.math.abs(ms) / 5000f) * 5f + 5f).coerceAtMost(MAX_LYRIC_OFFSET_MS / 1000f)
+    var reach by remember { mutableFloatStateOf(reachFor(pc.lyricOffset.value)) }
     // Up to two minutes either way (#109: some lyrics are an intro or a whole verse out, and 15 s wasn't enough).
-    fun nudge(d: Long) = pc.setLyricOffset((offset + d).coerceIn(-MAX_LYRIC_OFFSET_MS, MAX_LYRIC_OFFSET_MS))
-    // The slider spans ±15 s, and grows to keep a bigger offset (set with the buttons) on it with room to spare.
-    val reach = maxOf(15f, kotlin.math.ceil(kotlin.math.abs(offset) / 5000f) * 5f + 5f).coerceAtMost(MAX_LYRIC_OFFSET_MS / 1000f)
+    fun nudge(d: Long) {
+        val to = (offset + d).coerceIn(-MAX_LYRIC_OFFSET_MS, MAX_LYRIC_OFFSET_MS)
+        reach = maxOf(reach, reachFor(to))
+        pc.setLyricOffset(to)
+    }
     // The same frosted sheet as the player's ⋯ menu it opens from.
     com.prism.music.ui.components.ActionSheet(song?.thumbnail, onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 10.dp)) {

@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -287,6 +288,7 @@ private fun LookGrid(looks: List<Look>, current: String?, onPick: (Look) -> Unit
 }
 
 /** A Look as a card: its Home and player, its name and what it is, a ⋯ for more. Tapping it switches to it. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LookCard(look: Look, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit, onMore: (() -> Unit)? = null) {
     val c = LocalContainer.current
@@ -299,7 +301,9 @@ fun LookCard(look: Look, selected: Boolean, modifier: Modifier = Modifier, onCli
         modifier.clip(ui.tile).background(frostFill(if (selected) 2.6f else 1f))
             .then(if (selected) Modifier.border(2.dp, PrismTokens.spectrum, ui.tile) else Modifier.border(1.dp, scheme.onSurface.copy(alpha = 0.08f), ui.tile))
             .semantics { role = Role.RadioButton; this.selected = selected }
-            .clickable(onClickLabel = "Use ${look.name}", onClick = onClick).padding(8.dp),
+            // A long press opens the card's ⋯ too, as every other card in Prism does.
+            .combinedClickable(onClickLabel = "Use ${look.name}", onLongClickLabel = onMore?.let { "More for ${look.name}" }, onLongClick = onMore, onClick = onClick)
+            .padding(8.dp),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             val w = ((maxWidth - 8.dp) / 2).coerceAtMost(80.dp)
@@ -331,6 +335,11 @@ private fun LookActions(look: Look, onDismiss: () -> Unit, onApply: () -> Unit, 
     ActionSheet(null, onDismiss) { close ->
         Text(look.name, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium))
         if (look.note.isNotBlank()) Text(look.note, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val changes = remember(look) { c.looks.changes(look) }
+        Text(
+            changes ?: "You're on it now", Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface,
+        )
         val items = listOfNotNull(
             ActionItem(PrismIcons.Check, "Use this Look", onClick = onApply),
             ActionItem(PrismIcons.Share, "Share", onClick = onShare),
@@ -431,6 +440,7 @@ private fun PendingLookDialog(look: Look) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val s = remember(look) { c.looks.preview(look) }
+    val changes = remember(look) { c.looks.changes(look) }
     fun done() { c.looks.pending.value = null }
     AlertDialog(
         onDismissRequest = ::done,
@@ -439,7 +449,10 @@ private fun PendingLookDialog(look: Look) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 LookPhones(s, 72.dp, gap = 8.dp)
                 Spacer(Modifier.height(12.dp))
-                Text("A Look someone shared: it changes how Prism looks, nothing else. Undo puts yours back.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    (changes?.let { "$it. " } ?: "It looks just like yours now. ") + "A Look only changes how Prism looks, nothing else, and Undo puts yours back.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         },
         confirmButton = {
