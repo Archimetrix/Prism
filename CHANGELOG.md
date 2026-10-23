@@ -48,6 +48,13 @@ The second customization update: Looks.
 - **Lyrics timing (#109)** goes up to two minutes either way, with ±5 s steps. It's kept on your phone, for that song.
 - **Section headings (#104, #107)** are a little bolder, the same on every page, and the whole heading row opens the
   section, with its arrow at the far end where your thumb reaches it.
+- **The time-of-day mix is named after what's in it.** "Your Friday morning indie" could be mostly rock: it was named
+  from its first songs' genres before Prism had settled them. Now a genre is in the name only when more than half the
+  mix is that genre (else "… mix"), and the name is checked again as genres become known.
+- **Android Auto pictures.** Downloads showed a warning sign (it had no picture: now it has its own, as does Liked songs
+  without one of yours), YouTube Music's mixes and "Liked Music" on Home were blank tiles (their covers come as PNGs;
+  the car now always gets JPEGs, from the covers already saved on your phone first), and a cover that can't be fetched
+  shows a playlist tile instead of nothing.
 
 ## 1.7.2
 

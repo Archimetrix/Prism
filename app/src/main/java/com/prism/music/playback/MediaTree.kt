@@ -58,12 +58,15 @@ class MediaTree(private val c: AppContainer) {
     /**
      * A folder. [extras]: how a car shows what's inside it, or the section it sits under ([styled], [grouped]).
      */
-    private fun folder(id: String, title: String, subtitle: String? = null, art: String? = null, type: Int = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, extras: android.os.Bundle? = null) =
+    private fun folder(
+        id: String, title: String, subtitle: String? = null, art: String? = null, type: Int = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED,
+        extras: android.os.Bundle? = null, fallback: String = AUTO_PLAYLIST,
+    ) =
         MediaItem.Builder().setMediaId(id).setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)
                 .setSubtitle(subtitle)
-                .setArtworkUri(artworkUri(art))
+                .setArtworkUri(artworkUri(art, fallback))
                 .setIsBrowsable(true)
                 .setIsPlayable(false)
                 .setMediaType(type)
@@ -144,8 +147,8 @@ class MediaTree(private val c: AppContainer) {
             var playlists = c.library.playlists.value
             if (playlists.isEmpty() && c.settings.current.isLoggedIn) playlists = runCatching { c.ytm.libraryPlaylists() }.getOrDefault(emptyList())
             listOf(
-                folder(LIKED, "Liked songs", art = c.covers.custom("liked"), type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
-                folder(DOWNLOADS, "Downloads", type = MediaMetadata.MEDIA_TYPE_PLAYLIST),
+                folder(LIKED, "Liked songs", art = c.covers.custom("liked"), type = MediaMetadata.MEDIA_TYPE_PLAYLIST, fallback = "ic_auto_liked"),
+                folder(DOWNLOADS, "Downloads", type = MediaMetadata.MEDIA_TYPE_PLAYLIST, fallback = "ic_auto_downloads"),
             ) +
                 // Prism's own playlists (kept on the phone), as in the app's Library.
                 c.prismLibrary.lists.value.map { l ->
@@ -186,17 +189,17 @@ class MediaTree(private val c: AppContainer) {
         folders[id] = title to list
         // "Shuffle play" and "Play as a DJ set" rows first, as in the phone app (the car has no buttons of its own for them).
         val top = if (list.size > 1) listOf(
-            startItem(SHUFFLE, id, "Shuffle play", com.prism.music.data.model.songCount(list.size), com.prism.music.R.drawable.ic_auto_shuffle),
-            startItem(DJ, id, "Play as a DJ set", "In the order that blends best, mixed", com.prism.music.R.drawable.ic_auto_dj),
+            startItem(SHUFFLE, id, "Shuffle play", com.prism.music.data.model.songCount(list.size), "ic_auto_shuffle"),
+            startItem(DJ, id, "Play as a DJ set", "In the order that blends best, mixed", "ic_auto_dj"),
         ) else emptyList()
         return top + list.map(::playable)
     }
 
-    private fun startItem(prefix: String, folderId: String, title: String, subtitle: String, icon: Int) = MediaItem.Builder().setMediaId("$prefix$folderId").setMediaMetadata(
+    private fun startItem(prefix: String, folderId: String, title: String, subtitle: String, icon: String) = MediaItem.Builder().setMediaId("$prefix$folderId").setMediaMetadata(
         MediaMetadata.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setArtworkUri(Uri.parse("android.resource://${BuildConfig.APPLICATION_ID}/$icon"))
+            .setArtworkUri(artworkUri(null, icon))
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
@@ -240,13 +243,22 @@ class MediaTree(private val c: AppContainer) {
         return searchResults.firstOrNull()
     }
 
-    private fun artworkUri(url: String?): Uri? {
-        val u = hiRes(url, 544) ?: return null
-        if (u.startsWith("android.resource:")) return Uri.parse(u)
-        val encoded = Base64.encodeToString(u.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-        return Uri.parse("content://${BuildConfig.APPLICATION_ID}.artwork/$encoded")
+    /**
+     * A picture for the car, through [ArtworkProvider]. [fallback]: one of Prism's own `ic_auto_` tiles, shown when
+     * there's no picture or it can't be had (the car leaves a tile blank, or draws a warning sign, otherwise).
+     */
+    private fun artworkUri(url: String?, fallback: String? = null): Uri? {
+        val u = hiRes(url, 544)
+        if (u != null && u.startsWith("android.resource:")) return Uri.parse(u)
+        val target = u ?: fallback?.let { ArtworkProvider.RES + it } ?: return null
+        val encoded = Base64.encodeToString(target.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        val uri = Uri.parse("content://${BuildConfig.APPLICATION_ID}.artwork/$encoded")
+        return if (u != null && fallback != null) uri.buildUpon().appendQueryParameter(ArtworkProvider.OR, fallback).build() else uri
     }
 }
+
+/** The tile for a playlist, mix or album whose cover is missing. */
+private const val AUTO_PLAYLIST = "ic_auto_playlist"
 
 /**
  * Serves cover art to Android Auto, which only loads content:// images for
@@ -261,13 +273,23 @@ class ArtworkProvider : ContentProvider() {
     private fun youTubeImage(host: String, path: String?) =
         (host == "music.youtube.com" || host == "www.youtube.com") && path?.startsWith("/image/") == true
 
-    override fun onCreate() = true
+    override fun onCreate(): Boolean {
+        // The old cache kept YouTube's PNGs under a JPEG name and type; this one only holds JPEGs.
+        context?.let { ctx -> Thread { File(ctx.cacheDir, "auto_art").deleteRecursively() }.start() }
+        return true
+    }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
         val ctx = context ?: return null
         val url = runCatching {
             String(Base64.decode(uri.lastPathSegment ?: return null, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING))
         }.getOrNull() ?: return null
+        return runCatching { picture(ctx, url) }.getOrNull()
+            ?: uri.getQueryParameter(OR)?.let { runCatching { tile(ctx, it) }.getOrNull() }
+    }
+
+    private fun picture(ctx: android.content.Context, url: String): ParcelFileDescriptor? {
+        if (url.startsWith(RES)) return tile(ctx, url.removePrefix(RES))
         // A playlist picture the listener chose, kept in the app's own covers folder.
         if (url.startsWith("file:")) {
             val file = File(Uri.parse(url).path ?: return null)
@@ -283,25 +305,54 @@ class ArtworkProvider : ContentProvider() {
         val parsed = Uri.parse(url)
         val host = parsed.host ?: return null
         if (!url.startsWith("https://") || (allowedHosts.none { host.endsWith(it) } && !youTubeImage(host, parsed.path))) return null
-        val name = MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
-        val dir = File(ctx.cacheDir, "auto_art").apply { mkdirs() }
+        val container = runCatching { (ctx.applicationContext as? com.prism.music.PrismApp)?.container }.getOrNull()
+        return cached(ctx, url) {
+            // A cover already kept on the phone (what the app itself shows, offline too), else from the network.
+            container?.artwork?.fileFor(url)?.takeIf { it.exists() }?.readBytes()
+                ?: (container?.http ?: okhttp3.OkHttpClient()).newCall(Request.Builder().url(url).build()).execute().use { r ->
+                    if (r.isSuccessful) r.body.bytes() else null
+                }
+        }
+    }
+
+    /** One of Prism's own `ic_auto_` tiles, drawn once per version of the app. */
+    private fun tile(ctx: android.content.Context, name: String): ParcelFileDescriptor? {
+        if (!name.matches(Regex("ic_auto_[a-z_]+"))) return null
+        @Suppress("DiscouragedApi")
+        val id = ctx.resources.getIdentifier(name, "drawable", ctx.packageName).takeIf { it != 0 } ?: return null
+        return cached(ctx, "$RES$name@${BuildConfig.VERSION_CODE}") {
+            val d = androidx.core.content.ContextCompat.getDrawable(ctx, id) ?: return@cached null
+            val bitmap = android.graphics.Bitmap.createBitmap(TILE_PX, TILE_PX, android.graphics.Bitmap.Config.ARGB_8888)
+            d.setBounds(0, 0, TILE_PX, TILE_PX)
+            d.draw(android.graphics.Canvas(bitmap))
+            java.io.ByteArrayOutputStream().also { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        }
+    }
+
+    /**
+     * The picture for [key] from the cache, else made by [make] and kept as a JPEG. Every picture goes to the car as
+     * a JPEG, as [getType] says: YouTube's own mixes and "Liked Music" come as PNGs, and those were left blank.
+     */
+    private fun cached(ctx: android.content.Context, key: String, make: () -> ByteArray?): ParcelFileDescriptor? {
+        val name = MessageDigest.getInstance("SHA-1").digest(key.toByteArray()).joinToString("") { "%02x".format(it) }
+        val dir = File(ctx.cacheDir, "auto_art2").apply { mkdirs() }
         val file = File(dir, "$name.jpg")
         if (!file.exists()) {
-            val client = (ctx.applicationContext as? com.prism.music.PrismApp)?.container?.http ?: okhttp3.OkHttpClient()
-            runCatching {
-                client.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                    if (!r.isSuccessful) return null
-                    val tmp = File(dir, "$name.tmp")
-                    tmp.outputStream().use { out -> r.body.byteStream().copyTo(out) }
-                    tmp.renameTo(file)
-                }
-            }.onFailure { return null }
+            val jpeg = make()?.let(::asJpeg) ?: return null
+            val tmp = File(dir, "$name.${Thread.currentThread().id}.tmp")
+            tmp.writeBytes(jpeg)
+            if (!tmp.renameTo(file)) { tmp.delete(); if (!file.exists()) return null }
         }
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
     }
 
-    private companion object {
-        const val LOCAL_ALBUM_ART = "content://media/external/audio/albumart/"
+    companion object {
+        /** In place of an address: one of Prism's own `ic_auto_` tiles ([MediaTree]'s Downloads, Shuffle play…). */
+        const val RES = "res:"
+        /** The query parameter naming the tile shown when the picture can't be had. */
+        const val OR = "or"
+        private const val LOCAL_ALBUM_ART = "content://media/external/audio/albumart/"
+        private const val TILE_PX = 288
     }
 
     override fun getType(uri: Uri) = "image/jpeg"
@@ -309,6 +360,20 @@ class ArtworkProvider : ContentProvider() {
     override fun insert(uri: Uri, values: ContentValues?): Uri? = null
     override fun delete(uri: Uri, s: String?, a: Array<out String>?) = 0
     override fun update(uri: Uri, v: ContentValues?, s: String?, a: Array<out String>?) = 0
+}
+
+/**
+ * [bytes] as a JPEG: as they are when they already are one, else decoded and drawn on an opaque ground (a tile's
+ * rounded corners take the tile's own color, a see-through picture goes on near-black). Null if it isn't a picture.
+ */
+internal fun asJpeg(bytes: ByteArray): ByteArray? {
+    if (bytes.size > 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()) return bytes
+    val src = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+    val edge = src.getPixel(src.width / 2, minOf(1, src.height - 1))
+    val ground = if (android.graphics.Color.alpha(edge) == 255) edge else 0xFF121212.toInt()
+    val out = android.graphics.Bitmap.createBitmap(src.width, src.height, android.graphics.Bitmap.Config.ARGB_8888)
+    android.graphics.Canvas(out).apply { drawColor(ground); drawBitmap(src, 0f, 0f, null) }
+    return java.io.ByteArrayOutputStream().also { out.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }.toByteArray()
 }
 
 /** A playlist's browse folder id; mixes and stations keep their seed song and params for [MediaTree]'s "mix:" folders. */

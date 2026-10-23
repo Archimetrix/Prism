@@ -85,6 +85,18 @@ class ForYouTest {
     }
 
     @Test
+    fun aMixIsNamedByItsGenreOnlyWhenMostOfItIsThatGenre() {
+        // The owner's "Friday morning indie": 15 rock, 10 indie, 3 hip-hop, 2 unknown → rock (15 of 28).
+        val friday = List(15) { "Rock" } + List(10) { "Indie & alternative" } + List(3) { "Hip-hop" } + listOf(null, null)
+        assertEquals("Rock", MadeForYou.mainGenre(friday))
+        // No genre holds more than half: no genre in the name.
+        assertEquals(null, MadeForYou.mainGenre(List(10) { "Rock" } + List(10) { "Indie & alternative" } + List(5) { "Pop" }))
+        // Too little known to say.
+        assertEquals(null, MadeForYou.mainGenre(List(4) { "Rock" } + List(10) { null }))
+        assertEquals(null, MadeForYou.mainGenre(emptyList()))
+    }
+
+    @Test
     fun discographyFromAnArtistPage() {
         val page = ArtistPage(
             "UC1", "Sabrina Carpenter", null, null, null,

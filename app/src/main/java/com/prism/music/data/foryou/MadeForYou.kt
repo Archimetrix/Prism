@@ -148,6 +148,17 @@ object MadeForYou {
     fun timeTitle(weekday: String, bucket: TimeBucket, genre: String?): String =
         "Your $weekday ${bucket.label} ${genre?.lowercase()?.takeIf { it.isNotBlank() } ?: "mix"}"
 
+    /**
+     * What a mix can be called by: the genre of more than half its songs whose genre is known, with at least half its
+     * songs known. Null otherwise ("… mix"): a plurality named a mix of 15 rock songs, 10 indie and 3 hip-hop "indie".
+     */
+    fun mainGenre(genres: List<String?>): String? {
+        val known = genres.filterNotNull()
+        if (known.isEmpty() || known.size * 2 < genres.size) return null
+        val (top, count) = known.groupingBy { it }.eachCount().maxByOrNull { it.value } ?: return null
+        return top.takeIf { count * 2 > known.size }
+    }
+
     const val DAY = 86_400_000.0
     private const val SITTING_GAP_MS = 30 * 60_000L
     /**

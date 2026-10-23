@@ -80,6 +80,7 @@ class ForYou(private val c: AppContainer) {
         val bucket = MadeForYou.TimeBucket.of(hour)
         val dailyDue = force || prefs.getString(DAILY_DAY, null) != today
         val timeDue = force || prefs.getString(TIME_KEY, null) != "$today|${bucket.name}"
+        if (!timeDue) runCatching { retitleTimeMix() }.onFailure { Log.w(TAG, "time mix title failed", it) }
         if (!dailyDue && !timeDue) return@withLock
         c.quietNetwork()
         val data = withContext(Dispatchers.IO) { Listening.load(c) } ?: return@withLock
@@ -178,14 +179,39 @@ class ForYou(private val c: AppContainer) {
         val own = known.take(18)
         val fresh = discover(own.take(2), data, own.map { it.primaryArtist.lowercase() }.toSet(), day, own.map { it.id }.toSet(), max = 12)
         val songs = MadeForYou.interleave(own, fresh, 30) { it.primaryArtist.lowercase() }
-        val genre = withTimeoutOrNull(6_000) {
-            val g = c.meta.cachedGenres(own)
-            own.mapNotNull { g[it.id] }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        // Artists whose genre isn't known yet are looked up first (briefly), so the name has the whole mix to go by.
+        withTimeoutOrNull(6_000) {
+            val known = c.meta.cachedGenres(songs)
+            val missing = songs.filter { it.id !in known }.map { it.primaryArtist }.filter { it.isNotBlank() }.distinct()
+            coroutineScope { missing.map { a -> async { runCatching { c.meta.artistGenre(a) } } }.awaitAll() }
         }
         val weekday = LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
         val artists = own.map { it.primaryArtist }.distinct()
-        saveMix(MadeForYou.TIME, MadeForYou.timeTitle(weekday, bucket, genre?.substringBefore(" & ")), MadeForYou.namesLine(artists),
+        saveMix(MadeForYou.TIME, MadeForYou.timeTitle(weekday, bucket, timeGenre(songs)), MadeForYou.namesLine(artists),
             artists.take(4), TIME_COLORS.getValue(bucket), songs)
+    }
+
+    /** The genre word in the time-of-day mix's name ("indie", "hip-hop"), or null for "mix". */
+    private suspend fun timeGenre(songs: List<Song>): String? {
+        val g = c.meta.cachedGenres(songs)
+        return MadeForYou.mainGenre(songs.map { g[it.id] })?.substringBefore(" & ")
+    }
+
+    /**
+     * The time-of-day mix named again from what's known of its songs' genres now. A new mix is named while most
+     * artists only have Deezer's quick genre, and Apple's (looked up in the background) can differ: Deezer files
+     * Bring Me The Horizon and A Day To Remember under Alternative, Apple under Rock, so a mix of them was called
+     * "indie" while its own page listed it as mostly rock.
+     */
+    private suspend fun retitleTimeMix() {
+        val e = c.db.mixes().get(MadeForYou.TIME) ?: return
+        val made = java.time.Instant.ofEpochMilli(e.createdAt).atZone(java.time.ZoneId.systemDefault())
+        val bucket = MadeForYou.TimeBucket.of(made.hour)
+        val title = MadeForYou.timeTitle(made.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH), bucket, timeGenre(toMix(e).songs))
+        if (title != e.title) {
+            c.db.mixes().put(e.copy(title = title))
+            Log.i(TAG, "time mix renamed: ${e.title} -> $title")
+        }
     }
 
     /** Each artist's genre (Prism's genre buckets), from what's been looked up; the ones not known yet are looked up (briefly). */
