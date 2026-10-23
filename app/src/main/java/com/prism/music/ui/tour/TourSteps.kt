@@ -189,7 +189,7 @@ object Tour {
             "Settings → Appearance → Looks: your whole look, saved, switched and shared in one tap.",
             listOf(
                 "Try Prism's own: Paper, Midnight, Neon, Soft and Studio",
-                "Save yours, and share it as a QR code, a code or a file",
+                "Save yours, update it when you change it, and share it as a QR code, a code or a file",
                 "Browse Looks people shared, under From the community",
                 "One Look by day and another by night, at sunrise and sunset",
                 "Every look page shows Home, the player and lyrics as you change them; Undo takes a change back",
