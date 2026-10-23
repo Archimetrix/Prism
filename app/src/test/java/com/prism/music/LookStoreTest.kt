@@ -58,4 +58,42 @@ class LookStoreTest {
         assertEquals("Before Paper", looks.mine.value.single { it.id == LookStore.BEFORE_ID }.name)
         looks.delete(LookStore.BEFORE_ID)
     }
+
+    @Test
+    fun yourLookCanBeUpdatedWithLaterChanges(): Unit = runBlocking {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val settings = SettingsRepository(app, scope)
+        settings.applyLook(emptyMap())
+        withTimeout(5_000) { settings.lookValues.first { it.isEmpty() } }
+        val looks = LookStore(app, settings, scope)
+
+        settings.setCorners(Corners.SHARP)
+        withTimeout(5_000) { settings.lookValues.first { it["corners"] == "s:SHARP" } }
+        val mine = looks.saveCurrent("Mine")
+        withTimeout(5_000) { looks.currentId.first { it == mine.id } }
+        withTimeout(5_000) { looks.edited.first { it == null } }
+
+        // Changed (back to how Prism comes, which is Prism's own Look: still a change to yours) after saving: Prism offers to update it.
+        settings.setCorners(Corners.ROUND)
+        assertEquals(mine.id, withTimeout(5_000) { looks.edited.first { it != null } }!!.id)
+        assertEquals(true, looks.edits(mine)?.startsWith("You've changed its"))
+
+        val updated = looks.update(mine)
+        assertEquals("s:ROUND", updated.values["corners"])
+        assertEquals(mine.created, updated.created)
+        assertEquals("Mine", updated.name)
+        withTimeout(5_000) { looks.currentId.first { it == mine.id } }
+        withTimeout(5_000) { looks.edited.first { it == null } }
+        assertEquals(1, looks.mine.value.count { it.id == mine.id })
+
+        // Picking a Look that isn't yours means later changes aren't offered to Mine.
+        looks.apply(BuiltInLooks.of("paper")!!)
+        settings.setCorners(Corners.EXTRA)
+        withTimeout(5_000) { settings.lookValues.first { it["corners"] == "s:EXTRA" } }
+        delay(300)
+        assertEquals(null, looks.edited.value)
+        looks.delete(mine.id)
+        looks.delete(LookStore.BEFORE_ID)
+    }
 }

@@ -146,7 +146,7 @@ fun LookUndoBar(modifier: Modifier = Modifier) {
         ) {
             Text(n.label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyMedium, color = scheme.inverseOnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.width(8.dp))
-            PrismTextButton({ note = null; c.looks.undo() }) {
+            PrismTextButton({ note = null; n.undo?.invoke() ?: c.looks.undo() }) {
                 Icon(PrismIcons.Undo, null, Modifier.size(16.dp), tint = scheme.inversePrimary)
                 Spacer(Modifier.width(6.dp))
                 Text("Undo", color = scheme.inversePrimary)

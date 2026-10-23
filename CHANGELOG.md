@@ -22,6 +22,9 @@ The second customization update: Looks.
 - **Nothing gets lost.** Switching to a Look while your own mix isn't saved keeps it as a "Before <Look>" card, so you
   can always go back to it. Each Look's menu (or a long press on its card) says what it changes, and so does a Look
   someone sends you, before you use it.
+- **Update your Looks.** Change something after putting on one of your own Looks and the Looks page says what you've
+  changed since you saved it, with **Update** (or Save as new, or go back to it as saved). Any of your Looks can also be
+  updated to your settings from its menu. Undo takes an update back.
 
 ### Changing the look
 - **A live preview** at the top of every look page: Home with the mini player and tab bar, the player and the lyrics,

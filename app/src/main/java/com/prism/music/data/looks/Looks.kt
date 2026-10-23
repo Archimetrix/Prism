@@ -298,14 +298,14 @@ object LookLabels {
      * What a switch would change, in a line ("Changes your theme, colors and icons"), from the settings that differ
      * ([keys]) and whether the icon style does; null when nothing would.
      */
-    fun summary(keys: Collection<String>, icons: Boolean): String? {
+    fun summary(keys: Collection<String>, icons: Boolean, lead: String = "Changes your"): String? {
         val parts = areaOf.filter { (_, set) -> keys.any { it in set } }.map { it.first }.toMutableList()
         // Anything not in a part above (a setting added later) still counts as the look.
         if (keys.any { k -> areaOf.none { k in it.second } } && parts.isEmpty()) parts += "look"
         if (icons) parts += "icons"
         if (parts.isEmpty()) return null
         val list = if (parts.size == 1) parts[0] else parts.dropLast(1).joinToString(", ") + " and " + parts.last()
-        return "Changes your $list"
+        return "$lead $list"
     }
 
     /** One change as it reads: "Corners → Sharp", or "Corners → Sharp and 2 more". */

@@ -147,19 +147,31 @@ private fun LooksSettings() {
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         // What you have now, and keeping it.
         val now = current?.let(c.looks::find)
+        // One of yours, changed since it was saved: it can be updated with the changes.
+        val edited by c.looks.edited.collectAsState()
+        val app = LocalAppSettings.current
         Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                if (now != null) "You're on ${now.name}" else "You're on your own mix of settings",
+                when {
+                    edited != null -> "You're on ${edited!!.name}, with changes"
+                    now != null -> "You're on ${now.name}"
+                    else -> "You're on your own mix of settings"
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "A Look keeps colors, type, icons, backgrounds, the player and lyrics' look together. Pick one and everything changes at once; Undo puts it back.",
+                edited?.let { e -> remember(e, app) { c.looks.edits(e) }?.let { "$it since you saved it. Update it to keep them in ${e.name}." } }
+                    ?: "A Look keeps colors, type, icons, backgrounds, the player and lyrics' look together. Pick one and everything changes at once; Undo puts it back.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PrismButton({ saving = true }) { Icon(PrismIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save as a Look") }
-                if (now != null) PrismOutlinedButton({ sharing = now }) { Icon(PrismIcons.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share") }
+                edited?.let { e ->
+                    PrismButton({ scope.launch { c.looks.update(e) } }) { Icon(PrismIcons.Update, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Update") }
+                    PrismOutlinedButton({ saving = true }) { Icon(PrismIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save as new") }
+                } ?: PrismButton({ saving = true }) { Icon(PrismIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Save as a Look") }
+                if (now != null && edited == null) PrismOutlinedButton({ sharing = now }) { Icon(PrismIcons.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Share") }
             }
+            edited?.let { e -> PrismTextButton({ apply(e) }) { Icon(PrismIcons.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Go back to ${e.name} as saved", maxLines = 1, overflow = TextOverflow.Ellipsis) } }
             // Icons are drawn as Prism starts: a Look with other icons shows them after a restart.
             if (c.looks.iconsNeedRestart()) PrismTextButton({
                 val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
@@ -277,10 +289,13 @@ private fun CommunityGroup(current: String?) {
 /** [looks] two to a row, each a card with the Look on two small phones; [current] is ringed. */
 @Composable
 private fun LookGrid(looks: List<Look>, current: String?, onPick: (Look) -> Unit, onMore: ((Look) -> Unit)?) {
+    val edited by LocalContainer.current.looks.edited.collectAsState()
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         looks.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { look -> LookCard(look, look.id == current, Modifier.weight(1f), { onPick(look) }, onMore?.let { m -> { m(look) } }) }
+                row.forEach { look ->
+                    LookCard(look, look.id == current, Modifier.weight(1f), { onPick(look) }, onMore?.let { m -> { m(look) } }, changed = look.id == edited?.id)
+                }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
@@ -290,7 +305,7 @@ private fun LookGrid(looks: List<Look>, current: String?, onPick: (Look) -> Unit
 /** A Look as a card: its Home and player, its name and what it is, a ⋯ for more. Tapping it switches to it. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun LookCard(look: Look, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit, onMore: (() -> Unit)? = null) {
+fun LookCard(look: Look, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit, onMore: (() -> Unit)? = null, changed: Boolean = false) {
     val c = LocalContainer.current
     val app = LocalAppSettings.current
     val ui = LocalUi.current
@@ -317,6 +332,8 @@ fun LookCard(look: Look, selected: Boolean, modifier: Modifier = Modifier, onCli
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(look.name, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (selected) Icon(PrismIcons.CheckCircle, "In use", Modifier.size(18.dp))
+            // Yours, in use with changes not saved into it yet.
+            if (changed) Icon(PrismIcons.Edit, "In use, changed since saved", Modifier.size(16.dp), tint = scheme.onSurfaceVariant)
             if (onMore != null) Icon(
                 PrismIcons.More, "More for ${look.name}",
                 Modifier.padding(start = 2.dp).size(32.dp).clip(RoundedCornerShape(50)).clickable(onClick = onMore).padding(6.dp),
@@ -335,13 +352,20 @@ private fun LookActions(look: Look, onDismiss: () -> Unit, onApply: () -> Unit, 
     ActionSheet(null, onDismiss) { close ->
         Text(look.name, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium))
         if (look.note.isNotBlank()) Text(look.note, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val changes = remember(look) { c.looks.changes(look) }
+        val edited by c.looks.edited.collectAsState()
+        val changed = edited?.id == look.id
+        val changes = remember(look, changed) { if (changed) c.looks.edits(look)?.let { "$it since you saved it" } else c.looks.changes(look) }
         Text(
             changes ?: "You're on it now", Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface,
         )
         val items = listOfNotNull(
-            ActionItem(PrismIcons.Check, "Use this Look", onClick = onApply),
+            // Yours: save the app's look as it is now into it (your changes since, or any settings you've made since).
+            if (!look.builtIn && changes != null) ActionItem(
+                PrismIcons.Update, if (changed) "Update with your changes" else "Update to your settings now",
+                onClick = { scope.launch { c.looks.update(look) } },
+            ) else null,
+            ActionItem(PrismIcons.Check, if (changed) "Go back to it as saved" else "Use this Look", onClick = onApply),
             ActionItem(PrismIcons.Share, "Share", onClick = onShare),
             if (!look.builtIn) ActionItem(PrismIcons.Edit, "Rename", onClick = onRename) else null,
             ActionItem(PrismIcons.Copy, if (look.builtIn) "Save a copy to change" else "Duplicate", onClick = {

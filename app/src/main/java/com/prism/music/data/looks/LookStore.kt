@@ -41,7 +41,7 @@ import java.util.zip.ZipOutputStream
 data class LookStep(val label: String, val at: Long, val before: Map<String, String>, val keys: List<String> = emptyList(), val look: Boolean = false)
 
 /** "Undo: …" for the bar that shows after a change; [id] tells two notes with the same words apart. */
-data class UndoNote(val label: String, val id: Long)
+data class UndoNote(val label: String, val id: Long, val undo: (() -> Unit)? = null)
 
 /**
  * A Look for the day and one for the night (1.7.3), switched at sunrise and sunset ([SunClock], from the time zone, no
@@ -87,6 +87,21 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     val currentId: StateFlow<String?> = combine(settings.flow, _mine, iconsVersion, _other) { s, _, _, _ -> lookNow(s)?.id }
         .flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
 
+    /** Your own Look last put on or saved, so changes made to it afterwards can be saved into it ([edited], [update]). */
+    private val basis = MutableStateFlow(prefs.getString(BASIS, null))
+
+    private fun setBasis(id: String?) {
+        basis.value = id
+        prefs.edit().putString(BASIS, id).apply()
+    }
+
+    /**
+     * Your own Look you're on with changes since it was saved (even ones that happen to make it another Look), if you
+     * are; null when you're on it as saved, or picked a Look that isn't yours.
+     */
+    val edited: StateFlow<Look?> = combine(currentId, basis, _mine) { now, b, mine -> if (b != null && now != b) mine.firstOrNull { it.id == b } else null }
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
     /** The Look whose settings and icons [s] are exactly; your own Looks first (one saved from Paper as it is is yours). */
     private fun lookNow(s: com.prism.music.data.prefs.AppSettings): Look? {
         val icons = currentIcons()
@@ -112,7 +127,9 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
      * The app's look as it is now, as a Look named [name]: its photos and own font are kept with it, and the
      * backgrounds then point at the kept photos, so picking another photo later can't take this one away.
      */
-    suspend fun saveCurrent(name: String, id: String = newId(), note: String = "", repoint: Boolean = true): Look = withContext(Dispatchers.IO) {
+    suspend fun saveCurrent(
+        name: String, id: String = newId(), note: String = "", repoint: Boolean = true, created: Long = System.currentTimeMillis(),
+    ): Look = withContext(Dispatchers.IO) {
         val v = settings.lookValues.value.toMutableMap()
         v[Look.BACKDROPS]?.let { tagged ->
             val kept = Backgrounds.parse(tagged).mapNotNull { (screen, value) ->
@@ -126,8 +143,9 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         if (font == null) { v.remove(Look.APP_FONT_NAME); if (custom) v.remove(Look.FONT_CHOICE) }
         // The lyrics' own font file stays outside Looks.
         if (LookValue.text(v[Look.LYRICS_FONT]) == "CUSTOM") v.remove(Look.LYRICS_FONT)
-        val look = Look(id, name.trim().take(Look.MAX_NAME).ifBlank { "My Look" }, v, currentIcons(), font, System.currentTimeMillis(), note = note)
+        val look = Look(id, name.trim().take(Look.MAX_NAME).ifBlank { "My Look" }, v, currentIcons(), font, created, note = note)
         write(look)
+        if (repoint) setBasis(id)
         // The backgrounds now point at the kept photos (not a change to the look: no Undo for it).
         val photos = Backgrounds.parse(look.values[Look.BACKDROPS]).filterValues { Backgrounds.assetOf(it) != null }
         if (repoint && photos.isNotEmpty()) {
@@ -144,6 +162,25 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
             .also(::write)
     }
 
+    /**
+     * Saves the app's look as it is now into your own [look] (same name, note and place in the list). The Undo bar
+     * then offers the Look as it was saved before.
+     */
+    suspend fun update(look: Look): Look {
+        val before = _mine.value.firstOrNull { it.id == look.id } ?: look
+        // "Before <Look>"'s note ("from before you picked …") stops being true once it's updated.
+        val saved = saveCurrent(before.name, before.id, if (before.id == BEFORE_ID) "" else before.note, created = before.created)
+        _notes.tryEmit(UndoNote("Updated ${before.name}", ++noteId, undo = { scope.launch(Dispatchers.IO) { write(before) } }))
+        return saved
+    }
+
+    /** What you've changed since [look] was saved ("You've changed its colors and type"); null for nothing. */
+    fun edits(look: Look): String? {
+        val now = settings.lookValues.value
+        val saved = settings.lookAfter(resolved(look))
+        return LookLabels.summary((now.keys + saved.keys).filter { now[it] != saved[it] }, look.icons != currentIcons(), lead = "You've changed its")
+    }
+
     fun rename(id: String, name: String) {
         val look = _mine.value.firstOrNull { it.id == id } ?: return
         scope.launch(Dispatchers.IO) { write(look.copy(name = name.trim().take(Look.MAX_NAME).ifBlank { look.name })) }
@@ -151,6 +188,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
 
     fun delete(id: String) {
         _mine.value = _mine.value.filterNot { it.id == id }
+        if (basis.value == id) setBasis(null)
         scope.launch(Dispatchers.IO) {
             File(dir, "$id.json").delete()
             if (_schedule.value.day == id || _schedule.value.night == id) setSchedule(_schedule.value.copy(on = false))
@@ -230,7 +268,9 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
             }
         }
         expect = Expect(settings.lookAfter(values), label = label)
-        if (BuiltInLooks.of(look.id) == null && _mine.value.none { it.id == look.id }) _other.value = look.copy(id = look.id.ifBlank { "shared" })
+        val yours = _mine.value.any { it.id == look.id }
+        if (BuiltInLooks.of(look.id) == null && !yours) _other.value = look.copy(id = look.id.ifBlank { "shared" })
+        setBasis(if (yours) look.id else null)
         settings.applyLook(values, fontChanged)
         applyIcons(look.icons)
     }
@@ -471,6 +511,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         const val FILE_EXTENSION = "prismlook"
         private const val FILE_CODE = "look.txt"
         private const val HISTORY = "history.json"
+        private const val BASIS = "basis"
         private const val SCHEDULE = "schedule.json"
         private const val LAST_TURN = "schedule_last"
         private const val MERGE_MS = 4_000L
