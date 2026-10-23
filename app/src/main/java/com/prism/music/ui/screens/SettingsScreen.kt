@@ -95,6 +95,7 @@ import com.prism.music.ui.components.SubPage
 import com.prism.music.ui.components.featurePane
 import com.prism.music.ui.theme.AccentSwatches
 import com.prism.music.ui.theme.isNeutralSeed
+import com.prism.music.ui.theme.screensOnly
 import com.prism.music.ui.theme.AppFonts
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
@@ -148,7 +149,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         ).joinToString(" · ")
         TEXT -> listOfNotNull(s.fontChoice.label + " font", if (s.textScale != 1f) "${(s.textScale * 100).roundToInt()}% size" else null).joinToString(" · ")
         ICONS -> "Icon pack and weight, app icon, corners"
-        GLASS -> listOfNotNull(when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }, if (s.backdrops.isEmpty()) null else "Backgrounds", if (s.reduceMotion) "Reduced motion" else null).joinToString(" · ")
+        GLASS -> listOfNotNull(when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }, if (s.backdrops.screensOnly.isEmpty()) null else "Backgrounds", if (s.reduceMotion) "Reduced motion" else null).joinToString(" · ")
         LOOKS -> "Save, switch and share whole looks; day and night"
     }
 
@@ -770,11 +771,12 @@ private fun GlassSettings() {
                 val s = LocalAppSettings.current
                 val nav = LocalNavigator.current
                 Group("Backgrounds") {
-                    val count = s.backdrops.size
+                    val screens = s.backdrops.screensOnly
+                    val count = screens.size
                     Item(
                         "Screen backgrounds",
                         if (count == 0) "Designs or your own photo"
-                        else s.backdrops.values.map { com.prism.music.ui.theme.Backdrop.parse(it).first.label }.distinct().joinToString(" · ") + " on $count ${if (count == 1) "screen" else "screens"}",
+                        else screens.values.map { com.prism.music.ui.theme.Backdrop.parse(it).first.label }.distinct().joinToString(" · ") + " on $count ${if (count == 1) "screen" else "screens"}",
                         onClick = { nav.go(Routes.BACKGROUNDS) },
                     ) { Chevron() }
                 }
@@ -1130,7 +1132,7 @@ fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: S
             when (target) {
                 com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER -> MiniPlayerGroup()
                 com.prism.music.ui.components.CustomizeTarget.TAB_BAR -> NavBarGroup()
-                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLayoutGroup(); PlayerLookGroup(); PlayerCoverGroup(); PlayerButtonsGroup(); LyricsLookGroup("Lyrics") }
+                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLayoutGroup(); PlayerLookGroup(); PlayerCoverGroup(); PlayerButtonsGroup(); PlayerVisualizerGroup(); LyricsLookGroup("Lyrics") }
                 com.prism.music.ui.components.CustomizeTarget.HOME_SECTION -> {
                     if (section != null) Group("This section") {
                         Label("Style")
@@ -1213,6 +1215,7 @@ private fun PlayerSettings() {
         PlayerButtonsGroup()
         PlayerArrangeGroup()
         PlayerTitleGroup()
+        PlayerVisualizerGroup()
         // Tick what else you want there (the current lyric and volume are in "Under the title").
         Group("Show on the player") {
             ShowChips(
@@ -1291,7 +1294,16 @@ private fun PlayerLookGroup() {
     Group("Look") {
         Label("Background")
         Chips(PlayerBackground.entries, s.playerBackground, { it.label }) { prefs.setPlayerBackground(it) }
-        if (s.playerBackground == PlayerBackground.APPEARANCE) Note("Home's background from Appearance, darkened")
+        if (s.playerBackground == PlayerBackground.APPEARANCE) {
+            val nav = LocalNavigator.current
+            val own = s.backdrops[com.prism.music.ui.theme.PLAYER_BACKDROP]
+            Item(
+                "Which background",
+                if (own == null) "Same as Home (" + com.prism.music.ui.theme.Backdrop.parse(s.backdrops[com.prism.music.ui.theme.BackdropScreen.HOME.name]).first.label + "), darkened"
+                else com.prism.music.ui.theme.Backdrop.parse(own).first.label + ", darkened",
+                onClick = { nav.go(Routes.BACKGROUNDS + "?player=true") },
+            ) { Chevron() }
+        }
         if (s.playerBackground == PlayerBackground.BLUR || s.playerBackground == PlayerBackground.APPEARANCE) SliderSetting(
             "Show background", s.playerBackdropShow, 0f..1f, { if (it < 0.2f) "Subtle" else if (it < 0.7f) "Balanced" else "Vivid" },
         ) { prefs.setPlayerBackdropShow(it) }

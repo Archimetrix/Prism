@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -108,6 +109,23 @@ private fun LayoutSample(layout: PlayerLayout) {
                         Box(Modifier.align(Alignment.TopEnd).padding(top = 2.dp).size(2.dp, 34.dp).rotate(22f).background(Color(0xFFCFCFD6)))
                     }
                     Spacer(Modifier.height(6.dp)); Bar(0.6f, 4.dp, Ink); Spacer(Modifier.height(6.dp)); Transport()
+                }
+                PlayerLayout.CASSETTE -> {
+                    Spacer(Modifier.height(10.dp))
+                    // The tape: the cover as its label, two reels in the window.
+                    Box(Modifier.fillMaxWidth(0.8f).aspectRatio(1.56f).clip(RoundedCornerShape(4.dp)).background(Color(0xFF1E1E23))) {
+                        Box(
+                            Modifier.padding(4.dp).fillMaxWidth().fillMaxHeight(0.62f).clip(RoundedCornerShape(2.dp))
+                                .background(Brush.linearGradient(listOf(Color(0xFF8A6BFF), Color(0xFFFF7A59)))),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth(0.62f).clip(CircleShape).background(Color(0xFF0C0C0E)).padding(horizontal = 6.dp, vertical = 3.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) { repeat(2) { Box(Modifier.size(9.dp).clip(CircleShape).background(Color(0xFF4A372C)).border(2.dp, Color(0xFFE9E9EC), CircleShape)) } }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp)); Bar(0.6f, 4.dp, Ink); Spacer(Modifier.height(6.dp)); Transport()
                 }
                 else -> {
                     val cover = when (layout) { PlayerLayout.COVER -> 0.7f; PlayerLayout.MINIMAL -> 0.52f; else -> 0.46f }
@@ -255,6 +273,7 @@ fun buttonIcon(b: PlayerButton): ImageVector = when (b) {
     PlayerButton.EQUALIZER -> PrismIcons.Equalizer
     PlayerButton.DOWNLOAD -> PrismIcons.Download
     PlayerButton.RADIO -> PrismIcons.Radio
+    PlayerButton.SPEED -> PrismIcons.Speed
 }
 
 private fun sessionIcon(b: SessionButton): ImageVector = when (b) {
@@ -333,6 +352,128 @@ fun PlayerTitleGroup() {
             },
             onSelect = { prefs.setScrubberColor(it) },
         ) { BarSample(it) }
+        // Thickness and the knob (1.7.4): the waveform keeps its own height.
+        SliderSetting("Progress bar thickness", s.scrubberThickness, 0.6f..2f, { if (it < 0.85f) "Thinner" else if (it <= 1.15f) "As the style" else "Thicker" }) {
+            prefs.setScrubberThickness(if (it in 0.93f..1.07f) 1f else it)
+        }
+        if (s.scrubberStyle == com.prism.music.data.prefs.ScrubberStyle.WAVE) Note("The waveform keeps its own height; thickness shows until a song has been scanned.")
+        Label("Knob at the playhead")
+        ChoiceCards(
+            com.prism.music.data.prefs.ScrubberThumb.entries, s.scrubberThumb, title = { it.label },
+            detail = { if (it == com.prism.music.data.prefs.ScrubberThumb.AUTO) "A dot with the Thumb style" else null },
+            onSelect = { prefs.setScrubberThumb(it) },
+        ) { KnobSample(it, s.scrubberThickness) }
+    }
+}
+
+@Composable
+private fun KnobSample(knob: com.prism.music.data.prefs.ScrubberThumb, thickness: Float) {
+    val light = Brush.horizontalGradient(*PrismTokens.spectrumColors(true).toTypedArray())
+    SampleScreen(Modifier.fillMaxWidth().height(40.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.align(Alignment.Center).padding(horizontal = 14.dp).fillMaxWidth().height(16.dp)) {
+            val h = 4.dp.toPx() * thickness
+            val y = size.height / 2
+            val x = size.width * 0.55f
+            drawRoundRect(Faint, androidx.compose.ui.geometry.Offset(0f, y - h / 2), androidx.compose.ui.geometry.Size(size.width, h), androidx.compose.ui.geometry.CornerRadius(h / 2))
+            drawRoundRect(light, androidx.compose.ui.geometry.Offset(0f, y - h / 2), androidx.compose.ui.geometry.Size(x, h), androidx.compose.ui.geometry.CornerRadius(h / 2))
+            val r = 6.dp.toPx()
+            when (knob) {
+                com.prism.music.data.prefs.ScrubberThumb.DOT, com.prism.music.data.prefs.ScrubberThumb.AUTO ->
+                    if (knob == com.prism.music.data.prefs.ScrubberThumb.DOT) drawCircle(Color.White, r, androidx.compose.ui.geometry.Offset(x, y))
+                com.prism.music.data.prefs.ScrubberThumb.LINE -> drawLine(Color.White, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height), 3.dp.toPx(), androidx.compose.ui.graphics.StrokeCap.Round)
+                com.prism.music.data.prefs.ScrubberThumb.RING -> {
+                    drawCircle(Color.Black.copy(alpha = 0.6f), r, androidx.compose.ui.geometry.Offset(x, y))
+                    drawCircle(Color.White, r, androidx.compose.ui.geometry.Offset(x, y), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                }
+                com.prism.music.data.prefs.ScrubberThumb.NONE -> {}
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------- Visualizer
+
+/**
+ * The visualizer (1.7.4): off unless picked, since it's the one part of the player that works on every frame. It moves
+ * with Prism's own sound (no microphone), only while the player is open and playing.
+ */
+@Composable
+fun PlayerVisualizerGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Group("Visualizer") {
+        ChoiceCards(
+            com.prism.music.data.prefs.VisualizerStyle.entries, s.visualizer, title = { it.label }, detail = { it.note },
+            onSelect = { prefs.setVisualizer(it) },
+        ) { VisualizerSample(it, s.visualizerColor) }
+        if (s.visualizer != com.prism.music.data.prefs.VisualizerStyle.OFF) {
+            Label("Visualizer color")
+            Chips(ScrubberColor.entries, s.visualizerColor, { it.label }) { prefs.setVisualizerColor(it) }
+            Note(
+                if (s.reduceMotion) "Reduce motion is on, so it stays still."
+                else "It listens to Prism's own sound (no microphone) and only runs while the player is open and playing. On an older phone, Off keeps the player lightest."
+            )
+        }
+    }
+}
+
+@Composable
+private fun VisualizerSample(style: com.prism.music.data.prefs.VisualizerStyle, color: ScrubberColor) {
+    val fill = com.prism.music.ui.player.scrubberFill(color, LocalContainer.current.player.currentSong.value?.thumbnail)
+        ?: Brush.horizontalGradient(*PrismTokens.spectrumColors(true).toTypedArray())
+    // A still frame of each, from a made-up spectrum.
+    val bands = remember { FloatArray(20) { i -> (0.85f - i * 0.025f) * (0.55f + 0.45f * kotlin.math.abs(kotlin.math.sin(i * 1.7f))) } }
+    SampleScreen(Modifier.fillMaxWidth().height(96.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+            val cover = size.height * 0.5f
+            val cx = size.width / 2
+            val coverTop = size.height * 0.06f
+            fun coverRect() = drawRoundRect(
+                Brush.linearGradient(listOf(Color(0xFF8A6BFF), Color(0xFFFF7A59))),
+                androidx.compose.ui.geometry.Offset(cx - cover / 2, coverTop), androidx.compose.ui.geometry.Size(cover, cover), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
+            )
+            when (style) {
+                com.prism.music.data.prefs.VisualizerStyle.GLOW -> drawCircle(
+                    Brush.radialGradient(listOf(Color.White.copy(alpha = 0.32f), Color.Transparent), androidx.compose.ui.geometry.Offset(cx, coverTop + cover / 2), cover * 1.3f),
+                    cover * 1.3f, androidx.compose.ui.geometry.Offset(cx, coverTop + cover / 2),
+                )
+                com.prism.music.data.prefs.VisualizerStyle.RING -> for (k in 3 downTo 1) {
+                    val g = 3.dp.toPx() * k
+                    drawRoundRect(
+                        fill, androidx.compose.ui.geometry.Offset(cx - cover / 2 - g, coverTop - g), androidx.compose.ui.geometry.Size(cover + 2 * g, cover + 2 * g),
+                        androidx.compose.ui.geometry.CornerRadius(4.dp.toPx() + g), alpha = 0.35f / k, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()),
+                    )
+                }
+                else -> {}
+            }
+            coverRect()
+            val barY = size.height * 0.78f
+            when (style) {
+                com.prism.music.data.prefs.VisualizerStyle.BARS -> {
+                    val w = size.width / bands.size
+                    bands.forEachIndexed { i, v ->
+                        val h = size.height * 0.4f * v
+                        drawRoundRect(fill, androidx.compose.ui.geometry.Offset(i * w + w * 0.15f, size.height - h), androidx.compose.ui.geometry.Size(w * 0.7f, h), androidx.compose.ui.geometry.CornerRadius(w * 0.35f), alpha = 0.5f)
+                    }
+                }
+                com.prism.music.data.prefs.VisualizerStyle.WAVE -> {
+                    val path = androidx.compose.ui.graphics.Path()
+                    val mid = size.height * 0.68f
+                    val step = size.width / (bands.size - 1)
+                    bands.forEachIndexed { i, v -> if (i == 0) path.moveTo(0f, mid - v * 10.dp.toPx()) else path.lineTo(i * step, mid - v * 10.dp.toPx()) }
+                    bands.indices.reversed().forEach { i -> path.lineTo(i * step, mid + bands[i] * 10.dp.toPx()) }
+                    path.close()
+                    drawPath(path, fill, alpha = 0.35f)
+                }
+                else -> {}
+            }
+            // The progress bar (thicker and glowing for Pulse).
+            val pulse = style == com.prism.music.data.prefs.VisualizerStyle.PULSE
+            val h = if (pulse) 4.dp.toPx() else 2.dp.toPx()
+            if (pulse) drawRoundRect(fill, androidx.compose.ui.geometry.Offset(0f, barY - h * 1.5f), androidx.compose.ui.geometry.Size(size.width * 0.45f, h * 4), androidx.compose.ui.geometry.CornerRadius(h * 2), alpha = 0.25f)
+            drawRoundRect(Faint, androidx.compose.ui.geometry.Offset(0f, barY), androidx.compose.ui.geometry.Size(size.width, h), androidx.compose.ui.geometry.CornerRadius(h / 2))
+            drawRoundRect(fill, androidx.compose.ui.geometry.Offset(0f, barY), androidx.compose.ui.geometry.Size(size.width * 0.45f, h), androidx.compose.ui.geometry.CornerRadius(h / 2))
+        }
     }
 }
 

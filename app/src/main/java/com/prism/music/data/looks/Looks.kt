@@ -224,6 +224,8 @@ object LookLabels {
         "scrubber_color" to "Progress bar color", "player_title_align" to "Title alignment", "player_title_size" to "Title size",
         "player_title_scroll" to "Scrolling titles", "player_times" to "Times", "mesh_speed" to "Mesh motion", "mesh_intensity" to "Mesh colors",
         "player_blur" to "Blur strength", "canvas_fills_background" to "Animated cover fills the player",
+        "scrubber_thickness" to "Progress bar thickness", "scrubber_thumb" to "Progress bar knob", "visualizer" to "Visualizer",
+        "visualizer_color" to "Visualizer color",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -265,12 +267,16 @@ object LookLabels {
             "player_times" to e(com.prism.music.data.prefs.PlayerTimes.entries) { it.label },
             "player_deck" to e(com.prism.music.data.prefs.DeckPart.entries) { it.label },
             "player_buttons" to e(com.prism.music.data.prefs.PlayerButton.entries) { it.label },
+            "scrubber_thumb" to e(com.prism.music.data.prefs.ScrubberThumb.entries) { it.label },
+            "visualizer" to e(com.prism.music.data.prefs.VisualizerStyle.entries) { it.label },
+            "visualizer_color" to e(com.prism.music.data.prefs.ScrubberColor.entries) { it.label },
             "spectrum_preset" to com.prism.music.ui.theme.SpectrumPresets.all.associate { it.key to it.label } + ("CUSTOM" to "Your own"),
         )
     }
 
     private val percent = setOf(
         "text_scale", "lyrics_scale", "backdrop_dim", "player_backdrop_show", "surface_tint_strength", "mesh_speed", "mesh_intensity", "player_blur",
+        "scrubber_thickness",
     )
     private val colors = setOf("accent", "accent_light", "surface_color")
 
@@ -315,6 +321,7 @@ object LookLabels {
             "show_output_device", "full_bleed_artwork", "hide_volume_bar", "show_playing_from", "player_shuffle_repeat", "immersive_art", "immersive_lyrics", "immersive_controls",
             "player_layout", "vinyl_tonearm", "player_deck", "player_buttons", "scrubber_color", "player_title_align", "player_title_size",
             "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
+            "scrubber_thickness", "scrubber_thumb", "visualizer", "visualizer_color",
         ),
         "lyrics" to setOf("lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale"),
     )

@@ -564,7 +564,13 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         composable(Routes.LIBRARY) { ScreenBackdrop(BackdropScreen.LIBRARY) { LibraryScreen(bottomPadding) } }
                         composable(Routes.REPLAY) { ScreenBackdrop(BackdropScreen.REPLAY) { ReplayScreen(bottomPadding) } }
                         composable(Routes.SETTINGS) { ScreenBackdrop(BackdropScreen.SETTINGS) { SettingsScreen(bottomPadding) } }
-                        composable(Routes.BACKGROUNDS) { ScreenBackdrop(BackdropScreen.SETTINGS) { com.prism.music.ui.screens.BackgroundsScreen(bottomPadding) } }
+                        composable(
+                            Routes.BACKGROUNDS + "?player={player}",
+                            listOf(navArgument("player") { type = NavType.BoolType; defaultValue = false }),
+                        ) {
+                            val player = it.arguments?.getBoolean("player") == true
+                            ScreenBackdrop(BackdropScreen.SETTINGS) { com.prism.music.ui.screens.BackgroundsScreen(bottomPadding, forPlayer = player) }
+                        }
                         composable(
                             "settings/{section}?find={find}",
                             listOf(

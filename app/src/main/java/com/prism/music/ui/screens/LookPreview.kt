@@ -149,7 +149,7 @@ fun MiniPlayerScreen(c: ThemeColors, song: Song?) {
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - 0.55f * s.playerBackdropShow)))
             }
             PlayerBackground.APPEARANCE -> {
-                PageGround(c, Modifier.fillMaxSize())
+                PageGround(c, Modifier.fillMaxSize(), player = true)
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - 0.55f * s.playerBackdropShow)))
             }
             PlayerBackground.THEME -> Box(Modifier.fillMaxSize().background(c.scheme.background))
@@ -158,7 +158,7 @@ fun MiniPlayerScreen(c: ThemeColors, song: Song?) {
         // Settings → Player (1.7.4): the layout, the title, the parts under it in their order, the buttons.
         val layout = s.playerLayout
         val vinyl = layout == com.prism.music.data.prefs.PlayerLayout.VINYL
-        val fullBleed = s.fullBleedArtwork && !vinyl
+        val fullBleed = s.fullBleedArtwork && !vinyl && layout != com.prism.music.data.prefs.PlayerLayout.CASSETTE
         val extra = if (layout == com.prism.music.data.prefs.PlayerLayout.COVER) maxOf(s.coverSize.extra, CoverSize.LARGE.extra) else s.coverSize.extra
         val side = if (fullBleed) 0.dp else 28.dp - extra.dp
         Column(Modifier.fillMaxSize().padding(top = if (fullBleed) 0.dp else 64.dp)) {
@@ -193,6 +193,17 @@ fun MiniPlayerScreen(c: ThemeColors, song: Song?) {
                         StandIn(song, Modifier.fillMaxSize(0.42f), CircleShape, hues)
                     }
                     if (s.vinylTonearm) Box(Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 6.dp).size(6.dp, 200.dp).graphicsLayer { rotationZ = 24f; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }.background(Color(0xFFCFCFD6), CircleShape))
+                }
+            } else if (layout == com.prism.music.data.prefs.PlayerLayout.CASSETTE) {
+                // A tape: the cover as its label, two reels in the window.
+                Box(Modifier.padding(horizontal = 28.dp).fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(1.56f).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1E1E23))) {
+                        StandIn(song, Modifier.padding(14.dp).fillMaxWidth().aspectRatio(2.3f), RoundedCornerShape(6.dp), hues)
+                        Row(
+                            Modifier.align(Alignment.Center).padding(bottom = 20.dp).fillMaxWidth(0.6f).clip(CircleShape).background(Color(0xFF0C0C0E)).padding(horizontal = 18.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) { repeat(2) { Box(Modifier.size(34.dp).clip(CircleShape).background(Color(0xFF4A372C)).border(8.dp, Color(0xFFE9E9EC), CircleShape)) } }
+                    }
                 }
             } else StandIn(song, Modifier.padding(horizontal = side.coerceAtLeast(0.dp)).fillMaxWidth().aspectRatio(1f), coverShape, hues)
             Column(Modifier.padding(horizontal = 28.dp).padding(top = 28.dp)) {

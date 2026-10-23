@@ -135,7 +135,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput || c.settings.current.lossless)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(vocals, headphoneEq, spatial, normalizer))
+                    // The visualizer's tap last (1.7.4): what you hear; it passes the sound through untouched and
+                    // only copies it while a visualizer is on screen.
+                    .setAudioProcessors(arrayOf(vocals, headphoneEq, spatial, normalizer, androidx.media3.exoplayer.audio.TeeAudioProcessor(VisualizerTap)))
                     .build()
 
             override fun buildAudioRenderers(
@@ -324,7 +326,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             }
 
             override fun afterCasting() {
-                if (player.currentMediaItem?.toSong()?.isEpisode == true && episodeSpeed != 1f) player.setPlaybackSpeed(episodeSpeed)
+                val now = player.currentMediaItem?.toSong()
+                if (now?.isEpisode == true && episodeSpeed != 1f) player.setPlaybackSpeed(episodeSpeed)
+                else if (now != null && !now.isEpisode && !now.isLive && musicSpeed != 1f) player.setPlaybackSpeed(musicSpeed)
             }
 
             override fun remoteChanged() = sessionPlayer.remoteChanged()
@@ -497,10 +501,12 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             // (At 1× while casting: the speaker or TV plays at its own speed.)
             val speed = if (c.cast.casting) 1f else episodeSpeed
             if (player.playbackParameters.speed != speed) player.setPlaybackSpeed(speed)
-        } else if (lastWasEpisode) {
-            if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
+        } else {
+            // Songs at the speed picked with the Speed button (1.7.4; 1× unless picked, always 1× live or casting).
+            val speed = if (c.cast.casting || song.isLive) 1f else musicSpeed
+            if (player.playbackParameters.speed != speed && (lastWasEpisode || speed != 1f || !mixing())) player.setPlaybackSpeed(speed)
             // Watching a podcast isn't a wish for music videos: music after it starts as the song.
-            videoWanted = false
+            if (lastWasEpisode) videoWanted = false
         }
         lastWasEpisode = song.isEpisode
         // Already playing: a seamless move on (gapless, or a Mix blend); nothing to time.
@@ -546,6 +552,26 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             if (player.currentMediaItem?.toSong()?.isEpisode == true && !c.cast.casting) player.setPlaybackSpeed(v)
         }
     private var lastWasEpisode = false
+
+    /**
+     * Songs' playback speed (1.7.4, the Speed button the listener can put under the player); 1× unless they pick another.
+     * A crossfade blends at the songs' own speed and settles back to 1×, after which [onPlaybackParametersChanged] puts
+     * this speed back.
+     */
+    var musicSpeed = 1f
+        set(v) {
+            field = v
+            val song = player.currentMediaItem?.toSong() ?: return
+            if (!song.isEpisode && !song.isLive && !c.cast.casting) player.setPlaybackSpeed(v)
+        }
+
+    private fun mixing() = ::mix.isInitialized && mix.blending
+
+    override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+        if (musicSpeed == 1f || playbackParameters.speed != 1f || mixing()) return
+        val song = player.currentMediaItem?.toSong() ?: return
+        if (!song.isEpisode && !song.isLive && !c.cast.casting) player.setPlaybackSpeed(musicSpeed)
+    }
 
     /** Remembers how far into the playing episode the listener is (see [com.prism.music.data.EpisodeProgress]). */
     private fun saveEpisodePosition() {

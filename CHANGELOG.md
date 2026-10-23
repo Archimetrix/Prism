@@ -27,18 +27,27 @@ The third customization update: the player, your way. And a faster Prism.
 ### The player, your way
 Settings → Appearance → Player, or the player's ⋯ → Player settings. Every choice shows what it looks like.
 - **Layouts:** Standard, **Cover** (a big cover; tap it for the controls), **Lyrics** (opens on the lyrics, a small
-  cover beside the title), **Minimal** (the title and play; gestures do the rest) and **Vinyl** (the cover as a record's
-  label, turning as it plays and slowing to a stop on pause, with a tonearm if you like).
+  cover beside the title), **Minimal** (the title and play; gestures do the rest), **Vinyl** (the cover as a record's
+  label, turning as it plays and slowing to a stop on pause, with a tonearm if you like) and **Cassette** (the cover on a
+  tape whose reels turn as it plays).
+- **A visualizer**, off unless you pick one: **Bars** along the bottom, a **Wave** behind the title, a **Ring** around
+  the cover, the progress bar's **Pulse**, or a **Glow** that breathes with the music; in your light, your accent, white
+  or the cover's color. It listens to Prism's own sound (no microphone, no permission) and only runs while the player is
+  open and playing, so turned off it costs nothing; Reduce motion keeps it still.
 - **Your buttons:** pick three to six for the row under the controls, in your order: lyrics, video, up next, play on,
-  sleep timer, like, not for me, add to playlist, share, Sing, DJ mode, equalizer, download, start radio.
+  sleep timer, like, not for me, add to playlist, share, Sing, DJ mode, equalizer, download, start radio, and **speed**
+  (songs at 0.75× to 1.5× for this session; crossfades blend at the songs' own speed, then it carries on). With Like in
+  the row, the heart beside the title steps aside.
 - **Notification and car buttons:** choose and order the buttons beside play. Your phone's notification and lock screen
   show the first two, Android Auto shows them all; Back 10 s and Ahead 30 s are new choices.
 - **Your order:** the current lyric, progress bar, controls, volume and buttons, top to bottom as you like.
 - **A waveform progress bar**, drawn from each song's own loudness (from Prism's song scan; nothing extra downloaded),
-  and the progress bar in your light, your accent, white or the cover's color.
+  and the progress bar in your light, your accent, white or the cover's color, thinner or thicker, with a dot, a line,
+  a ring or no knob at the playhead.
 - **The title** left or centred, small, medium or large, scrolling or not; and which times show under the bar.
 - **The background:** the color mesh can drift slowly (it stays still unless you ask), its colors softer or richer, the
-  blur softer or clearer; and an animated cover can fill the whole player.
+  blur softer or clearer; an animated cover can fill the whole player; and "Your background" can be any of Prism's
+  backgrounds or a photo of your own just for the player, not only Home's.
 - **Gestures:** what swiping left, right and up, a double tap and a long press do on the cover, and swipes on the mini
   player: next or previous song, skip back or ahead, play / pause, like, up next, lyrics, sleep timer, video, Sing, the
   song's menu, stop, or nothing.

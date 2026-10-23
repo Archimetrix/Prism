@@ -196,6 +196,15 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         service?.episodeSpeed = speed
     }
 
+    private val _musicSpeed = MutableStateFlow(1f)
+    /** Songs' playback speed (1.7.4, the Speed button under the player; 1× unless picked, for this session). */
+    val musicSpeed: StateFlow<Float> = _musicSpeed
+
+    fun setMusicSpeed(speed: Float) {
+        _musicSpeed.value = speed
+        service?.musicSpeed = speed
+    }
+
     fun setOutput(device: AudioDeviceInfo?, reason: String = "picked in the device sheet") {
         // Picking one of the phone's own outputs while casting brings the music back here, playing on.
         if (device != null && c.cast.casting) c.cast.disconnect(keepPlaying = true)
@@ -215,6 +224,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
     internal fun attach(s: PlaybackService) {
         service = s
         s.episodeSpeed = _episodeSpeed.value
+        s.musicSpeed = _musicSpeed.value
         s.player.addListener(this)
         refresh()
         pending.toList().forEach { it(s.player) }

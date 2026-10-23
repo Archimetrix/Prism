@@ -64,39 +64,48 @@ import com.prism.music.ui.components.pane
 import com.prism.music.ui.theme.Backdrop
 import com.prism.music.ui.theme.BackdropLayer
 import com.prism.music.ui.theme.BackdropScreen
+import com.prism.music.ui.theme.screensOnly
 import com.prism.music.ui.theme.LocalContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Settings → Appearance → Backgrounds: a background for each main screen, ready-made or your own photo. */
+/**
+ * Settings → Appearance → Backgrounds: a background for each main screen, ready-made or your own photo. [forPlayer]
+ * (1.7.4, Settings → Player → Background → A background): the same choices for the player alone, drawn there dark.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackgroundsScreen(bottomPadding: Dp) {
+fun BackgroundsScreen(bottomPadding: Dp, forPlayer: Boolean = false) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val s by c.settings.flow.collectAsState()
     var screen by rememberSaveable { mutableStateOf(BackdropScreen.HOME) }
-    var everywhere by rememberSaveable { mutableStateOf(s.backdrops.values.toSet().size <= 1) }
+    var everywhere by rememberSaveable { mutableStateOf(!forPlayer && s.backdrops.screensOnly.values.toSet().size <= 1) }
     var dim by remember { mutableFloatStateOf(s.backdropDim) }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val current = s.backdrops[screen.name]
+    val current = if (forPlayer) s.backdrops[com.prism.music.ui.theme.PLAYER_BACKDROP] ?: s.backdrops[BackdropScreen.HOME.name] else s.backdrops[screen.name]
     val (currentStyle, currentPhoto) = Backdrop.parse(current)
 
     fun apply(value: String?) {
-        val targets = if (everywhere) BackdropScreen.entries else listOf(screen)
         val map = s.backdrops.toMutableMap()
-        targets.forEach { t -> if (value == null) map.remove(t.name) else map[t.name] = value }
+        if (forPlayer) {
+            // "Ambient" for the player is kept as such (missing would mean "as Home").
+            map[com.prism.music.ui.theme.PLAYER_BACKDROP] = value ?: Backdrop.DEFAULT.name
+        } else {
+            val targets = if (everywhere) BackdropScreen.entries else listOf(screen)
+            targets.forEach { t -> if (value == null) map.remove(t.name) else map[t.name] = value }
+        }
         c.settings.setBackdrops(map)
     }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val name = if (everywhere) "all" else screen.name.lowercase()
+            val name = if (forPlayer) "player" else if (everywhere) "all" else screen.name.lowercase()
             val file = withContext(Dispatchers.IO) { savePhoto(context, uri, name) }
             if (file != null) apply("PHOTO|${file.absolutePath}")
         }
@@ -104,11 +113,28 @@ fun BackgroundsScreen(bottomPadding: Dp) {
 
     val ui = com.prism.music.ui.theme.LocalUi.current
     com.prism.music.ui.components.SubPage(
-        "Backgrounds", bottomPadding,
-        subtitle = "Color from what's playing, ready-made designs or your own photo",
+        if (forPlayer) "Player background" else "Backgrounds", bottomPadding,
+        subtitle = if (forPlayer) "Behind the player, darkened so its white text reads" else "Color from what's playing, ready-made designs or your own photo",
         horizontalPadding = 16.dp, spacing = 12.dp,
     ) {
-            item {
+            if (forPlayer) item {
+                val own = s.backdrops[com.prism.music.ui.theme.PLAYER_BACKDROP]
+                Column(Modifier.pane(ui.card, MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 8.dp)) {
+                    Row(Modifier.fillMaxWidth().clickable {
+                        val map = s.backdrops.toMutableMap()
+                        if (own == null) map[com.prism.music.ui.theme.PLAYER_BACKDROP] = s.backdrops[BackdropScreen.HOME.name] ?: Backdrop.DEFAULT.name
+                        else map.remove(com.prism.music.ui.theme.PLAYER_BACKDROP)
+                        c.settings.setBackdrops(map)
+                    }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Same as Home", style = MaterialTheme.typography.bodyLarge)
+                            Text("The player follows Home's background", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        PrismSwitch(own == null, null)
+                    }
+                }
+            }
+            if (!forPlayer) item {
                 Column(Modifier.pane(ui.card, MaterialTheme.colorScheme.surfaceContainer).padding(vertical = 8.dp)) {
                     Row(Modifier.fillMaxWidth().clickable { everywhere = !everywhere }.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -127,7 +153,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
             }
             item {
                 com.prism.music.ui.components.Eyebrow(
-                    if (everywhere) "Choose a background" else "Background for ${screen.label}",
+                    if (forPlayer) "Background for the player" else if (everywhere) "Choose a background" else "Background for ${screen.label}",
                     Modifier.padding(start = 8.dp, top = 10.dp),
                 )
             }
@@ -148,7 +174,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
             Backdrop.entries.filter { it.group == group }.chunked(3).forEachIndexed { r, row -> item(key = "bg:${group.name}:$r") {
               Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
               row.forEach { style ->
-                val selected = style == currentStyle
+                val selected = style == currentStyle && (!forPlayer || s.backdrops[com.prism.music.ui.theme.PLAYER_BACKDROP] != null)
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier.fillMaxWidth().aspectRatio(0.62f).clip(ui.card)
@@ -188,7 +214,7 @@ fun BackgroundsScreen(bottomPadding: Dp) {
               }
             } }
             }
-            item {
+            if (!forPlayer) item {
                 Column(Modifier.padding(top = 8.dp).pane(ui.card, MaterialTheme.colorScheme.surfaceContainer).padding(16.dp)) {
                     Text("Softness", style = MaterialTheme.typography.bodyLarge)
                     Text("How much the theme color washes over the background, for easier reading", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

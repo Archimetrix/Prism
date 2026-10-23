@@ -158,6 +158,20 @@ enum class PlayerLayout(val label: String, val note: String) {
     LYRICS("Lyrics", "Opens on the lyrics, a small cover beside the title"),
     MINIMAL("Minimal", "The title and play; gestures do the rest"),
     VINYL("Vinyl", "The cover as a record's label, turning as it plays"),
+    CASSETTE("Cassette", "The cover on a tape whose reels turn as it plays"),
+}
+
+/** The knob at the progress bar's playhead ([AUTO]: a dot with the Thumb style, none with the others). */
+enum class ScrubberThumb(val label: String) { AUTO("With the style"), NONE("None"), DOT("Dot"), LINE("Line"), RING("Ring") }
+
+/** How the visualizer moves with the music (1.7.4). */
+enum class VisualizerStyle(val label: String, val note: String) {
+    OFF("Off", "Nothing moves with the music"),
+    BARS("Bars", "Along the bottom of the player"),
+    WAVE("Wave", "A soft wave behind the title"),
+    RING("Ring", "Around the cover"),
+    PULSE("Pulse", "The progress bar pulses with the beat"),
+    GLOW("Glow", "The background breathes with the music"),
 }
 
 /** The parts under the player's title, in the order the listener arranged them. */
@@ -167,7 +181,7 @@ enum class DeckPart(val label: String) { STRIP("Current lyric"), SCRUBBER("Progr
 enum class PlayerButton(val label: String) {
     LYRICS("Lyrics"), VIDEO("Video"), QUEUE("Up next"), OUTPUT("Play on"), SLEEP("Sleep timer"), LIKE("Like"),
     DISLIKE("Not for me"), ADD_TO_PLAYLIST("Add to playlist"), SHARE("Share"), SING("Sing"), DJ("DJ mode"),
-    EQUALIZER("Equalizer"), DOWNLOAD("Download"), RADIO("Start radio");
+    EQUALIZER("Equalizer"), DOWNLOAD("Download"), RADIO("Start radio"), SPEED("Speed");
 
     companion object {
         /** As 1.7 had it: lyrics, the music video and the queue. */
@@ -651,6 +665,15 @@ data class AppSettings(
     val playerBlur: Float = 1f,
     /** An animated cover fills the whole player behind everything, not only the cover. */
     val canvasFillsBackground: Boolean = false,
+    /** The progress bar's thickness (0.6 thin … 2 thick; 1 as the style draws it) and the knob at the playhead. */
+    val scrubberThickness: Float = 1f,
+    val scrubberThumb: ScrubberThumb = ScrubberThumb.AUTO,
+    /**
+     * The visualizer (off by default: it's the one part of the player that works on every frame): moves with the music
+     * Prism plays (its own sound, so no microphone), only while the player is on screen.
+     */
+    val visualizer: VisualizerStyle = VisualizerStyle.OFF,
+    val visualizerColor: ScrubberColor = ScrubberColor.SPECTRUM,
     // Gestures on the player's cover and on the mini player.
     val coverSwipeLeft: PlayerGesture = PlayerGesture.NEXT,
     val coverSwipeRight: PlayerGesture = PlayerGesture.PREVIOUS,
@@ -868,6 +891,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val meshIntensity = floatPreferencesKey("mesh_intensity")
         val playerBlur = floatPreferencesKey("player_blur")
         val canvasFillsBackground = booleanPreferencesKey("canvas_fills_background")
+        val scrubberThickness = floatPreferencesKey("scrubber_thickness")
+        val scrubberThumb = stringPreferencesKey("scrubber_thumb")
+        val visualizer = stringPreferencesKey("visualizer")
+        val visualizerColor = stringPreferencesKey("visualizer_color")
         val coverSwipeLeft = stringPreferencesKey("cover_swipe_left")
         val coverSwipeRight = stringPreferencesKey("cover_swipe_right")
         val coverSwipeUp = stringPreferencesKey("cover_swipe_up")
@@ -893,6 +920,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 immersiveArt, immersiveLyrics, immersiveControls, playerShuffleRepeat, lightStyle,
                 playerLayout, vinylTonearm, playerDeck, playerButtons, scrubberColor, playerTitleAlign, playerTitleSize, playerTitleScroll,
                 playerTimes, meshSpeed, meshIntensity, playerBlur, canvasFillsBackground,
+                scrubberThickness, scrubberThumb, visualizer, visualizerColor,
             )
         }
 
@@ -917,7 +945,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 showPlayingFrom to 'b', playerShuffleRepeat to 'b', immersiveArt to 's', immersiveLyrics to 's', immersiveControls to 'b',
                 playerLayout to 's', vinylTonearm to 'b', playerDeck to 's', playerButtons to 's', scrubberColor to 's', playerTitleAlign to 's',
                 playerTitleSize to 's', playerTitleScroll to 'b', playerTimes to 's', meshSpeed to 'f', meshIntensity to 'f', playerBlur to 'f',
-                canvasFillsBackground to 'b',
+                canvasFillsBackground to 'b', scrubberThickness to 'f', scrubberThumb to 's', visualizer to 's', visualizerColor to 's',
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
                 libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's',
             )
@@ -1186,6 +1214,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             meshIntensity = p[K.meshIntensity] ?: d.meshIntensity,
             playerBlur = p[K.playerBlur] ?: d.playerBlur,
             canvasFillsBackground = p[K.canvasFillsBackground] ?: d.canvasFillsBackground,
+            scrubberThickness = (p[K.scrubberThickness] ?: d.scrubberThickness).coerceIn(0.6f, 2f),
+            scrubberThumb = p.enum(K.scrubberThumb, d.scrubberThumb),
+            visualizer = p.enum(K.visualizer, d.visualizer),
+            visualizerColor = p.enum(K.visualizerColor, d.visualizerColor),
             coverSwipeLeft = p.enum(K.coverSwipeLeft, d.coverSwipeLeft),
             coverSwipeRight = p.enum(K.coverSwipeRight, d.coverSwipeRight),
             coverSwipeUp = p.enum(K.coverSwipeUp, d.coverSwipeUp),
@@ -1476,6 +1508,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setMeshIntensity(v: Float) = edit { it[K.meshIntensity] = v }
     fun setPlayerBlur(v: Float) = edit { it[K.playerBlur] = v }
     fun setCanvasFillsBackground(v: Boolean) = edit { it[K.canvasFillsBackground] = v }
+    fun setScrubberThickness(v: Float) = edit { it[K.scrubberThickness] = v.coerceIn(0.6f, 2f) }
+    fun setScrubberThumb(v: ScrubberThumb) = edit { it[K.scrubberThumb] = v.name }
+    fun setVisualizer(v: VisualizerStyle) = edit { it[K.visualizer] = v.name }
+    fun setVisualizerColor(v: ScrubberColor) = edit { it[K.visualizerColor] = v.name }
     /** One of the gestures ([which]: "cover_swipe_left" … "mini_swipe_down", the setting's stored name). */
     fun setGesture(which: String, v: PlayerGesture) = edit { p ->
         val key = gestureKeys[which] ?: return@edit

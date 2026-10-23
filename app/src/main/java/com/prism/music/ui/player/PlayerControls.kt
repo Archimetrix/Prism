@@ -137,6 +137,10 @@ fun ThinSlider(
     fill: Brush? = null,
     /** The song's loudness outline (0–1 a point, [ScrubberStyle.WAVE]): drawn as bars instead of a line. */
     wave: FloatArray? = null,
+    /** The knob's shape when [thumb] (1.7.4, Settings → Player → Progress bar). */
+    thumbShape: com.prism.music.data.prefs.ScrubberThumb = com.prism.music.data.prefs.ScrubberThumb.DOT,
+    /** The visualizer's Pulse (0–1, read while drawing, so the bar alone redraws): the line swells and glows with it. */
+    pulse: (() -> Float)? = null,
 ) {
     var dragging by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
@@ -205,6 +209,13 @@ fun ThinSlider(
                 if (secondary > 0f) drawRoundRect(Color.White.copy(alpha = 0.12f), size = Size(size.width * secondary.coerceIn(0f, 1f), size.height), cornerRadius = r)
                 val played = Size(filled.coerceAtLeast(size.height).coerceAtMost(size.width), size.height)
                 if (filled > 0f) {
+                    // Pulse: the played part swells around its middle and a soft glow rises from it.
+                    val beat = pulse?.invoke()?.coerceIn(0f, 1f) ?: 0f
+                    if (beat > 0.02f) {
+                        val grow = size.height * 1.6f * beat
+                        val glow = brush ?: androidx.compose.ui.graphics.SolidColor(Color.White)
+                        drawRoundRect(glow, Offset(0f, -grow), Size(played.width, size.height + 2 * grow), CornerRadius(size.height / 2 + grow), alpha = 0.22f * beat)
+                    }
                     if (brush != null) drawRoundRect(brush, size = played, cornerRadius = r)
                     else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
                 }
@@ -216,8 +227,26 @@ fun ThinSlider(
             }
             if (thumb) {
                 val knob = (if (dragging) 9.dp else 7.dp).toPx()
-                drawCircle(Color.Black.copy(alpha = 0.18f), knob + 1.5f, Offset(filled.coerceIn(knob, size.width - knob), size.height / 2 + 1f))
-                drawCircle(Color.White, knob, Offset(filled.coerceIn(knob, size.width - knob), size.height / 2))
+                val x = filled.coerceIn(knob, size.width - knob)
+                val y = size.height / 2
+                when (thumbShape) {
+                    com.prism.music.data.prefs.ScrubberThumb.LINE -> {
+                        // An upright tick standing past the bar.
+                        val half = maxOf(size.height / 2 + 5.dp.toPx(), knob)
+                        val w = (if (dragging) 4.dp else 3.dp).toPx()
+                        drawLine(Color.Black.copy(alpha = 0.18f), Offset(x, y - half + 1f), Offset(x, y + half + 1f), w + 1.5f, StrokeCap.Round)
+                        drawLine(Color.White, Offset(x, y - half), Offset(x, y + half), w, StrokeCap.Round)
+                    }
+                    com.prism.music.data.prefs.ScrubberThumb.RING -> {
+                        drawCircle(Color.Black.copy(alpha = 0.18f), knob + 1.5f, Offset(x, y + 1f))
+                        drawCircle(Color.Black.copy(alpha = 0.55f), knob, Offset(x, y))
+                        drawCircle(Color.White, knob, Offset(x, y), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                    }
+                    else -> {
+                        drawCircle(Color.Black.copy(alpha = 0.18f), knob + 1.5f, Offset(x, y + 1f))
+                        drawCircle(Color.White, knob, Offset(x, y))
+                    }
+                }
             }
         }
     }
@@ -296,19 +325,28 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
         value = if (style != ScrubberStyle.WAVE || id == null) null else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.waves.get(id) }
     }
     val waved = wave != null
+    // Thickness (1.7.4): the style's own heights, scaled; the waveform keeps its room.
+    val thick = if (waved) 1f else settings.scrubberThickness
+    val knob = when (settings.scrubberThumb) {
+        com.prism.music.data.prefs.ScrubberThumb.AUTO -> if (style == ScrubberStyle.THUMB) com.prism.music.data.prefs.ScrubberThumb.DOT else com.prism.music.data.prefs.ScrubberThumb.NONE
+        else -> settings.scrubberThumb
+    }
+    val pulse = if (settings.visualizer == com.prism.music.data.prefs.VisualizerStyle.PULSE) rememberVisualizerLevel() else null
     Column(Modifier.fillMaxWidth()) {
         // Spectrum: a thin line, the played part in the split light (or the color picked for it).
         ThinSlider(
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
-            idleHeight = if (waved) 22.dp else when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 9.dp; ScrubberStyle.THUMB -> 4.dp },
-            activeHeight = if (waved) 26.dp else when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 14.dp; ScrubberStyle.THUMB -> 6.dp },
-            thumb = style == ScrubberStyle.THUMB,
+            idleHeight = if (waved) 22.dp else when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 9.dp; ScrubberStyle.THUMB -> 4.dp } * thick,
+            activeHeight = if (waved) 26.dp else when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 14.dp; ScrubberStyle.THUMB -> 6.dp } * thick,
+            thumb = knob != com.prism.music.data.prefs.ScrubberThumb.NONE,
+            thumbShape = knob,
             spectrum = true,
             marks = listOfNotNull(bestMark),
             fill = fill,
             wave = wave,
+            pulse = pulse?.let { level -> { level.floatValue } },
         )
         Box(Modifier.fillMaxWidth().offset(y = (-9).dp).heightIn(min = 16.dp)) {
             val elapsed = settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.BOTH || settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.ELAPSED
@@ -749,6 +787,21 @@ private fun PlayerButtonGlyph(
             )
         }
         PlayerButton.RADIO -> BottomGlyph(PrismIcons.Radio, "Start radio", false, { pc.playRadio(s) }, width, enabled = !s.isLocal)
+        // Songs a little faster or slower (1.7.4): each tap the next speed; the speed itself shows while it isn't 1×.
+        PlayerButton.SPEED -> {
+            val speed by pc.musicSpeed.collectAsState()
+            val next = MUSIC_SPEEDS[(MUSIC_SPEEDS.indexOf(speed) + 1).mod(MUSIC_SPEEDS.size)]
+            val haptics = rememberHaptics()
+            if (speed == 1f) BottomGlyph(PrismIcons.Speed, "Playback speed 1×", false, { pc.setMusicSpeed(next) }, width, enabled = !s.isLive)
+            else Box(
+                Modifier.size(width = width, height = BOTTOM_ACTION_SIZE).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
+                    .clickable(onClickLabel = "Playback speed ${speedText(speed)}") { haptics.tick(); pc.setMusicSpeed(next) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(speedText(speed), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Color.White)
+                OnMark(true)
+            }
+        }
         PlayerButton.DJ -> {
             val on by c.dj.on.collectAsState()
             BottomGlyph(if (on) PrismIcons.TurntableFilled else PrismIcons.Turntable, if (on) "DJ mode off" else "DJ mode", on, { c.dj.setOn(!on) }, width)
@@ -803,6 +856,10 @@ private fun EpisodeActionRow(queueOpen: Boolean, onToggleQueue: () -> Unit) {
 
 /** The episode speeds a tap cycles through (the player's ⋯ has the same). */
 val EPISODE_SPEEDS = listOf(1f, 1.25f, 1.5f, 1.75f, 2f, 0.75f)
+/** Songs' speeds (1.7.4): small steps, as music sounds odd far from its own tempo. */
+val MUSIC_SPEEDS = listOf(1f, 1.1f, 1.25f, 1.5f, 0.75f, 0.9f)
+
+private fun speedText(speed: Float) = speed.toString().removeSuffix(".0") + "×"
 
 /** A group of bottom-row glyphs (shuffle, repeat, autoplay while the queue is up): Spectrum keeps them out of a capsule. */
 @Composable

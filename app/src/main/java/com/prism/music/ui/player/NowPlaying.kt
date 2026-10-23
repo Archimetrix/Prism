@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -367,7 +368,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var artLoaded by remember(artUrl) { mutableStateOf(false) }
     // Vinyl: the cover is a record (its own shape, no edge-to-edge banner).
     val vinyl = layout == com.prism.music.data.prefs.PlayerLayout.VINYL && !videoMode
-    val heroMode = settings.fullBleedArtwork && !videoMode && !wide && !vinyl
+    // Cassette (1.7.4): the cover on a tape, its reels turning.
+    val cassette = layout == com.prism.music.data.prefs.PlayerLayout.CASSETTE && !videoMode
+    val heroMode = settings.fullBleedArtwork && !videoMode && !wide && !vinyl && !cassette
     // The animated cover plays behind the whole player instead of in the cover (not with full-bleed artwork, which
     // already shows it edge to edge).
     val canvasBehind = settings.canvasFillsBackground && !heroMode && !videoMode && !wide
@@ -383,6 +386,19 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val artCorners = if (settings.coverSize == com.prism.music.data.prefs.CoverSize.FULL) 0.dp else settings.playerArtCorners.dp
     val artShape = if (vinyl) CircleShape else RoundedCornerShape(lerp(artCorners, 8.dp, collapse.value))
     val roomyCover = settings.coverSize != com.prism.music.data.prefs.CoverSize.STANDARD
+
+    // ---------------------------------------------------------------- Visualizer (1.7.4, off by default)
+    // Runs only while it's picked, the song plays and the player is in view (not under a sheet, not a video, not with
+    // Reduce motion): otherwise nothing listens and nothing redraws.
+    val vizStyle = settings.visualizer
+    val viz = rememberVisualizer(
+        vizStyle != com.prism.music.data.prefs.VisualizerStyle.OFF && !settings.reduceMotion && !covered && !videoMode && isPlaying,
+    )
+    val vizBrush: Brush = if (viz == null) androidx.compose.ui.graphics.SolidColor(Color.White) else
+        scrubberFill(settings.visualizerColor, song.thumbnail)
+            ?: Brush.horizontalGradient(*com.prism.music.ui.theme.PrismTokens.spectrumColors(true).toTypedArray())
+    val vizColor: Color = (vizBrush as? androidx.compose.ui.graphics.SolidColor)?.value
+        ?: com.prism.music.ui.theme.PrismTokens.spectrumColors(true).let { it[it.size / 2].second }
 
     // Only ever the song's album (tapping it opens the album); nothing for songs without one.
     val originAlbum = song.album?.takeIf { it.id != null && it.title.isNotBlank() }
@@ -451,6 +467,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         return
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalVisualizer provides viz) {
     Box(
         Modifier
             .fillMaxSize()
@@ -480,6 +497,15 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             }
             com.prism.music.data.prefs.PlayerBackground.THEME -> ThemeBackdrop()
             com.prism.music.data.prefs.PlayerBackground.BLACK -> Box(Modifier.fillMaxSize().background(Color.Black))
+        }
+        // The visualizer's Glow behind everything, and its Bars along the bottom, under the controls.
+        if (viz != null) when (vizStyle) {
+            com.prism.music.data.prefs.VisualizerStyle.GLOW -> VisualizerGlow(viz, vizColor, Modifier.fillMaxSize())
+            com.prism.music.data.prefs.VisualizerStyle.BARS -> VisualizerBars(
+                viz, vizBrush,
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.2f).padding(horizontal = 12.dp).navigationBarsPadding(),
+            )
+            else -> {}
         }
         // Settings → Player → Background → "Animated cover fills the player" (1.7.4): the clip plays behind everything,
         // darkened under the type, and the cover itself shows the still picture (one clip playing, not two).
@@ -726,6 +752,15 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
+                        // The visualizer's Ring, behind the cover (it reaches out past the edge).
+                        if (viz != null && vizStyle == com.prism.music.data.prefs.VisualizerStyle.RING && !collapsePastHalf && !heroMode) {
+                            // A tape is wider than tall, with its own corners (Cassette.kt).
+                            val cornerPx = with(LocalDensity.current) { if (cassette) 0f else artCorners.toPx() }
+                            VisualizerRing(
+                                viz, vizBrush, round = vinyl, cornerPx = cornerPx, modifier = Modifier.matchParentSize(),
+                                aspect = if (cassette) CASSETTE_ASPECT else 1f,
+                            )
+                        }
                         Box(
                             Modifier
                                 .fillMaxSize()
@@ -736,13 +771,17 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                         else -> 1f
                                     }
                                 }
-                                // A record keeps its own round shadow and clip (the tonearm reaches past its edge).
-                                .then(if (vinyl) Modifier else Modifier.shadow(if (artLoaded) 10.dp else 0.dp, artShape).clip(artShape).background(Color.Black.copy(alpha = 0.18f))),
+                                // A record keeps its own round shadow and clip (the tonearm reaches past its edge); a
+                                // tape draws its own shell.
+                                .then(if (vinyl || cassette) Modifier else Modifier.shadow(if (artLoaded) 10.dp else 0.dp, artShape).clip(artShape).background(Color.Black.copy(alpha = 0.18f))),
                             contentAlignment = Alignment.Center,
                         ) {
                             // Vinyl: the cover as a record's label, turning while it plays (the animated cover isn't used).
                             if (vinyl) VinylRecord(
                                 artRequest, isPlaying, settings.vinylTonearm, Modifier.fillMaxSize(), hold = covered,
+                                collapsed = p, onArtLoaded = { artLoaded = true },
+                            ) else if (cassette) CassetteTape(
+                                artRequest, isPlaying, Modifier.fillMaxSize(), hold = covered,
                                 collapsed = p, onArtLoaded = { artLoaded = true },
                             ) else {
                             // A file on the phone with no artwork gets a cover of its own rather than a bare note.
@@ -756,7 +795,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 modifier = Modifier.fillMaxSize(),
                             )
                             }
-                            if (!heroMode && !videoMode && !canvasBehind && !vinyl) canvas?.takeIf { !collapsePastHalf }?.let { clip ->
+                            if (!heroMode && !videoMode && !canvasBehind && !vinyl && !cassette) canvas?.takeIf { !collapsePastHalf }?.let { clip ->
                                 CanvasPlayer(clip, canvasSaved, isPlaying, Modifier.fillMaxSize(), onCoverChanged = { canvasCover = it })
                             }
                         }
@@ -765,6 +804,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         }
                     }
 
+                    // The visualizer's Wave, behind the title.
+                    if (viz != null && vizStyle == com.prism.music.data.prefs.VisualizerStyle.WAVE && !collapsePastHalf) VisualizerWave(
+                        viz, vizBrush,
+                        Modifier.fillMaxWidth().height(HEADER_HEIGHT).offset { IntOffset(0, titleTop().roundToPx()) }.graphicsLayer { alpha = 1f - 2f * p() },
+                    )
                     // ---- Credits: title, artist, like, menu
                     Row(
                         Modifier
@@ -937,6 +981,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             }
         }
     }
+    }
 
     playerSheets()
 }
@@ -961,7 +1006,10 @@ private fun ThemeBackdrop() {
 @Composable
 private fun AppearanceBackdrop(show: Float) {
     val s = com.prism.music.ui.theme.LocalAppSettings.current
-    val (style, photo) = com.prism.music.ui.theme.Backdrop.parse(s.backdrops[com.prism.music.ui.theme.BackdropScreen.HOME.name])
+    // The player's own pick (1.7.4), else Home's.
+    val (style, photo) = com.prism.music.ui.theme.Backdrop.parse(
+        s.backdrops[com.prism.music.ui.theme.PLAYER_BACKDROP] ?: s.backdrops[com.prism.music.ui.theme.BackdropScreen.HOME.name],
+    )
     val primary = MaterialTheme.colorScheme.primary
     val darkScheme = remember(primary) { com.prism.music.ui.theme.schemeFromSeed(primary, dark = true, pureBlack = false) }
     val veil = 1f - show

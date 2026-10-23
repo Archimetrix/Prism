@@ -204,8 +204,9 @@ object Tour {
             V1_7_4, PrismIcons.PlayCircle, "The player, your way",
             "Settings → Appearance → Player, or ⋯ → Player settings on the player itself.",
             listOf(
-                "Layouts: Standard, a big Cover, Lyrics first, Minimal, or Vinyl (a record that turns as it plays)",
-                "Pick the buttons under the controls, and the two beside play in your notification and car",
+                "Layouts: Standard, a big Cover, Lyrics first, Minimal, Vinyl or Cassette (they turn as it plays)",
+                "A visualizer if you'd like one: bars, a wave, a ring, a pulse or a glow (off unless you pick it)",
+                "Pick the buttons under the controls (speed is one), and the two beside play in your notification and car",
                 "Put the lyric line, progress bar, controls and volume in your order",
                 "A waveform progress bar, its color, the title centred or bigger, and which times show",
                 "Choose what swipes, a double tap and a long press do on the cover and the mini player",

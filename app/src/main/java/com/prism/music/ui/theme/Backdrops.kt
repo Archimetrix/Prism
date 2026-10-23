@@ -43,6 +43,15 @@ import kotlin.math.sin
 /** The screens whose background can be changed. */
 enum class BackdropScreen(val label: String) { HOME("Home"), SEARCH("Search"), LIBRARY("Library"), REPLAY("Replay"), SETTINGS("Settings") }
 
+/**
+ * The player's own background (1.7.4), kept in the same map as the screens' (so Looks keep its photo too), but not a
+ * screen: "Same on every screen" leaves it alone. Missing, the player's "A background" shows Home's.
+ */
+const val PLAYER_BACKDROP = "PLAYER"
+
+/** The screens' backgrounds alone, without the player's. */
+val Map<String, String>.screensOnly: Map<String, String> get() = filterKeys { it != PLAYER_BACKDROP }
+
 /** How a ready-made background is drawn. */
 enum class BackdropKind {
     /** Default, Now playing and Your photo: drawn specially. */

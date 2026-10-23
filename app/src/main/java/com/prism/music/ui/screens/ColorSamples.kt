@@ -78,9 +78,12 @@ enum class ColorPart(val number: Int, val title: String, val detail: String) {
  * from what's playing (which takes Page background), else the plain page.
  */
 @Composable
-fun PageGround(c: ThemeColors, modifier: Modifier = Modifier) {
+fun PageGround(c: ThemeColors, modifier: Modifier = Modifier, player: Boolean = false) {
     val s = c.settings ?: com.prism.music.ui.theme.LocalAppSettings.current
-    val (style, photo) = com.prism.music.ui.theme.Backdrop.parse(s.backdrops[com.prism.music.ui.theme.BackdropScreen.HOME.name])
+    // [player]: the player's own background (1.7.4), else Home's.
+    val (style, photo) = com.prism.music.ui.theme.Backdrop.parse(
+        (if (player) s.backdrops[com.prism.music.ui.theme.PLAYER_BACKDROP] else null) ?: s.backdrops[com.prism.music.ui.theme.BackdropScreen.HOME.name],
+    )
     androidx.compose.runtime.CompositionLocalProvider(
         com.prism.music.ui.theme.LocalAppSettings provides s, com.prism.music.ui.theme.LocalIsDark provides c.dark,
     ) {

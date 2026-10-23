@@ -125,6 +125,9 @@ class MixEngine(
         abort("released")
     }
 
+    /** A blend is under way (the next song's tempo is the blend's until it settles): the Speed button waits for it. */
+    val blending: Boolean get() = phase == Phase.BLENDING || phase == Phase.SETTLING
+
     /** Ends a blend under way at once (casting starts: the music goes elsewhere, and no blend may leave it at half volume). */
     fun stopBlend() {
         if (phase != Phase.IDLE) abort("stopped")
