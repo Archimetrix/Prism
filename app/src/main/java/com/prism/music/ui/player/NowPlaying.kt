@@ -498,6 +498,15 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             com.prism.music.data.prefs.PlayerBackground.THEME -> ThemeBackdrop()
             com.prism.music.data.prefs.PlayerBackground.BLACK -> Box(Modifier.fillMaxSize().background(Color.Black))
         }
+        // Settings → Lyrics → Background (1.7.5): while the lyrics are open, their own background over the player's.
+        val lyricsGround = settings.lyricsPageBackground()
+        val lyricsGroundT by animateFloatAsState(
+            if (lyricsOpen && lyricsGround != com.prism.music.data.prefs.LyricsBackground.PLAYER) 1f else 0f, tween(420, easing = FastOutSlowInEasing), label = "lyricsGround",
+        )
+        if (lyricsGroundT > 0f) LyricsBackdrop(
+            lyricsGround, settings, song.thumbnail, blurImage, canvas, canvasSaved, isPlaying,
+            Modifier.fillMaxSize().graphicsLayer { alpha = lyricsGroundT }, hold = covered,
+        )
         // The visualizer's Glow behind everything, and its Bars along the bottom, under the controls.
         if (viz != null) when (vizStyle) {
             com.prism.music.data.prefs.VisualizerStyle.GLOW -> VisualizerGlow(viz, vizColor, Modifier.fillMaxSize())

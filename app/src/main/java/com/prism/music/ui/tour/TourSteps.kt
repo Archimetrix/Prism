@@ -37,6 +37,8 @@ object Tour {
     private const val V1_7_3 = 42
     /** Prism 1.7.4 (build 43): the player, your way, and a faster Prism. */
     private const val V1_7_4 = 43
+    /** Prism 1.7.5 (build 44): lyrics, your way. */
+    private const val V1_7_5 = 44
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -222,6 +224,20 @@ object Tour {
                 "Less work while lists scroll, while you type in Search, and while a song plays",
                 "If something still stutters, Settings → About → Diagnostics notes where it happened, to share",
             ),
+        ),
+        TourStep(
+            V1_7_5, PrismIcons.Lyrics, "Lyrics, your way",
+            "Settings → Lyrics: how your lyrics look, with an example of every choice.",
+            listOf(
+                "Six styles: Prism, Classic karaoke, Bold card, Glow, Typewriter and Calm",
+                "The sung line and the others in white, your light, the accent, the cover's color or your own",
+                "Weight, line spacing, how dim the other lines are, blur strength, capitals and a shadow",
+                "The sung line near the top, a third down or in the middle, and how many lines to come show",
+                "Translations over or under each line, their size, color and italics",
+                "A background of their own: plain dark, the cover blurred or moving, its color, or yours; immersive mode too",
+            ),
+            listOf(PrismIcons.Lyrics, PrismIcons.Palette),
+            showMe = Routes.settings("lyrics"),
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",

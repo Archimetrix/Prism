@@ -123,6 +123,15 @@ import com.prism.music.ui.theme.rememberHaptics
 /** The lines' look (Aura × Spectrum): big, light and centred, lifted off the cover by a soft glow rather than a hard shadow. */
 private val lineShadow = Shadow(Color.Black.copy(alpha = 0.45f), androidx.compose.ui.geometry.Offset(0f, 1f), 26f)
 
+/** How immersive mode draws its lyrics: as the lyrics page does ("Same look everywhere", 1.7.5), else as it always has. */
+@Composable
+private fun immersiveLook(song: Song): LyricsLook {
+    val s = com.prism.music.ui.theme.LocalAppSettings.current
+    val look = rememberLyricsLook(s, song.thumbnail)
+    // There's no card under immersive lyrics: Bold card keeps its bold type, on the cover.
+    return if (s.lyricsEverywhere) look.withoutCard(s.lyricsOthersAlpha) else LyricsLook.Classic
+}
+
 /** The lyrics' typeface on its weight axis, so the sung words thicken as on the lyrics page; null for System / imported fonts. */
 @Composable
 private fun lyricsAxis(): androidx.compose.ui.text.font.FontFamily? {
@@ -230,11 +239,17 @@ fun ImmersivePlayer(
                 }
             },
     ) {
+        // ---- Settings → Lyrics → Immersive background (1.7.5): the cover (as before, moving when it can), or something
+        // plainer behind the words.
+        val ground = settings.immersiveBackground
+        val coverShown = ground == com.prism.music.data.prefs.LyricsBackground.PLAYER || ground == com.prism.music.data.prefs.LyricsBackground.CANVAS
+        if (!coverShown) LyricsBackdrop(ground, settings, song.thumbnail, blurred, null, canvasSaved, isPlaying, Modifier.fillMaxSize())
+
         // ---- Behind a zoomed-out cover, the cover blurred, so it still fills the screen.
-        if (art != ImmersiveArt.FILL) FullArtworkBlurBackdrop(blurred, scrim = 0.8f)
+        if (coverShown && art != ImmersiveArt.FILL) FullArtworkBlurBackdrop(blurred, scrim = 0.8f)
 
         // ---- The cover; the animated one over it once its first frame is in.
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (coverShown) BoxWithConstraints(Modifier.fillMaxSize()) {
             val fill = art == ImmersiveArt.FILL
             // Zoomed out, a square from the top: as wide as the screen at most (the whole cover), as tall at least.
             val side = lerp(minOf(maxWidth, maxHeight), maxOf(maxWidth, maxHeight), art.zoom)
@@ -398,10 +413,13 @@ fun ImmersivePlayer(
 private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: Alignment) {
     val roman = rememberRomanized(state)
     val instead = romanizeMode(song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
-    val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
+    val look = immersiveLook(song)
+    val lines = remember(state.lines, roman, instead, look.uppercase) {
+        (if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines).map(look::shown)
+    }
     val synced = lines.any { it.timeMs >= 0 }
     val lineStyle = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = 31.sp, lineHeight = 38.sp, fontWeight = FontWeight.Light,
+        fontSize = 31.sp * look.sizeScale, lineHeight = 38.sp * look.sizeScale, fontWeight = FontWeight(look.weight),
         textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
     ).withLyricsFont()
     val axis = lyricsAxis()
@@ -430,9 +448,10 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
                 // Before the first line: the song's name, as a lyric video opens.
                 line == null && i < firstSung -> TitleCard(song)
                 line == null -> Text("♪", style = lineStyle, color = Color.White.copy(alpha = 0.7f))
-                line.isWordSynced && axis != null -> WeightSweptLine(line, clock, lineStyle, axis, Modifier.fillMaxWidth())
-                line.isWordSynced -> SweptLine(line, clock, lineStyle, Modifier.fillMaxWidth(), maxLines = 4, dimAlpha = 0.45f)
-                else -> Text(line.text, style = lineStyle.copy(fontWeight = FontWeight.Normal), color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                // Prism's line-timed lines stay as they were here (Normal, white); every style else draws its own.
+                !line.isWordSynced && look.style == com.prism.music.data.prefs.LyricsStyle.PRISM ->
+                    Text(line.text, style = lineStyle.copy(fontWeight = FontWeight(look.weight + 100)), color = Color.White, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                else -> SungLine(line, clock, lineStyle, look, axis, Modifier.fillMaxWidth(), maxLines = 4, dimAlpha = 0.45f)
             }
             // How far through the line the song is: the split light, growing from the middle.
             if (line != null && line.endMs > line.timeMs) LyricProgress(line.timeMs, line.endMs, clock, 0.5f, Modifier.fillMaxWidth().padding(top = 12.dp))
@@ -447,9 +466,9 @@ private fun LineAtATime(song: Song, state: LyricsState, active: Boolean, align: 
             next?.let { n ->
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    n.text, color = Color.White.copy(alpha = 0.55f), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    n.text, color = look.others.copy(alpha = 0.55f), maxLines = 2, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Light, textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
+                        fontWeight = FontWeight(look.weight), textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
                     ).withLyricsFont(),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -558,7 +577,10 @@ private fun HoldToLeaveButton(onTap: () -> Unit, onPressing: (Boolean) -> Unit, 
 private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modifier: Modifier) {
     val roman = rememberRomanized(state)
     val instead = romanizeMode(song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
-    val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
+    val look = immersiveLook(song)
+    val lines = remember(state.lines, roman, instead, look.uppercase) {
+        (if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines).map(look::shown)
+    }
     if (lines.isEmpty() || lines.none { it.timeMs >= 0 }) {
         Box(modifier, contentAlignment = Alignment.Center) { TitleCard(song) }
         return
@@ -567,7 +589,7 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
     val index by remember(lines) { derivedStateOf { lines.indexAtOrBefore(clock.value) } }
     val list = rememberLazyListState()
     val style = MaterialTheme.typography.headlineMedium.copy(
-        fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Light,
+        fontSize = 28.sp * look.sizeScale, lineHeight = 34.sp * look.sizeScale, fontWeight = FontWeight(look.weight),
         textAlign = TextAlign.Center, textDirection = TextDirection.Content, shadow = lineShadow,
     ).withLyricsFont()
     val axis = lyricsAxis()
@@ -606,9 +628,10 @@ private fun LyricsOverAll(song: Song, state: LyricsState, active: Boolean, modif
                     Column(Modifier.fillMaxWidth()) {
                         when {
                             line.isGap -> Text("♪", style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
-                            current && line.isWordSynced && axis != null -> WeightSweptLine(line, clock, style, axis, Modifier.fillMaxWidth())
-                            current && line.isWordSynced -> SweptLine(line, clock, style, Modifier.fillMaxWidth(), dimAlpha = 0.45f)
-                            else -> Text(line.text, style = style, color = Color.White, modifier = Modifier.fillMaxWidth())
+                            current && (line.isWordSynced || look.style != com.prism.music.data.prefs.LyricsStyle.PRISM) ->
+                                SungLine(line, clock, style, look, axis, Modifier.fillMaxWidth(), dimAlpha = 0.45f)
+                            // The lines around it are dimmed by the list itself; their color is the look's.
+                            else -> Text(line.text, style = style.copy(shadow = look.shadow ?: style.shadow), color = if (current) Color.White else look.others, modifier = Modifier.fillMaxWidth())
                         }
                         if (current && !line.isGap && line.endMs > line.timeMs) LyricProgress(line.timeMs, line.endMs, clock, 0.5f, Modifier.fillMaxWidth().padding(top = 10.dp))
                         if (!instead && !line.isGap) roman?.getOrNull(i)?.let { r ->

@@ -226,6 +226,14 @@ object LookLabels {
         "player_blur" to "Blur strength", "canvas_fills_background" to "Animated cover fills the player",
         "scrubber_thickness" to "Progress bar thickness", "scrubber_thumb" to "Progress bar knob", "visualizer" to "Visualizer",
         "visualizer_color" to "Visualizer color",
+        "lyrics_style" to "Lyrics style", "lyrics_blur_amount" to "Lyrics blur", "lyrics_spacing" to "Lyrics line spacing",
+        "lyrics_others_alpha" to "Other lines' brightness", "lyrics_sung_color" to "Sung line color", "lyrics_sung_custom" to "Sung line's own color",
+        "lyrics_other_color" to "Other lines' color", "lyrics_other_custom" to "Other lines' own color", "lyrics_weight" to "Lyrics weight",
+        "lyrics_backing_size" to "Background vocals size", "lyrics_shadow" to "Lyrics shadow", "lyrics_uppercase" to "Lyrics in capitals",
+        "lyrics_ahead" to "Lines ahead", "lyrics_position" to "Sung line's place", "lyrics_extra_size" to "Translation size",
+        "lyrics_extra_color" to "Translation color", "lyrics_extra_italic" to "Translation in italics", "lyrics_extra_place" to "Translation place",
+        "lyrics_background" to "Lyrics background", "immersive_background" to "Immersive background", "lyrics_bg_color" to "Lyrics background color",
+        "lyrics_bg_color2" to "Lyrics gradient's second color", "lyrics_everywhere" to "Same lyrics look everywhere",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -270,15 +278,25 @@ object LookLabels {
             "scrubber_thumb" to e(com.prism.music.data.prefs.ScrubberThumb.entries) { it.label },
             "visualizer" to e(com.prism.music.data.prefs.VisualizerStyle.entries) { it.label },
             "visualizer_color" to e(com.prism.music.data.prefs.ScrubberColor.entries) { it.label },
+            "lyrics_style" to e(com.prism.music.data.prefs.LyricsStyle.entries) { it.label },
+            "lyrics_sung_color" to e(com.prism.music.data.prefs.LyricsColor.entries) { it.label },
+            "lyrics_other_color" to e(com.prism.music.data.prefs.LyricsColor.entries) { it.label },
+            "lyrics_extra_color" to e(com.prism.music.data.prefs.LyricsColor.entries) { it.label },
+            "lyrics_weight" to e(com.prism.music.data.prefs.LyricsWeight.entries) { it.label },
+            "lyrics_ahead" to e(com.prism.music.data.prefs.LyricsAhead.entries) { it.label },
+            "lyrics_position" to e(com.prism.music.data.prefs.LyricsPosition.entries) { it.label },
+            "lyrics_extra_place" to e(com.prism.music.data.prefs.LyricsExtraPlace.entries) { it.label },
+            "lyrics_background" to e(com.prism.music.data.prefs.LyricsBackground.entries) { it.label },
+            "immersive_background" to e(com.prism.music.data.prefs.LyricsBackground.entries) { it.label },
             "spectrum_preset" to com.prism.music.ui.theme.SpectrumPresets.all.associate { it.key to it.label } + ("CUSTOM" to "Your own"),
         )
     }
 
     private val percent = setOf(
         "text_scale", "lyrics_scale", "backdrop_dim", "player_backdrop_show", "surface_tint_strength", "mesh_speed", "mesh_intensity", "player_blur",
-        "scrubber_thickness",
+        "scrubber_thickness", "lyrics_blur_amount", "lyrics_spacing", "lyrics_others_alpha", "lyrics_backing_size", "lyrics_extra_size",
     )
-    private val colors = setOf("accent", "accent_light", "surface_color")
+    private val colors = setOf("accent", "accent_light", "surface_color", "lyrics_sung_custom", "lyrics_other_custom", "lyrics_bg_color", "lyrics_bg_color2")
 
     fun title(name: String): String = titles[name] ?: name.replace('_', ' ').replaceFirstChar { it.uppercase() }
 
@@ -323,7 +341,12 @@ object LookLabels {
             "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
             "scrubber_thickness", "scrubber_thumb", "visualizer", "visualizer_color",
         ),
-        "lyrics" to setOf("lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale"),
+        "lyrics" to setOf(
+            "lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale", "lyrics_style", "lyrics_blur_amount", "lyrics_spacing",
+            "lyrics_others_alpha", "lyrics_sung_color", "lyrics_sung_custom", "lyrics_other_color", "lyrics_other_custom", "lyrics_weight",
+            "lyrics_backing_size", "lyrics_shadow", "lyrics_uppercase", "lyrics_ahead", "lyrics_position", "lyrics_extra_size", "lyrics_extra_color",
+            "lyrics_extra_italic", "lyrics_extra_place", "lyrics_background", "immersive_background", "lyrics_bg_color", "lyrics_bg_color2", "lyrics_everywhere",
+        ),
     )
 
     /**

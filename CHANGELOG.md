@@ -2,6 +2,30 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.5 (unreleased)
+
+The fourth customization update: lyrics, your way.
+
+### Lyrics, your way
+Settings → Lyrics (with a live preview at the top), or the player's ⋯ → Player settings. Every choice shows an example of
+itself, drawn the way the lyrics are, and nothing changes until you pick something: the lyrics look as they did.
+- **Six styles** for the line being sung: **Prism** (each word grows bolder as it's sung, as before), **Classic karaoke**
+  (color fills the words), **Bold card** (big bold lines on a color from the cover, changing with each song), **Glow**
+  (the sung words glow), **Typewriter** (words appear as they're sung) and **Calm** (no animation, the line just
+  brightens). Lyrics timed by the line rather than the word are filled in at a steady pace in Karaoke and Typewriter.
+- **Colors** for the sung line and for the others: white, your light, the accent, the cover's color, or your own from the
+  color picker.
+- **The look:** weight (Thin to Bold), line spacing, how dim the other lines are, focus blur as a strength (from off to
+  strong; the old switch carries over), the size of background vocals, a shadow for photo backgrounds, and capitals.
+- **Where the lines go:** the sung line near the top (as before), a third down or in the middle, and how many of the lines
+  to come show (all, three, one or none).
+- **Translations and romanized lines:** over or under each line, their size, color and italics.
+- **A background for the lyrics:** as the player's (as before), plain dark, the cover blurred, the animated cover, the
+  cover's color, or your own color or gradient. **Immersive mode** picks its own from the same list (the cover, as before).
+- **Same look everywhere:** the current-lyric line above the progress bar and immersive mode follow these settings (on by
+  default; with every setting as it comes they look as before). Off, they keep Prism's own look.
+- All of it is part of your Looks, Reset look and backups.
+
 ## 1.7.4
 
 The third customization update: the player, your way. And a faster Prism.

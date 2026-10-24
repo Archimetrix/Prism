@@ -207,6 +207,50 @@ enum class SessionButton(val label: String) {
 
 /** The progress bar's color. */
 enum class ScrubberColor(val label: String) { SPECTRUM("Your light"), ACCENT("Accent"), WHITE("White"), COVER("From the cover") }
+
+// ---------------------------------------------------------------------------- Lyrics, your way (1.7.5)
+
+/** How the line being sung is drawn. [PRISM] is the lyrics as 1.7 drew them. */
+enum class LyricsStyle(val label: String, val note: String) {
+    PRISM("Prism", "Each word grows bolder as it's sung"),
+    KARAOKE("Classic karaoke", "Color fills the words as they're sung"),
+    CARD("Bold card", "Big bold lines on the cover's color"),
+    GLOW("Glow", "The sung words glow"),
+    TYPEWRITER("Typewriter", "Words appear as they're sung"),
+    CALM("Calm", "No animation: the line simply brightens"),
+}
+
+/** A color for lyrics: white, your light, the accent, the cover's, or one of your own. */
+enum class LyricsColor(val label: String) { WHITE("White"), SPECTRUM("Your light"), ACCENT("Accent"), COVER("From the cover"), CUSTOM("Your color") }
+
+/** How heavy the lyrics are; the sung word grows two steps bolder (Prism and Bold card). [LIGHT] as 1.7. */
+enum class LyricsWeight(val label: String, val weight: Int) { THIN("Thin", 200), LIGHT("Light", 300), REGULAR("Regular", 400), MEDIUM("Medium", 500), BOLD("Bold", 700) }
+
+/** Where the line being sung settles on the lyrics page ([fraction] of the way down). [TOP] as 1.7. */
+enum class LyricsPosition(val label: String, val note: String, val fraction: Float) {
+    TOP("Near the top", "The most lines ahead show", 0f),
+    THIRD("A third down", "A few sung lines stay in view", 0.28f),
+    MIDDLE("In the middle", "Centered, as on a lyric sheet", 0.42f),
+}
+
+/** How many of the lines to come show on the lyrics page. [ALL] as 1.7. */
+enum class LyricsAhead(val label: String, val lines: Int) { ALL("All", Int.MAX_VALUE), THREE("Three", 3), ONE("One", 1), NONE("None", 0) }
+
+/** Where a translation or romanized line goes. */
+enum class LyricsExtraPlace(val label: String) { BELOW("Under the line"), ABOVE("Over the line") }
+
+/**
+ * What's behind the lyrics: on the lyrics page [PLAYER] is the player's own background (as 1.7), in immersive mode it's
+ * the cover filling the screen (as 1.7).
+ */
+enum class LyricsBackground(val label: String, val note: String) {
+    PLAYER("As now", "The player's background, or the cover in immersive mode"),
+    DARK("Plain dark", "Nothing but the words"),
+    BLUR("Blurred cover", "The cover, soft and dimmed"),
+    CANVAS("Animated cover", "The song's moving cover when it has one"),
+    COVER_COLOR("The cover's color", "One color taken from the cover"),
+    COLOR("Your colors", "A color, or two as a gradient"),
+}
 enum class PlayerTitleAlign(val label: String) { START("Left"), CENTER("Centred") }
 enum class PlayerTitleSize(val label: String, val scale: Float) { SMALL("Small", 0.82f), MEDIUM("Medium", 1f), LARGE("Large", 1.2f) }
 /** The times under the progress bar. */
@@ -640,6 +684,38 @@ data class AppSettings(
     val artShrinkOnPause: Boolean = true,
     val showOutputDevice: Boolean = true,
     val lyricsAlign: LyricsAlign = LyricsAlign.START,
+    // Lyrics, your way (1.7.5). Every default draws the lyrics as 1.7.4 did.
+    val lyricsStyle: LyricsStyle = LyricsStyle.PRISM,
+    /** Focus blur's strength (0 off … 2 strong; 1 as before). It replaces the old on/off [lyricsBlur], which it starts from. */
+    val lyricsBlurAmount: Float = 1f,
+    /** Room between lines (0.6 tight … 1.8 airy; 1 as before). */
+    val lyricsSpacing: Float = 1f,
+    /** How bright the lines not being sung are (0.2 … 1; 0.55 as before). */
+    val lyricsOthersAlpha: Float = 0.55f,
+    val lyricsSungColor: LyricsColor = LyricsColor.WHITE,
+    val lyricsSungCustom: Int = 0xFFFFD166.toInt(),
+    val lyricsOtherColor: LyricsColor = LyricsColor.WHITE,
+    val lyricsOtherCustom: Int = 0xFFB8C4FF.toInt(),
+    val lyricsWeight: LyricsWeight = LyricsWeight.LIGHT,
+    /** Background vocals' size against their line (0.4 … 0.9; 0.6 as before). */
+    val lyricsBackingSize: Float = 0.6f,
+    /** A soft shadow under the words, for photo and animated backgrounds. */
+    val lyricsShadow: Boolean = false,
+    val lyricsUppercase: Boolean = false,
+    val lyricsAhead: LyricsAhead = LyricsAhead.ALL,
+    val lyricsPosition: LyricsPosition = LyricsPosition.TOP,
+    /** Translations and romanized lines: size (0.7 … 1.4 of before), color, italics and where they go. */
+    val lyricsExtraSize: Float = 1f,
+    val lyricsExtraColor: LyricsColor = LyricsColor.WHITE,
+    val lyricsExtraItalic: Boolean = false,
+    val lyricsExtraPlace: LyricsExtraPlace = LyricsExtraPlace.BELOW,
+    val lyricsBackground: LyricsBackground = LyricsBackground.PLAYER,
+    val immersiveBackground: LyricsBackground = LyricsBackground.PLAYER,
+    /** [LyricsBackground.COLOR]'s colors; the second is a gradient's end (0: one color). */
+    val lyricsBgColor: Int = 0xFF1B1530.toInt(),
+    val lyricsBgColor2: Int = 0,
+    /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
+    val lyricsEverywhere: Boolean = true,
     // The player, your way (1.7.4). Every default is the player as 1.7 had it.
     val playerLayout: PlayerLayout = PlayerLayout.STANDARD,
     /** Vinyl: the tonearm swings onto the record while it plays. */
@@ -895,6 +971,40 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val scrubberThumb = stringPreferencesKey("scrubber_thumb")
         val visualizer = stringPreferencesKey("visualizer")
         val visualizerColor = stringPreferencesKey("visualizer_color")
+        val lyricsStyle = stringPreferencesKey("lyrics_style")
+        val lyricsBlurAmount = floatPreferencesKey("lyrics_blur_amount")
+        val lyricsSpacing = floatPreferencesKey("lyrics_spacing")
+        val lyricsOthersAlpha = floatPreferencesKey("lyrics_others_alpha")
+        val lyricsSungColor = stringPreferencesKey("lyrics_sung_color")
+        val lyricsSungCustom = intPreferencesKey("lyrics_sung_custom")
+        val lyricsOtherColor = stringPreferencesKey("lyrics_other_color")
+        val lyricsOtherCustom = intPreferencesKey("lyrics_other_custom")
+        val lyricsWeight = stringPreferencesKey("lyrics_weight")
+        val lyricsBackingSize = floatPreferencesKey("lyrics_backing_size")
+        val lyricsShadow = booleanPreferencesKey("lyrics_shadow")
+        val lyricsUppercase = booleanPreferencesKey("lyrics_uppercase")
+        val lyricsAhead = stringPreferencesKey("lyrics_ahead")
+        val lyricsPosition = stringPreferencesKey("lyrics_position")
+        val lyricsExtraSize = floatPreferencesKey("lyrics_extra_size")
+        val lyricsExtraColor = stringPreferencesKey("lyrics_extra_color")
+        val lyricsExtraItalic = booleanPreferencesKey("lyrics_extra_italic")
+        val lyricsExtraPlace = stringPreferencesKey("lyrics_extra_place")
+        val lyricsBackground = stringPreferencesKey("lyrics_background")
+        val immersiveBackground = stringPreferencesKey("immersive_background")
+        val lyricsBgColor = intPreferencesKey("lyrics_bg_color")
+        val lyricsBgColor2 = intPreferencesKey("lyrics_bg_color2")
+        val lyricsEverywhere = booleanPreferencesKey("lyrics_everywhere")
+
+        /** Lyrics, your way (1.7.5): in Reset look, a Look, and the Lyrics page's own reset. */
+        val lyricsLook: List<Pair<Preferences.Key<*>, Char>> by lazy {
+            listOf(
+                lyricsStyle to 's', lyricsBlurAmount to 'f', lyricsSpacing to 'f', lyricsOthersAlpha to 'f', lyricsSungColor to 's',
+                lyricsSungCustom to 'i', lyricsOtherColor to 's', lyricsOtherCustom to 'i', lyricsWeight to 's', lyricsBackingSize to 'f',
+                lyricsShadow to 'b', lyricsUppercase to 'b', lyricsAhead to 's', lyricsPosition to 's', lyricsExtraSize to 'f',
+                lyricsExtraColor to 's', lyricsExtraItalic to 'b', lyricsExtraPlace to 's', lyricsBackground to 's', immersiveBackground to 's',
+                lyricsBgColor to 'i', lyricsBgColor2 to 'i', lyricsEverywhere to 'b',
+            )
+        }
         val coverSwipeLeft = stringPreferencesKey("cover_swipe_left")
         val coverSwipeRight = stringPreferencesKey("cover_swipe_right")
         val coverSwipeUp = stringPreferencesKey("cover_swipe_up")
@@ -921,7 +1031,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerLayout, vinylTonearm, playerDeck, playerButtons, scrubberColor, playerTitleAlign, playerTitleSize, playerTitleScroll,
                 playerTimes, meshSpeed, meshIntensity, playerBlur, canvasFillsBackground,
                 scrubberThickness, scrubberThumb, visualizer, visualizerColor,
-            )
+                lyricsBlur, lyricsScale, lyricsProgressLine,
+            ) + lyricsLook.map { it.first }
         }
 
         /**
@@ -948,7 +1059,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 canvasFillsBackground to 'b', scrubberThickness to 'f', scrubberThumb to 's', visualizer to 's', visualizerColor to 's',
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
                 libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's',
-            )
+            ) + lyricsLook
         }
 
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
@@ -1218,6 +1329,30 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             scrubberThumb = p.enum(K.scrubberThumb, d.scrubberThumb),
             visualizer = p.enum(K.visualizer, d.visualizer),
             visualizerColor = p.enum(K.visualizerColor, d.visualizerColor),
+            lyricsStyle = p.enum(K.lyricsStyle, d.lyricsStyle),
+            // Until it's set, the strength follows the old switch: on is 1.7's blur, off none.
+            lyricsBlurAmount = (p[K.lyricsBlurAmount] ?: if (p[K.lyricsBlur] ?: d.lyricsBlur) 1f else 0f).coerceIn(0f, 2f),
+            lyricsSpacing = (p[K.lyricsSpacing] ?: d.lyricsSpacing).coerceIn(0.6f, 1.8f),
+            lyricsOthersAlpha = (p[K.lyricsOthersAlpha] ?: d.lyricsOthersAlpha).coerceIn(0.2f, 1f),
+            lyricsSungColor = p.enum(K.lyricsSungColor, d.lyricsSungColor),
+            lyricsSungCustom = p[K.lyricsSungCustom] ?: d.lyricsSungCustom,
+            lyricsOtherColor = p.enum(K.lyricsOtherColor, d.lyricsOtherColor),
+            lyricsOtherCustom = p[K.lyricsOtherCustom] ?: d.lyricsOtherCustom,
+            lyricsWeight = p.enum(K.lyricsWeight, d.lyricsWeight),
+            lyricsBackingSize = (p[K.lyricsBackingSize] ?: d.lyricsBackingSize).coerceIn(0.4f, 0.9f),
+            lyricsShadow = p[K.lyricsShadow] ?: d.lyricsShadow,
+            lyricsUppercase = p[K.lyricsUppercase] ?: d.lyricsUppercase,
+            lyricsAhead = p.enum(K.lyricsAhead, d.lyricsAhead),
+            lyricsPosition = p.enum(K.lyricsPosition, d.lyricsPosition),
+            lyricsExtraSize = (p[K.lyricsExtraSize] ?: d.lyricsExtraSize).coerceIn(0.7f, 1.4f),
+            lyricsExtraColor = p.enum(K.lyricsExtraColor, d.lyricsExtraColor),
+            lyricsExtraItalic = p[K.lyricsExtraItalic] ?: d.lyricsExtraItalic,
+            lyricsExtraPlace = p.enum(K.lyricsExtraPlace, d.lyricsExtraPlace),
+            lyricsBackground = p.enum(K.lyricsBackground, d.lyricsBackground),
+            immersiveBackground = p.enum(K.immersiveBackground, d.immersiveBackground),
+            lyricsBgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
+            lyricsBgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
+            lyricsEverywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
             coverSwipeLeft = p.enum(K.coverSwipeLeft, d.coverSwipeLeft),
             coverSwipeRight = p.enum(K.coverSwipeRight, d.coverSwipeRight),
             coverSwipeUp = p.enum(K.coverSwipeUp, d.coverSwipeUp),
@@ -1512,6 +1647,29 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setScrubberThumb(v: ScrubberThumb) = edit { it[K.scrubberThumb] = v.name }
     fun setVisualizer(v: VisualizerStyle) = edit { it[K.visualizer] = v.name }
     fun setVisualizerColor(v: ScrubberColor) = edit { it[K.visualizerColor] = v.name }
+    fun setLyricsStyle(v: LyricsStyle) = edit { it[K.lyricsStyle] = v.name }
+    /** The blur's strength; the old switch follows (on above none), so older code paths and Looks agree. */
+    fun setLyricsBlurAmount(v: Float) = edit { it[K.lyricsBlurAmount] = v; it[K.lyricsBlur] = v > 0f }
+    fun setLyricsSpacing(v: Float) = edit { it[K.lyricsSpacing] = v }
+    fun setLyricsOthersAlpha(v: Float) = edit { it[K.lyricsOthersAlpha] = v }
+    fun setLyricsSungColor(v: LyricsColor) = edit { it[K.lyricsSungColor] = v.name }
+    fun setLyricsSungCustom(v: Int) = edit { it[K.lyricsSungCustom] = v; it[K.lyricsSungColor] = LyricsColor.CUSTOM.name }
+    fun setLyricsOtherColor(v: LyricsColor) = edit { it[K.lyricsOtherColor] = v.name }
+    fun setLyricsOtherCustom(v: Int) = edit { it[K.lyricsOtherCustom] = v; it[K.lyricsOtherColor] = LyricsColor.CUSTOM.name }
+    fun setLyricsWeight(v: LyricsWeight) = edit { it[K.lyricsWeight] = v.name }
+    fun setLyricsBackingSize(v: Float) = edit { it[K.lyricsBackingSize] = v }
+    fun setLyricsShadow(v: Boolean) = edit { it[K.lyricsShadow] = v }
+    fun setLyricsUppercase(v: Boolean) = edit { it[K.lyricsUppercase] = v }
+    fun setLyricsAhead(v: LyricsAhead) = edit { it[K.lyricsAhead] = v.name }
+    fun setLyricsPosition(v: LyricsPosition) = edit { it[K.lyricsPosition] = v.name }
+    fun setLyricsExtraSize(v: Float) = edit { it[K.lyricsExtraSize] = v }
+    fun setLyricsExtraColor(v: LyricsColor) = edit { it[K.lyricsExtraColor] = v.name }
+    fun setLyricsExtraItalic(v: Boolean) = edit { it[K.lyricsExtraItalic] = v }
+    fun setLyricsExtraPlace(v: LyricsExtraPlace) = edit { it[K.lyricsExtraPlace] = v.name }
+    fun setLyricsBackground(v: LyricsBackground) = edit { it[K.lyricsBackground] = v.name }
+    fun setImmersiveBackground(v: LyricsBackground) = edit { it[K.immersiveBackground] = v.name }
+    fun setLyricsBgColors(first: Int, second: Int) = edit { it[K.lyricsBgColor] = first; it[K.lyricsBgColor2] = second }
+    fun setLyricsEverywhere(v: Boolean) = edit { it[K.lyricsEverywhere] = v }
     /** One of the gestures ([which]: "cover_swipe_left" … "mini_swipe_down", the setting's stored name). */
     fun setGesture(which: String, v: PlayerGesture) = edit { p ->
         val key = gestureKeys[which] ?: return@edit

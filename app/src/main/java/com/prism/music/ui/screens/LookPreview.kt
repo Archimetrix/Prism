@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.player.lyricsPageBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -318,15 +319,34 @@ fun MiniLyrics(c: ThemeColors, song: Song?) {
             lineHeight = if (t.lineHeight.isSpecified) t.lineHeight * s.lyricsScale else t.lineHeight,
         ) }
     val align = if (s.lyricsAlign == LyricsAlign.CENTER) TextAlign.Center else TextAlign.Start
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(standIns[0][0], Color.Black)))) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 26.dp).padding(top = 120.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    // Lyrics, your way (1.7.5): the sung line in its style (held part-way through), the others in their color.
+    val look = com.prism.music.ui.player.rememberLyricsLook(s, song?.thumbnail)
+    val clock = remember { androidx.compose.runtime.mutableLongStateOf(1300L) }
+    val sung = remember(look.uppercase) {
+        val words = listOf("Every ", "color ", "finds ", "its ", "way")
+        look.shown(com.prism.music.data.lyrics.LyricLine(0, words.joinToString(""), 2800, words.mapIndexed { k, w -> com.prism.music.data.lyrics.LyricWord(k * 520L, k * 520L + 480L, w) }))
+    }
+    val axis = remember(s.lyricsFont, s.fontChoice) {
+        (if (s.lyricsFont.isEmpty()) s.fontChoice else com.prism.music.data.prefs.FontChoice.entries.firstOrNull { it.name == s.lyricsFont })?.let(AppFonts::axis)
+    }
+    val ground = when (s.lyricsPageBackground()) {
+        com.prism.music.data.prefs.LyricsBackground.PLAYER -> Brush.verticalGradient(listOf(standIns[0][0], Color.Black))
+        com.prism.music.data.prefs.LyricsBackground.DARK -> Brush.verticalGradient(listOf(Color(0xFF0C0C10), Color(0xFF0C0C10)))
+        com.prism.music.data.prefs.LyricsBackground.COLOR -> com.prism.music.ui.player.cardColor(Color(s.lyricsBgColor)).let { top ->
+            Brush.verticalGradient(listOf(top, if (s.lyricsBgColor2 == 0) androidx.compose.ui.graphics.lerp(top, Color.Black, 0.3f) else com.prism.music.ui.player.cardColor(Color(s.lyricsBgColor2))))
+        }
+        com.prism.music.data.prefs.LyricsBackground.COVER_COLOR -> (look.card ?: com.prism.music.ui.player.cardColor(standIns[0][0])).let { Brush.verticalGradient(listOf(it, androidx.compose.ui.graphics.lerp(it, Color.Black, 0.35f))) }
+        else -> Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(standIns[0][0], Color.Black, 0.45f), Color(0xFF0E0E12)))
+    }
+    Box(Modifier.fillMaxSize().background(ground)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 26.dp).padding(top = 120.dp), verticalArrangement = Arrangement.spacedBy((20 * look.spacing).dp)) {
             lines.forEachIndexed { i, line ->
                 val now = i == 1
                 Column(Modifier.fillMaxWidth()) {
-                    Text(
-                        line, Modifier.fillMaxWidth().then(if (!now && s.lyricsBlur) Modifier.blur(2.dp) else Modifier),
-                        style = base, fontWeight = if (now) FontWeight.SemiBold else FontWeight.Light, textAlign = align,
-                        color = Color.White.copy(alpha = if (now) 1f else 0.38f),
+                    if (now) com.prism.music.ui.player.SungLine(sung, clock, base.copy(textAlign = align, fontWeight = FontWeight(look.weight)), look, axis, Modifier.fillMaxWidth(), onCard = look.card != null)
+                    else com.prism.music.ui.player.RestingLine(
+                        look.shown(com.prism.music.data.lyrics.LyricLine(-1, line)), base.copy(textAlign = align),
+                        look, 0.7f * look.othersAlpha, Modifier.fillMaxWidth().then(if (look.blur > 0f && look.card == null) Modifier.blur((2 * look.blur).dp) else Modifier),
                     )
                     if (now && s.lyricsProgressLine) Box(
                         Modifier.padding(top = 8.dp).align(if (align == TextAlign.Center) Alignment.CenterHorizontally else Alignment.Start)

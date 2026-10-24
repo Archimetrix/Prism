@@ -133,7 +133,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         INTERFACE -> listOf(s.navStyle.label + " bar", "${s.navTabs.size} tabs", s.miniPlayerStyle.label + " mini player").joinToString(" · ")
         PLAYER -> listOfNotNull(s.playerBackground.label, if (s.immersivePlayer) "Immersive" else if (s.fullBleedArtwork) "Full-bleed artwork" else "Framed artwork", if (s.canvasEnabled) "Animated covers" else null).joinToString(" · ")
         SOUND -> listOfNotNull(if (s.lossless) "Lossless" else s.audioQuality.label + " quality", if (s.mix) "Crossfade" else null, if (s.normalize) "Normalized" else null, if (s.spatial) "Prism Spatial" else null, if (s.eq.enabled) "EQ ${s.eq.preset}" else null).joinToString(" · ")
-        LYRICS -> "${s.lyricsOrder.first().label} first · ${if (s.preferSynced) "karaoke preferred" else "any lyrics"}"
+        LYRICS -> "${s.lyricsStyle.label} style · ${s.lyricsOrder.first().label} first"
         DOWNLOADS -> listOfNotNull("Smart Downloads ${formatGb(s.offlineGb)}", if (s.downloadWifiOnly) "Wi-Fi only" else "Any network").joinToString(" · ")
         CONNECT -> listOfNotNull("Speakers & TVs", if (s.webRemote) "Browser remote on" else null, if (s.handoffAvailable) "Available for handoff" else null).joinToString(" · ")
         HOME -> "Sections, order and styles" + if (s.contentCountry.isNotBlank()) " · ${countryName(s.contentCountry)}" else ""
@@ -167,12 +167,17 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
             "full_bleed_artwork", "art_shrink_on_pause", "show_playing_from", "player_shuffle_repeat", "hide_volume_bar",
             "show_output_device", "immersive_art", "immersive_lyrics", "immersive_controls",
         )
-        LYRICS -> listOf("lyrics_align", "lyrics_scale", "lyrics_blur", "lyrics_progress_line")
+        LYRICS -> listOf(
+            "lyrics_align", "lyrics_scale", "lyrics_blur", "lyrics_progress_line", "lyrics_style", "lyrics_blur_amount", "lyrics_spacing",
+            "lyrics_others_alpha", "lyrics_sung_color", "lyrics_sung_custom", "lyrics_other_color", "lyrics_other_custom", "lyrics_weight",
+            "lyrics_backing_size", "lyrics_shadow", "lyrics_uppercase", "lyrics_ahead", "lyrics_position", "lyrics_extra_size", "lyrics_extra_color",
+            "lyrics_extra_italic", "lyrics_extra_place", "lyrics_background", "immersive_background", "lyrics_bg_color", "lyrics_bg_color2", "lyrics_everywhere",
+        )
         else -> emptyList()
     }
 
     /** Look pages show the live preview (Color has its own). */
-    val previewed: Boolean get() = this in setOf(APPEARANCE, TEXT, ICONS, GLASS, INTERFACE, PLAYER, LOOKS)
+    val previewed: Boolean get() = this in setOf(APPEARANCE, TEXT, ICONS, GLASS, INTERFACE, PLAYER, LYRICS, LOOKS)
 
     companion object { fun of(key: String?) = entries.firstOrNull { it.key == key } }
 }
@@ -1144,7 +1149,7 @@ fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: S
             when (target) {
                 com.prism.music.ui.components.CustomizeTarget.MINI_PLAYER -> MiniPlayerGroup()
                 com.prism.music.ui.components.CustomizeTarget.TAB_BAR -> NavBarGroup()
-                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLayoutGroup(); PlayerLookGroup(); PlayerCoverGroup(); PlayerButtonsGroup(); PlayerVisualizerGroup(); LyricsLookGroup("Lyrics") }
+                com.prism.music.ui.components.CustomizeTarget.PLAYER -> { PlayerLayoutGroup(); PlayerLookGroup(); PlayerCoverGroup(); PlayerButtonsGroup(); PlayerVisualizerGroup(); LyricsStyleGroup(); LyricsLookGroup("Lyrics") }
                 com.prism.music.ui.components.CustomizeTarget.HOME_SECTION -> {
                     if (section != null) Group("This section") {
                         Label("Style")
@@ -1611,13 +1616,8 @@ private fun SingSettings() {
 private fun LyricsLookGroup(title: String = "Look") {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
-    Group(title) {
-        Label("Alignment")
-        Chips(LyricsAlign.entries, s.lyricsAlign, { it.label }) { prefs.setLyricsAlign(it) }
-        SliderSetting("Text size", s.lyricsScale, 0.75f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsScale(it) }
-        Toggle("Focus blur", "Lines away from the sung one soften", s.lyricsBlur) { prefs.setLyricsBlur(it) }
-        Toggle("Progress line", "Split light under the line being sung", s.lyricsProgressLine) { prefs.setLyricsProgressLine(it) }
-    }
+    // Lyrics, your way (1.7.5): LyricsYourWay.kt. The settings above them stay where they were.
+    Group(title) { LyricsLookDetails() }
 }
 
 @Composable
@@ -1625,7 +1625,12 @@ private fun LyricsSettings() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        LyricsStyleGroup()
         LyricsLookGroup()
+        LyricsColorsGroup()
+        LyricsPlacementGroup()
+        LyricsExtrasGroup()
+        LyricsBackgroundGroup()
         Group("Language") {
             Toggle(
                 "Translate lyrics", "Your language under each line", s.lyricsTranslate,

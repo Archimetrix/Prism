@@ -364,7 +364,13 @@ fun CurrentLyricStrip(state: LyricsState, isPlaying: Boolean, onClick: () -> Uni
     // Romanized "instead": the strip sings the Latin spelling too (same timings).
     val roman = rememberRomanized(state)
     val instead = romanizeMode(state.song.id) == com.prism.music.data.prefs.RomanizeMode.INSTEAD
-    val lines = remember(state.lines, roman, instead) { if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines }
+    // As the lyrics page draws them (1.7.5, "Same look everywhere"), else as the strip always has.
+    val settings = LocalAppSettings.current
+    val pageLook = rememberLyricsLook(settings, state.song.thumbnail)
+    val look = if (settings.lyricsEverywhere) pageLook else LyricsLook.Classic
+    val lines = remember(state.lines, roman, instead, look.uppercase) {
+        (if (instead && roman != null) state.lines.mapIndexed { i, l -> roman.getOrNull(i) ?: l } else state.lines).map(look::shown)
+    }
     val synced = lines.any { it.timeMs >= 0 }
     Box(Modifier.fillMaxWidth().offset(y = 6.dp)) {
         when {
@@ -398,8 +404,8 @@ fun CurrentLyricStrip(state: LyricsState, isPlaying: Boolean, onClick: () -> Uni
                         label = "strip",
                     ) { (i, t) ->
                         val line = lines.getOrNull(i)
-                        if (line != null && !line.isGap && line.isWordSynced) {
-                            SweptLine(line, clock, stripStyle, maxLines = 1)
+                        if (line != null && !line.isGap && (line.isWordSynced || look.style != com.prism.music.data.prefs.LyricsStyle.PRISM)) {
+                            SungLine(line, clock, stripStyle.copy(shadow = look.shadow), look, null, maxLines = 1, strip = true)
                         } else {
                             Text(
                                 t, style = stripStyle, color = if (instrumental) Color.White.copy(alpha = 0.5f) else Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -469,6 +475,10 @@ fun SweptLine(
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
     dimAlpha: Float = UNSUNG_ALPHA,
+    /** What the sung part is filled with (null: white); the part still to come ([dimColor], else dim white); a glow round the sung part. */
+    litBrush: Brush? = null,
+    dimColor: Color? = null,
+    glow: androidx.compose.ui.graphics.Shadow? = null,
 ) {
     var layout by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
     val offsets = remember(line) {
@@ -481,9 +491,10 @@ fun SweptLine(
     Box(modifier) {
         // Full width, so centred and right-aligned lines (and right-to-left ones) sit where their plain copies do.
         val wide = if ((rtl && ltrLayout) || style.textAlign == TextAlign.Center || style.textAlign == TextAlign.End) Modifier.fillMaxWidth() else Modifier
-        Text(line.text, wide, style = style, color = Color.White.copy(alpha = dimAlpha), maxLines = maxLines, overflow = TextOverflow.Ellipsis, onTextLayout = { layout = it })
+        Text(line.text, wide, style = style, color = dimColor ?: Color.White.copy(alpha = dimAlpha), maxLines = maxLines, overflow = TextOverflow.Ellipsis, onTextLayout = { layout = it })
         Text(
-            line.text, style = style, color = Color.White, maxLines = maxLines, overflow = TextOverflow.Ellipsis,
+            line.text, style = style.copy(brush = litBrush, shadow = glow ?: style.shadow), color = if (litBrush != null) Color.Unspecified else Color.White,
+            maxLines = maxLines, overflow = TextOverflow.Ellipsis,
             modifier = wide
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
@@ -568,11 +579,14 @@ private const val WEIGHT_STEPS = (SUNG_WEIGHT - LIGHT_WEIGHT) / WEIGHT_STEP
  * For [word] in [style] (Prism's axis family), at each weight step from Light to Medium: the letter spacing (em) that
  * brings it back to its Light width. [fontPx] is the style's font size in pixels.
  */
-internal fun weightSpacing(measurer: androidx.compose.ui.text.TextMeasurer, word: String, style: TextStyle, fontPx: Float): FloatArray {
-    if (word.isEmpty()) return FloatArray(WEIGHT_STEPS + 1)
+internal fun weightSpacing(
+    measurer: androidx.compose.ui.text.TextMeasurer, word: String, style: TextStyle, fontPx: Float,
+    light: Int = LIGHT_WEIGHT, steps: Int = WEIGHT_STEPS,
+): FloatArray {
+    if (word.isEmpty()) return FloatArray(steps + 1)
     fun width(weight: Int) = measurer.measure(word, style.copy(fontWeight = FontWeight(weight), letterSpacing = 0.em)).size.width
-    val light = width(LIGHT_WEIGHT)
-    return FloatArray(WEIGHT_STEPS + 1) { k -> if (k == 0) 0f else (light - width(LIGHT_WEIGHT + k * WEIGHT_STEP)).toFloat() / word.length / fontPx }
+    val base = width(light)
+    return FloatArray(steps + 1) { k -> if (k == 0) 0f else (base - width(light + k * WEIGHT_STEP)).toFloat() / word.length / fontPx }
 }
 
 /**
@@ -582,14 +596,22 @@ internal fun weightSpacing(measurer: androidx.compose.ui.text.TextMeasurer, word
  * ([AppFonts.axis]: any font Prism ships); System and imported fonts use [SweptLine].
  */
 @Composable
-fun WeightSweptLine(line: LyricLine, clock: State<Long>, style: TextStyle, axis: androidx.compose.ui.text.font.FontFamily, modifier: Modifier = Modifier) {
+fun WeightSweptLine(
+    line: LyricLine, clock: State<Long>, style: TextStyle, axis: androidx.compose.ui.text.font.FontFamily, modifier: Modifier = Modifier,
+    /** The words' weight before and after they're sung (1.7.5: the lyrics' weight setting; Light to Medium as before). */
+    lightWeight: Int = LIGHT_WEIGHT, sungWeight: Int = SUNG_WEIGHT,
+    /** The sung words' fill (null: white). */
+    litBrush: Brush? = null,
+    dimAlpha: Float = UNSUNG_ALPHA,
+) {
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val axisStyle = style.copy(fontFamily = axis, fontWeight = FontWeight(LIGHT_WEIGHT))
+    val steps = ((sungWeight - lightWeight) / WEIGHT_STEP).coerceAtLeast(0)
+    val axisStyle = style.copy(fontFamily = axis, fontWeight = FontWeight(lightWeight))
     val fontPx = with(androidx.compose.ui.platform.LocalDensity.current) { style.fontSize.toPx() }
     // For each word, at each weight step: the letter spacing (em) that brings it back to its light width.
-    val spacing = remember(line, axisStyle, fontPx) { line.words.map { w -> weightSpacing(measurer, w.text.trimEnd(), axisStyle, fontPx) } }
+    val spacing = remember(line, axisStyle, fontPx, steps) { line.words.map { w -> weightSpacing(measurer, w.text.trimEnd(), axisStyle, fontPx, lightWeight, steps) } }
     // Each word's weight step and brightness (0–10), recomposing only when one of them changes.
-    val marks by remember(line) {
+    val marks by remember(line, steps) {
         derivedStateOf {
             val now = clock.value
             line.words.map { w ->
@@ -598,16 +620,22 @@ fun WeightSweptLine(line: LyricLine, clock: State<Long>, style: TextStyle, axis:
                     now < w.startMs -> 0f
                     else -> ((now - w.startMs).toFloat() / (w.endMs - w.startMs).coerceAtLeast(1)).coerceIn(0f, 1f)
                 }
-                (f * WEIGHT_STEPS).roundToInt() to (f * 10).roundToInt()
+                (f * steps).roundToInt() to (f * 10).roundToInt()
             }
         }
     }
     val text = androidx.compose.ui.text.buildAnnotatedString {
         line.words.forEachIndexed { i, w ->
             val (step, lit) = marks[i]
-            val color = Color.White.copy(alpha = UNSUNG_ALPHA + (1f - UNSUNG_ALPHA) * lit / 10f)
+            val a = dimAlpha + (1f - dimAlpha) * lit / 10f
             val core = w.text.trimEnd()
-            pushStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = FontWeight(LIGHT_WEIGHT + step * WEIGHT_STEP), letterSpacing = (spacing[i].getOrElse(step) { 0f }).em))
+            val weight = FontWeight(lightWeight + step * WEIGHT_STEP)
+            val ls = (spacing[i].getOrElse(step) { 0f }).em
+            // A colored fill comes in as the word is sung; until then the word is dim white.
+            pushStyle(
+                if (litBrush != null && lit > 0) androidx.compose.ui.text.SpanStyle(brush = litBrush, alpha = a, fontWeight = weight, letterSpacing = ls)
+                else androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = a), fontWeight = weight, letterSpacing = ls),
+            )
             append(core)
             pop()
             append(w.text.substring(core.length))
@@ -662,9 +690,13 @@ fun LyricsPanel(
     onRevealControls: () -> Unit,
     onHideControls: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The lyrics background is drawn behind this panel (the phone's player; a wide player's pane has none of its own). */
+    lyricsGround: Boolean = true,
 ) {
     val c = LocalContainer.current
     val settings by c.settings.flow.collectAsState()
+    // How the lines are drawn (Settings → Lyrics, 1.7.5): style, colors, weight, spacing and the rest.
+    val look = rememberLyricsLook(settings, state.song.thumbnail).let { if (lyricsGround) it else it.withoutCard(settings.lyricsOthersAlpha) }
     val lines = state.lines
     val synced = remember(lines) { lines.any { it.timeMs >= 0 } }
     val clock = rememberLyricClock(isPlaying)
@@ -735,13 +767,18 @@ fun LyricsPanel(
         return
     }
 
-    val canBlur = Build.VERSION.SDK_INT >= 31 && settings.lyricsBlur
-    val scale = settings.lyricsScale
+    // Focus blur at the strength picked (Settings → Lyrics; 1 is 1.7's), on Android 12 and later.
+    val canBlur = Build.VERSION.SDK_INT >= 31 && look.blur > 0f
+    val scale = settings.lyricsScale * look.sizeScale
     // The sung word's weight moves along the lyrics' typeface's axis: any font Prism ships (not System or an imported one).
     val lyricsChoice = if (settings.lyricsFont.isEmpty()) settings.fontChoice
         else com.prism.music.data.prefs.FontChoice.entries.firstOrNull { it.name == settings.lyricsFont }
     val axisFamily = remember(lyricsChoice) { lyricsChoice?.let(com.prism.music.ui.theme.AppFonts::axis) }
-    Box(modifier) {
+    // Bold card: the lines sit on the cover's own color (drawn behind the player), the words to come dark.
+    val onCard = look.card != null
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+    // Where the sung line settles: near the top (as before), a third down or in the middle.
+    val settleAt = maxOf(30.dp, maxHeight * look.position)
     LazyColumn(
         state = listState,
         modifier = Modifier
@@ -753,7 +790,7 @@ fun LyricsPanel(
                 drawContent()
                 drawRect(Brush.verticalGradient(0f to Color.Transparent, 0.06f to Color.Black, 0.88f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
             },
-        contentPadding = PaddingValues(top = 30.dp, bottom = 400.dp),
+        contentPadding = PaddingValues(top = settleAt, bottom = if (look.position == 0f) 400.dp else maxOf(400.dp, maxHeight - settleAt)),
     ) {
         itemsIndexed(lines) { index, line ->
             if (!synced && line.text.startsWith("[") && line.text.endsWith("]")) {
@@ -761,21 +798,23 @@ fun LyricsPanel(
                     Text(
                         line.text.trim('[', ']').uppercase(),
                         style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.3.sp),
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = look.others.copy(alpha = 0.6f),
                         modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp),
                     )
                 }
                 return@itemsIndexed
             }
-            if (!synced && line.isGap) { Spacer(Modifier.height(14.dp)); return@itemsIndexed }
+            if (!synced && line.isGap) { Spacer(Modifier.height(14.dp * look.spacing)); return@itemsIndexed }
             val isActive = synced && (index == active || index in alsoActive)
             val distance = when { active < 0 -> 4; isActive -> 0; else -> alsoActive.ifEmpty { listOf(active) }.minOf { abs(index - it) } }
             val step = distance.coerceAtMost(FALLOFF_ALPHA.lastIndex)
+            // "Lines ahead": lines further on than that wait out of sight until they're near (not while browsing).
+            val hidden = synced && !browsing && active >= 0 && look.ahead < Int.MAX_VALUE && index > active + look.ahead
             val blur by animateDpAsState(
-                if (!synced || !canBlur || browsing || isActive) 0.dp else FALLOFF_BLUR[step], tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING), label = "blur",
+                if (!synced || !canBlur || browsing || isActive) 0.dp else FALLOFF_BLUR[step] * look.blur, tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING), label = "blur",
             )
             val alpha by animateFloatAsState(
-                when { !synced -> 0.95f; isActive -> 1f; browsing -> 0.8f; else -> FALLOFF_ALPHA[step] }, tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING), label = "alpha",
+                when { !synced -> 0.95f; isActive -> 1f; hidden -> 0f; browsing -> 0.8f; else -> FALLOFF_ALPHA[step] }, tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING), label = "alpha",
             )
             if (line.isGap) {
                 GapDots(line, lines.getOrNull(index + 1)?.timeMs ?: line.endMs, clock, isActive, alpha) { c.player.seekToLyric(line.timeMs) }
@@ -783,21 +822,26 @@ fun LyricsPanel(
             }
             val centred = settings.lyricsAlign == com.prism.music.data.prefs.LyricsAlign.CENTER
             val romanLine = roman?.getOrNull(index)
-            // "Instead": the line is sung in Latin letters (the original's timings kept).
-            val shown = if (romanInstead && romanLine != null) romanLine else line
+            // "Instead": the line is sung in Latin letters (the original's timings kept); in capitals when that's picked.
+            val shown = remember(line, romanLine, romanInstead, look.uppercase) { look.shown(if (romanInstead && romanLine != null) romanLine else line) }
             // Arabic, Hebrew and the like read right to left: such a line starts at the right (its direction comes from
             // its words; left unset, Compose laid every line out left to right, so Arabic sat on the left).
             val rtl = remember(shown) { isRtl(shown.text) }
-            val style = (if (synced) TextStyle(fontSize = (34 * scale).sp, lineHeight = (41 * scale).sp) else TextStyle(fontSize = (30 * scale).sp, lineHeight = (38 * scale).sp))
+            // A little more (or less) room inside a wrapped line too, as the line spacing goes.
+            val tall = 1f + (look.spacing - 1f) * 0.3f
+            val style = (if (synced) TextStyle(fontSize = (34 * scale).sp, lineHeight = (41 * scale * tall).sp) else TextStyle(fontSize = (30 * scale).sp, lineHeight = (38 * scale * tall).sp))
                 .copy(
-                    // Spectrum: light lines; the line being sung (line-timed) firms up to Medium.
-                    fontWeight = if (isActive && !shown.isWordSynced) FontWeight.Medium else FontWeight.Light,
+                    // Spectrum: light lines (or the weight picked); the sung line's style makes its own.
+                    fontWeight = FontWeight(look.weight),
                     // The lyrics font when one is picked (Settings → Appearance → Text), else the app's.
                     fontFamily = com.prism.music.ui.theme.LocalLyricsFont.current ?: MaterialTheme.typography.bodyLarge.fontFamily,
                     textAlign = when { line.alignEnd -> TextAlign.End; centred -> TextAlign.Center; else -> TextAlign.Start },
                     textDirection = androidx.compose.ui.text.style.TextDirection.Content,
                 )
-            val lineScale by animateFloatAsState(if (isActive || !synced) 1f else 0.98f, tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING), label = "scale")
+            // Calm holds every line at its size; the others breathe back a little.
+            val lineScale by animateFloatAsState(
+                if (isActive || !synced || look.style == com.prism.music.data.prefs.LyricsStyle.CALM) 1f else 0.98f, tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING), label = "scale",
+            )
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -809,49 +853,55 @@ fun LyricsPanel(
                     }
                     .blur(blur, BlurredEdgeTreatment.Unbounded)
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable(enabled = synced) { c.player.seekToLyric(line.timeMs); browsing = false }
-                    .padding(vertical = 9.dp, horizontal = 2.dp),
+                    .clickable(enabled = synced && !hidden) { c.player.seekToLyric(line.timeMs); browsing = false }
+                    .padding(vertical = 9.dp * look.spacing, horizontal = 2.dp),
             ) {
-                // Inactive lines sit back; the sung line is full white.
-                val lineAlpha = if (synced && !isActive) alpha * 0.55f else alpha
-                Column(Modifier.fillMaxWidth()) {
-                    if (isActive && shown.isWordSynced) {
-                        if (axisFamily != null) WeightSweptLine(shown, clock, style, axisFamily, Modifier.fillMaxWidth())
-                        else SweptLine(shown, clock, style.copy(fontWeight = FontWeight.Medium), Modifier.fillMaxWidth())
-                    } else {
-                        Text(shown.text, style = style, color = Color.White.copy(alpha = lineAlpha), modifier = Modifier.fillMaxWidth())
+                // Inactive lines sit back (as bright as the setting has them); the sung line is drawn in its style.
+                val lineAlpha = if (synced && !isActive) alpha * look.othersAlpha else alpha
+                val extraAlpha = if (isActive) 0.8f else lineAlpha * 0.8f
+                val textAlign = if (rtl && !centred) TextAlign.End else style.textAlign
+                // A translation, as the look sets it.
+                val translated = translations?.getOrNull(index)?.takeUnless { it.equals(line.text.trim(), ignoreCase = true) }
+                val translationLine = @Composable { padTop: Boolean ->
+                    translated?.let { t ->
+                        Text(
+                            t, style = look.extraStyle(style, 0.52f, 0.56f),
+                            color = (if (onCard) Color.Black else look.extraColor).copy(alpha = if (onCard) 0.7f else extraAlpha.coerceAtMost(0.75f)),
+                            modifier = Modifier.fillMaxWidth().padding(top = if (padTop) 4.dp else 0.dp, bottom = if (padTop) 0.dp else 4.dp),
+                        )
                     }
+                }
+                // "Under each line": the line in Latin letters, smaller, lit word by word with it (or over it, as picked).
+                val romanised = @Composable { padTop: Boolean ->
+                    if (!romanInstead && romanLine != null) {
+                        val romanStyle = look.extraStyle(style, 0.56f, 0.62f).copy(
+                            // Under a right-to-left line it keeps to that line's side.
+                            textAlign = textAlign, textDirection = androidx.compose.ui.text.style.TextDirection.Ltr,
+                        )
+                        val pad = Modifier.fillMaxWidth().padding(top = if (padTop) 4.dp else 0.dp, bottom = if (padTop) 0.dp else 4.dp)
+                        val r = look.shown(romanLine)
+                        if (isActive && r.isWordSynced) SweptLine(r, clock, romanStyle, pad, dimAlpha = UNSUNG_ALPHA * 0.9f, litBrush = look.sung)
+                        else Text(r.text, style = romanStyle, color = (if (onCard) Color.Black else look.extraColor).copy(alpha = if (isActive) 0.85f else lineAlpha * 0.8f), modifier = pad)
+                    }
+                }
+                Column(Modifier.fillMaxWidth()) {
+                    if (look.extraAbove) { romanised(false); translationLine(false) }
+                    if (isActive) SungLine(shown, clock, style, look, axisFamily, Modifier.fillMaxWidth(), onCard = onCard)
+                    else RestingLine(shown, style, look, lineAlpha, Modifier.fillMaxWidth())
                     // How far the line has been sung: a thin line of split light under it.
                     if (isActive && synced && !browsing && line.endMs > line.timeMs) LyricProgress(
                         line.timeMs, line.endMs, clock,
                         when { centred && !line.alignEnd -> 0.5f; line.alignEnd != rtl -> 1f; else -> 0f },
                         Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
                     )
-                    // "Under each line": the line in Latin letters, smaller, lit word by word with it.
-                    if (!romanInstead && romanLine != null) {
-                        val romanStyle = style.copy(
-                            fontSize = style.fontSize * 0.56f, lineHeight = style.lineHeight * 0.62f, fontWeight = FontWeight.Normal,
-                            // Under a right-to-left line it keeps to that line's side.
-                            textAlign = if (rtl && !centred) TextAlign.End else style.textAlign,
-                            textDirection = androidx.compose.ui.text.style.TextDirection.Ltr,
-                        )
-                        if (isActive && romanLine.isWordSynced) SweptLine(romanLine, clock, romanStyle, Modifier.fillMaxWidth().padding(top = 4.dp), dimAlpha = UNSUNG_ALPHA * 0.9f)
-                        else Text(romanLine.text, style = romanStyle, color = Color.White.copy(alpha = if (isActive) 0.85f else lineAlpha * 0.8f), modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-                    }
+                    if (!look.extraAbove) romanised(true)
                     // Background vocals, smaller under the line, lighting up word by word in their own time (#66).
                     shown.backgroundLine?.let { bg ->
-                        val bgStyle = style.copy(fontSize = style.fontSize * 0.6f, lineHeight = style.lineHeight * 0.64f, fontWeight = FontWeight.Normal)
-                        if (isActive) SweptLine(bg, clock, bgStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = UNSUNG_ALPHA * 0.8f)
-                        else Text(bg.text, style = bgStyle, color = Color.White.copy(alpha = lineAlpha * 0.75f), modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
+                        val bgStyle = style.copy(fontSize = style.fontSize * look.backingSize, lineHeight = style.lineHeight * look.backingSize * 1.07f, fontWeight = FontWeight.Normal, shadow = look.shadow)
+                        if (isActive) SweptLine(bg, clock, bgStyle, Modifier.fillMaxWidth().padding(top = 3.dp), dimAlpha = UNSUNG_ALPHA * 0.8f, litBrush = look.sung)
+                        else Text(bg.text, style = bgStyle, color = look.others.copy(alpha = lineAlpha * 0.75f), modifier = Modifier.fillMaxWidth().padding(top = 3.dp))
                     }
-                    translations?.getOrNull(index)?.takeUnless { it.equals(line.text.trim(), ignoreCase = true) }?.let { t ->
-                        Text(
-                            t,
-                            style = style.copy(fontSize = style.fontSize * 0.52f, lineHeight = style.lineHeight * 0.56f, fontWeight = FontWeight.Normal),
-                            color = Color.White.copy(alpha = (if (isActive) 0.75f else lineAlpha * 0.8f)),
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        )
-                    }
+                    if (!look.extraAbove) translationLine(true)
                 }
             }
         }
