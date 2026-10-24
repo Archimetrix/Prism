@@ -727,8 +727,6 @@ data class AppSettings(
     /** #116: what the player's volume slider changes, and Prism's own level (0 … 1) when it's Prism's. */
     val volumeControl: VolumeControl = VolumeControl.PHONE,
     val appVolume: Float = 1f,
-    /** #119: the explaining notes on settings pages (off: just the settings; each ⓘ still opens its details). */
-    val settingsExplanations: Boolean = true,
     // The player, your way (1.7.4). Every default is the player as 1.7 had it.
     val playerLayout: PlayerLayout = PlayerLayout.STANDARD,
     /** Vinyl: the tonearm swings onto the record while it plays. */
@@ -1011,7 +1009,6 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val volumeControl = stringPreferencesKey("volume_control")
         val appVolume = floatPreferencesKey("app_volume")
-        val settingsExplanations = booleanPreferencesKey("settings_explanations")
 
         /** Lyrics, your way (1.7.5): in Reset look, a Look, and the Lyrics page's own reset. */
         val lyricsLook: List<Pair<Preferences.Key<*>, Char>> by lazy {
@@ -1083,7 +1080,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
-                "merge_liked_videos", "volume_control", "app_volume", "settings_explanations",
+                "merge_liked_videos", "volume_control", "app_volume",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
                 "soft_spatial", "soft_spatial_amount", "lyrics_on_player", "lyrics_order", "lyrics_off", "prefer_synced", "skip_censored",
@@ -1376,7 +1373,6 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             hideStatusBar = p[K.hideStatusBar] ?: d.hideStatusBar,
             volumeControl = p.enum(K.volumeControl, d.volumeControl),
             appVolume = (p[K.appVolume] ?: d.appVolume).coerceIn(0f, 1f),
-            settingsExplanations = p[K.settingsExplanations] ?: d.settingsExplanations,
             coverSwipeLeft = p.enum(K.coverSwipeLeft, d.coverSwipeLeft),
             coverSwipeRight = p.enum(K.coverSwipeRight, d.coverSwipeRight),
             coverSwipeUp = p.enum(K.coverSwipeUp, d.coverSwipeUp),
@@ -1698,7 +1694,6 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setHideStatusBar(v: Boolean) = edit { it[K.hideStatusBar] = v }
     fun setVolumeControl(v: VolumeControl) = edit { it[K.volumeControl] = v.name }
     fun setAppVolume(v: Float) = edit { it[K.appVolume] = v.coerceIn(0f, 1f) }
-    fun setSettingsExplanations(v: Boolean) = edit { it[K.settingsExplanations] = v }
     /** One of the gestures ([which]: "cover_swipe_left" … "mini_swipe_down", the setting's stored name). */
     fun setGesture(which: String, v: PlayerGesture) = edit { p ->
         val key = gestureKeys[which] ?: return@edit

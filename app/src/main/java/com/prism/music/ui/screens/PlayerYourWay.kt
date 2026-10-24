@@ -71,16 +71,18 @@ private val Faint = Color.White.copy(alpha = 0.28f)
 fun PlayerLayoutGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
-    Group("Layout") {
+    val layoutInfo = when (s.playerLayout) {
+        PlayerLayout.MINIMAL -> "Minimal: swipe the cover for the next or previous song, and double-tap it to skip ahead or back (Gestures, below). "
+        PlayerLayout.COVER -> "Cover: tap the cover for the controls; they tuck away again after a few seconds. "
+        else -> ""
+    } + "Tablets and phones turned sideways keep their side-by-side player."
+    Group("Layout", info = layoutInfo) {
         ChoiceCards(
             PlayerLayout.entries, s.playerLayout,
             title = { it.label }, detail = { it.note },
             onSelect = { prefs.setPlayerLayout(it) },
         ) { LayoutSample(it) }
         if (s.playerLayout == PlayerLayout.VINYL) Toggle("Tonearm", "Swings onto the record while it plays", s.vinylTonearm) { prefs.setVinylTonearm(it) }
-        if (s.playerLayout == PlayerLayout.MINIMAL) Note("Swipe the cover for the next or previous song, and double-tap it to skip ahead or back (Gestures, below).")
-        if (s.playerLayout == PlayerLayout.COVER) Note("Tap the cover for the controls; they tuck away again after a few seconds.")
-        Note("Tablets and phones turned sideways keep their side-by-side player.")
     }
 }
 
@@ -178,7 +180,7 @@ fun PlayerButtonsGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     val chosen = s.playerButtons
-    Group("Buttons") {
+    Group("Buttons", info = "Pick ${PlayerButton.MIN} to ${PlayerButton.MAX} for the row under the controls. Hold one (or drag its grip) to put them in your order. The rest stay in the player's ⋯ menu.") {
         // The row as it'll be.
         SampleScreen(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().height(64.dp)) {
             Row(
@@ -186,7 +188,6 @@ fun PlayerButtonsGroup() {
                 horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
             ) { chosen.forEach { Icon(buttonIcon(it), it.label, Modifier.size(22.dp), tint = Color.White.copy(alpha = 0.85f)) } }
         }
-        Note("Pick ${PlayerButton.MIN} to ${PlayerButton.MAX} for the row under the controls. Hold one (or drag its grip) to put them in your order. The rest stay in the player's ⋯ menu.")
         // The picked ones, in their order, to drag; then the rest to pick from.
         com.prism.music.ui.components.ReorderList(chosen, { it }, { prefs.setPlayerButtons(it) }) { b, i, held, mod ->
             OrderRow(
@@ -217,7 +218,7 @@ private fun SessionButtonsGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     val chosen = s.sessionButtons
-    Group("Notification and car") {
+    Group("Notification and car", info = "Your phone's notification and lock screen show the first two beside play; Android Auto shows them all, in this order. Hold one to move it.") {
         // The notification as it'll look: previous, play, next and the first two beside them.
         SampleScreen(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().height(56.dp)) {
             Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -228,7 +229,6 @@ private fun SessionButtonsGroup() {
                 chosen.getOrNull(1)?.let { Icon(sessionIcon(it), it.label, Modifier.size(20.dp), tint = Ink) }
             }
         }
-        Note("Your phone's notification and lock screen show the first two beside play; Android Auto shows them all, in this order. Hold one to move it.")
         com.prism.music.ui.components.ReorderList(chosen, { it }, { prefs.setSessionButtons(it) }) { b, i, held, mod ->
             OrderRow(
                 b.label, sessionIcon(b), true, canCheck = true,
@@ -311,8 +311,7 @@ fun PlayerArrangeGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     val order = s.playerDeck
-    Group("Under the title") {
-        Note("Top to bottom, as they sit on the player; hold one to move it. The progress bar, controls and buttons are always there.")
+    Group("Under the title", info = "Top to bottom, as they sit on the player; hold one to move it. The progress bar, controls and buttons are always there.") {
         com.prism.music.ui.components.ReorderList(order, { it }, { prefs.setPlayerDeck(it) }) { part, i, held, mod ->
             val shown = when (part) { DeckPart.STRIP -> s.lyricsOnPlayer; DeckPart.VOLUME -> !s.hideVolumeBar; else -> true }
             val hideable = part == DeckPart.STRIP || part == DeckPart.VOLUME
@@ -328,17 +327,17 @@ fun PlayerArrangeGroup() {
             Text("Back to Prism's order")
         }
         // GitHub #116: a volume just for Prism, for phones whose volume buttons don't work (or to keep other apps' as they are).
-        Label("The volume slider changes")
+        Label(
+            "The volume slider changes",
+            info = s.volumeControl.label + ": " + if (s.volumeControl == com.prism.music.data.prefs.VolumeControl.PRISM)
+                "only Prism gets quieter or louder; other apps and the phone's volume stay as they are. The phone's volume buttons still change the phone's volume."
+            else "like the phone's volume buttons, every app's music volume.",
+        )
         Chips(com.prism.music.data.prefs.VolumeControl.entries, s.volumeControl, { it.label }) { v ->
             prefs.setVolumeControl(v)
             // Picking Prism's own volume is picking the slider: show it if it was hidden.
             if (v == com.prism.music.data.prefs.VolumeControl.PRISM && s.hideVolumeBar) prefs.setHideVolumeBar(false)
         }
-        Note(
-            if (s.volumeControl == com.prism.music.data.prefs.VolumeControl.PRISM)
-                "Only Prism gets quieter or louder; other apps and the phone's volume stay as they are. The phone's volume buttons still change the phone's volume."
-            else "Like the phone's volume buttons: every app's music volume."
-        )
     }
 }
 
@@ -382,10 +381,12 @@ fun PlayerTitleGroup() {
             onSelect = { prefs.setScrubberColor(it) },
         ) { BarSample(it) }
         // Thickness and the knob (1.7.4): the waveform keeps its own height.
-        SliderSetting("Progress bar thickness", s.scrubberThickness, 0.6f..2f, { if (it < 0.85f) "Thinner" else if (it <= 1.15f) "As the style" else "Thicker" }) {
+        SliderSetting(
+            "Progress bar thickness", s.scrubberThickness, 0.6f..2f, { if (it < 0.85f) "Thinner" else if (it <= 1.15f) "As the style" else "Thicker" },
+            info = if (s.scrubberStyle == com.prism.music.data.prefs.ScrubberStyle.WAVE) "The waveform keeps its own height; thickness shows until a song has been scanned." else null,
+        ) {
             prefs.setScrubberThickness(if (it in 0.93f..1.07f) 1f else it)
         }
-        if (s.scrubberStyle == com.prism.music.data.prefs.ScrubberStyle.WAVE) Note("The waveform keeps its own height; thickness shows until a song has been scanned.")
         Label("Knob at the playhead")
         ChoiceCards(
             com.prism.music.data.prefs.ScrubberThumb.entries, s.scrubberThumb, title = { it.label },
@@ -430,7 +431,7 @@ private fun KnobSample(knob: com.prism.music.data.prefs.ScrubberThumb, thickness
 fun PlayerVisualizerGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
-    Group("Visualizer") {
+    Group("Visualizer", info = "It listens to Prism's own sound (no microphone) and only runs while the player is open and playing. On an older phone, Off keeps the player lightest.") {
         ChoiceCards(
             com.prism.music.data.prefs.VisualizerStyle.entries, s.visualizer, title = { it.label }, detail = { it.note },
             onSelect = { prefs.setVisualizer(it) },
@@ -438,10 +439,8 @@ fun PlayerVisualizerGroup() {
         if (s.visualizer != com.prism.music.data.prefs.VisualizerStyle.OFF) {
             Label("Visualizer color")
             Chips(ScrubberColor.entries, s.visualizerColor, { it.label }) { prefs.setVisualizerColor(it) }
-            Note(
-                if (s.reduceMotion) "Reduce motion is on, so it stays still."
-                else "It listens to Prism's own sound (no microphone) and only runs while the player is open and playing. On an older phone, Off keeps the player lightest."
-            )
+            // Why it doesn't move: a state, so it stays in view.
+            if (s.reduceMotion) Note("Reduce motion is on, so it stays still.")
         }
     }
 }
@@ -573,8 +572,7 @@ fun PlayerBackgroundTuning() {
 fun PlayerGesturesGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
-    Group("Gestures") {
-        Note("On the player's cover. Swiping down always closes the player.")
+    Group("Gestures", info = "On the player's cover. Swiping down always closes the player.") {
         GestureRow("Swipe left", s.coverSwipeLeft, PlayerGesture.choices()) { prefs.setGesture("cover_swipe_left", it) }
         GestureRow("Swipe right", s.coverSwipeRight, PlayerGesture.choices()) { prefs.setGesture("cover_swipe_right", it) }
         GestureRow("Swipe up", s.coverSwipeUp, PlayerGesture.choices()) { prefs.setGesture("cover_swipe_up", it) }

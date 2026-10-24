@@ -95,11 +95,12 @@ fun HeadphoneCorrection() {
         }
     }
 
-    Group("Headphone correction") {
+    Group(
+        "Headphone correction",
+        info = "Each pair of headphones keeps its own correction, and the phone's speaker and the car never get one. Corrections come from the AutoEq project (Jaakko Pasanen, MIT licence), from measurements by oratory1990, crinacle and others. Only the headphone's name is looked up, on GitHub.",
+    ) {
         when {
-            out == null || !out.headphones -> Note(
-                "Plug in or connect your headphones to pick their correction. Each pair keeps its own, and the phone's speaker and the car never get one.",
-            )
+            out == null || !out.headphones -> Note("Plug in or connect your headphones to pick their correction.")
             binding == null -> {
                 Item("${out.name}: not corrected", "Pick these headphones from thousands measured by AutoEq, to make them sound neutral (the Harman target)", onClick = { picking = true }) {
                     Icon(PrismIcons.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -127,7 +128,6 @@ fun HeadphoneCorrection() {
         bindings.filterKeys { it != out?.key }.forEach { (key, b) ->
             Item(b.deviceName, b.profile.name, onClick = {}) { PrismTextButton(onClick = { hq.unbind(key) }) { Text("Remove") } }
         }
-        Note("Corrections come from the AutoEq project (Jaakko Pasanen, MIT licence), from measurements by oratory1990, crinacle and others. Only the headphone's name is looked up, on GitHub.", always = true)
     }
 
     if (picking && out != null) HeadphonePicker(modelOf(out.name), onDismiss = { picking = false }) { entry ->

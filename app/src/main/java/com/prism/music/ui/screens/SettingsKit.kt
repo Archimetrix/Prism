@@ -48,10 +48,14 @@ import androidx.compose.ui.semantics.stateDescription
 /** The group a Settings search result opened its page at (#73): it scrolls into view and glows for a moment. */
 val LocalSettingsFind = androidx.compose.runtime.compositionLocalOf<String?> { null }
 
-/** A titled card of settings rows: a small label, then the rows on a pane of glass. */
+/**
+ * A titled card of settings rows: a small label, then the rows on a pane of glass. [info]: what the whole group is
+ * about, behind an ⓘ beside its title (opened inside the card, above the rows).
+ */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
+fun Group(title: String, info: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable(title, "group") { androidx.compose.runtime.mutableStateOf(false) }
     val ui = LocalUi.current
     val found = title.isNotBlank() && LocalSettingsFind.current == title
     val requester = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
@@ -67,38 +71,64 @@ fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
         glow.animateTo(0f, androidx.compose.animation.core.tween(800))
     }
     Column(Modifier.then(if (found) Modifier.bringIntoViewRequester(requester) else Modifier)) {
-        if (title.isNotBlank()) Eyebrow(title, Modifier.padding(start = 12.dp, bottom = 8.dp))
+        if (title.isNotBlank()) Row(Modifier.padding(start = 12.dp, bottom = if (info != null) 2.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow(title)
+            if (info != null) InfoMark(open, title) { open = !open }
+        }
         Column(
             Modifier.fillMaxWidth().pane(ui.card)
                 // A search result's group: ringed in split light for a moment.
                 .then(if (glow.value > 0.02f) Modifier.border((2.5f * glow.value).dp, com.prism.music.ui.theme.PrismTokens.spectrum, ui.card) else Modifier)
                 .padding(vertical = ui.gap(6.dp)),
-            content = content,
-        )
+        ) {
+            InfoText(open && info != null, info, Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            content()
+        }
     }
 }
 
-/** A small heading inside a group, above a choice. */
+/** A small heading inside a group, above a choice. [info]: what the choice means, behind an ⓘ beside it. */
 @Composable
-fun Label(text: String) {
-    Text(
-        text, style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp),
-    )
+fun Label(text: String, info: String? = null) {
+    var open by androidx.compose.runtime.saveable.rememberSaveable(text, "label") { androidx.compose.runtime.mutableStateOf(false) }
+    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = if (info != null) 8.dp else 14.dp, bottom = if (info != null) 2.dp else 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f, fill = false))
+            if (info != null) InfoMark(open, text) { open = !open }
+        }
+        InfoText(open && info != null, info, Modifier.padding(bottom = 4.dp))
+    }
 }
 
 /**
- * Quiet explanatory text inside a group. Hidden when Layout & navigation → "Explanations on settings pages" is off (#119):
- * every page, the new ones too, then shows just its settings.
+ * Text that is always shown inside a group: a state or a figure (space used, an error), or steps to follow. A setting's
+ * explanation doesn't go here: it goes behind the ⓘ of what it explains ([Toggle], [Item], [Label] or [Group] `info`).
  */
 @Composable
-fun Note(text: String, always: Boolean = false) {
-    // [always]: how-tos and notices (Listen together's steps, the license, credits) that aren't a setting's explanation.
-    if (!always && !com.prism.music.ui.theme.LocalAppSettings.current.settingsExplanations) return
+fun Note(text: String) {
     Text(
         text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     )
+}
+
+/** The small ⓘ that opens a setting's details (ink when open). */
+@Composable
+fun InfoMark(open: Boolean, about: String, onClick: () -> Unit) {
+    Icon(
+        PrismIcons.Info, if (open) "Hide details" else "More about $about",
+        Modifier.padding(start = 6.dp).size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
+            .clickable(onClick = onClick).padding(6.dp),
+        tint = if (open) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.ink3,
+    )
+}
+
+/** The details an [InfoMark] opens, sliding open under it. */
+@Composable
+fun InfoText(open: Boolean, text: String?, modifier: Modifier = Modifier) {
+    androidx.compose.animation.AnimatedVisibility(open && text != null) {
+        Text(text.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier)
+    }
 }
 
 /**
@@ -110,20 +140,10 @@ private fun ColumnScope.SettingText(title: String, subtitle: String?, info: Stri
     var open by androidx.compose.runtime.saveable.rememberSaveable(title) { androidx.compose.runtime.mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f, fill = false))
-        if (info != null) Icon(
-            PrismIcons.Info, if (open) "Hide details" else "More about $title",
-            Modifier.padding(start = 6.dp).size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                .clickable { open = !open }.padding(6.dp),
-            tint = if (open) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.ink3,
-        )
+        if (info != null) InfoMark(open, title) { open = !open }
     }
     if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    androidx.compose.animation.AnimatedVisibility(open && info != null) {
-        Text(
-            info.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-    }
+    InfoText(open && info != null, info, Modifier.padding(top = 6.dp))
 }
 
 @Composable
@@ -227,15 +247,22 @@ fun SliderSetting(
     valueText: (Float) -> String,
     steps: Int = 0,
     enabled: Boolean = true,
+    /** What it does, behind an ⓘ beside the title. */
+    info: String? = null,
     onSave: (Float) -> Unit,
 ) {
     var v by remember { mutableFloatStateOf(value) }
     LaunchedEffect(value) { v = value }
+    var open by androidx.compose.runtime.saveable.rememberSaveable(title, "slider") { androidx.compose.runtime.mutableStateOf(false) }
     Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+                if (info != null) InfoMark(open, title) { open = !open }
+            }
             Text(valueText(v), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        InfoText(open && info != null, info, Modifier.padding(top = 2.dp, bottom = 2.dp))
         PrismSlider(v, { v = it }, enabled = enabled, valueRange = range, steps = steps, onValueChangeFinished = { onSave(v) })
     }
 }

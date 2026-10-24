@@ -159,7 +159,12 @@ fun LyricsStyleGroup() {
     val cover = LocalContainer.current.player.currentSong.value?.thumbnail
     val palette = com.prism.music.ui.components.rememberArtPalette(cover)
     val cardGround = cardColor(palette?.vibrant ?: palette?.dominant ?: Color(0xFF6B3FA0))
-    Group("Style") {
+    val styleInfo = when (s.lyricsStyle) {
+        LyricsStyle.CARD -> "Bold card: the lyrics sit on a color from the cover, changing with each song."
+        LyricsStyle.TYPEWRITER, LyricsStyle.KARAOKE -> "${s.lyricsStyle.label}: lyrics timed by the line, not the word, are filled in at a steady pace through each line."
+        else -> null
+    }
+    Group("Style", info = styleInfo) {
         ChoiceCards(
             LyricsStyle.entries, s.lyricsStyle, title = { it.label }, detail = { it.note },
             onSelect = { prefs.setLyricsStyle(it) },
@@ -175,14 +180,9 @@ fun LyricsStyleGroup() {
             ).let { it.copy(sungWeight = (it.weight + 200).coerceAtMost(900), sungSolid = it.sung.solid()) }
             LyricsSample(sample, Modifier.fillMaxWidth(), size = 0.7f, lines = 2)
         }
-        when {
-            s.lyricsStyle == LyricsStyle.CARD && s.lyricsBackground != LyricsBackground.PLAYER && s.lyricsBackground != LyricsBackground.COVER_COLOR ->
-                Note("Bold card's color shows with the background As now or The cover's color (Background, below); here it keeps its bold type.")
-            s.lyricsStyle == LyricsStyle.CARD -> Note("The lyrics sit on a color from the cover, changing with each song.")
-            s.lyricsStyle == LyricsStyle.TYPEWRITER || s.lyricsStyle == LyricsStyle.KARAOKE ->
-                Note("Lyrics timed by the line, not the word, are filled in at a steady pace through each line.")
-            else -> {}
-        }
+        // Why Bold card shows no color with this background: a state, so it stays in view.
+        if (s.lyricsStyle == LyricsStyle.CARD && s.lyricsBackground != LyricsBackground.PLAYER && s.lyricsBackground != LyricsBackground.COVER_COLOR)
+            Note("Bold card's color shows with the background As now or The cover's color (Background, below); here it keeps its bold type.")
     }
 }
 
@@ -220,9 +220,8 @@ fun LyricsColorsGroup() {
         LyricsSample(currentLook(), Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), lines = 2)
         Label("The line being sung")
         LyricsColorSwatches(s.lyricsSungColor, s.lyricsSungCustom, { prefs.setLyricsSungColor(it) }) { picking = "sung" }
-        Label("The other lines")
+        Label("The other lines", info = if (s.lyricsStyle == LyricsStyle.CARD) "On Bold card's color, the lines still to come are dark." else null)
         LyricsColorSwatches(s.lyricsOtherColor, s.lyricsOtherCustom, { prefs.setLyricsOtherColor(it) }, spectrum = false) { picking = "other" }
-        if (s.lyricsStyle == LyricsStyle.CARD) Note("On Bold card's color, the lines still to come are dark.")
     }
     picking?.let { which ->
         val sung = which == "sung"
@@ -283,8 +282,7 @@ fun LyricsPlacementGroup() {
             LyricsPosition.entries, s.lyricsPosition, title = { it.label }, detail = { it.note }, columns = 3,
             onSelect = { prefs.setLyricsPosition(it) },
         ) { PositionSample(it.fraction, s.lyricsAhead.lines) }
-        Label("Lines to come")
-        Note("How many of the next lines show; the rest appear as the song gets to them")
+        Label("Lines to come", info = "How many of the next lines show; the rest appear as the song gets to them.")
         Chips(LyricsAhead.entries, s.lyricsAhead, { it.label }) { prefs.setLyricsAhead(it) }
     }
 }
@@ -317,14 +315,12 @@ private fun PositionSample(fraction: Float, ahead: Int) {
 fun LyricsExtrasGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
-    Group("Translations & romanized lines") {
+    Group("Translations & romanized lines", info = "How a translation, or a line spelled out in Latin letters, sits with each line.") {
         LyricsSample(currentLook(), Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), lines = 1, extra = "Cada color encuentra su camino")
-        Note("How a translation, or a line spelled out in Latin letters, sits with each line")
         Chips(LyricsExtraPlace.entries, s.lyricsExtraPlace, { it.label }) { prefs.setLyricsExtraPlace(it) }
         SliderSetting("Size", s.lyricsExtraSize, 0.7f..1.4f, { "${(it * 100).roundToInt()}%" }) { prefs.setLyricsExtraSize(it) }
-        Label("Color")
+        Label("Color", info = if (s.lyricsExtraColor == LyricsColor.CUSTOM) "Your color here is the one picked for the other lines (Colors, above)." else null)
         LyricsColorSwatches(s.lyricsExtraColor, s.lyricsOtherCustom, { prefs.setLyricsExtraColor(it) }) { prefs.setLyricsExtraColor(LyricsColor.CUSTOM) }
-        if (s.lyricsExtraColor == LyricsColor.CUSTOM) Note("Your color here is the one picked for the other lines (Colors, above).")
         Toggle("Italics", "Sets them apart from the lyrics", s.lyricsExtraItalic) { prefs.setLyricsExtraItalic(it) }
     }
 }
@@ -337,13 +333,13 @@ fun LyricsBackgroundGroup() {
     val prefs = LocalContainer.current.settings
     var picking by remember { mutableStateOf<Int?>(null) }
     Group("Background") {
-        Label("Behind the lyrics")
+        Label("Behind the lyrics", info = if (s.lyricsBackground == LyricsBackground.CANVAS) "Animated cover: songs without a moving cover show the cover blurred." else null)
         ChoiceCards(
             LyricsBackground.entries, s.lyricsBackground, title = { it.label }, detail = { if (it == LyricsBackground.PLAYER) "The player's own background" else it.note },
             onSelect = { prefs.setLyricsBackground(it) },
         ) { LyricsSample(currentLook(), Modifier.fillMaxWidth(), ground = backgroundSample(it), size = 0.7f, lines = 2) }
         if (s.lyricsBackground == LyricsBackground.COLOR || s.immersiveBackground == LyricsBackground.COLOR) {
-            Label("Your colors")
+            Label("Your colors", info = "Kept dark enough for white words.")
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 ColorDot("Top", Color(s.lyricsBgColor)) { picking = 1 }
                 ColorDot("Bottom", if (s.lyricsBgColor2 == 0) null else Color(s.lyricsBgColor2)) { picking = 2 }
@@ -352,9 +348,7 @@ fun LyricsBackgroundGroup() {
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { prefs.setLyricsBgColors(s.lyricsBgColor, 0) }.padding(8.dp),
                 )
             }
-            Note("Kept dark enough for white words.")
         }
-        if (s.lyricsBackground == LyricsBackground.CANVAS) Note("Songs without a moving cover show the cover blurred.")
         Label("Immersive mode")
         ChoiceCards(
             LyricsBackground.entries, s.immersiveBackground, title = { if (it == LyricsBackground.PLAYER) "The cover" else it.label },

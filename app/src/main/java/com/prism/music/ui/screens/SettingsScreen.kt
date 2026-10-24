@@ -332,11 +332,9 @@ private fun SettingsPage(
                         Toggle("Customize button at the top", "Top right of Home", s.homeCustomizeTopButton) { c.settings.setHomeCustomizeTopButton(it) }
                         Toggle("Customize button at the bottom", "At the end of Home", s.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
                     }
-                    Group("Replay card") {
-                        val look = ReplayCardStyle.entries.firstOrNull { it.name == s.replayCard } ?: ReplayCardStyle.WASH
-                        Note("How Replay looks on Home, from the quietest to the most colorful")
+                    val look = ReplayCardStyle.entries.firstOrNull { it.name == s.replayCard } ?: ReplayCardStyle.WASH
+                    Group("Replay card", info = "How Replay looks on Home, from the quietest to the most colorful. ${look.label}: ${look.note}") {
                         Chips(ReplayCardStyle.entries, look, { it.label }) { c.settings.setReplayCard(it.name) }
-                        Note(look.note)
                         ReplayCardPreview(look, Modifier.padding(top = 6.dp, bottom = 14.dp))
                     }
                     Group("Made for you") {
@@ -399,10 +397,9 @@ private fun ContentCountrySetting() {
         Item(
             "Content country",
             if (s.contentCountry.isBlank()) "Automatic (${if (phone.isBlank()) "United States" else countryName(phone)})" else countryName(s.contentCountry),
-            info = "If Prism Music isn't available where you live, pick a country where it is. Restart Prism for playback to follow too. Songs a label blocks in your country still won't play: that's decided by your connection, not this setting.",
+            info = "Home, charts and search follow this country. If Prism Music isn't available where you live, pick a country where it is. Restart Prism for playback to follow too. Songs a label blocks in your country still won't play: that's decided by your connection, not this setting.",
             onClick = { picking = true },
         ) { Chevron() }
-        Note("Home, charts and search follow this country")
     }
     if (picking) {
         val countries = remember {
@@ -865,8 +862,7 @@ private fun TypeSettings() {
             })
         }
         error?.let { Note(it) }
-        SliderSetting("Text size", s.textScale, 0.85f..1.25f, { "${(it * 100).roundToInt()}%" }, steps = 7) { prefs.setTextScale(it) }
-        Note("On top of your phone's own text size.")
+        SliderSetting("Text size", s.textScale, 0.85f..1.25f, { "${(it * 100).roundToInt()}%" }, steps = 7, info = "On top of your phone's own text size.") { prefs.setTextScale(it) }
     }
 }
 
@@ -888,13 +884,12 @@ private fun IconSettings() {
     var pack by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedPack(context)) }
     var likeStar by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedLikeStar(context)) }
     Group("Icons") {
-        Label("Pack")
+        Label("Pack", info = pack.detail)
         Chips(com.prism.music.ui.theme.IconPack.entries, pack, { it.label }) {
             pack = it
             com.prism.music.ui.theme.IconStyle.savePack(context, it)
             looks.iconsChanged()
         }
-        Note(pack.detail)
         Label("Weight")
         Chips(com.prism.music.ui.theme.IconWeight.entries, saved.first, { it.label }) { save(it to saved.second) }
         Toggle("Rounded", "Round ends and softer corners", saved.second) { save(saved.first to it) }
@@ -922,7 +917,7 @@ private fun AppIconSettings() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scheme = MaterialTheme.colorScheme
     var current by remember { mutableStateOf(com.prism.music.ui.theme.AppIcons.current(context)) }
-    Group("App icon") {
+    Group("App icon", info = "Your launcher may take a moment to update.") {
         FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             com.prism.music.ui.theme.AppIcon.entries.forEach { icon ->
                 val on = icon == current
@@ -945,7 +940,6 @@ private fun AppIconSettings() {
                 }
             }
         }
-        Note("Your launcher may take a moment to update")
     }
 }
 
@@ -1054,15 +1048,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation()
                         "Hide the status bar", "More room; swipe down from the top to see it", s.hideStatusBar,
                         info = "The clock, battery and notification icons at the top stay hidden while Prism is open. Swipe down from the top edge and they show for a moment. Immersive mode and full-screen video hide the other bars too, as before.",
                     ) { prefs.setHideStatusBar(it) }
-                }
-            }
-            Box {
-                val s = LocalAppSettings.current
-                val prefs = LocalContainer.current.settings
-                Group("Settings pages") {
-                    Toggle(
-                        "Explanations on settings pages", if (s.settingsExplanations) "The notes that say what each part does" else "Just the settings; ⓘ still opens the details", s.settingsExplanations,
-                    ) { prefs.setSettingsExplanations(it) }
                 }
             }
             ResetPage(SettingsSection.INTERFACE)
@@ -1206,8 +1191,7 @@ private fun TabsEditor() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     val tabs = s.navTabs
-    Group("Tabs") {
-        Note("Tick your tabs and hold one to move it; keep Home, Library or Settings")
+    Group("Tabs", info = "Tick your tabs and hold one to move it. Keep Home, Library or Settings, so Settings can always be reached.") {
         // Settings opens from Home and Library, or is a tab itself: one of them always stays.
         fun allowed(next: List<NavTab>) = next.size >= 2 && next.any { it == NavTab.HOME || it == NavTab.LIBRARY || it == NavTab.SETTINGS }
         @Composable
@@ -1231,9 +1215,8 @@ private fun TabsEditor() {
         }
         com.prism.music.ui.components.ReorderList(tabs, { it }, { prefs.setNavTabs(it) }) { t, i, held, mod -> TabRow(t, i, mod, Modifier.dragHandle(), held) }
         NavTab.entries.filter { it !in tabs }.forEach { t -> TabRow(t, -1, Modifier, null, false) }
-        Label("Open Prism on")
+        Label("Open Prism on", info = "From Prism's next start.")
         Chips(tabs, if (s.startTab in tabs) s.startTab else tabs.first(), { it.label }) { prefs.setStartTab(it) }
-        Note("From Prism's next start")
         Spacer(Modifier.height(4.dp))
     }
 }
@@ -1349,9 +1332,11 @@ private fun PlayerLookGroup() {
         PlayerBackgroundTuning()
         Label("Controls")
         Chips(TransportStyle.entries, s.transportStyle, { it.label }) { prefs.setTransportStyle(it) }
-        Label("Progress bar")
+        Label(
+            "Progress bar",
+            info = if (s.scrubberStyle == ScrubberStyle.WAVE) "Waveform: each song's own shape, from Prism's scan of it: a plain bar until a song has been scanned (a few seconds into it)." else null,
+        )
         Chips(ScrubberStyle.entries, s.scrubberStyle, { it.label }) { prefs.setScrubberStyle(it) }
-        if (s.scrubberStyle == ScrubberStyle.WAVE) Note("Each song's own shape, from Prism's scan of it: a plain bar until a song has been scanned (a few seconds into it).")
     }
 }
 
@@ -1433,15 +1418,15 @@ private fun SoundPage() {
         Group("Playback") {
             Toggle("Autoplay", "Similar music when the queue ends", s.autoplay) { prefs.setAutoplay(it) }
             if (s.autoplay) {
-                Label("Autoplay from")
-                Chips(com.prism.music.data.prefs.AutoplaySource.entries, s.autoplaySource, { it.label }) { prefs.setAutoplaySource(it) }
-                Note(
-                    when (s.autoplaySource) {
+                Label(
+                    "Autoplay from",
+                    info = s.autoplaySource.label + ": " + when (s.autoplaySource) {
                         com.prism.music.data.prefs.AutoplaySource.YOURS -> "Prism's own radio, picked on your phone from what you play, like and keep"
                         com.prism.music.data.prefs.AutoplaySource.YOUTUBE -> "Prism Music's radio, for songs you haven't heard"
-                        com.prism.music.data.prefs.AutoplaySource.MIXED -> "Mostly your music, with two new songs from Prism Music in every five"
+                        com.prism.music.data.prefs.AutoplaySource.MIXED -> "mostly your music, with two new songs from Prism Music in every five"
                     } + ". Offline, it's always your music.",
                 )
+                Chips(com.prism.music.data.prefs.AutoplaySource.entries, s.autoplaySource, { it.label }) { prefs.setAutoplaySource(it) }
             }
             Toggle(
                 "Songs, not videos", "Autoplay and radios play songs", s.radioSongsOnly,
@@ -1455,14 +1440,14 @@ private fun SoundPage() {
             Toggle("Keep playing videos", "After a video, the next song plays as video too", s.videoContinues) { prefs.setVideoContinues(it) }
             Toggle("Skip silence", "Trims silence at the start and end", s.skipSilence) { prefs.setSkipSilence(it) }
             Toggle("Stop when swiped away", "Swiping Prism out of recent apps stops it", s.stopOnSwipeAway) { prefs.setStopOnSwipeAway(it) }
-            Label("Load ahead")
-            Chips(com.prism.music.data.prefs.Preload.entries, s.preload, { it.label }) { prefs.setPreload(it) }
-            Note(
-                when (s.preload) {
-                    com.prism.music.data.prefs.Preload.START -> "The next song's start, so it plays at once"
-                    else -> "Whole songs, so they play through a weak signal"
-                }
+            Label(
+                "Load ahead",
+                info = when (s.preload) {
+                    com.prism.music.data.prefs.Preload.START -> "Now: the next song's start, so it plays at once."
+                    else -> "Now: whole songs, so they play through a weak signal."
+                },
             )
+            Chips(com.prism.music.data.prefs.Preload.entries, s.preload, { it.label }) { prefs.setPreload(it) }
             Toggle(
                 "Load ahead on mobile data",
                 if (s.preload == com.prism.music.data.prefs.Preload.START) "About 0.3 MB a song" else "About 3–8 MB a song",
@@ -1660,8 +1645,7 @@ private fun LyricsSettings() {
                 Chips(TRANSLATE_LANGUAGES.map { it.first }, s.lyricsTranslateTo.takeIf { code -> TRANSLATE_LANGUAGES.any { it.first == code } } ?: "",
                     { code -> TRANSLATE_LANGUAGES.first { it.first == code }.second }) { prefs.setLyricsTranslateTo(it) }
             }
-            Label("Romanize lyrics")
-            Note("Other scripts in Latin letters, to sing along")
+            Label("Romanize lyrics", info = "Other scripts in Latin letters, to sing along.")
             Chips(com.prism.music.data.prefs.RomanizeMode.entries, s.romanize, { it.label }) { prefs.setRomanize(it) }
             if (s.romanize != com.prism.music.data.prefs.RomanizeMode.OFF) Toggle(
                 "Romanize my own language too", "${java.util.Locale.getDefault().displayLanguage} lyrics too", s.romanizeAll,
@@ -1677,8 +1661,7 @@ private fun LyricsSettings() {
                 "Lyrics on mobile data", if (s.lyricsOnMobileData) "Looked up as each song starts" else "Only once you open the lyrics", s.lyricsOnMobileData,
                 info = "Off, Prism doesn't look up lyrics on mobile data until you open them (the player's lyrics, Immersive mode or the source list). Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.",
             ) { prefs.setLyricsOnMobileData(it) }
-            Label("Order")
-            Note("Tried top to bottom; hold one to move it. Switch source per song from the player's ⋯")
+            Label("Order", info = "Tried top to bottom; hold one to move it. Switch source per song from the player's ⋯.")
             com.prism.music.ui.components.ReorderList(s.lyricsOrder, { it }, { prefs.setLyricsOrder(it) }) { src, i, held, mod ->
                 val on = src !in s.lyricsOff
                 Row(mod.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1722,9 +1705,8 @@ private fun LyricsSettings() {
         Group("Android Auto") {
             Toggle("Lyrics in the car", "On the car's player", s.carLyrics, info = "In place of the song title and cover. The car's Lyrics button turns them on and off too.") { prefs.setCarLyrics(it) }
             if (s.carLyrics) {
-                Label("Style")
+                Label("Style", info = s.carLyricsStyle.label + ": " + s.carLyricsStyle.detail)
                 Chips(CarLyricsStyle.entries, s.carLyricsStyle, { it.label }) { prefs.setCarLyricsStyle(it) }
-                Note(s.carLyricsStyle.detail)
                 CarLyricsPreview(s.carLyricsStyle)
                 if (s.carLyricsStyle != CarLyricsStyle.TEXT) Toggle(
                     "Keep the song title", "Lyrics on the cover only", s.carLyricsKeepTitle,

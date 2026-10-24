@@ -38,8 +38,10 @@ itself, drawn the way the lyrics are, and nothing changes until you pick somethi
   and offline; casting still uses the speaker's own volume.
 - **Hide the status bar** (#115, Settings → Layout & navigation → Screen): more room for Prism; swipe down from the top
   to see it for a moment. Part of your Looks.
-- **Explanations on settings pages** (#119, Layout & navigation → Settings pages, or "Hide explanations" on the Color
-  page): off, every settings page (the Color page's notes and parts list too) shows just its settings.
+- **Tidier settings pages** (#119): the explanations on every settings page now sit behind an ⓘ beside the setting,
+  choice or group they explain, as the longer details already did, so each page shows just its settings until you ask.
+  This includes the Color page's notes, its "Changes" lists and the three parts' descriptions. What's always shown is
+  only what's happening now: space used, an error, why something is still or greyed out.
 - **Library's tiles** are picked and ordered from a new edit button at the top right of Library (beside sync), instead of
   an "Edit tiles" tile at the end of them.
 - **Glow** glows in the shape of the letters: the light hugs each sung word instead of clouding the space around it.

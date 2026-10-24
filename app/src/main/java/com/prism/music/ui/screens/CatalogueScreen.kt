@@ -107,8 +107,7 @@ fun CatalogueScreen(bottomPadding: Dp) {
             }
         }
         item(key = "sections") {
-            Group("Sections") {
-                Note("Hold a section (or drag its grip) to move it; tap it to show or hide it")
+            Group("Sections", info = "Hold a section (or drag its grip) to move it; tap it to show or hide it.") {
                 com.prism.music.ui.components.ReorderList(layout, { it.key }, { save(it) }) { cfg, i, held, mod ->
                     Column(mod) {
                         if (i > 0 && !held) HorizontalDivider(Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -137,8 +136,9 @@ fun CatalogueScreen(bottomPadding: Dp) {
         }
         item(key = "tiles") {
             // Greyed out (still editable) while the Shortcut tiles section is hidden or removed.
-            Column(Modifier.alpha(if (tilesOn) 1f else 0.45f)) { Group(HomeSections.TILES_TITLE) {
-                Note(if (tilesOn) "Shortcuts appear in the order you pick them" else "Show the ${HomeSections.TILES_TITLE} section to see these on Home")
+            Column(Modifier.alpha(if (tilesOn) 1f else 0.45f)) { Group(HomeSections.TILES_TITLE, info = "Shortcuts appear in the order you pick them.") {
+                // Why they're greyed out: a state, so it stays in view.
+                if (!tilesOn) Note("Show the ${HomeSections.TILES_TITLE} section to see these on Home")
                 FlowRow(
                     Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),

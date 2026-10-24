@@ -157,8 +157,12 @@ private fun PartsKey(c: ThemeColors) {
                         )
                     }
                 }
-                Text(p.title, style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
-                if (LocalAppSettings.current.settingsExplanations) Text(p.detail, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, minLines = 3, maxLines = 4, lineHeight = 15.sp)
+                var open by androidx.compose.runtime.saveable.rememberSaveable(p.name) { mutableStateOf(false) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(p.title, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+                    InfoMark(open, p.title) { open = !open }
+                }
+                InfoText(open, p.detail)
             }
         }
     }
@@ -173,38 +177,38 @@ private fun ColorSettings() {
     val white = s.lightStyle == LightStyle.WHITE
     val cover = rememberCoverPalette()
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        // #119: the explanations can be put away (and brought back) right here, as on every settings page.
-        Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (s.settingsExplanations) {
+        // How the page works, behind an ⓘ like every other explanation.
+        var introOpen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+        Column(Modifier.padding(horizontal = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Prism's colors come in three parts, numbered in the preview: ① the light, ② the accent and ③ the background.",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "Three parts, numbered in the preview: ① the light, ② the accent and ③ the background.",
+                    Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyMedium,
                 )
-                Text(
-                    "Each group lists everything it changes in the app, and each choice shows what it looks like. Tap one and the preview above changes at once. Reset colors, at the bottom, puts everything back.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                InfoMark(introOpen, "the color page") { introOpen = !introOpen }
             }
-            com.prism.music.ui.components.PrismTextButton({ prefs.setSettingsExplanations(!s.settingsExplanations) }) {
-                Text(if (s.settingsExplanations) "Hide explanations" else "Show explanations")
-            }
+            InfoText(
+                introOpen,
+                "Each group's ⓘ says everything it changes in the app, and each choice shows what it looks like. Tap one and the preview above changes at once. Reset colors, at the bottom, puts everything back.",
+                Modifier.padding(top = 4.dp),
+            )
         }
 
         // White light is one of the Spectrum's choices (1.7.2): the light before the prism splits it.
-        Group("Spectrum") {
-            Note("① The light: the colors Prism lights its highlights with")
-            Changes(
+        Group(
+            "Spectrum",
+            info = changes(
+                "① The light: the colors Prism lights its highlights with.",
                 "The progress bar and Play ring in the player and mini player, the song that's playing in every list (and its " +
                     "bars), switches, the tab and chip you're on, Settings' icons, Home's Replay card and Continue line, the Liked " +
-                    "songs cover, the lyrics' progress line and the Best part tag. Home-screen widgets keep Prism's own colors."
-            )
-            if (white) Changes(
-                "${whiteName(dark)} lights all of these in ${whiteName(dark).lowercase()} (${whiteName(!dark).lowercase()} in " +
-                    "${if (dark) "light" else "dark"} mode). It also turns the frosted backgrounds and Prism's own colored tiles " +
-                    "(moods, genres, the Replay card) grey, and greys the home-screen widgets. Covers and photos keep their color, and " +
-                    "your accent (②) stays on its own things.",
-                label = "Also",
-            )
+                    "songs cover, the lyrics' progress line and the Best part tag. Home-screen widgets keep Prism's own colors.",
+                also = if (!white) null else
+                    "${whiteName(dark)} lights all of these in ${whiteName(dark).lowercase()} (${whiteName(!dark).lowercase()} in " +
+                        "${if (dark) "light" else "dark"} mode). It also turns the frosted backgrounds and Prism's own colored tiles " +
+                        "(moods, genres, the Replay card) grey, and greys the home-screen widgets. Covers and photos keep their color, and " +
+                        "your accent (②) stays on its own things.",
+            ),
+        ) {
             LightPresets(s, dark) { key ->
                 when (key) {
                     WHITE_KEY -> prefs.setLightStyle(LightStyle.WHITE)
@@ -226,14 +230,19 @@ private fun ColorSettings() {
             ) { LightStrip(rememberColors(s.copy(spectrumBands = it), dark)) }
         }
 
-        Group("Accent color") {
-            Note("② The accent: a second color, for details")
-            Changes(
+        Group(
+            "Accent color",
+            info = changes(
+                "② The accent: a second color, for details.",
                 "Artist names and links on album and playlist pages; the star, More and New release on artist pages; ticks and " +
                     "picked rows in lists and menus; Replay's top three and its bars; the text cursor; the Simple pattern backgrounds; " +
                     "and the page tint when Page background is Accent tint. Song lists and the player's text don't use it (the " +
-                    "player only does with its Theme or Your background backgrounds, in Player settings)."
-            )
+                    "player only does with its Theme or Your background backgrounds, in Player settings).",
+                also = if (s.colorSource != ColorSource.DYNAMIC) null else
+                    "Wallpaper: taken from your phone's wallpaper, as other apps do, and it changes when you change the wallpaper. " +
+                        "With Page background on Automatic, sheets and plain pages take the wallpaper's tint too.",
+            ),
+        ) {
             // Picture's color takes over the accent on exactly the pages it shows most on: say so here, where it's missed.
             if (s.pageColors) Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -263,7 +272,7 @@ private fun ColorSettings() {
                 ColorSource.CUSTOM -> {
                     Item("Accent color", "${ColorMath.toHex(s.accent)} · tap to change", onClick = { picking = Picking.Accent }) { Swatch(s.accent) }
                     if (!isNeutralSeed(s.accent)) {
-                        Note("How it's used: Prism can soften it to suit dark and light pages, or use it exactly")
+                        Label("How it's used", info = "Prism can soften it to suit dark and light pages, or use it exactly.")
                         ChoiceCards(
                             listOf(false, true), s.accentExact,
                             title = { if (it) "Exactly as picked" else "Softened" },
@@ -277,7 +286,10 @@ private fun ColorSettings() {
                     if (s.accentLight != 0) Item("Light mode accent", "${ColorMath.toHex(s.accentLight)} · tap to change", onClick = { picking = Picking.LightAccent }) { Swatch(s.accentLight) }
                 }
                 ColorSource.ARTWORK -> {
-                    Note(if (cover == null) "Which of the cover's colors becomes the accent. Play a song to see its own colors here" else "Which of this cover's colors becomes the accent")
+                    Label(
+                        "Which of its colors",
+                        info = if (cover == null) "Which of the cover's colors becomes the accent. Play a song to see its own colors here." else "Which of this cover's colors becomes the accent.",
+                    )
                     ChoiceCards(
                         ArtworkSwatch.entries, s.artworkSwatch,
                         title = { it.label },
@@ -289,31 +301,30 @@ private fun ColorSettings() {
                         AccentSample(rememberColors(s.copy(colorSource = ColorSource.CUSTOM, accent = col.toArgb(), accentLight = 0, accentExact = false), dark))
                     }
                     Toggle("Always colorful", "Grey or black-and-white covers still give a color", s.artworkVivid) { prefs.setArtworkVivid(it) }
-                    Label("Between songs")
-                    Chips(ArtworkChange.entries, s.artworkChange, { it.label }) { prefs.setArtworkChange(it) }
-                    Note(
-                        when (s.artworkChange) {
-                            ArtworkChange.INSTANT -> "The new color appears the moment a song starts"
-                            ArtworkChange.FADE -> "The color fades to the new one over about a second"
-                            ArtworkChange.SLOW -> "A slow, gentle fade of a couple of seconds"
-                            ArtworkChange.ALBUM -> "Songs from the same album keep one color"
-                        }
+                    Label(
+                        "Between songs",
+                        info = s.artworkChange.label + ": " + when (s.artworkChange) {
+                            ArtworkChange.INSTANT -> "the new color appears the moment a song starts."
+                            ArtworkChange.FADE -> "the color fades to the new one over about a second."
+                            ArtworkChange.SLOW -> "a slow, gentle fade of a couple of seconds."
+                            ArtworkChange.ALBUM -> "songs from the same album keep one color."
+                        },
                     )
+                    Chips(ArtworkChange.entries, s.artworkChange, { it.label }) { prefs.setArtworkChange(it) }
                 }
-                ColorSource.DYNAMIC -> Note(
-                    "Taken from your phone's wallpaper, as other apps do, and it changes when you change the wallpaper. With Page " +
-                        "background on Automatic, sheets and plain pages take the wallpaper's tint too"
-                )
+                ColorSource.DYNAMIC -> {}
             }
         }
 
-        Group("Page background") {
-            Note("③ The background: what Prism's own screens sit on")
-            Changes(
+        Group(
+            "Page background",
+            info = changes(
+                "③ The background: what Prism's own screens sit on.",
                 "The Ambient frost behind Home, Search, Library, Replay and Settings (Automatic keeps the cover's colors in it, " +
                     "Plain makes it grey, a tint colors it), those pages when frosted glass is off, and sheets and dialogs. " +
-                    "Not the player, nor album, artist and playlist pages, which take their picture's colors."
-            )
+                    "Not the player, nor album, artist and playlist pages, which take their picture's colors.",
+            ),
+        ) {
             val homeBackdrop = com.prism.music.ui.theme.Backdrop.parse(s.backdrops[com.prism.music.ui.theme.BackdropScreen.HOME.name]).first
             if (homeBackdrop != com.prism.music.ui.theme.Backdrop.DEFAULT) Note(
                 "Home has the ${homeBackdrop.label} background (Glass & backgrounds), drawn over this color, so it only shows a " +
@@ -339,12 +350,14 @@ private fun ColorSettings() {
             if (s.pureBlack) Note("Pure black (under Theme) keeps dark pages black; the tint then shows on cards and in light mode")
         }
 
-        Group("Text contrast") {
-            Note("How strong grey text and lines are against the page")
-            Changes(
+        Group(
+            "Text contrast",
+            info = changes(
+                "How strong grey text and lines are against the page.",
                 "Secondary text (artists, times, notes), dividers and outlines on pages, sheets and menus. Medium and High also " +
-                    "firm up the accent so it reads more easily. The player's own white text over the cover stays as it is."
-            )
+                    "firm up the accent so it reads more easily. The player's own white text over the cover stays as it is.",
+            ),
+        ) {
             ChoiceCards(
                 ContrastLevel.entries, s.contrast,
                 title = { it.label },
@@ -354,12 +367,15 @@ private fun ColorSettings() {
             ) { TextSample(rememberColors(s.copy(contrast = it), dark)) }
         }
 
-        Group("Artist & album pages") {
-            Note("Their accent: yours (②), as everywhere else, or a color taken from each page's picture")
-            Changes(
+        Group(
+            "Artist & album pages",
+            info = changes(
+                "Their accent: yours (②), as everywhere else, or a color taken from each page's picture.",
                 "The accent on artist, album and playlist pages, and in the menus you open from a song, album or artist (long " +
-                    "press or ⋯). Their frosted backgrounds take the picture's colors either way (Glass & backgrounds)."
-            )
+                    "press or ⋯). Their frosted backgrounds take the picture's colors either way (Glass & backgrounds).",
+                also = "An artist's page can also have a color of its own: ⋯ → Page color on their page.",
+            ),
+        ) {
             // The playing cover's page accent, worked out exactly as its page does (none for a black-and-white cover).
             val art = cover?.let { p ->
                 val dominant = (p.dominantSwatch ?: p.mutedSwatch ?: p.vibrantSwatch)?.rgb?.let { Color(it) }
@@ -377,7 +393,6 @@ private fun ColorSettings() {
                 },
                 onSelect = { prefs.setPageColors(it) },
             ) { on -> ColorSample(c, pageAccent = if (on) pictureAccent else null) }
-            Note("An artist's page can also have a color of its own: ⋯ → Page color on their page")
         }
         ResetColors()
     }
@@ -426,20 +441,12 @@ private fun ColorSettings() {
     }
 }
 
-/** Everything a group's choice changes in the app, under its heading ([label] "Changes"), so nothing it touches is a surprise. */
-@Composable
-private fun Changes(text: String, label: String = "Changes") {
-    if (!LocalAppSettings.current.settingsExplanations) return
-    val scheme = MaterialTheme.colorScheme
-    Text(
-        androidx.compose.ui.text.buildAnnotatedString {
-            withStyle(androidx.compose.ui.text.SpanStyle(color = scheme.onSurface, fontWeight = FontWeight.Medium)) { append("$label  ") }
-            append(text)
-        },
-        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-    )
-}
+/**
+ * A group's ⓘ: what the part is, then everything its choice changes in the app ([also]: more for the choice made), so
+ * nothing it touches is a surprise.
+ */
+private fun changes(what: String, changes: String, also: String? = null): String =
+    "$what\n\nChanges: $changes" + (also?.let { "\n\n$it" } ?: "")
 
 /** Stand-ins for a cover's colors while nothing is playing. */
 private val SAMPLE_COVER = mapOf(

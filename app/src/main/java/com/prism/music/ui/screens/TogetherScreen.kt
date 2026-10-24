@@ -230,7 +230,7 @@ private fun GuestView(s: TogetherState.Guest) {
             upcoming.take(8).forEach { song -> QueueLine(song) }
             if (upcoming.size > 8) Note("…and ${upcoming.size - 8} more")
         }
-        Note("Add songs from any song's ⋯ menu: they go to ${s.hostName}'s queue.", always = true)
+        Note("Add songs from any song's ⋯ menu: they go to ${s.hostName}'s queue.")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             PrismButton(onClick = { nav.go(Routes.SEARCH) }, Modifier.weight(1f)) {
                 Icon(PrismIcons.Search, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add songs")
@@ -308,10 +308,10 @@ private fun BigCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title
 @Composable
 private fun HowItWorks() {
     Group("How it works") {
-        Note("• Everyone needs Prism on the same Wi-Fi, or on one phone's hotspot.", always = true)
-        Note("• Each phone streams the music itself, so guests use their own data or Wi-Fi.", always = true)
-        Note("• Phones talk to each other directly. There's no Prism server, and nothing is shared once the session ends.", always = true)
-        Note("• Some public and work Wi-Fi keeps phones apart; a hotspot works there.", always = true)
+        Note("• Everyone needs Prism on the same Wi-Fi, or on one phone's hotspot.")
+        Note("• Each phone streams the music itself, so guests use their own data or Wi-Fi.")
+        Note("• Phones talk to each other directly. There's no Prism server, and nothing is shared once the session ends.")
+        Note("• Some public and work Wi-Fi keeps phones apart; a hotspot works there.")
         Spacer(Modifier.height(6.dp))
     }
 }

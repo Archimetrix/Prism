@@ -101,6 +101,10 @@ object SettingsIndex {
         SettingEntry(CO, "Accent color", "Accent from", "song cover wallpaper your pick now playing artwork dynamic material you color"),
         SettingEntry(CO, "Accent color", "Accent color", "color accent picker wheel hex code rgb hsl custom eyedropper"),
         SettingEntry(CO, "Accent color", "Exactly as picked", "accent color exact shade softened tone"),
+        SettingEntry(CO, "Accent color", "How it's used", "accent color exact softened as picked",
+            needs = Needs("Pick Your pick for the accent first") { it.colorSource == com.prism.music.data.prefs.ColorSource.CUSTOM }),
+        SettingEntry(CO, "Accent color", "Which of its colors", "song cover vibrant muted dominant swatch accent",
+            needs = Needs("Pick Song's cover for the accent first") { it.colorSource == com.prism.music.data.prefs.ColorSource.ARTWORK }),
         SettingEntry(CO, "Accent color", "Different color for light mode", "accent color light theme another"),
         SettingEntry(CO, "Accent color", "Light mode accent", "accent color light theme"),
         SettingEntry(CO, "Accent color", "Cover color", "song cover now playing artwork accent vibrant muted color",
@@ -250,9 +254,8 @@ object SettingsIndex {
         SettingEntry(Y, "Sing", "Clear sung songs", "karaoke storage delete"),
         SettingEntry(Y, "Look", "Alignment", "left centre center right"),
         SettingEntry(Y, "Look", "Text size", "lyrics font size"),
-        // GitHub requests in 1.7.5 (#111 #115 #116 #119).
+        // GitHub requests in 1.7.5 (#111 #115 #116).
         SettingEntry(SettingsSection.LIBRARY, "Library", "A song and its video as one", "merge liked music video duplicate same song twice"),
-        SettingEntry(SettingsSection.INTERFACE, "Settings pages", "Explanations on settings pages", "hide notes descriptions info help text clutter"),
         SettingEntry(SettingsSection.INTERFACE, "Screen", "Hide the status bar", "status bar clock notifications full screen immersive"),
         SettingEntry(SettingsSection.PLAYER, "Under the title", "The volume slider changes", "volume independent app volume prism's own system media"),
         // Lyrics, your way (1.7.5).

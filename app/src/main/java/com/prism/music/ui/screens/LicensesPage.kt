@@ -67,14 +67,14 @@ fun LicensesPage() {
     val uri = LocalUriHandler.current
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Group("Prism") {
-            Note("Prism is free software under the GNU General Public License, version 3 or later. You can use, study, share and change it; copies and changed versions have to stay under the same license, with their source.", always = true)
+            Note("Prism is free software under the GNU General Public License, version 3 or later. You can use, study, share and change it; copies and changed versions have to stay under the same license, with their source.")
             Item("Source code", SOURCE_URL.removePrefix("https://"), onClick = { uri.openUri(SOURCE_URL) }) {
                 Icon(PrismIcons.OpenInNew, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             LicenseRow("GNU GPL 3.0", "Prism's license", "gpl-3.0")
         }
         Group("Built with") {
-            Note("Tap one to read its license.", always = true)
+            Note("Tap one to read its license.")
             libraries.forEach { LicenseRow(it.name, "${it.license} · ${it.by}", it.text, it.url) }
         }
     }

@@ -190,11 +190,10 @@ private fun LooksSettings() {
             else LookGrid(mine, current, onPick = ::apply, onMore = { acting = it })
         }
         CommunityGroup(current)
-        Group("Get a Look") {
+        Group("Get a Look", info = "You see a Look first, and choose to try it or keep it.") {
             Item("Scan a Look's QR code", "From a friend's Prism", icon = PrismIcons.Camera, onClick = { nav.go(Routes.LOOK_SCAN) }) { Chevron() }
             Item("Paste a Look code", "A code someone sent you", icon = PrismIcons.Copy, onClick = { take(c.looks.decode(clipboard.getText()?.text)) })
             Item("Open a Look file", "A .prismlook file, with its photos and font", icon = PrismIcons.Photo, onClick = { openFile.launch(arrayOf("application/zip", "application/octet-stream")) })
-            Note("You see a Look first, and choose to try it or keep it.")
         }
         ScheduleGroup()
         HistoryGroup()
