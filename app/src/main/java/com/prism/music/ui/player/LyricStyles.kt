@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -234,15 +235,27 @@ fun SungLine(
         }
         LyricsStyle.GLOW -> {
             val bright = st.copy(fontWeight = FontWeight(look.weight + 100))
-            // The glow is a softly blurred copy of the sung words behind them (a text shadow is cut off at the line's
-            // edges by the sweep's layer, and came out as a box). Below Android 12 there's no blur, so no glow copy.
-            val glowFill = SolidColor(look.sungSolid.copy(alpha = 0.9f))
+            // The glow is a blurred copy of the sung words behind them (a text shadow is cut off at the line's edges by
+            // the sweep's layer, and came out as a box). The copy is the letters thickened by an outline and only lightly
+            // blurred, so the light hugs each letter's shape instead of clouding the space round the words (a 10 dp blur
+            // did that before 1.7.5's release). Below Android 12 there's no blur, so no glow copy.
+            val glowFill = SolidColor(look.sungSolid.copy(alpha = 0.85f))
             // Its children fill the line's width when the line does (the lyrics page), and wrap their words when it doesn't (the strip).
             Box(modifier, propagateMinConstraints = true) {
                 if (android.os.Build.VERSION.SDK_INT >= 31) {
-                    val soft = Modifier.matchParentSize().blur(10.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                    if (!line.isWordSynced) Text(line.text, soft, style = bright.copy(brush = glowFill), maxLines = maxLines, overflow = TextOverflow.Ellipsis)
-                    else SweptLine(line, clock, bright, soft, maxLines, litBrush = glowFill, dimColor = Color.Transparent)
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    val glowStyle = remember(bright, density) {
+                        val px = with(density) { if (bright.fontSize.isSpecified) bright.fontSize.toPx() else 24.dp.toPx() }
+                        bright.copy(
+                            brush = glowFill, shadow = null,
+                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = px * GLOW_OUTLINE, join = androidx.compose.ui.graphics.StrokeJoin.Round,
+                            ),
+                        )
+                    }
+                    val soft = Modifier.matchParentSize().blur(GLOW_BLUR, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                    if (!line.isWordSynced) Text(line.text, soft, style = glowStyle, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+                    else SweptLine(line, clock, glowStyle, soft, maxLines, litBrush = glowFill, dimColor = Color.Transparent)
                 }
                 if (!line.isWordSynced) PlainSung(line, bright, look, Modifier, maxLines)
                 else SweptLine(line, clock, bright, Modifier, maxLines, dimAlpha, litBrush = look.sung)
@@ -296,6 +309,10 @@ private fun TypewriterLine(line: LyricLine, clock: State<Long>, style: TextStyle
 }
 
 private const val TYPE_IN_MS = 140f
+
+/** Glow: the outline that thickens the glowing copy (a share of the font size), and how far it's blurred. */
+private const val GLOW_OUTLINE = 0.07f
+private val GLOW_BLUR = 3.dp
 
 /**
  * What's behind the lyrics when it isn't the player's own ([LyricsBackground.PLAYER] draws nothing here): plain dark, the

@@ -243,17 +243,41 @@ fun BackdropLayer(style: Backdrop, photo: String?, dim: Float, motion: Boolean, 
     }
 }
 
+/**
+ * A moving background's clock: 0 to 1 over [periodMs], over and over ([rest] when it doesn't move). It's read where
+ * the background is drawn, so each frame only redraws it (reading it while composing rebuilt the whole background every
+ * frame). Under the full player, which hides it, it holds still, and carries on from that same place when the page
+ * shows again.
+ */
 @Composable
-internal fun drift(motion: Boolean, periodMs: Int, rest: Float): Float = if (motion) {
-    rememberInfiniteTransition(label = "backdrop").animateFloat(0f, 1f, infiniteRepeatable(tween(periodMs, easing = LinearEasing)), label = "t").value
-} else rest
+internal fun drift(motion: Boolean, periodMs: Int, rest: Float): androidx.compose.runtime.State<Float> {
+    val t = remember { androidx.compose.runtime.mutableFloatStateOf(if (motion) 0f else rest) }
+    // How long it has moved for (ms), kept across holds.
+    val moved = remember { doubleArrayOf(0.0) }
+    val hidden = com.prism.music.ui.components.LocalHiddenByPlayer.current()
+    androidx.compose.runtime.LaunchedEffect(motion, periodMs, hidden) {
+        if (!motion) { t.floatValue = rest; return@LaunchedEffect }
+        if (hidden) return@LaunchedEffect
+        // As Compose's own animations: with Android's animations turned off they sit at their end.
+        val scale = coroutineContext[androidx.compose.ui.MotionDurationScale]?.scaleFactor ?: 1f
+        if (scale == 0f) { t.floatValue = 1f; return@LaunchedEffect }
+        var last = -1L
+        while (true) androidx.compose.animation.core.withInfiniteAnimationFrameNanos { now ->
+            if (last >= 0) moved[0] += (now - last) / 1_000_000.0 / scale
+            last = now
+            t.floatValue = ((moved[0] % periodMs) / periodMs).toFloat()
+        }
+    }
+    return t
+}
 
 @Composable
 private fun Fields(colors: List<Color>, dark: Boolean, motion: Boolean, quiet: Float = 1f) {
-    val t = drift(motion, 28_000, 0.15f)
+    val clock = drift(motion, 28_000, 0.15f)
     // Pastels need a touch less strength to stay airy; the dark palettes glow at full ([quiet] lowers it on pure black).
     val strength = (if (dark) 0.7f else 0.62f) * quiet
     Canvas(Modifier.fillMaxSize().background(colors[0])) {
+        val t = clock.value
         val a = t * 2 * PI.toFloat()
         val r = size.maxDimension * 0.6f
         fun field(color: Color, cx: Float, cy: Float) =
@@ -277,7 +301,7 @@ private fun Pattern(kind: BackdropKind, dark: Boolean, motion: Boolean, glow: Fl
     val second = scheme.tertiary
     val t = drift(motion && (kind == BackdropKind.WAVES || kind == BackdropKind.RIPPLES), 24_000, 0.2f)
     val density = LocalDensity.current.density
-    Canvas(Modifier.fillMaxSize().background(bg)) { drawPattern(kind, bg, accent, second, dark, t, density, glow) }
+    Canvas(Modifier.fillMaxSize().background(bg)) { drawPattern(kind, bg, accent, second, dark, t.value, density, glow) }
 }
 
 /** One simple design, drawn plainly (tests render it to an image). */

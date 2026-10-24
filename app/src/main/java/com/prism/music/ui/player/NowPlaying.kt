@@ -55,6 +55,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -113,6 +114,7 @@ import com.prism.music.data.model.hiRes
 import com.prism.music.ui.LocalNavigator
 import com.prism.music.ui.Routes
 import com.prism.music.ui.components.shareTarget
+import com.prism.music.ui.components.tickWhileShown
 import com.prism.music.ui.theme.LocalContainer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -150,13 +152,12 @@ fun rememberPosition(fast: Boolean, hold: Boolean = false): Long = rememberPosit
 fun rememberPositionState(fast: Boolean, hold: Boolean = false): androidx.compose.runtime.State<Long> {
     val pc = LocalContainer.current.player
     val pos = remember { mutableLongStateOf(pc.position) }
-    // [hold]: hidden under a sheet, the player isn't recomposed four times a second for a clock nobody sees.
-    LaunchedEffect(fast, hold) {
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    // [hold]: hidden under a sheet, the player isn't recomposed four times a second for a clock nobody sees; nor while
+    // Prism is out of sight (the screen off, another app in front).
+    LaunchedEffect(fast, hold, lifecycle) {
         pos.longValue = pc.position
-        while (isActive && !hold) {
-            pos.longValue = pc.position
-            delay(if (fast) 60 else 250)
-        }
+        if (!hold) lifecycle.tickWhileShown(if (fast) 60 else 250) { pos.longValue = pc.position }
     }
     return pos
 }
@@ -300,6 +301,10 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onCollapse()
         }
     }
+    // Pulled down (or sliding closed), the page under the player shows again: its backgrounds move again.
+    val cover = com.prism.music.ui.components.LocalPlayerCover.current
+    LaunchedEffect(cover) { snapshotFlow { dismiss.value > 0f || closing }.collect { cover.pulled = it } }
+    DisposableEffect(cover) { onDispose { cover.pulled = false } }
     BackHandler {
         when {
             fullscreenVideo -> fullscreenVideo = false

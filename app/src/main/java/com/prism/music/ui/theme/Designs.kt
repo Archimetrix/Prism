@@ -47,7 +47,7 @@ internal fun Design(kind: BackdropKind, colors: List<Color>, dark: Boolean, moti
     val animated = motion && kind != BackdropKind.MOSAIC
     val t = drift(animated, periodMs, 0.3f)
     val density = LocalDensity.current.density
-    Canvas(Modifier.fillMaxSize().background(base)) { drawDesign(kind, colors, dark, t, density) }
+    Canvas(Modifier.fillMaxSize().background(base)) { drawDesign(kind, colors, dark, t.value, density) }
 }
 
 /** Draws one design at animation time [t] (0..1); plain drawing, so tests can render it to an image. */

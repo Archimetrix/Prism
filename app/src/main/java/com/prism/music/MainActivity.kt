@@ -165,8 +165,8 @@ open class MainActivity : ComponentActivity() {
         SmartDownloadWorker.schedule(this, c.settings.current.smartDownloads)
         // Tidies the smart-download queue (it only adds more if it's been a while).
         if (c.settings.current.smartDownloads) SmartDownloadWorker.runNow(this, force = false)
-        // Picks up lossless files added while Prism is closed.
-        com.prism.music.download.LosslessSyncWorker.schedule(this)
+        // Lossless files added while Prism is closed are picked up by LosslessSyncWorker, scheduled by LosslessSync
+        // while the lossless add-on is on.
         if (c.settings.current.isLoggedIn) c.library.syncInBackground()
         deepLink.value = linkIn(intent)
         setContent {
@@ -486,7 +486,11 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
 
         // "Customize this" (1.7.3): the element tapped and, for a Home section, which one.
         var customizing by remember { mutableStateOf<Pair<com.prism.music.ui.components.CustomizeTarget, String?>?>(null) }
+        // What's under the full player holds its purely visual motion still while the player hides it.
+        val playerCover = remember { com.prism.music.ui.components.PlayerCover() }
+        val hiddenByPlayer = remember(playerCover) { { playerCover.hides } }
         CompositionLocalProvider(
+            com.prism.music.ui.components.LocalPlayerCover provides playerCover,
             LocalNavigator provides navigator,
             LocalHazeState provides haze,
             com.prism.music.ui.theme.LocalChromeStart provides railInset,
@@ -498,6 +502,7 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
             val underPlayer = if (covered) Modifier.semantics { hideFromAccessibility() } else Modifier
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 Box(Modifier.fillMaxSize().then(underPlayer).nestedScroll(barScroll).hazeSource(haze)) {
+                  CompositionLocalProvider(com.prism.music.ui.components.LocalHiddenByPlayer provides hiddenByPlayer) {
                     // The same cross-fade both ways, and for the back gesture too: left to its default,
                     // a predictive back (swipe from the edge) shrinks the page like a card instead.
                     NavHost(
@@ -653,9 +658,11 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                             }
                         }
                     }
+                  }
                 }
 
                 // Wide windows: the tabs in a rail down the start edge, the mini player along the bottom beside it.
+                CompositionLocalProvider(com.prism.music.ui.components.LocalHiddenByPlayer provides hiddenByPlayer) {
                 if (useRail) {
                     NavRail(
                         tabs, route, settings, selectTab,
@@ -695,12 +702,18 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                         Box(Modifier.customizable(com.prism.music.ui.components.CustomizeTarget.TAB_BAR)) { TabBar(tabs, route, barT, settings, selectTab) }
                     }
                 }
+                }
 
                 AnimatedVisibility(
                     playerOpen && song != null,
                     enter = slideInVertically(tween(if (settings.reduceMotion) 260 else 420)) { it } + fadeIn(tween(200)),
                     exit = slideOutVertically(tween(if (settings.reduceMotion) 240 else 360)) { it } + fadeOut(tween(300)),
                 ) {
+                    // Settled once it's done sliding in; no longer the moment it starts to leave.
+                    val settled = transition.currentState == androidx.compose.animation.EnterExitState.Visible &&
+                        transition.targetState == androidx.compose.animation.EnterExitState.Visible
+                    androidx.compose.runtime.SideEffect { playerCover.settled = settled }
+                    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { playerCover.settled = false } }
                     Box(Modifier.customizable(com.prism.music.ui.components.CustomizeTarget.PLAYER)) { NowPlayingScreen { playerOpen = false } }
                 }
 

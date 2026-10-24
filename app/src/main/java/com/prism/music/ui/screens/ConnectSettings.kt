@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import com.prism.music.ui.components.tickWhileShown
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.PrismIcons
@@ -51,7 +52,8 @@ fun ConnectSettings() {
                 val running by remote.running.collectAsState()
                 // The address and code can change (another network, a pairing): looked at again every few seconds.
                 var tick by remember { mutableIntStateOf(0) }
-                LaunchedEffect(Unit) { while (isActive) { delay(2_000); tick++ } }
+                val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+                LaunchedEffect(lifecycle) { lifecycle.tickWhileShown(2_000) { tick++ } }
                 val address = remember(tick, running) { remote.address }
                 val code = remember(tick) { remote.auth.code }
                 val browsers = remember(tick) { remote.auth.browsers() }

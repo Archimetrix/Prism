@@ -1,6 +1,7 @@
 package com.prism.music.ui.tour
 
 import android.content.Context
+import com.prism.music.ui.components.tickWhileShown
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
@@ -195,7 +196,8 @@ private fun StepPage(step: TourStep, onShowMe: (String) -> Unit) {
             Spacer(Modifier.height(22.dp))
             var allowed by remember { mutableStateOf(Notifications.allowed(context)) }
             // After Android's prompt answers, look again (it shows over the app, and Prism resumes under it).
-            LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(700); allowed = Notifications.allowed(context) } }
+            val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+            LaunchedEffect(lifecycle) { lifecycle.tickWhileShown(700) { allowed = Notifications.allowed(context) } }
             if (allowed) Text("Notifications are on.", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
             else if (Build.VERSION.SDK_INT >= 33) PrismOutlinedButton(onClick = {
                 context.getSharedPreferences("prompts", Context.MODE_PRIVATE).edit().putBoolean("notifications_asked", true).apply()

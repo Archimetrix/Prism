@@ -281,8 +281,10 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 delay(1000)
                 // An episode's place is saved every few seconds while it plays.
                 if (++tick % 5 == 0 && player.isPlaying) saveEpisodePosition()
-                // Widgets' progress bars move on every 15 s (more often would cost battery for little).
-                if (tick % 15 == 0 && player.isPlaying) pushWidgets()
+                // Widgets' progress bars move on every 15 s (more often would cost battery for little); with the screen
+                // off nobody sees them, so they catch up the moment it's back on instead.
+                if (tick % 15 == 0 && player.isPlaying) pushWidgets(progressOnly = true)
+                else if (widgetsBehind && screenOn()) pushWidgets()
                 // Diagnostics: every 10 s of playing, how far ahead it's loaded and what Prism's own processing cost.
                 if (tick % 10 == 0 && player.isPlaying && AudioDiagnostics.enabled) AudioDiagnostics.log(
                     "tick",
@@ -1498,14 +1500,27 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     /** Home screen widgets follow what's playing (nothing happens when none is placed). */
-    private fun pushWidgets() {
+    /** A progress-only widget refresh was skipped with the screen off (see the service's tick). */
+    private var widgetsBehind = false
+
+    private fun screenOn(): Boolean = (getSystemService(POWER_SERVICE) as? android.os.PowerManager)?.isInteractive != false
+
+    /**
+     * The widgets (and Discord) brought up to date. [progressOnly]: only the playhead has moved since the last time,
+     * which waits while the screen is off (each refresh sends the launcher the cover again).
+     */
+    private fun pushWidgets(progressOnly: Boolean = false) {
         if (!::player.isInitialized) return
         val song = player.currentMediaItem?.toSong()
-        com.prism.music.widget.Widgets.update(
-            this, song, player.playWhenReady && player.playbackState != Player.STATE_ENDED && player.playbackState != Player.STATE_IDLE,
-            song != null && song.id in c.library.likedIds.value,
-            player.currentPosition, player.duration.takeIf { it > 0 },
-        )
+        if (progressOnly && !screenOn()) widgetsBehind = true
+        else {
+            widgetsBehind = false
+            com.prism.music.widget.Widgets.update(
+                this, song, player.playWhenReady && player.playbackState != Player.STATE_ENDED && player.playbackState != Player.STATE_IDLE,
+                song != null && song.id in c.library.likedIds.value,
+                player.currentPosition, player.duration.takeIf { it > 0 },
+            )
+        }
         // Discord shows what's playing too, when that's on (it only sends what changed).
         c.discord.show(song, player.isPlaying, player.currentPosition, player.duration.takeIf { it > 0 } ?: 0)
     }

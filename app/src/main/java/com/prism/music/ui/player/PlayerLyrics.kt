@@ -304,8 +304,10 @@ fun rememberLyricClock(active: Boolean = true): State<Long> {
     val clock = remember { mutableLongStateOf(pc.lyricPosition) }
     // Android runs ordinary app content at 60 Hz; ask for the panel's full rate while lyrics move.
     val view = LocalView.current
-    DisposableEffect(active) {
-        if (active && Build.VERSION.SDK_INT >= 35) {
+    // Only while they move: paused, a 120 Hz screen goes back to its own rate (it stayed at 120 under paused lyrics).
+    val playing by pc.isPlaying.collectAsState()
+    DisposableEffect(active && playing) {
+        if (active && playing && Build.VERSION.SDK_INT >= 35) {
             val before = view.requestedFrameRate
             view.requestedFrameRate = 120f
             onDispose { view.requestedFrameRate = before }
@@ -317,10 +319,20 @@ fun rememberLyricClock(active: Boolean = true): State<Long> {
         clock.longValue = shown.toLong()
         if (!active) return@LaunchedEffect
         var last = -1L
-        while (true) withFrameNanos { now ->
+        while (true) {
+            // Paused or buffering, the playhead stands still: so do the lyrics (they used to creep up to 250 ms ahead
+            // of the audio and then jump back). It's then looked at a few times a second (a seek still moves them),
+            // rather than on every frame of the screen.
+            if (pc.player?.isPlaying != true) {
+                withFrameNanos { }
+                last = -1L
+                shown = pc.lyricPosition.toDouble()
+                clock.longValue = shown.toLong()
+                delay(PAUSED_CLOCK_MS)
+                continue
+            }
+            withFrameNanos { now ->
             val actual = pc.lyricPosition
-            // Paused or buffering, the playhead stands still: so do the lyrics (they used to creep up to
-            // 250 ms ahead of the audio and then jump back).
             if (last < 0 || pc.player?.isPlaying != true) shown = actual.toDouble() else {
                 val speed = pc.player?.playbackParameters?.speed ?: 1f
                 shown += (now - last) / 1_000_000.0 * speed
@@ -329,10 +341,14 @@ fun rememberLyricClock(active: Boolean = true): State<Long> {
             }
             last = now
             clock.longValue = shown.toLong()
+            }
         }
     }
     return clock
 }
+
+/** How often a paused song's lyric clock is looked at (a seek while paused shows within this). */
+private const val PAUSED_CLOCK_MS = 40L
 
 private fun List<LyricLine>.indexAt(ms: Long): Int {
     var idx = -1

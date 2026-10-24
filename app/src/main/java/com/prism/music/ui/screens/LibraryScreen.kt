@@ -240,6 +240,8 @@ fun LibraryScreen(bottomPadding: Dp) {
                 if (sync == SyncState.SYNCING) Box(Modifier.size(42.dp), contentAlignment = Alignment.Center) { com.prism.music.ui.components.PrismSpinner(Modifier.size(22.dp), stroke = 2.dp) }
                 else com.prism.music.ui.components.RoundAction(PrismIcons.Sync, "Sync with YouTube Music") { scope.launch { c.library.sync() } }
             }
+            // Pick and order the Playlists tab's tiles (it was a tile of its own at the end of them until 1.7.5).
+            com.prism.music.ui.components.RoundAction(PrismIcons.Edit, "Edit tiles") { editingTiles = true }
             com.prism.music.ui.components.RoundAction(
                 if (asList) PrismIcons.Customize else PrismIcons.Queue,
                 if (asList) "Show as grid" else "Show as list",
@@ -297,7 +299,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                 }
                 when (tab) {
                     LibTab.PLAYLISTS -> {
-                      // The tiles picked and ordered in "Edit tiles" (Settings → Library & Replay too).
+                      // The tiles picked and ordered with the edit button at the top (Settings → Library & Replay too).
                       val tilesPart: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit = {
                         settings.libraryTiles.forEach { t ->
                             when (t) {
@@ -319,7 +321,6 @@ fun LibraryScreen(bottomPadding: Dp) {
                                 LibraryTile.IMPORT -> if (settings.isLoggedIn) item(key = "tile-import") { ShortcutTile("Import playlists", "From Spotify, Apple Music…", PrismIcons.PlaylistAdd, asList) { nav.go(Routes.IMPORT) } }
                             }
                         }
-                        item(key = "tile-edit") { ShortcutTile("Edit tiles", "Pick and order these", PrismIcons.Edit, asList) { editingTiles = true } }
                       }
                       val playlistsPart: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit = {
                         // Signed out: playlists made here are kept on the phone; signing in brings YouTube Music's too.
@@ -588,7 +589,7 @@ private fun ShortcutTile(title: String, subtitle: String, icon: ImageVector, asL
 
 /**
  * Edit Library's tiles (Reddit 1.7): tick the ones to show and move them up or down. Changes show at once in Library
- * behind the sheet. Opened from Library's "Edit tiles" and from Settings → Library & Replay.
+ * behind the sheet. Opened from the edit button at the top of Library and from Settings → Library & Replay.
  */
 @Composable
 fun LibraryTilesSheet(onDismiss: () -> Unit) {

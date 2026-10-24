@@ -44,6 +44,7 @@ object MainThreadWatch {
         on = enabled
         Looper.getMainLooper().setMessageLogging(if (enabled) printer else null)
         if (enabled && sampler == null) sampler = Thread(::sample, "PrismStallWatch").apply { isDaemon = true; priority = Thread.MIN_PRIORITY + 1; start() }
+        else if (enabled) sampler?.let { java.util.concurrent.locks.LockSupport.unpark(it) }
     }
 
     /** Samples the main thread's stack while a message runs long: at [FIRST_SAMPLE_MS], then every [SAMPLE_EVERY_MS] (≤ 4). */
@@ -53,7 +54,8 @@ object MainThreadWatch {
         var taken = 0
         var nextAt = 0L
         while (true) {
-            if (!on) { Thread.sleep(500); continue }
+            // Turned off: asleep until it's turned on again (it used to wake twice a second for nothing).
+            if (!on) { java.util.concurrent.locks.LockSupport.park(this); continue }
             val start = startedAt
             val id = message
             if (start == 0L) { Thread.sleep(16); continue }

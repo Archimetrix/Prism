@@ -66,7 +66,11 @@ class LosslessSync(private val context: Context, private val c: AppContainer) {
     /** Syncs now and whenever the setting changes or Android adds or removes audio files. */
     fun start() {
         c.scope.launch {
-            c.settings.flow.map { it.lossless && it.losslessLocal }.distinctUntilChanged().collect { sync() }
+            c.settings.flow.map { it.lossless && it.losslessLocal }.distinctUntilChanged().collect { on ->
+                // The look every few hours only while it's on: off, it used to wake Prism up for nothing.
+                runCatching { if (on) LosslessSyncWorker.schedule(context) else LosslessSyncWorker.cancel(context) }
+                sync()
+            }
         }
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
@@ -205,6 +209,10 @@ class LosslessSyncWorker(context: Context, params: WorkerParameters) : Coroutine
                 .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork("lossless_sync", ExistingPeriodicWorkPolicy.UPDATE, req)
+        }
+
+        fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork("lossless_sync")
         }
     }
 }

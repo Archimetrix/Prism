@@ -181,7 +181,7 @@ object Tour {
             "Smaller things that make Prism yours.",
             listOf(
                 "Hold Prism's icon for Search, Recognize, Liked songs and Downloads",
-                "Library: pick its tiles, or put your playlists first (Edit tiles)",
+                "Library: pick its tiles, or put your playlists first (the edit button at the top of Library)",
                 "Pin Prism playlists to Home (Customize Home → Pinned playlists)",
                 "Song credits in any song's menu",
                 "See which downloads failed, and why",

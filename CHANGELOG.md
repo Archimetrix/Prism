@@ -40,6 +40,22 @@ itself, drawn the way the lyrics are, and nothing changes until you pick somethi
   to see it for a moment. Part of your Looks.
 - **Explanations on settings pages** (#119, Layout & navigation → Settings pages, or "Hide explanations" on the Color
   page): off, every settings page (the Color page's notes and parts list too) shows just its settings.
+- **Library's tiles** are picked and ordered from a new edit button at the top right of Library (beside sync), instead of
+  an "Edit tiles" tile at the end of them.
+- **Glow** glows in the shape of the letters: the light hugs each sung word instead of clouding the space around it.
+
+### Lighter on the battery
+Nothing works differently; Prism just does less that nobody sees.
+- With the full player open, the screen under it (an animated background, the playing bars) holds still instead of
+  being drawn every frame behind the player: about half the work while the player is up, on the test phone.
+- The player's clocks (the progress bar, volume, where the sound is going, the sleep timer) stop ticking while Prism is
+  out of sight, and catch up the moment it's back.
+- Animated backgrounds, the playing bars and loading bars redraw only themselves as they move, not the page around them.
+- Paused lyrics no longer redraw on every frame of the screen (and no longer keep a 120 Hz screen at 120 Hz).
+- Song rows only change when their own like or download marks do, not at every step of every download.
+- With the screen off, widgets wait for it to come back on to move their progress bars.
+- Lossless sync's look every few hours only runs while the lossless add-on is on.
+- The stall watcher (Diagnostics) sleeps for good once it's turned off.
 
 ## 1.7.4
 

@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -161,14 +162,19 @@ fun SongRow(
     onClick: () -> Unit,
 ) {
     val c = LocalContainer.current
-    val liked by c.library.likedIds.collectAsState()
-    val downloads by c.downloads.downloads.collectAsState()
-    val videos by c.downloads.videos.collectAsState()
+    val likedIds = c.library.likedIds.collectAsState()
+    val downloads = c.downloads.downloads.collectAsState()
+    val videos = c.downloads.videos.collectAsState()
     var menu by remember { mutableStateOf(false) }
     val done = androidx.media3.exoplayer.offline.Download.STATE_COMPLETED
+    // Each row recomposes only when its own marks change, not every time any download, like or video changes anywhere
+    // (a list on screen while Smart Downloads ran was rebuilt row by row at each step).
+    val liked by remember(song.id) { derivedStateOf { song.id in likedIds.value } }
+    val downloaded by remember(song.id) { derivedStateOf { downloads.value[song.id]?.state == done } }
+    val videoSaved by remember(song.id) { derivedStateOf { videos.value[song.id]?.state == done } }
     SongRowLayout(
         song, modifier, index, playing, trailingInfo, starred,
-        liked = song.id in liked, downloaded = downloads[song.id]?.state == done, videoSaved = videos[song.id]?.state == done,
+        liked = liked, downloaded = downloaded, videoSaved = videoSaved,
         onLongClick = onLongClick ?: { menu = true }, onMore = { menu = true }, onClick = onClick,
     )
     if (menu) SongActionsSheet(song, extraActions) { menu = false }
@@ -249,22 +255,28 @@ fun SongRowLayout(
 fun PlayingBars(modifier: Modifier = Modifier, color: Color = Color.White, spectrum: Boolean = false) {
     val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
     val colors = if (spectrum && !com.prism.music.ui.theme.PrismTokens.white) listOf(Color(0xFFFF6B5E), Color(0xFF3DDC97), Color(0xFF7C8CFF)) else listOf(color, color, color)
-    // With reduced motion there's no animation running at all (it used to tick every frame and just not show it).
-    val heights: List<Float> = if (still) listOf(0.6f, 1f, 0.75f) else {
+    // With reduced motion there's no animation running at all (it used to tick every frame and just not show it); nor
+    // while the full player hides the list it's in.
+    val hidden = LocalHiddenByPlayer.current()
+    val heights: List<androidx.compose.runtime.State<Float>> = if (still || hidden) STILL_BARS else {
         val t = rememberInfiniteTransition(label = "bars")
-        val a by t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "a")
-        val b by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "b")
-        val d by t.animateFloat(0.5f, 0.9f, infiniteRepeatable(tween(370), RepeatMode.Reverse), label = "d")
-        listOf(a, b, d)
+        listOf(
+            t.animateFloat(0.3f, 1f, infiniteRepeatable(tween(420), RepeatMode.Reverse), label = "a"),
+            t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(530), RepeatMode.Reverse), label = "b"),
+            t.animateFloat(0.5f, 0.9f, infiniteRepeatable(tween(370), RepeatMode.Reverse), label = "d"),
+        )
     }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
         heights.forEachIndexed { i, h ->
+            // The heights are read as the bars are drawn: each frame moves them without recomposing the row.
             Box(Modifier.weight(1f).fillMaxSize().graphicsLayer {
-                scaleY = h; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                scaleY = h.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
             }.clip(RoundedCornerShape(1.dp)).background(colors[i]))
         }
     }
 }
+
+private val STILL_BARS: List<androidx.compose.runtime.State<Float>> = listOf(0.6f, 1f, 0.75f).map { androidx.compose.runtime.mutableFloatStateOf(it) }
 
 @Composable
 fun ItemCard(item: BrowseItem, modifier: Modifier = Modifier, width: Dp = Dp.Unspecified, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
@@ -347,14 +359,15 @@ fun LoadingState(modifier: Modifier = Modifier) {
 @Composable
 fun PrismSpinner(modifier: Modifier = Modifier, stroke: androidx.compose.ui.unit.Dp = 2.5.dp) {
     val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
-    val turn by rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = androidx.compose.animation.core.LinearEasing)), label = "turn")
+    // With reduced motion it doesn't turn, and no animation runs for it.
+    val turn = if (still) null else rememberInfiniteTransition(label = "spin").animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = androidx.compose.animation.core.LinearEasing)), label = "turn")
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
     androidx.compose.foundation.Canvas(modifier.then(Modifier.semantics { contentDescription = "Loading" })) {
         val w = stroke.toPx()
         val inset = w / 2
         val arc = androidx.compose.ui.geometry.Size(size.width - w, size.height - w)
         drawArc(track, 0f, 360f, false, androidx.compose.ui.geometry.Offset(inset, inset), arc, style = androidx.compose.ui.graphics.drawscope.Stroke(w))
-        rotate(if (still) 0f else turn) {
+        rotate(turn?.value ?: 0f) {
             drawArc(
                 com.prism.music.ui.theme.PrismTokens.spectrumRing(center), -90f, 270f, false, androidx.compose.ui.geometry.Offset(inset, inset), arc,
                 style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round),
@@ -372,16 +385,17 @@ fun PrismProgressBar(progress: (() -> Float)?, modifier: Modifier = Modifier, he
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     val still = com.prism.music.ui.theme.LocalUi.current.reduceMotion
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    // Read as it's drawn (it used to recompose the bar every frame).
     val run = if (progress == null && !still) {
-        rememberInfiniteTransition(label = "bar").animateFloat(-0.35f, 1f, infiniteRepeatable(tween(1300, easing = androidx.compose.animation.core.FastOutSlowInEasing)), label = "run").value
-    } else 0f
+        rememberInfiniteTransition(label = "bar").animateFloat(-0.35f, 1f, infiniteRepeatable(tween(1300, easing = androidx.compose.animation.core.FastOutSlowInEasing)), label = "run")
+    } else null
     androidx.compose.foundation.Canvas(modifier.fillMaxWidth().height(height).clip(CircleShape).semantics { contentDescription = "Loading" }) {
         drawRect(track)
         val brush = com.prism.music.ui.theme.PrismTokens.spectrum(dark, 0f, size.width)
         if (progress != null) {
             drawRect(brush, size = size.copy(width = size.width * progress().coerceIn(0f, 1f)))
         } else {
-            val from = if (still) 0f else run * size.width
+            val from = (run?.value ?: 0f) * size.width
             drawRect(brush, topLeft = androidx.compose.ui.geometry.Offset(from, 0f), size = size.copy(width = size.width * 0.35f))
         }
     }

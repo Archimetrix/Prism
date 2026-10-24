@@ -62,6 +62,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import com.prism.music.ui.components.tickWhileShown
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -383,10 +385,22 @@ fun BoxScope.BestPartChip(): Boolean {
     val start = now?.startMs ?: return false
     // Past its window (or turned off): no clock of its own for the rest of the song.
     if (!settings.bestPartButton || pc.lyricPosition >= start || pc.lyricPosition >= BestPartButton.LATEST_MS) return false
-    // A clock this reads (recomposed as the song plays), in the lyrics' timeline the best part is given in.
-    val shift by pc.lyricShift.collectAsState()
-    val at = rememberPosition(fast = false) + shift
-    if (!BestPartButton.shows(at, start, now.knownAtMs)) return false
+    // A clock in the lyrics' timeline the best part is given in. Only whether the tag shows (or its window has passed)
+    // recomposes this, not every tick of the clock.
+    val shift = pc.lyricShift.collectAsState()
+    val position = rememberPositionState(fast = false)
+    val known = now.knownAtMs
+    val phase by remember(start, known) {
+        derivedStateOf {
+            val at = position.value + shift.value
+            when {
+                BestPartButton.shows(at, start, known) -> 1
+                at >= start || at >= BestPartButton.LATEST_MS -> 2
+                else -> 0
+            }
+        }
+    }
+    if (phase != 1) return false
     val haptics = rememberHaptics()
     // A small glass tag with a hairline of split light round it; the flame and the words in plain white.
     // Held, it opens "Your best part" to set the listener's own.
@@ -666,11 +680,9 @@ fun rememberPlayerVolume(): PlayerVolume {
     val cast = LocalContainer.current.cast
     val prefs = LocalContainer.current.settings
     val v = remember { PlayerVolume(context, cast, prefs) }
-    LaunchedEffect(Unit) {
-        while (isActive) {
-            if (!v.dragging) v.level = v.read()
-            delay(500)
-        }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
+        lifecycle.tickWhileShown(500) { if (!v.dragging) v.level = v.read() }
     }
     return v
 }
@@ -972,8 +984,9 @@ fun OutputCaption() {
     val profile by c.account.profile.collectAsState()
     val phoneName = (profile?.name ?: settings.accountName).trim().split(" ").firstOrNull()?.takeIf { it.isNotBlank() }?.let { "$it's Phone" } ?: "This Phone"
     var current by remember { mutableStateOf(currentOutput(context, preferred)) }
-    LaunchedEffect(preferred) {
-        while (isActive) { current = currentOutput(context, preferred); delay(1500) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(preferred, lifecycle) {
+        lifecycle.tickWhileShown(1500) { current = currentOutput(context, preferred) }
     }
     var picking by remember { mutableStateOf(false) }
     val castState by c.cast.state.collectAsState()
@@ -1022,7 +1035,8 @@ fun SleepBadge(modifier: Modifier = Modifier) {
     val endOfSong by c.player.sleepEndOfSong.collectAsState()
     if (sleepAt <= 0 && !endOfSong) return
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(sleepAt) { while (isActive && sleepAt > 0) { now = System.currentTimeMillis(); delay(15_000) } }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(sleepAt, lifecycle) { if (sleepAt > 0) lifecycle.tickWhileShown(15_000) { now = System.currentTimeMillis() } }
     val left = if (endOfSong) "Song end" else "${((sleepAt - now) / 60_000).coerceAtLeast(0) + 1} min"
     var open by remember { mutableStateOf(false) }
     Row(
@@ -1105,11 +1119,11 @@ fun OutputPickerSheet(phoneName: String, onDismiss: () -> Unit) {
     val preferred by pc.preferredOutput.collectAsState()
     var options by remember { mutableStateOf(outputOptions(context)) }
     var current by remember { mutableStateOf(currentOutput(context, preferred)) }
-    LaunchedEffect(preferred) {
-        while (isActive) {
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(preferred, lifecycle) {
+        lifecycle.tickWhileShown(1000) {
             options = outputOptions(context)
             current = currentOutput(context, preferred)
-            delay(1000)
         }
     }
     val castState by c.cast.state.collectAsState()
