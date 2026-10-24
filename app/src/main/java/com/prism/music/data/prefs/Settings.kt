@@ -279,7 +279,7 @@ enum class PlayerGesture(val label: String) {
         }
     }
 }
-enum class LyricsAlign(val label: String) { START("Left"), CENTER("Centre") }
+enum class LyricsAlign(val label: String) { START("Left"), CENTER("Center") }
 /** Lyrics in a script the listener can't read, in Latin letters too: under each line, or in its place. */
 enum class RomanizeMode(val label: String) { OFF("Off"), UNDER("Under each line"), INSTEAD("Instead") }
 enum class LibraryView(val label: String) { GRID("Grid"), LIST("List") }

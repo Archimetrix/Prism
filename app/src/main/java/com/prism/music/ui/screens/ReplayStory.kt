@@ -825,7 +825,7 @@ private fun HabitsSlide(h: Habits, modifier: Modifier) {
         Spacer(Modifier.height(26.dp))
         val fmtDay = DateTimeFormatter.ofPattern("MMM d")
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Fact("Favourite day", ReplayStats.weekdays[h.topWeekday], 1_200)
+            Fact("Favorite day", ReplayStats.weekdays[h.topWeekday], 1_200)
             if (h.longestStreak > 1) Fact("Longest streak", "${h.longestStreak} days in a row", 1_450)
             h.biggestDay?.let { Fact("Biggest day", "${it.format(fmtDay)} · ${listenTime(h.biggestDayMs)}", 1_700) }
         }
@@ -864,7 +864,7 @@ private fun Discovery(s: ReplayStory, modifier: Modifier) {
         }
         found.firstOrNull()?.let { a ->
             Text(
-                "Your favourite find: ${a.artistName}, with ${listenTime(a.ms)}.",
+                "Your favorite find: ${a.artistName}, with ${listenTime(a.ms)}.",
                 style = body, modifier = Modifier.reveal(1_500).padding(top = 22.dp),
             )
         }

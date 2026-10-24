@@ -159,7 +159,7 @@ fun LibraryScreen(bottomPadding: Dp) {
     }
     // Starred artists lead, marked as favourites.
     val artists = remember(remoteArtists, mine, thumbs, favorites) {
-        val starred = favorites.map { f -> ArtistItem(f.id, f.name, "★ Favourite", f.thumbnail) }
+        val starred = favorites.map { f -> ArtistItem(f.id, f.name, "★ Favorite", f.thumbnail) }
         (starred + remoteArtists + LibraryRepository.artistsFrom(mine)).distinctBy { it.id }.map { a ->
             if (a.thumbnail == null && a is ArtistItem) a.copy(thumbnail = thumbs[a.id]) else a
         }

@@ -15,7 +15,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 
 ### [⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)
 
-[What's new in 1.7.4](../../releases/tag/v1.7.4) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
+[What's new in 1.7.5](../../releases/tag/v1.7.5) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
 
 <a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
 
@@ -29,14 +29,24 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 > [!NOTE]
 > Prism is an independent, unofficial app. It is not affiliated with, endorsed by, or connected to Google, YouTube or YouTube Music.
 
-## New in 1.7.4: the player, your way
+## New in 1.7.5: lyrics, your way
+
+The fourth of the 1.7.x customization updates, plus five of your GitHub requests and a lighter Prism.
+
+<img src="docs/screenshots/lyrics-glow.jpg" width="24%" alt="Glow: the sung line glowing in the shape of its letters, on the blurred cover">
+<img src="docs/screenshots/lyrics-card.jpg" width="24%" alt="Bold card: big bold lyrics on a color from the cover, the sung words filling in white">
+<img src="docs/screenshots/lyrics-styles.jpg" width="24%" alt="Lyrics settings: six styles, each shown as it looks">
+<img src="docs/screenshots/history.jpg" width="24%" alt="Library's new History tab: what you played, by day">
+
+- **Six lyric styles:** Prism, Classic karaoke, **Bold card** (big bold lines on the cover's color), **Glow**, **Typewriter** and **Calm**. Pick their colors, weight, spacing, focus blur, capitals, where the sung line sits, how translations sit with each line, and what's behind the lyrics (blurred cover, animated cover, the cover's color or your own). Every choice shows what it looks like.
+- **History** in Library: what you played, by day, on this phone or (signed in) on your YouTube Music account (#118).
+- **A song and its video as one** in your liked songs (#111), **Prism's own volume** apart from the phone's (#116), and **hide the status bar** (#115).
+- **Tidier settings:** every explanation sits behind an ⓘ beside what it explains (#119), and Library's tiles are edited from a button at the top.
+- **Lighter on the battery:** nothing works differently, but Prism stops drawing what's hidden under the player, pauses its clocks while you're in another app, and does less while lyrics are paused. See the [changelog](CHANGELOG.md).
+
+## 1.7.4: the player, your way
 
 The third of the 1.7.x customization updates, and a faster Prism on older phones.
-
-<img src="docs/screenshots/player-cassette.jpg" width="24%" alt="The Cassette player: the cover on a tape whose reels turn as it plays">
-<img src="docs/screenshots/player-layouts.jpg" width="24%" alt="Player settings: six layouts, each shown as it looks">
-<img src="docs/screenshots/player-vinyl.jpg" width="24%" alt="The Vinyl player: the cover as a record's label, with a tonearm">
-<img src="docs/screenshots/reorder.jpg" width="24%" alt="Drag to reorder: a button lifted onto a card edged in your light">
 
 - **Six layouts:** Standard, Cover, Lyrics, Minimal, **Vinyl** (the cover as a record's label, turning as it plays) and **Cassette** (reels turning as it plays). Every choice shows what it looks like.
 - **Make it yours:** pick three to six buttons under the controls (now with a **speed** button), choose the notification and car buttons, order everything under the title, a waveform progress bar, thinner or thicker with a dot, line or ring, the title's size and alignment, the background (any of Prism's or your own photo, just for the player), and what swipes, a double tap and a long press do.
@@ -84,7 +94,7 @@ Everything else is in the [release notes](../../releases/tag/v1.7.0) and the [ch
 <td width="50%">
 
 ### Lyrics, word by word
-Ten lyric sources, karaoke timing first: Apple Music's timed lyrics (via Better Lyrics), QQ Music, NetEase, KuGou, LyricsPlus, LRCLIB and more. Background vocals, right-to-left scripts, translations, and **romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian and Greek. **Immersive mode** turns the cover and lyrics into a full-screen lyric video.
+Ten lyric sources, karaoke timing first: Apple Music's timed lyrics (via Better Lyrics), QQ Music, NetEase, KuGou, LyricsPlus, LRCLIB and more. Background vocals, right-to-left scripts, translations, and **romanized lyrics** for Korean, Japanese, Chinese, Arabic, Hindi, Russian and Greek. **Immersive mode** turns the cover and lyrics into a full-screen lyric video. Six lyric styles (Prism, Classic karaoke, Bold card, Glow, Typewriter, Calm) with your own colors, weight, spacing and background.
 
 </td>
 </tr>

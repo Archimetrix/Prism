@@ -2,7 +2,7 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
-## 1.7.5 (unreleased)
+## 1.7.5
 
 The fourth customization update: lyrics, your way.
 
@@ -11,7 +11,7 @@ Settings → Lyrics (with a live preview at the top), or the player's ⋯ → Pl
 itself, drawn the way the lyrics are, and nothing changes until you pick something: the lyrics look as they did.
 - **Six styles** for the line being sung: **Prism** (each word grows bolder as it's sung, as before), **Classic karaoke**
   (color fills the words), **Bold card** (big bold lines on a color from the cover, changing with each song), **Glow**
-  (the sung words glow), **Typewriter** (words appear as they're sung) and **Calm** (no animation, the line just
+  (the sung words glow, in the shape of their letters), **Typewriter** (words appear as they're sung) and **Calm** (no animation, the line just
   brightens). Lyrics timed by the line rather than the word are filled in at a steady pace in Karaoke and Typewriter.
 - **Colors** for the sung line and for the others: white, your light, the accent, the cover's color, or your own from the
   color picker.
@@ -44,12 +44,11 @@ itself, drawn the way the lyrics are, and nothing changes until you pick somethi
   only what's happening now: space used, an error, why something is still or greyed out.
 - **Library's tiles** are picked and ordered from a new edit button at the top right of Library (beside sync), instead of
   an "Edit tiles" tile at the end of them.
-- **Glow** glows in the shape of the letters: the light hugs each sung word instead of clouding the space around it.
 
 ### Lighter on the battery
 Nothing works differently; Prism just does less that nobody sees.
 - With the full player open, the screen under it (an animated background, the playing bars) holds still instead of
-  being drawn every frame behind the player: about half the work while the player is up, on the test phone.
+  being drawn every frame behind the player: about half the work while the player is up, in our tests.
 - The player's clocks (the progress bar, volume, where the sound is going, the sleep timer) stop ticking while Prism is
   out of sight, and catch up the moment it's back.
 - Animated backgrounds, the playing bars and loading bars redraw only themselves as they move, not the page around them.
