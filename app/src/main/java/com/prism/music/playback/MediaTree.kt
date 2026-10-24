@@ -141,7 +141,7 @@ class MediaTree(private val c: AppContainer) {
             }
         }
         parentId.startsWith("fy:") -> c.forYou.mix(parentId.removePrefix("fy:"))?.let { songList(parentId, it.title, it.songs) } ?: emptyList()
-        parentId == LIKED -> songList(parentId, "Liked songs", c.library.liked.value)
+        parentId == LIKED -> songList(parentId, "Liked songs", c.library.likedShown.value)
         parentId == RECENT -> songList(parentId, "Recently played", c.library.recent.value)
         parentId == DOWNLOADS -> songList(parentId, "Downloads", c.downloads.completedSongs())
         parentId == LIBRARY -> {

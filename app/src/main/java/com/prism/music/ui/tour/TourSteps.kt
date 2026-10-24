@@ -240,6 +240,17 @@ object Tour {
             showMe = Routes.settings("lyrics"),
         ),
         TourStep(
+            V1_7_5, PrismIcons.History, "Also new",
+            "A few things you asked for.",
+            listOf(
+                "Library → History: what you played, by day, on this phone or on your account",
+                "Liked a song and its video? They show once, as the song",
+                "Prism's own volume, apart from the phone's (Settings → Player)",
+                "Hide the status bar, and hide the explanations on settings pages (Layout & navigation)",
+            ),
+            listOf(PrismIcons.History, PrismIcons.HeartFilled),
+        ),
+        TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",
             "Let Prism tell you when something needs you.",
             listOf(

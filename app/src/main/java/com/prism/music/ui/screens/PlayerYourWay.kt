@@ -327,6 +327,18 @@ fun PlayerArrangeGroup() {
         if (order != DeckPart.entries) com.prism.music.ui.components.PrismTextButton({ prefs.setPlayerDeck(DeckPart.entries) }, Modifier.padding(start = 12.dp)) {
             Text("Back to Prism's order")
         }
+        // GitHub #116: a volume just for Prism, for phones whose volume buttons don't work (or to keep other apps' as they are).
+        Label("The volume slider changes")
+        Chips(com.prism.music.data.prefs.VolumeControl.entries, s.volumeControl, { it.label }) { v ->
+            prefs.setVolumeControl(v)
+            // Picking Prism's own volume is picking the slider: show it if it was hidden.
+            if (v == com.prism.music.data.prefs.VolumeControl.PRISM && s.hideVolumeBar) prefs.setHideVolumeBar(false)
+        }
+        Note(
+            if (s.volumeControl == com.prism.music.data.prefs.VolumeControl.PRISM)
+                "Only Prism gets quieter or louder; other apps and the phone's volume stay as they are. The phone's volume buttons still change the phone's volume."
+            else "Like the phone's volume buttons: every app's music volume."
+        )
     }
 }
 

@@ -358,6 +358,16 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                 }
             }
         }
+        // Settings → Layout & navigation → "Hide the status bar" (#115), and again each time Prism comes back to the front.
+        val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+        androidx.compose.runtime.DisposableEffect(settings.hideStatusBar, lifecycle) {
+            com.prism.music.ui.components.SystemBars.apply(rootView, settings.hideStatusBar)
+            val watcher = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) com.prism.music.ui.components.SystemBars.apply(rootView, c.settings.current.hideStatusBar)
+            }
+            lifecycle.addObserver(watcher)
+            onDispose { lifecycle.removeObserver(watcher) }
+        }
         val navController = rememberNavController()
         var playerOpen by rememberSaveable { mutableStateOf(false) }
         val navigator = remember(navController) {

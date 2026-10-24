@@ -87,9 +87,14 @@ fun Label(text: String) {
     )
 }
 
-/** Quiet explanatory text inside a group. */
+/**
+ * Quiet explanatory text inside a group. Hidden when Layout & navigation → "Explanations on settings pages" is off (#119):
+ * every page, the new ones too, then shows just its settings.
+ */
 @Composable
-fun Note(text: String) {
+fun Note(text: String, always: Boolean = false) {
+    // [always]: how-tos and notices (Listen together's steps, the license, credits) that aren't a setting's explanation.
+    if (!always && !com.prism.music.ui.theme.LocalAppSettings.current.settingsExplanations) return
     Text(
         text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

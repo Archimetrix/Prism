@@ -160,7 +160,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         GLASS -> listOf("liquid_glass", "glass_kind", "frosted_glass", "frosted_pages", "backdrops", "backdrop_dim", "backdrop_motion", "reduce_motion")
         INTERFACE -> listOf(
             "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab", "mini_player_style", "mini_skip_buttons",
-            "mini_prev_button", "mini_progress", "ui_density", "title_size", "card_size",
+            "mini_prev_button", "mini_progress", "ui_density", "title_size", "card_size", "hide_status_bar",
         )
         PLAYER -> listOf(
             "player_background", "player_backdrop_show", "transport_style", "scrubber_style", "cover_size", "player_art_corners",
@@ -1046,6 +1046,25 @@ private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation()
                     Toggle("Open the keyboard", "Ready to type when Search opens", s.searchKeyboard) { prefs.setSearchKeyboard(it) }
                 }
             }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Screen") {
+                    Toggle(
+                        "Hide the status bar", "More room; swipe down from the top to see it", s.hideStatusBar,
+                        info = "The clock, battery and notification icons at the top stay hidden while Prism is open. Swipe down from the top edge and they show for a moment. Immersive mode and full-screen video hide the other bars too, as before.",
+                    ) { prefs.setHideStatusBar(it) }
+                }
+            }
+            Box {
+                val s = LocalAppSettings.current
+                val prefs = LocalContainer.current.settings
+                Group("Settings pages") {
+                    Toggle(
+                        "Explanations on settings pages", if (s.settingsExplanations) "The notes that say what each part does" else "Just the settings; ⓘ still opens the details", s.settingsExplanations,
+                    ) { prefs.setSettingsExplanations(it) }
+                }
+            }
             ResetPage(SettingsSection.INTERFACE)
         }
     }
@@ -1788,7 +1807,7 @@ private fun DownloadSettings() {
 
 // ---------------------------------------------------------------------------- Library & Replay
 
-private val libraryTabs = listOf("PLAYLISTS" to "Playlists", "SONGS" to "Songs", "ALBUMS" to "Albums", "ARTISTS" to "Artists", "DOWNLOADS" to "Downloads")
+private val libraryTabs = listOf("PLAYLISTS" to "Playlists", "SONGS" to "Songs", "ALBUMS" to "Albums", "ARTISTS" to "Artists", "HISTORY" to "History", "DOWNLOADS" to "Downloads")
 
 @Composable
 private fun LibraryReplaySettings() {
@@ -1804,6 +1823,10 @@ private fun LibraryReplaySettings() {
             Chips(libraryTabs.map { it.first }, startTab, { k -> libraryTabs.firstOrNull { it.first == k }?.second ?: k }) { prefs.setLibraryStartTab(it) }
             Spacer(Modifier.height(6.dp))
             Toggle("Full-width playlist pictures", "Edge to edge, like an artist page", s.playlistHeroCover) { prefs.setPlaylistHeroCover(it) }
+            Toggle(
+                "A song and its video as one", "Liked both? They show once, as the song", s.mergeLikedVideos,
+                info = "When you've liked a song and its music video, Liked songs, Library and the car show just the song. The video stays liked: unlike the song and it shows again. Nothing changes on YouTube Music.",
+            ) { prefs.setMergeLikedVideos(it) }
             var editingTiles by remember { mutableStateOf(false) }
             Item(
                 "Library tiles", "${s.libraryTiles.size} of ${com.prism.music.data.prefs.LibraryTile.entries.size} shown · pick and order them",

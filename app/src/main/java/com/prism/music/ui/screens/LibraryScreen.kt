@@ -73,7 +73,46 @@ import com.prism.music.ui.theme.LocalContainer
 import kotlinx.coroutines.launch
 
 // The phone's own music files have their own page (Local files, from Playlists), with Songs, Artists and Albums.
-private enum class LibTab(val label: String) { PLAYLISTS("Playlists"), SONGS("Songs"), ALBUMS("Albums"), ARTISTS("Artists"), DOWNLOADS("Downloads") }
+private enum class LibTab(val label: String) { PLAYLISTS("Playlists"), SONGS("Songs"), ALBUMS("Albums"), ARTISTS("Artists"), HISTORY("History"), DOWNLOADS("Downloads") }
+
+/** One row of History (#118): a play, or a run of plays of the same song one after another. */
+private data class HistoryEntry(val song: com.prism.music.data.model.Song, val at: Long, val times: Int)
+
+/** Plays on this phone under day headings (Today, Yesterday, the weekday, then the date), repeats in a row folded into one. */
+private fun historyByDay(rows: List<com.prism.music.data.db.HistoryRow>, now: Long = System.currentTimeMillis()): List<Pair<String, List<HistoryEntry>>> {
+    val entries = mutableListOf<HistoryEntry>()
+    for (r in rows) {
+        val last = entries.lastOrNull()
+        if (last != null && last.song.id == r.song.id && dayStart(last.at) == dayStart(r.playedAt)) entries[entries.lastIndex] = last.copy(times = last.times + 1)
+        else entries += HistoryEntry(r.song.toSong(), r.playedAt, 1)
+    }
+    val today = dayStart(now)
+    val dayMs = 86_400_000L
+    val dateFormat = java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "EEEdMMMyyyy"), java.util.Locale.getDefault())
+    val weekday = java.text.SimpleDateFormat("EEEE", java.util.Locale.getDefault())
+    return entries.groupBy { dayStart(it.at) }.map { (day, list) ->
+        val title = when {
+            day >= today -> "Today"
+            day >= today - dayMs -> "Yesterday"
+            day > today - 7 * dayMs -> weekday.format(java.util.Date(day))
+            else -> dateFormat.format(java.util.Date(day))
+        }
+        title to list
+    }
+}
+
+private fun dayStart(at: Long): Long = java.util.Calendar.getInstance().apply {
+    timeInMillis = at
+    set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+@Composable
+private fun HistoryHeading(title: String) {
+    Text(
+        title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+    )
+}
 
 private enum class SongSort(val label: String) { RECENT("Recently liked"), TITLE("Title"), ARTIST("Artist"), ALBUM("Album") }
 /** DOWNLOADED (Reddit 1.7): albums with the most downloaded songs first, the rest after in library order. */
@@ -90,7 +129,7 @@ fun LibraryScreen(bottomPadding: Dp) {
     val playlists by c.library.playlists.collectAsState()
     val remoteAlbums by c.library.albums.collectAsState()
     val remoteArtists by c.library.artists.collectAsState()
-    val liked by c.library.liked.collectAsState()
+    val liked by c.library.likedShown.collectAsState()
     val sync by c.library.syncState.collectAsState()
     val dls by c.downloads.downloads.collectAsState()
     val thumbs by c.library.artistThumbs.collectAsState()
@@ -214,6 +253,21 @@ fun LibraryScreen(bottomPadding: Dp) {
             val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
             // Swapping playlists and tiles: back to the top, or the list would stay on the tile it showed and hide what moved above.
             if (tab == LibTab.PLAYLISTS) LaunchedEffect(settings.libraryPlaylistsFirst) { gridState.scrollToItem(0) }
+            // History (#118): this phone's plays, or the account's (YouTube Music's own history: the app and the web too).
+            var fromAccount by rememberSaveable { mutableStateOf(false) }
+            var historyLimit by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(300) }
+            val phoneHistory = if (tab == LibTab.HISTORY) {
+                val rows by remember(historyLimit) { c.db.plays().historyFlow(historyLimit, 10_000) }.collectAsState(null)
+                remember(rows) { rows?.let { it.size to historyByDay(it) } }
+            } else null
+            var accountReload by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            val accountHistory = if (tab == LibTab.HISTORY) {
+                androidx.compose.runtime.produceState<Result<List<Pair<String, List<com.prism.music.data.model.Song>>>>?>(null, fromAccount, settings.isLoggedIn, accountReload) {
+                    value = null
+                    if (fromAccount && settings.isLoggedIn) value = runCatching { c.ytm.historySections() }
+                }.value
+            } else null
+            val fromAccountShown = fromAccount && settings.isLoggedIn
             LazyVerticalGrid(
                 if (asList) GridCells.Fixed(1) else GridCells.Adaptive(160.dp),
                 Modifier.fillMaxSize(),
@@ -329,6 +383,57 @@ fun LibraryScreen(bottomPadding: Dp) {
                             SortBar(if (artists.size == 1) "1 artist" else "${artists.size} artists", ArtistSort.entries, artistSort, { it.label }) { artistSort = it; c.library.setSort("library:artists", it.name) }
                         }
                         items(sortedArtists, key = { "r" + it.id }) { a -> LibraryItem(a, asList) { nav.open(a, onSong) } }
+                    }
+                    LibTab.HISTORY -> {
+                        if (settings.isLoggedIn) item(span = { GridItemSpan(maxLineSpan) }) {
+                            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                com.prism.music.ui.components.PrismChip(!fromAccount, { fromAccount = false }, "On this phone", icon = PrismIcons.Phone)
+                                com.prism.music.ui.components.PrismChip(fromAccount, { fromAccount = true }, "Your account", icon = PrismIcons.Person)
+                            }
+                        }
+                        if (fromAccountShown) {
+                            val result = accountHistory
+                            val sections = result?.getOrNull()
+                            when {
+                                result == null -> item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { com.prism.music.ui.components.PrismSpinner(Modifier.size(28.dp)) }
+                                }
+                                sections == null -> item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        EmptyState(PrismIcons.History, "Couldn't load your history", result.exceptionOrNull()?.friendlyMessage() ?: "Try again in a moment.")
+                                        PrismTextButton(onClick = { accountReload++ }) { Text("Try again") }
+                                    }
+                                }
+                                sections.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
+                                    EmptyState(PrismIcons.History, "No history on your account", "Songs you play on YouTube Music, in Prism or anywhere else signed in, show up here.")
+                                }
+                                else -> sections.forEachIndexed { si, (title, songs) ->
+                                    if (title.isNotBlank()) item(key = "ah$si", span = { GridItemSpan(maxLineSpan) }) { HistoryHeading(title) }
+                                    items(songs.size, key = { "a$si-$it" }, span = { GridItemSpan(maxLineSpan) }) { i ->
+                                        SongRow(songs[i]) { c.player.playSingle(songs[i]) }
+                                    }
+                                }
+                            }
+                        } else {
+                            val (count, days) = phoneHistory ?: (0 to emptyList())
+                            if (phoneHistory != null && days.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                                EmptyState(PrismIcons.History, "Nothing played yet", "Songs you play in Prism show up here, newest first. They're kept on this phone.")
+                            }
+                            val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+                            days.forEachIndexed { di, (title, entries) ->
+                                item(key = "ph$di", span = { GridItemSpan(maxLineSpan) }) { HistoryHeading(title) }
+                                items(entries.size, key = { "p$di-${entries[it].at}" }, span = { GridItemSpan(maxLineSpan) }) { i ->
+                                    val e = entries[i]
+                                    val at = time.format(java.util.Date(e.at))
+                                    SongRow(e.song, trailingInfo = if (e.times > 1) "$at · ${e.times}×" else at) { c.player.playSingle(e.song) }
+                                }
+                            }
+                            if (count >= historyLimit) item(span = { GridItemSpan(maxLineSpan) }) {
+                                Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                                    PrismTextButton(onClick = { historyLimit += 300 }) { Text("Show more") }
+                                }
+                            }
+                        }
                     }
                     LibTab.DOWNLOADS -> item(span = { GridItemSpan(maxLineSpan) }) { DownloadsSummary() }
                 }

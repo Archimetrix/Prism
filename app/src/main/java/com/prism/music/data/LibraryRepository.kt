@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
@@ -51,6 +53,16 @@ class LibraryRepository(private val c: AppContainer) {
 
     val liked = songs.likedFlow().resilient("liked songs").map { list -> list.map { it.toSong() } }
         .stateIn(c.scope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * The liked songs as the lists show them (#111): a liked music video whose song is liked too shows once, as the song,
+     * unless Settings → Library & Replay → "A song and its video as one" is off. [liked] stays everything that's liked
+     * (sync, the Liked playlist mirror, downloads use it).
+     */
+    val likedShown: StateFlow<List<com.prism.music.data.model.Song>> =
+        kotlinx.coroutines.flow.combine(liked, c.settings.flow.map { it.mergeLikedVideos }.distinctUntilChanged()) { list, merge ->
+            if (merge) LikedMerge.merge(list, c.queue.counterparts) else list
+        }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(c.scope, SharingStarted.Eagerly, emptyList())
 
     val recent = songs.recentFlow(40).resilient("recent songs").map { list -> list.map { it.toSong() } }
         .stateIn(c.scope, SharingStarted.Eagerly, emptyList())

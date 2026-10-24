@@ -646,6 +646,17 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
 
     suspend fun history(): List<Song> = songsFrom(browse("FEmusic_history"))
 
+    /**
+     * The account's history (what was played in the YouTube Music app, on the website and in Prism), as YouTube groups
+     * it: "Today", "Yesterday", "This week"… (Library → History → Your account, #118).
+     */
+    suspend fun historySections(): List<Pair<String, List<Song>>> {
+        val res = browse("FEmusic_history")
+        val shelves = res.findAll("musicShelfRenderer")
+        if (shelves.isEmpty()) return listOf("" to songsFrom(res)).filter { it.second.isNotEmpty() }
+        return shelves.map { s -> (s.obj("title").text() ?: "") to songsFrom(s) }.filter { it.second.isNotEmpty() }
+    }
+
     // ---------------------------------------------------------------- Podcasts
 
     /** YouTube Music's Podcasts page: popular shows and episodes, then shows by category. */

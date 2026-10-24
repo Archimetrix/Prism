@@ -242,6 +242,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch { c.settings.flow.map { it.videoContinues }.distinctUntilChanged().drop(1).collect { if (it) armNextVideo() else disarmVideos() } }
         scope.launch { c.settings.flow.map { it.spatial to it.spatialAmount }.distinctUntilChanged().collect { (on, amount) -> spatial.configure(on, amount) } }
         scope.launch { c.settings.flow.map { it.normalize }.distinctUntilChanged().collect { applyNormalization() } }
+        // Prism's own volume (#116), when the player's slider is set to it; full otherwise (the phone's volume rules).
+        scope.launch {
+            c.settings.flow.map { if (it.volumeControl == com.prism.music.data.prefs.VolumeControl.PRISM) it.appVolume else 1f }.distinctUntilChanged()
+                .collect { NormalizerProcessor.appVolume = NormalizerProcessor.volumeFor(it) }
+        }
         // The correction for whatever headphones are playing (none for the speaker, the car, or anything not picked for).
         scope.launch {
             c.headphoneEq.active.collect { b ->

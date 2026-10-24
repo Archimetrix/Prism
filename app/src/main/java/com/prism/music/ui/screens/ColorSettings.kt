@@ -158,7 +158,7 @@ private fun PartsKey(c: ThemeColors) {
                     }
                 }
                 Text(p.title, style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
-                Text(p.detail, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, minLines = 3, maxLines = 4, lineHeight = 15.sp)
+                if (LocalAppSettings.current.settingsExplanations) Text(p.detail, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant, minLines = 3, maxLines = 4, lineHeight = 15.sp)
             }
         }
     }
@@ -173,15 +173,21 @@ private fun ColorSettings() {
     val white = s.lightStyle == LightStyle.WHITE
     val cover = rememberCoverPalette()
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        // #119: the explanations can be put away (and brought back) right here, as on every settings page.
         Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                "Prism's colors come in three parts, numbered in the preview: ① the light, ② the accent and ③ the background.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                "Each group lists everything it changes in the app, and each choice shows what it looks like. Tap one and the preview above changes at once. Reset colors, at the bottom, puts everything back.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (s.settingsExplanations) {
+                Text(
+                    "Prism's colors come in three parts, numbered in the preview: ① the light, ② the accent and ③ the background.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "Each group lists everything it changes in the app, and each choice shows what it looks like. Tap one and the preview above changes at once. Reset colors, at the bottom, puts everything back.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            com.prism.music.ui.components.PrismTextButton({ prefs.setSettingsExplanations(!s.settingsExplanations) }) {
+                Text(if (s.settingsExplanations) "Hide explanations" else "Show explanations")
+            }
         }
 
         // White light is one of the Spectrum's choices (1.7.2): the light before the prism splits it.
@@ -423,6 +429,7 @@ private fun ColorSettings() {
 /** Everything a group's choice changes in the app, under its heading ([label] "Changes"), so nothing it touches is a surprise. */
 @Composable
 private fun Changes(text: String, label: String = "Changes") {
+    if (!LocalAppSettings.current.settingsExplanations) return
     val scheme = MaterialTheme.colorScheme
     Text(
         androidx.compose.ui.text.buildAnnotatedString {

@@ -250,6 +250,11 @@ object SettingsIndex {
         SettingEntry(Y, "Sing", "Clear sung songs", "karaoke storage delete"),
         SettingEntry(Y, "Look", "Alignment", "left centre center right"),
         SettingEntry(Y, "Look", "Text size", "lyrics font size"),
+        // GitHub requests in 1.7.5 (#111 #115 #116 #119).
+        SettingEntry(SettingsSection.LIBRARY, "Library", "A song and its video as one", "merge liked music video duplicate same song twice"),
+        SettingEntry(SettingsSection.INTERFACE, "Settings pages", "Explanations on settings pages", "hide notes descriptions info help text clutter"),
+        SettingEntry(SettingsSection.INTERFACE, "Screen", "Hide the status bar", "status bar clock notifications full screen immersive"),
+        SettingEntry(SettingsSection.PLAYER, "Under the title", "The volume slider changes", "volume independent app volume prism's own system media"),
         // Lyrics, your way (1.7.5).
         SettingEntry(Y, "Style", "Lyrics style", "prism classic karaoke bold card glow typewriter calm animation sweep fill"),
         SettingEntry(Y, "Look", "Weight", "lyrics bold thin light heavy font weight"),

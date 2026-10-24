@@ -145,7 +145,7 @@ enum class SortMode(val label: String) {
 @Composable
 fun CollectionScreen(type: CollectionType, id: String, initialGenre: String?, bottomPadding: Dp) {
     val c = LocalContainer.current
-    val liked by c.library.liked.collectAsState()
+    val liked by c.library.likedShown.collectAsState()
     val downloads by c.downloads.downloads.collectAsState()
 
     val remote = when (type) {

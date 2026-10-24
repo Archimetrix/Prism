@@ -299,10 +299,24 @@ interface SongDao {
     suspend fun smartDownloads(): List<SongEntity>
 }
 
+/** One play in Library → History (#118): when, for how long, and the song. */
+data class HistoryRow(
+    val playedAt: Long,
+    val playedFor: Long,
+    @androidx.room.Embedded val song: SongEntity,
+)
+
 @Dao
 interface PlayEventDao {
     @Insert
     suspend fun insert(e: PlayEventEntity)
+
+    /** The latest [limit] plays on this phone of at least [minMs], newest first, each with its song (Library → History, #118). */
+    @Query(
+        """SELECT e.timestamp AS playedAt, e.playedMs AS playedFor, s.* FROM play_events e JOIN songs s ON s.id = e.songId
+           WHERE e.playedMs >= :minMs ORDER BY e.timestamp DESC LIMIT :limit"""
+    )
+    fun historyFlow(limit: Int, minMs: Long): Flow<List<HistoryRow>>
 
     @Query("SELECT * FROM play_events WHERE timestamp > :since")
     suspend fun eventsSince(since: Long): List<PlayEventEntity>

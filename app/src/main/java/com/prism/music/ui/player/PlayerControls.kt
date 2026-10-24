@@ -605,8 +605,15 @@ private const val EPISODE_AHEAD_S = 30
 private const val HOLD_TO_SEEK_MS = 400L
 private const val HOLD_SEEK_REPEAT_MS = 450L
 
-/** System media volume, mirrored into a value the bar can drag. */
-class PlayerVolume(context: Context, private val cast: com.prism.music.connect.Cast? = null) {
+/**
+ * System media volume, mirrored into a value the bar can drag; or Prism's own volume (GitHub #116, Settings → Player →
+ * "The volume slider changes"), which leaves the phone's alone.
+ */
+class PlayerVolume(
+    context: Context,
+    private val cast: com.prism.music.connect.Cast? = null,
+    private val prefs: com.prism.music.data.prefs.SettingsRepository? = null,
+) {
     private val am = context.getSystemService(AudioManager::class.java)
     /** Read each time: some phones give Bluetooth headphones a different number of steps than the speaker. */
     private val max get() = am?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)?.coerceAtLeast(1) ?: 1
@@ -618,17 +625,25 @@ class PlayerVolume(context: Context, private val cast: com.prism.music.connect.C
     /** While casting it's the speaker's or TV's own volume (when it has one). */
     private val remote: Int? get() = cast?.takeIf { it.casting }?.volume
 
-    fun read(): Float = remote?.let { it / 100f } ?: ((am?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0).toFloat() / max)
+    /** The slider moves Prism's own volume, not the phone's. */
+    private val own: Boolean get() = prefs?.current?.volumeControl == com.prism.music.data.prefs.VolumeControl.PRISM
+
+    fun read(): Float = remote?.let { it / 100f }
+        ?: if (own) prefs!!.current.appVolume
+        else ((am?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0).toFloat() / max)
 
     /**
      * Only a change of step reaches Android (#52). Every drag event used to set the volume, dozens a second: with
      * Bluetooth headphones each one is a message to the headphones, and they fell seconds behind the slider (or
      * dropped some), so the bar said 75% while the headphones played at 25%.
      */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun drag(v: Float) {
         dragging = true
         level = v
         if (remote != null) { cast?.setVolume(kotlin.math.round(v * 100).toInt()); return }
+        // Prism's own: heard at once (straight into the audio chain), saved when the finger lifts.
+        if (own) { com.prism.music.playback.NormalizerProcessor.appVolume = com.prism.music.playback.NormalizerProcessor.volumeFor(v); return }
         val step = kotlin.math.round(v * max).toInt()
         if (step != sent) {
             sent = step
@@ -639,6 +654,7 @@ class PlayerVolume(context: Context, private val cast: com.prism.music.connect.C
     fun release() {
         dragging = false
         sent = -1
+        if (remote == null && own) { prefs?.setAppVolume(level); return }
         // Back to the real level (the slider can rest between two steps).
         level = read()
     }
@@ -648,7 +664,8 @@ class PlayerVolume(context: Context, private val cast: com.prism.music.connect.C
 fun rememberPlayerVolume(): PlayerVolume {
     val context = LocalContext.current
     val cast = LocalContainer.current.cast
-    val v = remember { PlayerVolume(context, cast) }
+    val prefs = LocalContainer.current.settings
+    val v = remember { PlayerVolume(context, cast, prefs) }
     LaunchedEffect(Unit) {
         while (isActive) {
             if (!v.dragging) v.level = v.read()

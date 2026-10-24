@@ -84,7 +84,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
     if (item is SongItem) { SongActionsSheet(item.song, extra, onDismiss = onDismiss); return }
     val c = LocalContainer.current
     val context = LocalContext.current
-    val liked by c.library.liked.collectAsState()
+    val liked by c.library.likedShown.collectAsState()
     var sharing by remember { mutableStateOf<ShareTarget?>(null) }
     sharing?.let { t -> ShareSheet(t) { sharing = null; onDismiss() }; return }
     val ui = com.prism.music.ui.theme.LocalUi.current
@@ -241,7 +241,7 @@ private fun LibraryToggle(item: BrowseItem?) {
 
 /** The songs to queue for [target], and what the queue is called. */
 private suspend fun songsFor(c: AppContainer, target: Playable, shuffle: Boolean, mix: Boolean): Pair<List<Song>, QueueSource> = when (target) {
-    Playable.Liked -> c.library.liked.value to QueueSource(QueueKind.PLAYLIST, "Liked songs")
+    Playable.Liked -> c.library.likedShown.value to QueueSource(QueueKind.PLAYLIST, "Liked songs")
     Playable.Downloads -> c.downloads.completedSongs() to QueueSource(QueueKind.PLAYLIST, "Downloads")
     is Playable.Page -> target.load()
     is Playable.Of -> when (val item = target.item) {

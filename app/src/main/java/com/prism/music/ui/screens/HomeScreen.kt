@@ -137,7 +137,7 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
     }
     val moods = rememberLoad("moods") { c.taste.rank(runCatching { c.ytm.moodsAndGenres() }.getOrDefault(emptyList())) }
     val recent by c.library.recent.collectAsState()
-    val liked by c.library.liked.collectAsState()
+    val liked by c.library.likedShown.collectAsState()
 
     val shelves = (home.state as? Load.Ok)?.value ?: emptyList()
     // A reload whose feed has no Quick picks keeps the last ones, rather than the section vanishing or swapping.
@@ -890,7 +890,7 @@ private fun ReplayTeaser(cfg: HomeSectionConfig) {
 private fun TopGenresSection(cfg: HomeSectionConfig) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
-    val liked by c.library.liked.collectAsState()
+    val liked by c.library.likedShown.collectAsState()
     var genres by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     LaunchedEffect(liked.size) {
         val sample = liked.take(150)

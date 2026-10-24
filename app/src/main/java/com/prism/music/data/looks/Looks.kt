@@ -234,6 +234,7 @@ object LookLabels {
         "lyrics_extra_color" to "Translation color", "lyrics_extra_italic" to "Translation in italics", "lyrics_extra_place" to "Translation place",
         "lyrics_background" to "Lyrics background", "immersive_background" to "Immersive background", "lyrics_bg_color" to "Lyrics background color",
         "lyrics_bg_color2" to "Lyrics gradient's second color", "lyrics_everywhere" to "Same lyrics look everywhere",
+        "hide_status_bar" to "Hide the status bar",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -333,6 +334,7 @@ object LookLabels {
         "layout" to setOf(
             "corners", "ui_density", "title_size", "card_size", "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab",
             "mini_player_style", "mini_skip_buttons", "mini_prev_button", "mini_progress", "library_view", "playlist_hero_cover", "replay_theme_colors", "replay_card",
+            "hide_status_bar",
         ),
         "player" to setOf(
             "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",

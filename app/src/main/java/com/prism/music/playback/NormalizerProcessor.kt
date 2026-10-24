@@ -22,6 +22,8 @@ class NormalizerProcessor : BaseAudioProcessor() {
     /** How long a change takes (s): quick before a song's sound starts, slow once it's playing. */
     @Volatile private var glideSec = 0.1f
     private var gain = 1f
+    /** [appVolume] as it glides (~30 ms), apart from the song's gain, which can take seconds. */
+    private var vol = 1f
     private var env = 0f
     private var rate = 48_000
     private var float = false
@@ -38,6 +40,17 @@ class NormalizerProcessor : BaseAudioProcessor() {
         targetGain = 10f.pow(db / 20f)
     }
 
+    companion object {
+        /**
+         * Prism's own volume (GitHub #116: "Prism's own volume" under the player), on top of each song's gain in every
+         * player (the crossfade's ending song too), so the phone's media volume isn't touched. 1 is full, as before.
+         */
+        @Volatile var appVolume = 1f
+
+        /** A slider's place (0 … 1) as a volume: squared, so the slider's middle sounds like half as loud. */
+        fun volumeFor(slider: Float): Float = slider.coerceIn(0f, 1f).let { it * it }
+    }
+
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         val enc = inputAudioFormat.encoding
         if (enc != C.ENCODING_PCM_16BIT && enc != C.ENCODING_PCM_FLOAT) return AudioProcessor.AudioFormat.NOT_SET
@@ -52,8 +65,11 @@ class NormalizerProcessor : BaseAudioProcessor() {
         val bytes = inputBuffer.remaining()
         if (bytes == 0) return
         val out = replaceOutputBuffer(bytes)
-        if (targetGain == 1f && abs(gain - 1f) < 1e-4f && env < 0.89f) {
+        val target = targetGain
+        val volTarget = appVolume
+        if (target == 1f && volTarget == 1f && abs(gain - 1f) < 1e-4f && abs(vol - 1f) < 1e-4f && env < 0.89f) {
             gain = 1f
+            vol = 1f
             out.put(inputBuffer)
             out.flip()
             return
@@ -61,11 +77,15 @@ class NormalizerProcessor : BaseAudioProcessor() {
         val t0 = if (AudioDiagnostics.enabled) System.nanoTime() else 0L
         // Per stereo frame (the gain moves every other sample).
         val glide = 1f - exp(-1f / (glideSec * rate))
+        val volGlide = 1f - exp(-1f / (0.03f * rate))
         val ceiling = 0.89f // -1 dBFS
         val samples = bytes / (if (float) 4 else 2)
         for (s in 0 until samples) {
-            if (s % 2 == 0) gain += (targetGain - gain) * glide
-            val x = (if (float) inputBuffer.float else inputBuffer.short / 32768f) * gain
+            if (s % 2 == 0) {
+                gain += (target - gain) * glide
+                vol += (volTarget - vol) * volGlide
+            }
+            val x = (if (float) inputBuffer.float else inputBuffer.short / 32768f) * gain * vol
             // Peak limiter: fast attack, slow release, never above the ceiling.
             val a = abs(x)
             // Instant attack: the gain is cut on the very sample that would go over.

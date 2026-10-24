@@ -26,6 +26,21 @@ itself, drawn the way the lyrics are, and nothing changes until you pick somethi
   default; with every setting as it comes they look as before). Off, they keep Prism's own look.
 - All of it is part of your Looks, Reset look and backups.
 
+### Also new (from GitHub)
+- **History** in Library (#118): what you played, newest first under day headings, with the time and repeats in a row
+  folded into one ("3×"). "On this phone" is Prism's own (kept on the phone); signed in, "Your account" shows YouTube
+  Music's history, plays from the YouTube Music app and website included. A Library start tab too.
+- **A song and its video as one** (#111, Settings → Library & Replay, on): liked both a song and its music video? The
+  lists show it once, as the song. The video stays liked on YouTube; nothing is changed there. Live takes and other
+  recordings stay apart.
+- **Prism's own volume** (#116, Settings → Player → "The volume slider changes"): the player's volume slider can change
+  Prism's volume instead of the phone's, so other apps stay as loud as they are. It works with crossfades, on Bluetooth
+  and offline; casting still uses the speaker's own volume.
+- **Hide the status bar** (#115, Settings → Layout & navigation → Screen): more room for Prism; swipe down from the top
+  to see it for a moment. Part of your Looks.
+- **Explanations on settings pages** (#119, Layout & navigation → Settings pages, or "Hide explanations" on the Color
+  page): off, every settings page (the Color page's notes and parts list too) shows just its settings.
+
 ## 1.7.4
 
 The third customization update: the player, your way. And a faster Prism.

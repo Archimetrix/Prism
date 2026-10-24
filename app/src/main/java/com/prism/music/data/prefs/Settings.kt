@@ -220,6 +220,9 @@ enum class LyricsStyle(val label: String, val note: String) {
     CALM("Calm", "No animation: the line simply brightens"),
 }
 
+/** What the player's volume slider changes (#116): the phone's media volume (as before), or Prism's own. */
+enum class VolumeControl(val label: String) { PHONE("The phone's volume"), PRISM("Prism's own volume") }
+
 /** A color for lyrics: white, your light, the accent, the cover's, or one of your own. */
 enum class LyricsColor(val label: String) { WHITE("White"), SPECTRUM("Your light"), ACCENT("Accent"), COVER("From the cover"), CUSTOM("Your color") }
 
@@ -716,6 +719,16 @@ data class AppSettings(
     val lyricsBgColor2: Int = 0,
     /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
     val lyricsEverywhere: Boolean = true,
+    // GitHub requests picked for 1.7.5.
+    /** #111: a liked song and its liked music video show once, as the song (Liked songs, Library, the car). */
+    val mergeLikedVideos: Boolean = true,
+    /** #115: the status bar stays hidden in Prism (a swipe from the top shows it for a moment). */
+    val hideStatusBar: Boolean = false,
+    /** #116: what the player's volume slider changes, and Prism's own level (0 … 1) when it's Prism's. */
+    val volumeControl: VolumeControl = VolumeControl.PHONE,
+    val appVolume: Float = 1f,
+    /** #119: the explaining notes on settings pages (off: just the settings; each ⓘ still opens its details). */
+    val settingsExplanations: Boolean = true,
     // The player, your way (1.7.4). Every default is the player as 1.7 had it.
     val playerLayout: PlayerLayout = PlayerLayout.STANDARD,
     /** Vinyl: the tonearm swings onto the record while it plays. */
@@ -994,6 +1007,11 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsBgColor = intPreferencesKey("lyrics_bg_color")
         val lyricsBgColor2 = intPreferencesKey("lyrics_bg_color2")
         val lyricsEverywhere = booleanPreferencesKey("lyrics_everywhere")
+        val mergeLikedVideos = booleanPreferencesKey("merge_liked_videos")
+        val hideStatusBar = booleanPreferencesKey("hide_status_bar")
+        val volumeControl = stringPreferencesKey("volume_control")
+        val appVolume = floatPreferencesKey("app_volume")
+        val settingsExplanations = booleanPreferencesKey("settings_explanations")
 
         /** Lyrics, your way (1.7.5): in Reset look, a Look, and the Lyrics page's own reset. */
         val lyricsLook: List<Pair<Preferences.Key<*>, Char>> by lazy {
@@ -1031,7 +1049,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerLayout, vinylTonearm, playerDeck, playerButtons, scrubberColor, playerTitleAlign, playerTitleSize, playerTitleScroll,
                 playerTimes, meshSpeed, meshIntensity, playerBlur, canvasFillsBackground,
                 scrubberThickness, scrubberThumb, visualizer, visualizerColor,
-                lyricsBlur, lyricsScale, lyricsProgressLine,
+                lyricsBlur, lyricsScale, lyricsProgressLine, hideStatusBar,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1058,13 +1076,14 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerTitleSize to 's', playerTitleScroll to 'b', playerTimes to 's', meshSpeed to 'f', meshIntensity to 'f', playerBlur to 'f',
                 canvasFillsBackground to 'b', scrubberThickness to 'f', scrubberThumb to 's', visualizer to 's', visualizerColor to 's',
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
-                libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's',
+                libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
             ) + lyricsLook
         }
 
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
+                "merge_liked_videos", "volume_control", "app_volume", "settings_explanations",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
                 "soft_spatial", "soft_spatial_amount", "lyrics_on_player", "lyrics_order", "lyrics_off", "prefer_synced", "skip_censored",
@@ -1353,6 +1372,11 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsBgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
             lyricsBgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
             lyricsEverywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+            mergeLikedVideos = p[K.mergeLikedVideos] ?: d.mergeLikedVideos,
+            hideStatusBar = p[K.hideStatusBar] ?: d.hideStatusBar,
+            volumeControl = p.enum(K.volumeControl, d.volumeControl),
+            appVolume = (p[K.appVolume] ?: d.appVolume).coerceIn(0f, 1f),
+            settingsExplanations = p[K.settingsExplanations] ?: d.settingsExplanations,
             coverSwipeLeft = p.enum(K.coverSwipeLeft, d.coverSwipeLeft),
             coverSwipeRight = p.enum(K.coverSwipeRight, d.coverSwipeRight),
             coverSwipeUp = p.enum(K.coverSwipeUp, d.coverSwipeUp),
@@ -1670,6 +1694,11 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setImmersiveBackground(v: LyricsBackground) = edit { it[K.immersiveBackground] = v.name }
     fun setLyricsBgColors(first: Int, second: Int) = edit { it[K.lyricsBgColor] = first; it[K.lyricsBgColor2] = second }
     fun setLyricsEverywhere(v: Boolean) = edit { it[K.lyricsEverywhere] = v }
+    fun setMergeLikedVideos(v: Boolean) = edit { it[K.mergeLikedVideos] = v }
+    fun setHideStatusBar(v: Boolean) = edit { it[K.hideStatusBar] = v }
+    fun setVolumeControl(v: VolumeControl) = edit { it[K.volumeControl] = v.name }
+    fun setAppVolume(v: Float) = edit { it[K.appVolume] = v.coerceIn(0f, 1f) }
+    fun setSettingsExplanations(v: Boolean) = edit { it[K.settingsExplanations] = v }
     /** One of the gestures ([which]: "cover_swipe_left" … "mini_swipe_down", the setting's stored name). */
     fun setGesture(which: String, v: PlayerGesture) = edit { p ->
         val key = gestureKeys[which] ?: return@edit

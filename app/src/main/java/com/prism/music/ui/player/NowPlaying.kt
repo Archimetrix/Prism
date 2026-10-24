@@ -1085,6 +1085,7 @@ private fun FullscreenVideo(song: Song, forceLandscape: Boolean, pip: Boolean = 
     val isPlaying by pc.isPlaying.collectAsState()
     var controls by remember { mutableStateOf(true) }
     val position = rememberPositionState(fast = false)
+    val prefs = LocalContainer.current.settings
     DisposableEffect(forceLandscape) {
         val window = activity?.window
         val ctl = window?.let { WindowCompat.getInsetsController(it, view) }
@@ -1093,7 +1094,8 @@ private fun FullscreenVideo(song: Song, forceLandscape: Boolean, pip: Boolean = 
         ctl?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         ctl?.hide(WindowInsetsCompat.Type.systemBars())
         onDispose {
-            ctl?.show(WindowInsetsCompat.Type.systemBars())
+            // Back to the bars as the settings have them (#115: the status bar may stay hidden).
+            com.prism.music.ui.components.SystemBars.apply(ctl, prefs.current.hideStatusBar)
             if (forceLandscape) activity?.requestedOrientation = previousOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
