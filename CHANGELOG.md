@@ -26,6 +26,8 @@ The fifth customization update: Home, Library and Search.
   haven't played, and Most played in each year you've listened.
 - **Rename any section** from its ⋮ in Customize Home.
 - **Leave off music video or podcast sections**: YouTube Music's own sections of those kinds stay off Home.
+- **The top of Home** (Customize Home → Top of Home): the greeting as now, just the buttons, the greeting over a
+  picture (one of the background designs or your own photo), or over the playing cover, frosted; Short, Medium or Tall.
 
 ### Library your way
 - **Playlist folders**: hold a playlist → "Move to a folder" (or make a new one there). Folders sit at the top of

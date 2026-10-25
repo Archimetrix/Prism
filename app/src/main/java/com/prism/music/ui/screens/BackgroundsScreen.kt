@@ -233,7 +233,7 @@ fun BackgroundsScreen(bottomPadding: Dp, forPlayer: Boolean = false) {
 }
 
 /** Copies a picked photo into the app (scaled to at most 1600 px), so it survives the original being moved. */
-private fun savePhoto(context: android.content.Context, uri: Uri, name: String): File? = runCatching {
+internal fun savePhoto(context: android.content.Context, uri: Uri, name: String): File? = runCatching {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
     var sample = 1

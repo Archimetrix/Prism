@@ -307,6 +307,15 @@ enum class LyricsAlign(val label: String) { START("Left"), CENTER("Center") }
 /** Lyrics in a script the listener can't read, in Latin letters too: under each line, or in its place. */
 enum class RomanizeMode(val label: String) { OFF("Off"), UNDER("Under each line"), INSTEAD("Instead") }
 enum class LibraryView(val label: String) { GRID("Grid"), LIST("List") }
+/** The top of Home (1.7.6): the greeting as before, only its buttons, or the greeting over a picture. */
+enum class HomeHeader(val label: String, val note: String) {
+    GREETING("Greeting", "The date and a hello, as now"),
+    NONE("Just the buttons", "No greeting: Home starts with its sections"),
+    PICTURE("A picture", "Your photo or a design behind the greeting"),
+    NOW_PLAYING("Now playing", "The playing cover, frosted, behind it"),
+}
+enum class HomeHeaderHeight(val label: String, val dp: Int) { SHORT("Short", 200), MEDIUM("Medium", 260), TALL("Tall", 340) }
+
 /** Covers across Library's grid: Auto fits as many as the width allows (as before 1.7.6). */
 enum class LibraryColumns(val label: String, val count: Int) { AUTO("Auto", 0), TWO("2", 2), THREE("3", 3), FOUR("4", 4) }
 
@@ -681,6 +690,10 @@ data class AppSettings(
     // Home
     val homeLayout: List<HomeSectionConfig> = HomeSections.initial,
     val autoAddSections: Boolean = true,
+    val homeHeader: HomeHeader = HomeHeader.GREETING,
+    val homeHeaderHeight: HomeHeaderHeight = HomeHeaderHeight.MEDIUM,
+    /** The picture behind a PICTURE header: a background design's name, or "PHOTO|<file>" (as backgrounds keep theirs). */
+    val homeHeaderPicture: String = "AURORA",
     /** Kinds of YouTube Music's sections left off Home ([HomeSections.KIND_VIDEOS], [HomeSections.KIND_PODCASTS]; 1.7.6). */
     val homeHideKinds: Set<String> = emptySet(),
     /** Replay shows listening time as hours and minutes (20h 4m) instead of minutes (1,204 min). */
@@ -1000,6 +1013,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val homeLayout = stringPreferencesKey("home_layout")
         val autoAddSections = booleanPreferencesKey("auto_add_sections")
         val homeHideKinds = stringPreferencesKey("home_hide_kinds")
+        val homeHeader = stringPreferencesKey("home_header")
+        val homeHeaderHeight = stringPreferencesKey("home_header_height")
+        val homeHeaderPicture = stringPreferencesKey("home_header_picture")
         val replayHours = booleanPreferencesKey("replay_hours")
         val greetingText = stringPreferencesKey("greeting_text")
         val greetingShowName = booleanPreferencesKey("greeting_show_name")
@@ -1137,6 +1153,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 scrubberThickness, scrubberThumb, visualizer, visualizerColor,
                 lyricsBlur, lyricsScale, lyricsProgressLine, hideStatusBar,
                 tabNames, navBarSize, navBarFill, miniPlayerJoined, libraryViews, libraryColumns, librarySubtitles,
+                homeHeader, homeHeaderHeight,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1164,7 +1181,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerTitleSize to 's', playerTitleScroll to 'b', playerTimes to 's', meshSpeed to 'f', meshIntensity to 'f', playerBlur to 'f',
                 canvasFillsBackground to 'b', scrubberThickness to 'f', scrubberThumb to 's', visualizer to 's', visualizerColor to 's',
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
-                libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
+                libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b',
+                homeHeader to 's', homeHeaderHeight to 's', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
             ) + lyricsLook
         }
 
@@ -1185,7 +1203,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "video_continues", "lossless", "lossless_local", "normalize", "skip_silence", "mix", "mix_seconds", "mix_auto",
                 "mix_beat_match", "mix_tempo_cellular", "content_country", "video_max_height", "cache_size_mb", "download_wifi_only",
                 "download_likes", "smart_downloads", "smart_download_gb", "offline_gb", "smart_downloads_cellular", "eq",
-                "home_layout", "auto_add_sections", "home_hide_kinds", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
+                "home_layout", "auto_add_sections", "home_hide_kinds", "home_header_picture", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
                 "home_recent_tiles", "home_playlists", "home_customize_button", "home_continue", "quick_picks_radio",
                 "home_customize_top_button", "home_podcasts_button", "font_stamp", "lyrics_font_name", "local_sections", "local_sort",
                 "library_start_tab", "library_tiles", "library_playlists_first",
@@ -1375,6 +1393,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             } ?: d.homeLayout,
             autoAddSections = p[K.autoAddSections] ?: d.autoAddSections,
             homeHideKinds = p[K.homeHideKinds]?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHideKinds,
+            homeHeader = p.enum(K.homeHeader, d.homeHeader),
+            homeHeaderHeight = p.enum(K.homeHeaderHeight, d.homeHeaderHeight),
+            homeHeaderPicture = p[K.homeHeaderPicture] ?: d.homeHeaderPicture,
             replayHours = p[K.replayHours] ?: d.replayHours,
             greetingText = p[K.greetingText] ?: d.greetingText,
             greetingShowName = p[K.greetingShowName] ?: d.greetingShowName,
@@ -1715,6 +1736,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         it[K.homeLayout] = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(HomeSectionConfig.serializer()), v)
     }
     fun setAutoAddSections(v: Boolean) = edit { it[K.autoAddSections] = v }
+    fun setHomeHeader(v: HomeHeader) = edit { it[K.homeHeader] = v.name }
+    fun setHomeHeaderHeight(v: HomeHeaderHeight) = edit { it[K.homeHeaderHeight] = v.name }
+    fun setHomeHeaderPicture(v: String) = edit { it[K.homeHeaderPicture] = v }
     fun setHomeHideKind(kind: String, hide: Boolean) = edit {
         val now = (it[K.homeHideKinds]?.split(',')?.filter { k -> k.isNotBlank() }?.toSet() ?: emptySet()).let { s -> if (hide) s + kind else s - kind }
         it[K.homeHideKinds] = now.joinToString(",")

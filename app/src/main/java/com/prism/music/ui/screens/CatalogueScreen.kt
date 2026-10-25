@@ -47,6 +47,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -101,9 +108,21 @@ fun CatalogueScreen(bottomPadding: Dp) {
         actions = { RoundAction(PrismIcons.History, "Reset", glass = true) { save(HomeSections.initial) } },
     ) {
         item(key = "greeting") {
-            Group("Greeting") {
-                GreetingField()
-                Toggle("Show your name", null, settings.greetingShowName) { c.settings.setGreetingShowName(it) }
+            Group("Top of Home") {
+                // 1.7.6: the greeting as before, just the buttons, or the greeting over a picture.
+                ChoiceCards(
+                    com.prism.music.data.prefs.HomeHeader.entries, settings.homeHeader, title = { it.label }, detail = { it.note },
+                    onSelect = { c.settings.setHomeHeader(it) },
+                ) { HeaderSample(it) }
+                if (settings.homeHeader != com.prism.music.data.prefs.HomeHeader.NONE) {
+                    GreetingField()
+                    Toggle("Show your name", null, settings.greetingShowName) { c.settings.setGreetingShowName(it) }
+                }
+                if (settings.homeHeader == com.prism.music.data.prefs.HomeHeader.PICTURE || settings.homeHeader == com.prism.music.data.prefs.HomeHeader.NOW_PLAYING) {
+                    Label("Height")
+                    Chips(com.prism.music.data.prefs.HomeHeaderHeight.entries, settings.homeHeaderHeight, { it.label }) { c.settings.setHomeHeaderHeight(it) }
+                }
+                if (settings.homeHeader == com.prism.music.data.prefs.HomeHeader.PICTURE) HeaderPicturePicker()
             }
         }
         item(key = "sections") {
@@ -252,6 +271,63 @@ private fun SectionRow(
                 DropdownMenuItem({ Text("Remove") }, { onRemove(); menu = false }, leadingIcon = { Icon(PrismIcons.Delete, null) })
             }
         }
+    }
+}
+
+/** A small example of each kind of top of Home: the picture (if any), the greeting as bars, the round buttons. */
+@Composable
+private fun HeaderSample(kind: com.prism.music.data.prefs.HomeHeader) {
+    val scheme = MaterialTheme.colorScheme
+    val dark = com.prism.music.ui.theme.LocalIsDark.current
+    val ground = when (kind) {
+        com.prism.music.data.prefs.HomeHeader.PICTURE -> androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF2EE59D), Color(0xFF7C5CFF), Color(0xFF00C2FF)))
+        com.prism.music.data.prefs.HomeHeader.NOW_PLAYING -> androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0xFFE76F51), Color(0xFF264653)))
+        else -> androidx.compose.ui.graphics.SolidColor(scheme.surfaceContainerHigh)
+    }
+    Box(Modifier.fillMaxWidth().height(70.dp).clip(RoundedCornerShape(12.dp)).background(scheme.surfaceContainerHigh)) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val picture = kind == com.prism.music.data.prefs.HomeHeader.PICTURE || kind == com.prism.music.data.prefs.HomeHeader.NOW_PLAYING
+            if (picture) drawRect(ground, alpha = 0.9f)
+            if (picture) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(0.4f to Color.Transparent, 1f to scheme.surfaceContainerHigh))
+            val ink = if (dark || picture) Color.White else scheme.onSurface
+            // The round buttons, top right.
+            for (i in 0..2) drawCircle(ink.copy(alpha = 0.55f), 5.dp.toPx(), androidx.compose.ui.geometry.Offset(size.width - (12 + i * 14).dp.toPx(), 14.dp.toPx()))
+            if (kind != com.prism.music.data.prefs.HomeHeader.NONE) {
+                val y = size.height - 22.dp.toPx()
+                drawRoundRect(ink.copy(alpha = 0.5f), androidx.compose.ui.geometry.Offset(10.dp.toPx(), y - 9.dp.toPx()), androidx.compose.ui.geometry.Size(size.width * 0.25f, 3.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()))
+                drawRoundRect(ink.copy(alpha = 0.9f), androidx.compose.ui.geometry.Offset(10.dp.toPx(), y), androidx.compose.ui.geometry.Size(size.width * 0.55f, 7.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+            }
+        }
+    }
+}
+
+/** The picture behind the greeting: one of the background designs, or a photo of your own. */
+@Composable
+private fun HeaderPicturePicker() {
+    val c = LocalContainer.current
+    val settings = LocalAppSettings.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { savePhoto(context, uri, "home-header") }
+            if (file != null) c.settings.setHomeHeaderPicture("PHOTO|${file.absolutePath}")
+        }
+    }
+    val current = com.prism.music.ui.theme.Backdrop.parse(settings.homeHeaderPicture).first
+    val designs = com.prism.music.ui.theme.Backdrop.entries.filter {
+        it.group == com.prism.music.ui.theme.BackdropGroup.COLOR || it.group == com.prism.music.ui.theme.BackdropGroup.DESIGNS
+    }
+    Label("Picture")
+    androidx.compose.foundation.layout.FlowRow(
+        Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PrismChip(current == com.prism.music.ui.theme.Backdrop.PHOTO, {
+            picker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }, "Your photo", icon = PrismIcons.Photo)
+        designs.forEach { d -> PrismChip(current == d, { c.settings.setHomeHeaderPicture(d.name) }, d.label) }
     }
 }
 

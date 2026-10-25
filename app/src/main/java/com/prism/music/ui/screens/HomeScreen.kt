@@ -23,6 +23,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -368,11 +373,59 @@ private fun HomeTopBar() {
         java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale).format(java.util.Date())
     }
     val ui = com.prism.music.ui.theme.LocalUi.current
+    val header = settings.homeHeader
+    // A picture behind the greeting (1.7.6): it runs up under the status bar and fades into the page at its foot.
+    if (header == com.prism.music.data.prefs.HomeHeader.PICTURE || header == com.prism.music.data.prefs.HomeHeader.NOW_PLAYING) {
+        val statusTop = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        Box(Modifier.fillMaxWidth().heightIn(min = statusTop + settings.homeHeaderHeight.dp.dp)) {
+            HeaderPicture(
+                header, settings.homeHeaderPicture,
+                Modifier.matchParentSize()
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            Brush.verticalGradient(0.45f to Color.Black, 1f to Color.Transparent),
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        )
+                    },
+            )
+            Box(Modifier.align(Alignment.BottomStart)) { HomeTopRow(greeting, today, showGreeting = true) }
+        }
+        return
+    }
+    HomeTopRow(greeting, today, showGreeting = header != com.prism.music.data.prefs.HomeHeader.NONE)
+}
+
+/** What's behind a picture header: a background design or your photo, or the playing cover frosted. */
+@Composable
+private fun HeaderPicture(header: com.prism.music.data.prefs.HomeHeader, picture: String, modifier: Modifier) {
+    val c = LocalContainer.current
+    if (header == com.prism.music.data.prefs.HomeHeader.NOW_PLAYING) {
+        val current by c.player.currentSong.collectAsState()
+        val recent by c.library.recent.collectAsState()
+        val frost = com.prism.music.ui.components.rememberFrost((current ?: recent.firstOrNull())?.thumbnail)
+        Box(modifier) {
+            frost?.let { androidx.compose.foundation.Image(it.image, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
+        }
+        return
+    }
+    val (style, photo) = com.prism.music.ui.theme.Backdrop.parse(picture)
+    val s = LocalAppSettings.current
+    com.prism.music.ui.theme.BackdropLayer(style, photo, 0f, s.backdropMotion && !s.reduceMotion, modifier)
+}
+
+/** The greeting (unless [showGreeting] is off: just the buttons) and Home's round buttons. */
+@Composable
+private fun HomeTopRow(greeting: String, today: String, showGreeting: Boolean) {
+    val nav = LocalNavigator.current
+    val settings = LocalAppSettings.current
+    val ui = com.prism.music.ui.theme.LocalUi.current
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().padding(start = 20.dp, end = 14.dp, top = ui.gap(14.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        if (showGreeting) Column(Modifier.weight(1f)) {
             com.prism.music.ui.components.Eyebrow(today)
             Text(greeting, style = com.prism.music.ui.components.pageTitleStyle(), maxLines = 2)
             val profile by LocalContainer.current.account.profile.collectAsState()
@@ -382,7 +435,7 @@ private fun HomeTopBar() {
             )
             // Settings, Home screen, Continue line hides it.
             if (settings.homeContinue) ContextLine()
-        }
+        } else Spacer(Modifier.weight(1f))
         // Podcasts live a tap away from Home (as on Spotify's), in the same quiet round button as Customize.
         // With the top Customize button off, Podcasts moves over into its place, beside the account.
         // Settings → Home screen → "Podcasts button" off (#28): Podcasts opens from Library instead.

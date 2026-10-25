@@ -220,7 +220,8 @@ object LookLabels {
         "immersive_lyrics" to "Immersive lyrics", "immersive_controls" to "Immersive controls", "lyrics_align" to "Lyrics alignment",
         "lyrics_blur" to "Lyrics focus", "lyrics_progress_line" to "Lyrics progress line", "lyrics_scale" to "Lyrics size",
         "library_view" to "Library view", "library_views" to "Library tabs' views", "library_columns" to "Library columns",
-        "library_subtitles" to "Library details","playlist_hero_cover" to "Playlist picture", "replay_theme_colors" to "Replay in your colors",
+        "library_subtitles" to "Library details", "home_header" to "Top of Home", "home_header_height" to "Top of Home's height",
+        "playlist_hero_cover" to "Playlist picture", "replay_theme_colors" to "Replay in your colors",
         "replay_card" to "Replay card",
         "player_layout" to "Player layout", "vinyl_tonearm" to "Tonearm", "player_deck" to "Player's order", "player_buttons" to "Player buttons",
         "scrubber_color" to "Progress bar color", "player_title_align" to "Title alignment", "player_title_size" to "Title size",
@@ -276,6 +277,8 @@ object LookLabels {
             "lyrics_strip_align" to e(com.prism.music.data.prefs.LyricsAlign.entries) { it.label },
             "library_view" to e(com.prism.music.data.prefs.LibraryView.entries) { it.label },
             "library_columns" to e(com.prism.music.data.prefs.LibraryColumns.entries) { it.label },
+            "home_header" to e(com.prism.music.data.prefs.HomeHeader.entries) { it.label },
+            "home_header_height" to e(com.prism.music.data.prefs.HomeHeaderHeight.entries) { it.label },
             "player_layout" to e(com.prism.music.data.prefs.PlayerLayout.entries) { it.label },
             "scrubber_color" to e(com.prism.music.data.prefs.ScrubberColor.entries) { it.label },
             "player_title_align" to e(com.prism.music.data.prefs.PlayerTitleAlign.entries) { it.label },
@@ -344,7 +347,7 @@ object LookLabels {
         "backgrounds" to setOf("liquid_glass", "glass_kind", "frosted_glass", "frosted_pages", "backdrops", "backdrop_dim", "backdrop_motion", "reduce_motion"),
         "layout" to setOf(
             "corners", "ui_density", "title_size", "card_size", "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab",
-            "mini_player_style", "mini_skip_buttons", "mini_prev_button", "mini_progress", "library_view", "library_views", "library_columns", "library_subtitles", "playlist_hero_cover", "replay_theme_colors", "replay_card",
+            "mini_player_style", "mini_skip_buttons", "mini_prev_button", "mini_progress", "library_view", "library_views", "library_columns", "library_subtitles", "home_header", "home_header_height", "playlist_hero_cover", "replay_theme_colors", "replay_card",
             "hide_status_bar", "tab_names", "nav_bar_size", "nav_bar_fill", "mini_player_joined",
         ),
         "player" to setOf(
