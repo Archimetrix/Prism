@@ -209,7 +209,13 @@ fun LibraryScreen(bottomPadding: Dp) {
     val playlistSortName by c.library.playlistSort.collectAsState()
     val playlistSort = PlaylistSort.entries.firstOrNull { it.name == playlistSortName }
         ?: if (playlistOrder.isEmpty()) PlaylistSort.LIBRARY else PlaylistSort.CUSTOM
-    val myPlaylists = remember(playlists, prismLists) { prismLists.map { it.item() } + playlists.filter { it.id != "LM" } }
+    // Signed out, YouTube playlists saved on the phone (H7) sit with Prism's own.
+    val savedPlaylists by c.prismLibrary.playlists.collectAsState()
+    val myPlaylists = remember(playlists, prismLists, savedPlaylists, settings.isLoggedIn) {
+        prismLists.map { it.item() } + (if (settings.isLoggedIn) emptyList() else savedPlaylists.map { it.item() }) + playlists.filter { it.id != "LM" }
+    }
+    var openingLink by remember { mutableStateOf(false) }
+    if (openingLink) OpenPlaylistLinkDialog({ openingLink = false }) { id -> openingLink = false; nav.go(Routes.playlist(id)) }
     val sortedPlaylists = remember(myPlaylists, playlistOrder, playlistSort) {
         when (playlistSort) {
             PlaylistSort.CUSTOM -> LibraryRepository.inOrder(myPlaylists, playlistOrder)
@@ -324,21 +330,23 @@ fun LibraryScreen(bottomPadding: Dp) {
                       }
                       val playlistsPart: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit = {
                         // Signed out: playlists made here are kept on the phone; signing in brings YouTube Music's too.
-                        if (!settings.isLoggedIn && prismLists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                        if (!settings.isLoggedIn && myPlaylists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                EmptyState(PrismIcons.QueueMusic, "Your playlists", "Make one with New playlist, or from any song's menu (Add to playlist). They're kept on this phone, no account needed.")
+                                EmptyState(PrismIcons.QueueMusic, "Your playlists", "Make one with New playlist, or from any song's menu (Add to playlist). A YouTube playlist can be kept here too: open it and tap its bookmark. All on this phone, no account needed.")
                                 PrismTextButton(onClick = { nav.go(Routes.LOGIN) }) { Text("Or sign in to bring your YouTube Music playlists") }
                             }
                         }
-                        if (myPlaylists.size > 1) item(span = { GridItemSpan(maxLineSpan) }) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 8.dp)) {
                                 if (rearranging) Text(
                                     "Hold and drag, or use the arrows", style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                ) else SortBar("${myPlaylists.size} playlists", PlaylistSort.entries, playlistSort, { it.label }, Modifier.weight(1f)) {
+                                ) else if (myPlaylists.size > 1) SortBar("${myPlaylists.size} playlists", PlaylistSort.entries, playlistSort, { it.label }, Modifier.weight(1f)) {
                                     c.library.setPlaylistSort(it.name)
-                                }
-                                com.prism.music.ui.components.PrismChip(
+                                } else Spacer(Modifier.weight(1f))
+                                // A playlist from a link (H7), without YouTube's share menu.
+                                if (!rearranging) com.prism.music.ui.components.PrismChip(false, { openingLink = true }, "Open a link", icon = PrismIcons.Link)
+                                if (myPlaylists.size > 1) com.prism.music.ui.components.PrismChip(
                                     rearranging,
                                     {
                                         if (!rearranging) saveOrder(sortedPlaylists)
@@ -716,4 +724,31 @@ private fun DownloadsSummary() {
             }
         }
     }
+}
+
+
+/** A playlist id in a pasted YouTube or YouTube Music link ("…?list=PL…"), or null. */
+internal fun playlistIdIn(text: String): String? =
+    Regex("""https?://\S*(?:youtube\.com|youtu\.be)\S*[?&]list=([A-Za-z0-9_-]+)""", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)
+
+/** Library → Playlists → Open a link (H7): paste a playlist's link, and it opens (to play, keep or copy). */
+@Composable
+private fun OpenPlaylistLinkDialog(onDismiss: () -> Unit, onOpen: (String) -> Unit) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var text by remember { mutableStateOf(clipboard.getText()?.text?.takeIf { playlistIdIn(it) != null } ?: "") }
+    val id = playlistIdIn(text)
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Open a playlist link") },
+        text = {
+            com.prism.music.ui.components.PrismTextField(
+                text, { text = it }, Modifier.fillMaxWidth(), singleLine = true,
+                placeholder = { Text("youtube.com/playlist?list=…") },
+                supportingText = if (text.isNotBlank() && id == null) ({ Text("That isn't a playlist's link") }) else null,
+                isError = text.isNotBlank() && id == null,
+            )
+        },
+        confirmButton = { PrismTextButton(onClick = { id?.let(onOpen) }, enabled = id != null) { Text("Open") } },
+        dismissButton = { PrismTextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }

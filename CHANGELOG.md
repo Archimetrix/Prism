@@ -19,6 +19,18 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Playlists without an account
+- **Keep a YouTube playlist in your library without signing in**: its page's "Add to library" (or a long press) keeps
+  it on the phone, in Library → Playlists, opened fresh from YouTube each time. Mixes, which change every time, aren't kept.
+- **Save a copy as a Prism playlist** (any YouTube playlist's ⋯ or long press, signed in or not): every song of it, in a
+  playlist of your own on the phone that stays as it is.
+- **The queue's Save works without an account too**, as a Prism playlist.
+- **Library → Playlists → Open a link**: paste a playlist's YouTube or YouTube Music link to open it, no share menu needed.
+
+### Podcasts
+- **Episode details**: an episode's ⋯ (or a tap on its description) shows all of it, with working links, its date and
+  length, and the show it's from. A show YouTube gives no description says so instead of showing nothing.
+
 ### Fixes
 - **Podcast episodes no longer turn LIVE** a few seconds in (#128). Episodes recorded from a live broadcast were taken for
   streams still on air, so the length disappeared and the progress bar stopped seeking. They play as normal episodes now.

@@ -388,12 +388,26 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
             }
         }
     }
-    // Without an account, an album is saved to the library on the phone instead (Library → Albums).
+    // Without an account, an album or a YouTube playlist is saved to the library on the phone instead (Library →
+    // Albums / Playlists; playlists since 1.7.6, H7). Mixes change every time, so they're not kept.
     val savedAlbums by c.prismLibrary.albums.collectAsState()
-    val localAlbum = type == CollectionType.ALBUM && !settings.isLoggedIn
-    val savedHere = localAlbum && savedAlbums.any { it.id == page.id }
+    val savedPlaylists by c.prismLibrary.playlists.collectAsState()
+    val localPlaylist = type == CollectionType.PLAYLIST && !settings.isLoggedIn && !com.prism.music.data.PrismLibrary.isMix(page.id)
+    val localAlbum = (type == CollectionType.ALBUM || localPlaylist) && !settings.isLoggedIn
+    val savedHere = if (localPlaylist) savedPlaylists.any { com.prism.music.data.PrismLibrary.samePlaylist(it.id, page.id) }
+        else localAlbum && savedAlbums.any { it.id == page.id }
     val toggleSavedHere: () -> Unit = {
-        if (savedHere) {
+        if (localPlaylist) {
+            if (savedHere) c.prismLibrary.unsavePlaylist(page.id)
+            else c.prismLibrary.savePlaylist(
+                com.prism.music.data.SavedPlaylist(
+                    page.id, page.title,
+                    page.subtitle.takeIf { it.isNotBlank() } ?: "Playlist",
+                    page.thumbnail, System.currentTimeMillis(),
+                ),
+            )
+            Toast.makeText(context, if (savedHere) "Removed from your library" else "Saved to your library", Toast.LENGTH_SHORT).show()
+        } else if (savedHere) {
             c.prismLibrary.unsaveAlbum(page.id)
             Toast.makeText(context, "Removed from your library", Toast.LENGTH_SHORT).show()
         } else {
