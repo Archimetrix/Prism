@@ -943,9 +943,9 @@ private fun swipeBetweenTabs(tabs: List<Tab>, route: String?, onSelect: (String)
     }
 }
 
-/** The tab bar's own background (1.7.6): unspecified keeps the glass as it is. */
+/** The tab bar's own background (1.7.6), the mini player's too: unspecified keeps the glass as it is. */
 @Composable
-private fun navFill(fill: com.prism.music.data.prefs.NavBarFill): Color {
+internal fun navFill(fill: com.prism.music.data.prefs.NavBarFill): Color {
     val scheme = MaterialTheme.colorScheme
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     return when (fill) {

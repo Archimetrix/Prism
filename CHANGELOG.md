@@ -44,14 +44,18 @@ frames drew 4–5× faster with it on.
 Prism's own design, not YouTube's page:
 - **Search by lyrics, in the search box itself**: type a line from a song ("i got my driver's license last week") and
   the song it's from shows under **From the lyrics**, with the line as the song has it, first when the line is nearly
-  word for word. Lyrics already on your phone are looked through first (offline too), then Genius's lyrics.
+  word for word. Lyrics already on your phone are looked through first (offline too), then Genius's lyrics. They show
+  only when Search didn't find the song by its name, and only for the words together as typed.
 - **Before you type**: what you opened lately by its picture, your recent searches, your artists as a row of photos,
   and the moods and genres as Prism-drawn tiles (their color, a pattern, the split light). **Arrange this page**
   shows, hides and orders the sections.
-- **While typing**: the artists, songs and albums YouTube Music suggests, with their pictures, under the completions;
-  a tap opens or plays one at once.
-- **In your library**: results that are already yours (liked songs, your playlists, albums and artists) come right
-  after the top result.
+- **While typing, only suggestions**: "Search for …", the completions, and the artists, songs and albums YouTube Music
+  suggests with their pictures (a tap opens or plays one at once). The chips and results wait until you search, or put
+  the keyboard away, so they no longer pile up under the suggestions.
+- **One row of chips**: "On this phone" is now the last chip, beside Songs, Videos, Albums and the rest, instead of a
+  row of its own above them.
+- **In your library** and **On this phone**: results that are already yours (liked songs, your playlists, albums and
+  artists) and matching music files and downloads come right after the top result.
 
 ### Home your way
 - **Pin to Home**: hold any album, playlist, artist or mix and pick "Pin to Home": it becomes a section of its own at

@@ -48,6 +48,14 @@ class LyricSearchTest {
     }
 
     @Test
+    fun wordsSpreadOverALineDontCount() {
+        // The 1.7.6 test build showed Wallows' "Anytime, Always" for "the best you ever had".
+        val spread = LyricSearch.coverage(w("the best you ever had"), w("Let's make up the best years you and I have ever had"))
+        assertTrue("$spread", spread < 0.75f)
+        assertEquals(1f, LyricSearch.coverage(w("the best you ever had"), w("You're the best I ever had, the best you ever had")), 0.001f)
+    }
+
+    @Test
     fun geniusScriptsAndTranslationsAreSkipped() {
         val json = InnerTube.json.parseToJsonElement(GENIUS)
         val hits = LyricSearch.geniusHits(json, w("i got my driver's license last week"))

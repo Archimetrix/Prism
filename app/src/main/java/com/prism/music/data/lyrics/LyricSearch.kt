@@ -123,18 +123,31 @@ class LyricSearch(
         private fun bare(title: String) = title.replace(BRACKETS, "").trim().ifBlank { title }
 
         /**
-         * How much of [query] a passage has, in order: the longest run of the typed words found in the passage's own
-         * order (skipping a word here or there), as a share of the words typed.
+         * How much of [query] a passage has, in order and close together: the most typed words found in the passage's
+         * own order (skipping a word here or there) within a stretch hardly longer than what was typed, as a share of
+         * the words typed. "the best you ever had" is all in "make up the best years you and I have ever had" in order,
+         * but spread over ten words: that's not the line (the 1.7.6 test build showed it as a match).
          */
         fun coverage(query: List<String>, passage: List<String>): Float {
             if (query.isEmpty() || passage.isEmpty()) return 0f
-            val prev = IntArray(passage.size + 1)
-            val cur = IntArray(passage.size + 1)
-            for (q in query) {
-                for (j in 1..passage.size) cur[j] = if (q == passage[j - 1]) prev[j - 1] + 1 else maxOf(prev[j], cur[j - 1])
+            val span = query.size + maxOf(2, query.size / 4)
+            if (passage.size <= span) return lcs(query, passage).toFloat() / query.size
+            var best = 0
+            for (start in 0..passage.size - span) {
+                best = maxOf(best, lcs(query, passage.subList(start, start + span)))
+                if (best == query.size) break
+            }
+            return best.toFloat() / query.size
+        }
+
+        private fun lcs(a: List<String>, b: List<String>): Int {
+            val prev = IntArray(b.size + 1)
+            val cur = IntArray(b.size + 1)
+            for (x in a) {
+                for (j in 1..b.size) cur[j] = if (x == b[j - 1]) prev[j - 1] + 1 else maxOf(prev[j], cur[j - 1])
                 cur.copyInto(prev)
             }
-            return prev[passage.size].toFloat() / query.size
+            return prev[b.size]
         }
 
         /** The song's line the typed words best match (a line can run on into the next one), and how well. */

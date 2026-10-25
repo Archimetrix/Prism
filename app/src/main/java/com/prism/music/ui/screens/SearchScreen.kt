@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -216,6 +218,26 @@ fun SearchScreen(bottomPadding: Dp) {
             songs + lists
         }
     }
+    // Your music files and downloads that match, a few of them in Top results (all of them under "On this phone").
+    val phoneTracks by c.localMusic.tracks.collectAsState()
+    val onPhoneHits by androidx.compose.runtime.produceState(emptyList<com.prism.music.data.model.Song>(), live, onPhone, phoneTracks) {
+        value = if (live.isBlank() || onPhone) emptyList() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            (phoneMatches(live, phoneTracks.map { it.song }) + phoneMatches(live, c.downloads.completedSongs())).distinctBy { it.id }.take(3)
+        }
+    }
+
+    // The keyboard put away (Back, its own button) means "show me the results": the field stops being typed in, so the
+    // suggestions give way to them. Only once the keyboard has been up, so a hardware keyboard keeps the suggestions.
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    val imeUp = WindowInsets.isImeVisible
+    var imeWasUp by remember { mutableStateOf(false) }
+    LaunchedEffect(imeUp, focused) {
+        when {
+            !focused -> imeWasUp = false
+            imeUp -> imeWasUp = true
+            imeWasUp -> { imeWasUp = false; focus.clearFocus() }
+        }
+    }
 
     val ui = com.prism.music.ui.theme.LocalUi.current
     Column(Modifier.fillMaxSize()) {
@@ -269,24 +291,26 @@ fun SearchScreen(bottomPadding: Dp) {
             return@Column
         }
 
-        Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            com.prism.music.ui.components.PrismChip(!onPhone, { onPhone = false }, "Prism Music", icon = PrismIcons.Globe)
-            com.prism.music.ui.components.PrismChip(onPhone, { onPhone = true }, "On this phone", icon = PrismIcons.Phone)
+        // While typing (1.7.6, owner): only what's being typed, completed, and the artists, songs and albums it names, with
+        // their pictures. The chips and results under them wait until the search is made, so the page isn't stacked
+        // with three kinds of rows at once.
+        if (focused) {
+            LazyColumn(contentPadding = PaddingValues(top = 2.dp, bottom = bottomPadding + 16.dp)) {
+                item("search-for") { SuggestionRow(PrismIcons.Search, "Search for “${query.trim()}”", onFill = null, strong = true) { submit(query) } }
+                items(suggestions.filterNot { it.equals(query.trim(), true) }, key = { "s:$it" }) { s -> SuggestionRow(PrismIcons.Search, s, onFill = { query = it }) { submit(s) } }
+                // A tap opens or plays one straight away.
+                items(suggestedItems, key = { "i:" + it.id }) { item -> ResultRow(item) { saveQuery(query); open(item) } }
+            }
+            return@Column
         }
-        if (!onPhone) com.prism.music.ui.components.ChipRow(
-            SearchFilter.entries, { it == filter }, { it.label },
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 6.dp),
-        ) { filter = it }
+
+        // One row of chips: YouTube Music's kinds, and the music on this phone last (it was a row of its own).
+        com.prism.music.ui.components.ChipRow(
+            SearchFilter.entries + null, { if (it == null) onPhone else !onPhone && it == filter }, { it?.label ?: "On this phone" },
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 4.dp),
+        ) { if (it == null) onPhone = true else { onPhone = false; filter = it } }
         Box(Modifier.fillMaxWidth().height(3.dp).padding(horizontal = 16.dp)) {
             if (loading) com.prism.music.ui.components.PrismProgressBar(null, Modifier.fillMaxWidth())
-        }
-        // While typing, a few completions sit above the live results.
-        AnimatedVisibility(focused && (suggestions.isNotEmpty() || suggestedItems.isNotEmpty()) && suggestions.firstOrNull()?.equals(query.trim(), true) != true) {
-            Column {
-                suggestions.forEach { s -> SuggestionRow(PrismIcons.Search, s, onFill = { query = it }, dense = true) { submit(s) } }
-                // The artists, songs and albums themselves, with their pictures: a tap opens or plays one straight away.
-                suggestedItems.forEach { item -> ResultRow(item) { saveQuery(query); open(item) } }
-            }
         }
 
         if (onPhone) PhoneResults(live, bottomPadding) { saveQuery(live); focus.clearFocus() }
@@ -294,7 +318,7 @@ fun SearchScreen(bottomPadding: Dp) {
             when (val r = top) {
                 null, Load.Loading -> LoadingState()
                 is Load.Err -> ErrorState(r.message)
-                is Load.Ok -> TopResults(r.value, live, inLibrary, lyricHits, bottomPadding, onSeeAll = { filter = it }, open = open, onSongs = { songs, i ->
+                is Load.Ok -> TopResults(r.value, live, inLibrary, onPhoneHits, lyricHits, bottomPadding, onSeeAll = { filter = it }, onSeePhone = { onPhone = true }, open = open, onSongs = { songs, i ->
                     saveQuery(live); focus.clearFocus()
                     c.player.playQueue(songs, i, com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.OTHER, "Search"))
                 }, onPlay = { item ->
@@ -337,23 +361,7 @@ private fun PhoneResults(query: String, bottomPadding: Dp, onPlay: () -> Unit) {
     // them while the screen waited (1.7.4). Null until the first answer for this query is in.
     val found by produceState<Pair<List<com.prism.music.data.model.Song>, List<com.prism.music.data.model.Song>>?>(null, query, tracks, dls) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            val q = phoneNorm(query)
-            val words = q.split(' ').filter { it.isNotBlank() }
-            fun rank(s: com.prism.music.data.model.Song): Int? {
-                val title = phoneNorm(s.title)
-                val artist = phoneNorm(s.artistText)
-                val hay = "$title $artist ${phoneNorm(s.album?.title.orEmpty())}"
-                if (words.isEmpty() || !words.all { it in hay }) return null
-                return when {
-                    title.startsWith(q) -> 0
-                    words.all { it in title } -> 1
-                    words.all { it in artist } -> 2
-                    else -> 3
-                }
-            }
-            fun find(songs: List<com.prism.music.data.model.Song>) =
-                songs.mapNotNull { s -> rank(s)?.let { it to s } }.sortedWith(compareBy({ it.first }, { it.second.title.lowercase() })).map { it.second }
-            find(tracks.map { it.song }) to find(c.downloads.completedSongs())
+            phoneMatches(query, tracks.map { it.song }) to phoneMatches(query, c.downloads.completedSongs())
         }
     }
     val (files, downloads) = found ?: return
@@ -378,6 +386,29 @@ private fun PhoneResults(query: String, bottomPadding: Dp, onPlay: () -> Unit) {
             }
         }
     }
+}
+
+/**
+ * [songs] (music files or downloads) with every typed word in their title, artist or album, the best first: titles
+ * that start with it, then titles, artists and albums that have it.
+ */
+private fun phoneMatches(query: String, songs: List<com.prism.music.data.model.Song>): List<com.prism.music.data.model.Song> {
+    val q = phoneNorm(query)
+    val words = q.split(' ').filter { it.isNotBlank() }
+    if (words.isEmpty()) return emptyList()
+    fun rank(s: com.prism.music.data.model.Song): Int? {
+        val title = phoneNorm(s.title)
+        val artist = phoneNorm(s.artistText)
+        val hay = "$title $artist ${phoneNorm(s.album?.title.orEmpty())}"
+        if (!words.all { it in hay }) return null
+        return when {
+            title.startsWith(q) -> 0
+            words.all { it in title } -> 1
+            words.all { it in artist } -> 2
+            else -> 3
+        }
+    }
+    return songs.mapNotNull { s -> rank(s)?.let { it to s } }.sortedWith(compareBy({ it.first }, { it.second.title.lowercase() })).map { it.second }
 }
 
 /** Lower case, without accents or punctuation, so "Beyonce" finds "Beyoncé" and "ac dc" finds "AC/DC". */
@@ -408,18 +439,21 @@ private suspend fun playTop(c: com.prism.music.AppContainer, item: BrowseItem) {
 /** The best match up top, then songs, albums, artists, playlists and videos, best-matching first. */
 @Composable
 private fun TopResults(
-    r: TopSearch, query: String, inLibrary: List<BrowseItem>, lyricHits: List<com.prism.music.data.lyrics.LyricSearch.Hit>,
-    bottomPadding: Dp, onSeeAll: (SearchFilter) -> Unit, open: (BrowseItem) -> Unit,
+    r: TopSearch, query: String, inLibrary: List<BrowseItem>, onPhoneHits: List<com.prism.music.data.model.Song>,
+    lyricHits: List<com.prism.music.data.lyrics.LyricSearch.Hit>,
+    bottomPadding: Dp, onSeeAll: (SearchFilter) -> Unit, onSeePhone: () -> Unit, open: (BrowseItem) -> Unit,
     onSongs: (List<com.prism.music.data.model.Song>, Int) -> Unit, onPlay: (BrowseItem) -> Unit,
 ) {
-    // The top card's own song needn't show again as a lyric match ("i will always love you" is both).
-    val hits = lyricHits.filter { it.song.id != r.top?.id }
-    if (r.isEmpty && inLibrary.isEmpty() && hits.isEmpty()) { ErrorState("No results"); return }
-    // A line typed nearly word for word, while the top card's title has little of it: the song it's from comes first.
-    val lyricsFirst = hits.firstOrNull()?.sure == true && r.top?.let { t ->
-        val q = com.prism.music.data.lyrics.LyricSearch.words(query)
-        com.prism.music.data.lyrics.LyricSearch.coverage(q, com.prism.music.data.lyrics.LyricSearch.words(t.title)) < 0.5f
-    } != false
+    // Lyric matches only when the search didn't find the song by its name: when the top card's title has half the words
+    // typed or more ("the best you ever had" → "Tonight (Best You Ever Had)"), they were only clutter. Songs already
+    // among the results don't show again.
+    val q = com.prism.music.data.lyrics.LyricSearch.words(query)
+    val titleFits = r.top?.let { t -> com.prism.music.data.lyrics.LyricSearch.coverage(q, com.prism.music.data.lyrics.LyricSearch.words(t.title)) >= 0.5f } == true
+    val shownIds = (listOfNotNull(r.top?.id) + r.sections.flatMap { (_, items) -> items.map { it.id } }).toSet()
+    val hits = if (titleFits) emptyList() else lyricHits.filter { it.song.id !in shownIds }
+    if (r.isEmpty && inLibrary.isEmpty() && onPhoneHits.isEmpty() && hits.isEmpty()) { ErrorState("No results"); return }
+    // A line typed nearly word for word: the song it's from comes first.
+    val lyricsFirst = hits.firstOrNull()?.sure == true
     val hitSongs = hits.map { it.song }
     fun androidx.compose.foundation.lazy.LazyListScope.fromTheLyrics() {
         if (hits.isEmpty()) return
@@ -434,6 +468,10 @@ private fun TopResults(
         if (inLibrary.isNotEmpty()) {
             item("lib-h") { SectionHeader("In your library") }
             items(inLibrary, key = { "lib:" + it.id }) { item -> ResultRow(item) { open(item) } }
+        }
+        if (onPhoneHits.isNotEmpty()) {
+            item("phone-h") { SectionHeader("On this phone", onMore = onSeePhone) }
+            items(onPhoneHits, key = { "ph:" + it.id }) { s -> SongRow(s) { onSongs(onPhoneHits, onPhoneHits.indexOf(s)) } }
         }
         r.sections.forEach { (f, items) ->
             item("h:${f.name}") { SectionHeader(f.label, onMore = { onSeeAll(f) }) }
@@ -529,18 +567,20 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
 
 @Composable
 private fun SuggestionRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onFill: (String) -> Unit,
-    onRemove: (() -> Unit)? = null, dense: Boolean = false, onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onFill: ((String) -> Unit)?,
+    strong: Boolean = false, onClick: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = if (dense) 6.dp else 12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp).height(40.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, Modifier.size(if (dense) 18.dp else 24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
-        Text(text, Modifier.weight(1f), style = if (dense) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (onRemove != null) IconButton(onClick = onRemove, Modifier.size(32.dp)) { Icon(PrismIcons.Close, "Remove", Modifier.size(18.dp)) }
-        else IconButton(onClick = { onFill(text) }, Modifier.size(32.dp)) { Icon(PrismIcons.FillIn, "Fill", Modifier.size(18.dp)) }
+        Text(
+            text, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            fontWeight = if (strong) FontWeight.Medium else null,
+        )
+        if (onFill != null) IconButton(onClick = { onFill(text) }, Modifier.size(32.dp)) { Icon(PrismIcons.FillIn, "Fill", Modifier.size(18.dp)) }
     }
 }
 
