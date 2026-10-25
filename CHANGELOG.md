@@ -103,6 +103,9 @@ Prism's own design, not YouTube's page:
   length, and the show it's from. A show YouTube gives no description says so instead of showing nothing.
 
 ### Fixes
+- **The Card mini player is glass like the tab bar** under it, with the tab bar's own background (see-through or
+  solid), and its progress line runs along its bottom edge. With Frosted Glass off it used to turn into a solid bar
+  with the progress line on top.
 - **Podcast episodes no longer turn LIVE** a few seconds in (#128). Episodes recorded from a live broadcast were taken for
   streams still on air, so the length disappeared and the progress bar stopped seeking. They play as normal episodes now.
 - **Each local song shows its own cover** (#129). Android files untagged songs from one folder (and other mixes) as one
