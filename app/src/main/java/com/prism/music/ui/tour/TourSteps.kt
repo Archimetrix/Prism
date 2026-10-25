@@ -39,6 +39,8 @@ object Tour {
     private const val V1_7_4 = 43
     /** Prism 1.7.5 (build 44): lyrics, your way. */
     private const val V1_7_5 = 44
+    /** Prism 1.7.6 (build 45): Home, Library and Search, your way. */
+    private const val V1_7_6 = 45
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -251,6 +253,44 @@ object Tour {
                 "Library's tiles: the edit button at the top of Library",
             ),
             listOf(PrismIcons.History, PrismIcons.HeartFilled),
+        ),
+        TourStep(
+            V1_7_6, PrismIcons.Home, "Home, your way",
+            "Customize Home (the button at the top of Home) has more in it.",
+            listOf(
+                "Hold any album, playlist, artist or mix → Pin to Home: a section of its own",
+                "Sections from your own listening: Liked this month, Downloads you haven't played, Most played in a year",
+                "Rename any section; leave YouTube Music's video or podcast sections off",
+                "The top of Home: the greeting, just the buttons, or the greeting over a picture or the playing cover",
+                "Home shows at once when Prism opens, while the new one loads",
+            ),
+            listOf(PrismIcons.Home, PrismIcons.Pin),
+            showMe = Routes.CATALOGUE,
+        ),
+        TourStep(
+            V1_7_6, PrismIcons.Library, "Library and tabs, your way",
+            "Folders, pins, and tabs of your own.",
+            listOf(
+                "Hold a playlist → Move to a folder; hold anything in Library → Pin to the top",
+                "Playlists, Albums and Artists each a list or a grid; 2, 3 or 4 covers across",
+                "Make a cover for a playlist, or use your own photo of an artist",
+                "Keep YouTube playlists and copy them as Prism playlists, no account needed",
+                "Tabs: Downloads, Liked songs or Podcasts as tabs, your own names, words only, swipe between them",
+            ),
+            listOf(PrismIcons.Folder, PrismIcons.Library),
+            showMe = Routes.settings("interface"),
+        ),
+        TourStep(
+            V1_7_6, PrismIcons.Search, "Search, redesigned",
+            "Search starts from your music.",
+            listOf(
+                "Shortcuts: recognize a song, find one by a line of its lyrics, podcasts, your files",
+                "What you opened lately, your artists, and moods drawn by Prism",
+                "Artists and songs with their pictures while you type",
+                "Results already in your library, right after the top one",
+            ),
+            listOf(PrismIcons.Search, PrismIcons.Recognize),
+            showMe = Routes.SEARCH,
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",
