@@ -19,16 +19,35 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Performance mode
+For phones that found 1.7 heavier than 1.6 (#103, #132, #134): **Settings → Performance mode**, one switch that draws
+Prism about as lightly as 1.6 did. It pauses blur and frosted glass, the frost behind pages, moving and illustrated
+backgrounds (pages are plain), animated covers, the visualizer, a drifting player background, focus blur and glow in the
+lyrics, the picture at the top of Home, and animations. Every feature keeps working, nothing you picked is changed, and
+it all comes back as it was when you turn it off. Phones on Android 9 or older, or with 4 GB of memory or less, are
+offered it once on Home. On the Android 9 emulator, scrolling Home with music playing took half the processor time and
+frames drew 4–5× faster with it on.
+
+### Faster everywhere
+- Pages read YouTube's answers into shelves and lists off the screen's thread (Home, albums, playlists, artists,
+  podcasts, moods, and every search): on a slow phone a long playlist held the screen up for a few hundred milliseconds.
+- Covers kept on the phone are looked up from memory, without working out each picture's file name again on every
+  frame of a scrolling list.
+- The player's volume and output are asked of Android in the background, and the moods ranking is worked out there too.
+- Playback diagnostics now note Prism's memory every half minute, by kind, to find what grows on phones that close Prism.
+
 ### Search, redesigned (#124)
 Prism's own design, not YouTube's page:
-- **Before you type**: Prism's shortcuts (Recognize, Find by lyrics, Podcasts, Your files), what you opened lately by
-  its picture, your recent searches, your artists as a row of photos, and the moods and genres as Prism-drawn tiles
-  (their color, a pattern, the split light). **Arrange this page** shows, hides and orders the sections.
+- **Search by lyrics, in the search box itself**: type a line from a song ("i got my driver's license last week") and
+  the song it's from shows under **From the lyrics**, with the line as the song has it, first when the line is nearly
+  word for word. Lyrics already on your phone are looked through first (offline too), then Genius's lyrics.
+- **Before you type**: what you opened lately by its picture, your recent searches, your artists as a row of photos,
+  and the moods and genres as Prism-drawn tiles (their color, a pattern, the split light). **Arrange this page**
+  shows, hides and orders the sections.
 - **While typing**: the artists, songs and albums YouTube Music suggests, with their pictures, under the completions;
   a tap opens or plays one at once.
 - **In your library**: results that are already yours (liked songs, your playlists, albums and artists) come right
   after the top result.
-- **Find by lyrics**: type a line from a song and Search looks among songs.
 
 ### Home your way
 - **Pin to Home**: hold any album, playlist, artist or mix and pick "Pin to Home": it becomes a section of its own at

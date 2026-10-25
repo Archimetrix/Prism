@@ -85,6 +85,12 @@ private fun SectionStyle.icon(): ImageVector = when (this) {
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun CatalogueScreen(bottomPadding: Dp) {
+    StoredSettings { CataloguePage(bottomPadding) }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun CataloguePage(bottomPadding: Dp) {
     val c = LocalContainer.current
     val settings = LocalAppSettings.current
     val ytShelves by homeShelfCache.collectAsState()

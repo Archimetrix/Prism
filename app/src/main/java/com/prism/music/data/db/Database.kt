@@ -558,6 +558,16 @@ interface LyricsDao {
     suspend fun clearMisses()
 }
 
+/** Search's lyric search (1.7.6), apart from [LyricsDao] so the lyric sources' tests keep their small fakes. */
+@Dao
+interface LyricsSearchDao {
+    /** Saved lyrics with [word] in them (LIKE ignores ASCII case). */
+    @Query("SELECT songId, content FROM lyrics WHERE content LIKE '%' || :word || '%' LIMIT :limit")
+    suspend fun containing(word: String, limit: Int): List<LyricsText>
+}
+
+data class LyricsText(val songId: String, val content: String)
+
 @Dao
 interface MetaDao {
     @Query("SELECT * FROM genres WHERE `key` = :key")
@@ -608,6 +618,7 @@ abstract class PrismDatabase : RoomDatabase() {
     abstract fun songs(): SongDao
     abstract fun plays(): PlayEventDao
     abstract fun lyrics(): LyricsDao
+    abstract fun lyricsSearch(): LyricsSearchDao
     abstract fun meta(): MetaDao
     abstract fun heatmaps(): HeatmapDao
     abstract fun romanized(): RomanizedDao

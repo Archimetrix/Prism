@@ -62,6 +62,8 @@ object SettingsIndex {
         // The hub
         SettingEntry(null, "Account", "Account", "google youtube sign in sign out switch account add account"),
         SettingEntry(null, "Account", "Prism Account", "profile name picture photo local on this phone copy library youtube playlists"),
+        SettingEntry(null, "Performance", "Performance mode", "slow lag laggy stutter battery old phone fast faster lighter simple plain 1.6 effects blur animations smooth"),
+        SettingEntry(null, "Performance", "Performance mode is on", "paused effects turn off"),
         SettingEntry(DC, "Discord", "Show what you're playing", "discord rich presence status listening"),
         SettingEntry(DC, "Discord", "Sign out of Discord"),
         SettingEntry(DC, "Discord", "About this", "discord terms risk"),

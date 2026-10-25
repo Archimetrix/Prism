@@ -197,6 +197,19 @@ private val hubGroups = listOf(
  */
 @Composable
 fun SettingsScreen(bottomPadding: Dp, section: SettingsSection? = null, find: String? = null) {
+    // The switches show what the listener chose, also while Performance mode draws Prism lighter.
+    StoredSettings { SettingsHub(bottomPadding, section, find) }
+}
+
+/** [content] with the settings as stored, not as Performance mode draws them (pages that change settings). */
+@Composable
+fun StoredSettings(content: @Composable () -> Unit) {
+    val stored by LocalContainer.current.settings.stored.collectAsState()
+    androidx.compose.runtime.CompositionLocalProvider(LocalAppSettings provides stored, content = content)
+}
+
+@Composable
+private fun SettingsHub(bottomPadding: Dp, section: SettingsSection?, find: String?) {
     if (section != null || !com.prism.music.ui.theme.LocalWindowLayout.current.listDetail) {
         SettingsPage(bottomPadding, section, find)
         return
@@ -257,6 +270,8 @@ private fun SettingsPage(
             else -> null
         },
     ) {
+        // Pages of the effects Performance mode pauses say so first, with the way back.
+        if (s.performanceMode && section in PAUSED_PAGES) item(key = "paused") { PerformancePaused() }
         // Look pages (1.7.3) open on the live preview (Looks has its own at its top).
         if (section?.previewed == true && section != SettingsSection.LOOKS) item(key = LOOK_PREVIEW_KEY) { LookStrip() }
         when (section) {
@@ -289,6 +304,7 @@ private fun SettingsPage(
                     return@SubPage
                 }
                 item { AccountCard() }
+                item(key = "performance") { PerformanceGroup() }
                 // Every section's icon sits on its own color of the split light, red at the top to violet at the foot.
                 val hubCount = hubGroups.sumOf { it.second.size }
                 var hubIndex = 0
@@ -379,6 +395,45 @@ private fun SettingsPage(
             SettingsSection.LICENSES -> item { LicensesPage() }
         }
     }
+    }
+}
+
+/** What Performance mode pauses, in plain words (its ⓘ and the pages' notice). */
+internal const val PERFORMANCE_PAUSES =
+    "Blur and frosted glass, the frost behind pages, moving and illustrated backgrounds, animated covers, the visualizer, " +
+        "a drifting player background, focus blur and glow in the lyrics, the picture at the top of Home, and animations"
+
+private val PAUSED_PAGES = setOf(
+    SettingsSection.APPEARANCE, SettingsSection.LOOKS, SettingsSection.GLASS, SettingsSection.PLAYER, SettingsSection.LYRICS,
+)
+
+/**
+ * Performance mode (1.7.6): one switch for slower phones, Prism drawn about as lightly as 1.6 was. Nothing is removed and
+ * no choice is changed: the effects that cost the most on every frame pause until it's off again.
+ */
+@Composable
+private fun PerformanceGroup() {
+    val c = LocalContainer.current
+    val s = LocalAppSettings.current
+    Group("Performance") {
+        Toggle(
+            "Performance mode", if (s.performanceMode) "On: Prism is drawn lightly" else "For slower phones: lighter, fewer effects",
+            s.performanceMode, icon = PrismIcons.Speed,
+            info = "Pauses: ${PERFORMANCE_PAUSES.lowercase()}. Every feature still works, and your own choices come back as they were when you turn it off.",
+        ) { c.settings.setPerformanceMode(it) }
+    }
+}
+
+/** At the top of a page whose effects Performance mode is pausing. */
+@Composable
+private fun PerformancePaused() {
+    val c = LocalContainer.current
+    Group("") {
+        Item(
+            "Performance mode is on", "Some of these effects are paused for now",
+            info = "Paused: ${PERFORMANCE_PAUSES.lowercase()}. You can still change them; they show once Performance mode is off.",
+            icon = PrismIcons.Speed, onClick = { c.settings.setPerformanceMode(false) },
+        ) { PrismTextButton(onClick = { c.settings.setPerformanceMode(false) }) { Text("Turn off") } }
     }
 }
 
@@ -1146,6 +1201,11 @@ private fun ResetPage(section: SettingsSection) {
  */
 @Composable
 fun CustomizeSheet(target: com.prism.music.ui.components.CustomizeTarget, key: String?, onLeave: () -> Unit = {}, onDismiss: () -> Unit) {
+    StoredSettings { CustomizeSheetContent(target, key, onLeave, onDismiss) }
+}
+
+@Composable
+private fun CustomizeSheetContent(target: com.prism.music.ui.components.CustomizeTarget, key: String?, onLeave: () -> Unit, onDismiss: () -> Unit) {
     val nav = LocalNavigator.current
     val c = LocalContainer.current
     val s = LocalAppSettings.current

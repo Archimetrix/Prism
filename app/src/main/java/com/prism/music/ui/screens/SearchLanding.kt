@@ -125,9 +125,9 @@ object SearchMemory {
 }
 
 /**
- * Search before you type (1.7.6, plan H8): your own way in rather than YouTube's. Prism's shortcuts (song recognition,
- * a line of lyrics, podcasts, your files), what you opened last (by its picture) and your searches, your artists, and
- * the moods and genres as Prism-drawn tiles. The sections can be shown, hidden and put in order (Arrange).
+ * Search before you type (1.7.6, plan H8): your own way in rather than YouTube's. What you opened last (by its picture)
+ * and your searches, your artists, and the moods and genres as Prism-drawn tiles. The sections can be shown, hidden and
+ * put in order (Arrange).
  */
 @OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -141,7 +141,6 @@ internal fun SearchLanding(
     onForget: (OpenedItem) -> Unit,
     onOpen: (BrowseItem) -> Unit,
     onMood: (MoodItem) -> Unit,
-    onLyrics: () -> Unit,
 ) {
     val c = LocalContainer.current
     val nav = LocalNavigator.current
@@ -153,14 +152,6 @@ internal fun SearchLanding(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)) {
         settings.searchSections.forEach { section ->
             when (section) {
-                SearchSection.SHORTCUTS -> item(key = "shortcuts") {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        item { ShortcutTile(PrismIcons.Recognize, "Recognize", 0) { nav.go(Routes.RECOGNIZE) } }
-                        item { ShortcutTile(PrismIcons.Lyrics, "Find by lyrics", 2) { onLyrics() } }
-                        item { ShortcutTile(PrismIcons.Podcasts, "Podcasts", 4) { nav.go(Routes.PODCASTS) } }
-                        item { ShortcutTile(PrismIcons.Phone, "Your files", 6) { nav.go(Routes.LOCAL) } }
-                    }
-                }
                 SearchSection.RECENT -> {
                     val items = opened.mapNotNull { o -> o.item()?.let { o to it } }
                     if (items.isNotEmpty()) {
@@ -245,18 +236,6 @@ private fun rememberYourArtists(): List<ArtistItem> {
         list.filter { it.thumbnail == null }.map { it.id }.takeIf { it.isNotEmpty() }?.let { c.library.loadArtistThumbs(it) }
     }
     return list
-}
-
-/** One of Search's shortcuts: a tile in one of the split light's hues ([hue], 0 red … 6 violet), its name under it. */
-@Composable
-private fun ShortcutTile(icon: ImageVector, label: String, hue: Int, onClick: () -> Unit) {
-    val ui = com.prism.music.ui.theme.LocalUi.current
-    Column(Modifier.width(92.dp).clip(ui.tile).clickable(onClickLabel = label, onClick = onClick).padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(84.dp).clip(ui.tile).background(PrismTokens.hue(hue)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(34.dp), tint = Color.White)
-        }
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-    }
 }
 
 /** The simple patterns mood tiles wear, one per mood (by its name), so a mood keeps its look. */

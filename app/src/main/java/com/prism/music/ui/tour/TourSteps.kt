@@ -284,7 +284,7 @@ object Tour {
             V1_7_6, PrismIcons.Search, "Search, redesigned",
             "Search starts from your music.",
             listOf(
-                "Shortcuts: recognize a song, find one by a line of its lyrics, podcasts, your files",
+                "Type a line of a song's lyrics to find it",
                 "What you opened lately, your artists, and moods drawn by Prism",
                 "Artists and songs with their pictures while you type",
                 "Results already in your library, right after the top one",

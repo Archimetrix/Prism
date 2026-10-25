@@ -142,7 +142,9 @@ class LoaderViewModel : ViewModel() {
         refreshing.value = silent
         viewModelScope.launch {
             state.value = try {
-                Load.Ok(block())
+                // Off the main thread: the requests already were, but reading their answers into shelves and pages
+                // wasn't, and a long playlist or Home held a slow phone's frames up for a few hundred ms (#103's log).
+                Load.Ok(kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { block() })
             } catch (e: Exception) {
                 if (silent && state.value is Load.Ok) state.value else Load.Err(e.friendlyMessage())
             }

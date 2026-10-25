@@ -82,7 +82,8 @@ fun BackgroundsScreen(bottomPadding: Dp, forPlayer: Boolean = false) {
     val nav = LocalNavigator.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val s by c.settings.flow.collectAsState()
+    // What the listener picked, also while Performance mode draws plain pages.
+    val s by c.settings.stored.collectAsState()
     var screen by rememberSaveable { mutableStateOf(BackdropScreen.HOME) }
     var everywhere by rememberSaveable { mutableStateOf(!forPlayer && s.backdrops.screensOnly.values.toSet().size <= 1) }
     var dim by remember { mutableFloatStateOf(s.backdropDim) }

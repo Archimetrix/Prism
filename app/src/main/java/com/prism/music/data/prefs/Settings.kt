@@ -318,11 +318,13 @@ enum class HomeHeaderHeight(val label: String, val dp: Int) { SHORT("Short", 200
 
 /** What Search shows before you type (1.7.6), in the listener's order; the ones left out are hidden. */
 enum class SearchSection(val label: String) {
-    SHORTCUTS("Shortcuts"), RECENT("Recent"), ARTISTS("Your artists"), MOODS("Moods & genres");
+    // The shortcut tiles (Recognize, Find by lyrics, Podcasts, Your files) went before release: the search box has
+    // Recognize, a line of lyrics finds its song, and podcasts and your files are searched with everything else.
+    RECENT("Recent"), ARTISTS("Your artists"), MOODS("Moods & genres");
 
     companion object {
         fun parse(v: String?): List<SearchSection> =
-            v?.split(',')?.mapNotNull { n -> entries.firstOrNull { it.name == n } }?.distinct() ?: entries.toList()
+            v?.split(',')?.mapNotNull { n -> entries.firstOrNull { it.name == n } }?.distinct()?.takeIf { it.isNotEmpty() } ?: entries.toList()
     }
 }
 
@@ -884,8 +886,42 @@ data class AppSettings(
     // Aura × Spectrum (1.7): ambient color from what's playing behind every page.
     val frostedPages: Boolean = true,
     val replayThemeColors: Boolean = false,
+    /**
+     * Performance mode (1.7.6): Prism drawn as lightly as 1.6 was, for slower phones ([effective]). Every feature stays;
+     * only the effects that cost the phone the most each frame are paused, and the listener's own choices come back
+     * when it's off.
+     */
+    val performanceMode: Boolean = false,
+    val performanceOffered: Boolean = false,
 ) {
     val isLoggedIn: Boolean get() = cookie.contains("SAPISID")
+
+    /**
+     * What Prism draws with: these settings, or with [performanceMode] the lighter look. Blurred glass, frosted pages
+     * and the frost behind every page, moving and illustrated backgrounds (plain pages instead), animated covers, the
+     * visualizer, the drifting color mesh, focus blur and glow in the lyrics, the picture at the top of Home, and
+     * motion (as Reduce motion). Nothing stored changes.
+     */
+    fun effective(): AppSettings = if (!performanceMode) this else copy(
+        liquidGlass = false,
+        frostedGlass = false,
+        frostedPages = false,
+        backdrops = emptyMap(),
+        backdropMotion = false,
+        reduceMotion = true,
+        canvasEnabled = false,
+        canvasFillsBackground = false,
+        visualizer = VisualizerStyle.OFF,
+        meshSpeed = 0f,
+        playerBackground = if (playerBackground == PlayerBackground.BLUR || playerBackground == PlayerBackground.APPEARANCE) PlayerBackground.MESH else playerBackground,
+        lyricsBlur = false,
+        lyricsBlurAmount = 0f,
+        lyricsShadow = false,
+        lyricsStyle = if (lyricsStyle == LyricsStyle.GLOW) LyricsStyle.PRISM else lyricsStyle,
+        lyricsBackground = if (lyricsBackground == LyricsBackground.BLUR || lyricsBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else lyricsBackground,
+        immersiveBackground = if (immersiveBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else immersiveBackground,
+        homeHeader = if (homeHeader == HomeHeader.PICTURE || homeHeader == HomeHeader.NOW_PLAYING) HomeHeader.GREETING else homeHeader,
+    )
 
     /** The lyric sources Prism asks, in the listener's order: the ones turned off are left out (#51). */
     val lyricsSources: List<LyricsSource> get() = lyricsOrder.filter { it !in lyricsOff }.ifEmpty { lyricsOrder }
@@ -1153,6 +1189,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val playlistHeroCover = booleanPreferencesKey("playlist_hero_cover")
         val frostedPages = booleanPreferencesKey("frosted_pages")
         val replayThemeColors = booleanPreferencesKey("replay_theme_colors")
+        val performanceMode = booleanPreferencesKey("performance_mode")
+        /** The Home card offering Performance mode on a slower phone was answered (either way). */
+        val performanceOffered = booleanPreferencesKey("performance_offered")
 
         /** Everything the "Reset look" button puts back. */
         val look: List<Preferences.Key<*>> by lazy {
@@ -1202,6 +1241,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
+                "performance_mode", "performance_offered",
                 "merge_liked_videos", "volume_control", "app_volume", "speed_dial_youtube_only", "swipe_tabs",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
@@ -1527,17 +1567,26 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             playlistHeroCover = p[K.playlistHeroCover] ?: d.playlistHeroCover,
             frostedPages = p[K.frostedPages] ?: d.frostedPages,
             replayThemeColors = p[K.replayThemeColors] ?: d.replayThemeColors,
+            performanceMode = p[K.performanceMode] ?: d.performanceMode,
+            performanceOffered = p[K.performanceOffered] ?: d.performanceOffered,
         )
     }
 
     /** The stored settings as they last read (what [previewLook] starts from). */
     @Volatile private var raw: Preferences = runBlocking { context.dataStore.data.first() }
 
-    val flow: StateFlow<AppSettings> = context.dataStore.data.map { raw = it; read(it) }.stateIn(
-        scope, SharingStarted.Eagerly, read(raw)
+    /**
+     * The settings as Prism uses them: with Performance mode on, its lighter look in place of the listener's heavier
+     * choices ([AppSettings.effective]). The choices themselves are [stored], unchanged.
+     */
+    val flow: StateFlow<AppSettings> = context.dataStore.data.map { raw = it; read(it).effective() }.stateIn(
+        scope, SharingStarted.Eagerly, read(raw).effective()
     )
 
     val current: AppSettings get() = flow.value
+
+    /** The settings as the listener set them (Settings shows these: Performance mode doesn't change a switch). */
+    val stored: StateFlow<AppSettings> = context.dataStore.data.map { read(it) }.stateIn(scope, SharingStarted.Eagerly, read(raw))
 
     /** The look settings now set ([lookOf]): what Looks are saved from and what undo steps back through. */
     val lookValues: StateFlow<Map<String, String>> = context.dataStore.data.map(::lookOf)
@@ -1881,6 +1930,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setPlaylistHeroCover(v: Boolean) = edit { it[K.playlistHeroCover] = v }
     fun setFrostedPages(v: Boolean) = edit { it[K.frostedPages] = v }
     fun setReplayThemeColors(v: Boolean) = edit { it[K.replayThemeColors] = v }
+    fun setPerformanceMode(v: Boolean) = edit { it[K.performanceMode] = v; it[K.performanceOffered] = true }
+    fun setPerformanceOffered() = edit { it[K.performanceOffered] = true }
 
     /** Puts every look & layout option back to how Prism ships (colors and backgrounds are left alone). */
     @Suppress("UNCHECKED_CAST")

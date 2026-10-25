@@ -554,6 +554,10 @@ class LyricsRepository(
 
     private fun build(source: LyricsSource, text: String?): Lyrics? = parse(source, text)?.let(::untimedIfBogus)
 
+    /** A saved answer's lines as plain text, whatever its format (Search's lyric search). */
+    fun textLines(stored: String): List<String> =
+        parse(LyricsSource.LRCLIB, stored)?.lines?.filter { !it.isGap && it.text.isNotBlank() }?.map { it.text }.orEmpty()
+
     /**
      * Some sources label plain lyrics as synced and stamp every line 0:00 (LyricsPlus for "4 Steps Back, 2 Steps Forward"
      * by Motion Sick): the player then sits on the last line from the start. Lines that don't move through the song are

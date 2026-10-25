@@ -246,6 +246,7 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)) {
             item { HomeTopBar() }
             item(key = "update") { UpdateBanner() }
+            item(key = "performance") { PerformanceOffer() }
             if (!online) item(key = "offline") { OfflineNote() }
             if (online && home.state is Load.Loading && shelves.isEmpty()) item { LoadingState() }
             // With the last Home on show, a failed refresh leaves it there (pull to refresh tries again).
@@ -339,6 +340,39 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         }
     }
     TopScrollEdge({ edge })
+    }
+}
+
+/**
+ * Once, on a phone that may find 1.7's effects heavy (Android 9 or older, or 4 GB of memory or less): Performance mode,
+ * offered where it's seen. Either answer puts the card away for good; Settings has the switch.
+ */
+@Composable
+private fun PerformanceOffer() {
+    val c = LocalContainer.current
+    val settings = LocalAppSettings.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val slow = remember { com.prism.music.data.DevicePower.mayBeSlow(context) }
+    if (!slow || settings.performanceOffered || settings.performanceMode) return
+    val ui = com.prism.music.ui.theme.LocalUi.current
+    Column(
+        Modifier.padding(start = 16.dp, end = 16.dp, top = ui.gap(14.dp)).fillMaxWidth().pane(ui.shape(16.dp)).padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(PrismIcons.Speed, null, tint = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Make Prism lighter on this phone?", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Performance mode pauses blur, moving backgrounds and animated covers. Every feature stays.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Row(Modifier.align(Alignment.End)) {
+            com.prism.music.ui.components.PrismTextButton(onClick = { c.settings.setPerformanceOffered() }) { Text("No thanks") }
+            com.prism.music.ui.components.PrismTextButton(onClick = { c.settings.setPerformanceMode(true) }) { Text("Turn on") }
+        }
     }
 }
 
