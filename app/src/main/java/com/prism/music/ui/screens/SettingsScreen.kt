@@ -105,41 +105,51 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-/** The settings categories, in the order they're listed; each opens its own page. */
+/**
+ * The settings pages (1.7.6's reorganization, owner): the hub lists what Prism does (playback, lyrics, controls, your
+ * music, devices); everything about how Prism looks lives under one entry, Customize Prism ([APPEARANCE]), whose page
+ * lists the look pages. Keys stay as they were, so links to a page (the tour, the player's ⋯, prism:// links) still work.
+ */
 enum class SettingsSection(val key: String, val title: String, val icon: ImageVector) {
-    APPEARANCE("appearance", "Appearance", PrismIcons.Palette),
-    INTERFACE("interface", "Layout & navigation", PrismIcons.Customize),
-    PLAYER("player", "Player", PrismIcons.PlayCircle),
+    APPEARANCE("appearance", "Customize Prism", PrismIcons.Palette),
     SOUND("sound", "Playback & sound", PrismIcons.Equalizer),
-    LYRICS("lyrics", "Lyrics", PrismIcons.Lyrics),
-    DOWNLOADS("downloads", "Downloads & storage", PrismIcons.DownloadCircle),
-    CONNECT("connect", "Prism Connect", PrismIcons.Cast),
-    HOME("home", "Home screen", PrismIcons.Home),
-    LIBRARY("library", "Library & Replay", PrismIcons.Library),
+    LYRICS("lyrics", "Lyrics & Sing", PrismIcons.Lyrics),
+    CONTROLS("controls", "Controls & gestures", PrismIcons.Touch),
+    LIBRARY("library", "Recommendations & Replay", PrismIcons.Library),
+    DOWNLOADS("downloads", "Downloads, storage & data", PrismIcons.DownloadCircle),
+    DEVICES("devices", "Car & devices", PrismIcons.Car),
+    ABOUT("about", "Backup & about", PrismIcons.Info),
+    /** Not on the hub: Car & devices' own pages. */
+    CONNECT("connect", "Speakers, TVs & browser", PrismIcons.Cast),
     DISCORD("discord", "Discord", PrismIcons.Groups),
-    ABOUT("about", "About", PrismIcons.Info),
     /** Not on the hub: opened from About. */
     LICENSES("licenses", "Open-source licenses", PrismIcons.Info),
-    /** Not on the hub: Appearance's own pages (1.7.2). */
+    /** Not on the hub: Customize Prism's pages. */
+    LOOKS("looks", "Looks", PrismIcons.Looks),
     COLOR("color", "Color", PrismIcons.Palette),
     TEXT("text", "Text", PrismIcons.Signature),
     ICONS("icons", "Icons & shapes", PrismIcons.Category),
     GLASS("glass", "Glass & backgrounds", PrismIcons.Photo),
-    /** Not on the hub: Appearance → Looks (1.7.3). */
-    LOOKS("looks", "Looks", PrismIcons.Looks);
+    INTERFACE("interface", "Tabs & mini player", PrismIcons.Customize),
+    HOME("home", "Home & Library", PrismIcons.Home),
+    PLAYER("player", "Player", PrismIcons.PlayCircle),
+    LYRICS_LOOK("lyrics_look", "Lyrics", PrismIcons.Lyrics);
 
     fun summary(s: AppSettings, dark: Boolean = true): String = when (this) {
-        APPEARANCE -> listOf(s.themeMode.label + " theme", s.fontChoice.label + " font", when { s.liquidGlass -> "Liquid Glass"; s.frostedGlass -> "Frosted Glass"; else -> "Solid bars" }).joinToString(" · ")
+        APPEARANCE -> "Looks, colors, fonts, the player and lyrics, tabs, Home"
         INTERFACE -> listOf(s.navStyle.label + " bar", "${s.navTabs.size} tabs", s.miniPlayerStyle.label + " mini player").joinToString(" · ")
-        PLAYER -> listOfNotNull(s.playerBackground.label, if (s.immersivePlayer) "Immersive" else if (s.fullBleedArtwork) "Full-bleed artwork" else "Framed artwork", if (s.canvasEnabled) "Animated covers" else null).joinToString(" · ")
+        PLAYER -> listOfNotNull(s.playerLayout.label + " layout", s.playerBackground.label, if (s.canvasEnabled) "Animated covers" else null).joinToString(" · ")
         SOUND -> listOfNotNull(if (s.lossless) "Lossless" else s.audioQuality.label + " quality", if (s.mix) "Crossfade" else null, if (s.normalize) "Normalized" else null, if (s.spatial) "Prism Spatial" else null, if (s.eq.enabled) "EQ ${s.eq.preset}" else null).joinToString(" · ")
-        LYRICS -> "${s.lyricsStyle.label} style · ${s.lyricsOrder.first().label} first"
-        DOWNLOADS -> listOfNotNull("Smart Downloads ${formatGb(s.offlineGb)}", if (s.downloadWifiOnly) "Wi-Fi only" else "Any network").joinToString(" · ")
+        LYRICS -> listOfNotNull("${s.lyricsSources.first().label} first", if (s.lyricsTranslate) "Translated" else null, "Sing").joinToString(" · ")
+        LYRICS_LOOK -> "${s.lyricsStyle.label} style · ${s.lyricsPosition.label}"
+        CONTROLS -> "Swipes and taps on the player, buttons in the notification and car"
+        DOWNLOADS -> listOfNotNull("Smart Downloads ${formatGb(s.offlineGb)}", if (s.downloadWifiOnly) "Wi-Fi only" else "Any network", if (s.dataSaver) "Data saver" else null).joinToString(" · ")
+        DEVICES -> listOfNotNull("Android Auto", "speakers & TVs", if (s.discordPresence) "Discord" else null).joinToString(" · ")
         CONNECT -> listOfNotNull("Speakers & TVs", if (s.webRemote) "Browser remote on" else null, if (s.handoffAvailable) "Available for handoff" else null).joinToString(" · ")
-        HOME -> "Sections, order and styles" + if (s.contentCountry.isNotBlank()) " · ${countryName(s.contentCountry)}" else ""
-        LIBRARY -> "${s.libraryView.label} view · ${if (s.replayHours) "hours" else "minutes"}"
+        HOME -> "Home's sections and top, Library's views"
+        LIBRARY -> listOfNotNull("Your artists, new releases", if (s.contentCountry.isNotBlank()) countryName(s.contentCountry) else null, "Replay").joinToString(" · ")
         DISCORD -> if (s.discordPresence) "Showing what you play on your profile" else "Show what you're playing on your profile"
-        ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates"
+        ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates, diagnostics"
         LICENSES -> "GPL-3.0-or-later"
         COLOR -> listOfNotNull(
             // The light's name (White shows as Black in light mode).
@@ -168,7 +178,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
             "full_bleed_artwork", "video_full_bleed", "art_shrink_on_pause", "show_playing_from", "player_shuffle_repeat", "hide_volume_bar",
             "show_output_device", "immersive_art", "immersive_lyrics", "immersive_controls",
         )
-        LYRICS -> listOf(
+        LYRICS_LOOK -> listOf(
             "lyrics_align", "lyrics_scale", "lyrics_blur", "lyrics_progress_line", "lyrics_style", "lyrics_blur_amount", "lyrics_spacing",
             "lyrics_others_alpha", "lyrics_sung_color", "lyrics_sung_custom", "lyrics_other_color", "lyrics_other_custom", "lyrics_weight",
             "lyrics_backing_size", "lyrics_shadow", "lyrics_uppercase", "lyrics_ahead", "lyrics_position", "lyrics_extra_size", "lyrics_extra_color",
@@ -178,18 +188,26 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         else -> emptyList()
     }
 
-    /** Look pages show the live preview (Color has its own). */
-    val previewed: Boolean get() = this in setOf(APPEARANCE, TEXT, ICONS, GLASS, INTERFACE, PLAYER, LYRICS, LOOKS)
+    /**
+     * The look pages: they say when Performance mode is pausing their effects. The live preview (three phones) is on
+     * Customize Prism's own page only, scrolling with it: pinned on every look page it took a third of the screen.
+     */
+    val isLook: Boolean get() = this in setOf(APPEARANCE, LOOKS, COLOR, TEXT, ICONS, GLASS, INTERFACE, HOME, PLAYER, LYRICS_LOOK)
 
     companion object { fun of(key: String?) = entries.firstOrNull { it.key == key } }
 }
 
 private val hubGroups = listOf(
-    "Look & feel" to listOf(SettingsSection.APPEARANCE, SettingsSection.INTERFACE, SettingsSection.PLAYER),
-    "Listening" to listOf(SettingsSection.SOUND, SettingsSection.LYRICS, SettingsSection.DOWNLOADS, SettingsSection.CONNECT),
-    "Your Prism" to listOf(SettingsSection.HOME, SettingsSection.LIBRARY, SettingsSection.DISCORD),
+    "Make it yours" to listOf(SettingsSection.APPEARANCE),
+    "Listening" to listOf(SettingsSection.SOUND, SettingsSection.LYRICS, SettingsSection.CONTROLS),
+    "Your music" to listOf(SettingsSection.LIBRARY, SettingsSection.DOWNLOADS),
+    "Devices" to listOf(SettingsSection.DEVICES),
     "" to listOf(SettingsSection.ABOUT),
 )
+
+/** Customize Prism's pages, as its page lists them: the look as a whole, then each part of Prism. */
+private val lookWholes = listOf(SettingsSection.LOOKS, SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS)
+private val lookParts = listOf(SettingsSection.INTERFACE, SettingsSection.HOME, SettingsSection.PLAYER, SettingsSection.LYRICS_LOOK)
 
 /**
  * Settings: the account, then the categories; [section] shows one category's page. On a wide window the hub lists
@@ -259,21 +277,12 @@ private fun SettingsPage(
         horizontalPadding = 16.dp,
         spacing = 22.dp,
         showBack = !isTab,
-        pinned = when {
-            section == SettingsSection.COLOR -> ({ ColorPreviewBar(pinned = true) })
-            section?.previewed == true -> ({ LookStrip(pinned = true) })
-            else -> null
-        },
-        pinnedKey = when {
-            section == SettingsSection.COLOR -> COLOR_PREVIEW_KEY
-            section?.previewed == true -> LOOK_PREVIEW_KEY
-            else -> null
-        },
+        // Only Color keeps its preview pinned under the bar: there each choice changes it, and it's one slim row.
+        pinned = if (section == SettingsSection.COLOR) ({ ColorPreviewBar(pinned = true) }) else null,
+        pinnedKey = if (section == SettingsSection.COLOR) COLOR_PREVIEW_KEY else null,
     ) {
         // Pages of the effects Performance mode pauses say so first, with the way back.
-        if (s.performanceMode && section in PAUSED_PAGES) item(key = "paused") { PerformancePaused() }
-        // Look pages (1.7.3) open on the live preview (Looks has its own at its top).
-        if (section?.previewed == true && section != SettingsSection.LOOKS) item(key = LOOK_PREVIEW_KEY) { LookStrip() }
+        if (s.performanceMode && section?.isLook == true) item(key = "paused") { PerformancePaused() }
         when (section) {
             null -> {
                 item(key = "find") {
@@ -334,43 +343,14 @@ private fun SettingsPage(
             SettingsSection.INTERFACE -> layoutAndNavigation()
             SettingsSection.PLAYER -> item { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { PlayerSettings(); ResetPage(section) } }
             SettingsSection.SOUND -> item { SoundPage() }
-            SettingsSection.LYRICS -> item { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { LyricsSettings(); ResetPage(section) } }
+            SettingsSection.LYRICS -> item { LyricsSettings() }
+            SettingsSection.LYRICS_LOOK -> item { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { LyricsLookPage(); ResetPage(section) } }
+            SettingsSection.CONTROLS -> item { ControlsPage() }
             SettingsSection.DOWNLOADS -> item { DownloadSettings() }
+            SettingsSection.DEVICES -> item { DevicesPage() }
             SettingsSection.CONNECT -> item { ConnectSettings() }
-            SettingsSection.HOME -> item {
-                Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-                    Group("Home") {
-                        Item("Customize Home", "Sections, shortcuts and greeting", onClick = { nav.go(Routes.CATALOGUE) }) { Chevron() }
-                        Toggle("Add new sections automatically", "New YouTube Music shelves appear on Home", s.autoAddSections) { c.settings.setAutoAddSections(it) }
-                        Toggle(
-                            "Continue line", "\"Continue …\" under the greeting", s.homeContinue,
-                            info = "The album you were last playing (or your Rewind, in December), under Home's greeting. Tap it to open.",
-                        ) { c.settings.setHomeContinue(it) }
-                        Toggle("Podcasts button", "At the top of Home", s.homePodcastsButton, info = "Off, Podcasts opens from Library → Playlists.") { c.settings.setHomePodcastsButton(it) }
-                        Toggle("Customize button at the top", "Top right of Home", s.homeCustomizeTopButton) { c.settings.setHomeCustomizeTopButton(it) }
-                        Toggle("Customize button at the bottom", "At the end of Home", s.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
-                    }
-                    val look = ReplayCardStyle.entries.firstOrNull { it.name == s.replayCard } ?: ReplayCardStyle.WASH
-                    Group("Replay card", info = "How Replay looks on Home, from the quietest to the most colorful. ${look.label}: ${look.note}") {
-                        Chips(ReplayCardStyle.entries, look, { it.label }) { c.settings.setReplayCard(it.name) }
-                        ReplayCardPreview(look, Modifier.padding(top = 6.dp, bottom = 14.dp))
-                    }
-                    Group("Made for you") {
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        Item("Your artists", "They shape your mixes and Release Radar", onClick = { nav.go(Routes.PICK_ARTISTS) }) { Chevron() }
-                        Toggle(
-                            "New release notifications", "When a starred artist puts out music",
-                            s.releaseNotifications,
-                        ) { c.settings.setReleaseNotifications(it) }
-                        Item("Make my mixes again", "Fresh Daily Mixes now", onClick = {
-                            c.scope.launch { c.forYou.refresh(force = true) }
-                            android.widget.Toast.makeText(context, "Making your mixes…", android.widget.Toast.LENGTH_SHORT).show()
-                        })
-                    }
-                    ContentCountrySetting()
-                }
-            }
-            SettingsSection.LIBRARY -> item { LibraryReplaySettings() }
+            SettingsSection.HOME -> item { HomeLibraryLook() }
+            SettingsSection.LIBRARY -> item { RecommendationsPage() }
             SettingsSection.DISCORD -> item { DiscordGroup() }
             SettingsSection.ABOUT -> item {
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -402,10 +382,6 @@ private fun SettingsPage(
 internal const val PERFORMANCE_PAUSES =
     "Blur and frosted glass, the frost behind pages, moving and illustrated backgrounds, animated covers, the visualizer, " +
         "a drifting player background, focus blur and glow in the lyrics, the picture at the top of Home, and animations"
-
-private val PAUSED_PAGES = setOf(
-    SettingsSection.APPEARANCE, SettingsSection.LOOKS, SettingsSection.GLASS, SettingsSection.PLAYER, SettingsSection.LYRICS,
-)
 
 /**
  * Performance mode (1.7.6): one switch for slower phones, Prism drawn about as lightly as 1.6 was. Nothing is removed and
@@ -775,6 +751,8 @@ private fun AccountSwitcher(onDismiss: () -> Unit) {
 // ---------------------------------------------------------------------------- Appearance
 
 private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
+    // The live preview, once, at the top (it scrolls with the page).
+    item(key = LOOK_PREVIEW_KEY) { LookStrip() }
     item(key = "appearance") {
         Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Box {
@@ -788,15 +766,21 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                     ) { prefs.setPureBlack(it) }
                 }
             }
-            // Appearance's own pages (1.7.2): each short, each found by Settings search.
+            // Every look page is here and only here (1.7.6): the look as a whole, then each part of Prism.
             Box {
                 val s = LocalAppSettings.current
                 val nav = LocalNavigator.current
-                Group("Look") {
-                    // Layout & navigation, Player and Lyrics are on the Settings hub itself, so they aren't listed again here (#127).
-                    listOf(SettingsSection.LOOKS, SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
-                        NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current)) { nav.go(Routes.settings(sec.key)) }
-                    }
+                val dark = com.prism.music.ui.theme.LocalIsDark.current
+                Group("The whole look") {
+                    lookWholes.forEach { sec -> NavRow(sec.icon, sec.title, sec.summary(s, dark)) { nav.go(Routes.settings(sec.key)) } }
+                }
+            }
+            Box {
+                val s = LocalAppSettings.current
+                val nav = LocalNavigator.current
+                val dark = com.prism.music.ui.theme.LocalIsDark.current
+                Group("Each part") {
+                    lookParts.forEach { sec -> NavRow(sec.icon, sec.title, sec.summary(s, dark)) { nav.go(Routes.settings(sec.key)) } }
                 }
             }
             // "Customize this" (1.7.3): tap the mini player, tab bar, player or a Home section to change it there.
@@ -1090,13 +1074,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.layoutAndNavigation()
             Box {
                 val s = LocalAppSettings.current
                 val prefs = LocalContainer.current.settings
-                Group("Search") {
-                    Toggle("Open the keyboard", "Ready to type when Search opens", s.searchKeyboard) { prefs.setSearchKeyboard(it) }
-                }
-            }
-            Box {
-                val s = LocalAppSettings.current
-                val prefs = LocalContainer.current.settings
                 Group("Screen") {
                     Toggle(
                         "Hide the status bar", "More room; swipe down from the top to see it", s.hideStatusBar,
@@ -1123,7 +1100,7 @@ private fun NavBarGroup() {
         }
         Label("Height")
         Chips(com.prism.music.data.prefs.NavBarSize.entries, s.navBarSize, { it.label }) { prefs.setNavBarSize(it) }
-        Label("Background", info = "See-through lets the page show through the bar; Solid hides it. The blur itself comes from Glass (Appearance → Glass & backgrounds).")
+        Label("Background", info = "See-through lets the page show through the bar; Solid hides it. The blur itself comes from Glass (Customize Prism → Glass & backgrounds).")
         Chips(com.prism.music.data.prefs.NavBarFill.entries, s.navBarFill, { it.label }) { prefs.setNavBarFill(it) }
         Toggle("Shrink while scrolling", "Slims down as you scroll", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
         Toggle(
@@ -1329,14 +1306,12 @@ private fun PlayerSettings() {
     val container = LocalContainer.current
     val prefs = container.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        // The player, your way (1.7.4): its layout first, then its look, buttons and order (PlayerYourWay.kt).
+        // How the player looks (1.7.6: what it does on a touch is in Controls & gestures, what it keeps on the phone in
+        // Downloads, storage & data). Its layout first, then its look, cover and buttons (PlayerYourWay.kt).
         PlayerLayoutGroup()
         PlayerLookGroup()
         PlayerCoverGroup()
         PlayerButtonsGroup()
-        PlayerArrangeGroup()
-        PlayerTitleGroup()
-        PlayerVisualizerGroup()
         // Tick what else you want there (the current lyric and volume are in "Under the title").
         Group("Show on the player") {
             ShowChips(
@@ -1357,6 +1332,20 @@ private fun PlayerSettings() {
                 info = "The time on the right shows how long the song is rather than how much is left. Tapping the time on the player switches too.",
             ) { prefs.setShowTrackLength(it) }
         }
+        Group("Animated covers") {
+            Toggle(
+                "Animated covers", "Moving artwork, when a song has it", s.canvasEnabled,
+                info = "Motion artwork and video covers. Turn them off for one song from the player's ⋯ menu. Whether they play on mobile data, and the ones kept on the phone, are in Downloads, storage & data.",
+            ) { prefs.setCanvasEnabled(it) }
+            if (s.canvasEnabled) Toggle(
+                "Fill the player", "The animated cover plays behind everything", s.canvasFillsBackground,
+                info = "The moving artwork fills the whole player, darkened under the controls, and the cover itself shows the still picture. Not with full-bleed artwork, which already shows it edge to edge.",
+            ) { prefs.setCanvasFillsBackground(it) }
+        }
+        MoreOptions(listOf("Under the title", "Title and times", "Visualizer", "Immersive mode")) {
+        PlayerArrangeGroup()
+        PlayerTitleGroup()
+        PlayerVisualizerGroup()
         Group("Immersive mode") {
             Toggle(
                 "Immersive mode", "The cover fills the screen, lyrics over it", s.immersivePlayer,
@@ -1371,29 +1360,19 @@ private fun PlayerSettings() {
                 Spacer(Modifier.height(6.dp))
             }
         }
-        Group("Animated covers") {
-            Toggle(
-                "Animated covers", "Moving artwork, when a song has it", s.canvasEnabled,
-                info = "Motion artwork and video covers. Turn them off for one song from the player's ⋯ menu.",
-            ) { prefs.setCanvasEnabled(it) }
-            if (s.canvasEnabled) Toggle("Play on mobile data", "Saved covers play either way", s.canvasOnCellular) { prefs.setCanvasOnCellular(it) }
-            if (s.canvasEnabled) Toggle(
-                "Save with downloads", "Downloaded songs keep theirs", s.canvasWithDownloads,
-                info = "A downloaded song's animated cover is kept on the phone too, so it plays offline. An album's songs share one copy.",
-            ) {
-                prefs.setCanvasWithDownloads(it)
-                if (it) container.downloads.saveCanvases()
-            }
-            if (s.canvasEnabled && s.canvasWithDownloads) Toggle("Save on mobile data too", "Otherwise they wait for Wi-Fi", s.canvasWithDownloadsCellular) {
-                prefs.setCanvasWithDownloadsCellular(it)
-                if (it) container.downloads.saveCanvases()
-            }
-            if (s.canvasEnabled) Toggle(
-                "Fill the player", "The animated cover plays behind everything", s.canvasFillsBackground,
-                info = "The moving artwork fills the whole player, darkened under the controls, and the cover itself shows the still picture. Not with full-bleed artwork, which already shows it edge to edge.",
-            ) { prefs.setCanvasFillsBackground(it) }
-            if (s.canvasEnabled) CanvasStorage()
         }
+    }
+}
+
+/**
+ * Settings → Controls & gestures (1.7.6): what touches do, wherever they were before: the player's cover and the mini
+ * player (Player), holding previous / next and haptics, the notification's and car's buttons, Search's keyboard.
+ */
+@Composable
+private fun ControlsPage() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         // Swipes, double tap and long press (#79's seeking among them), then the buttons' own.
         PlayerGesturesGroup()
         Group("Buttons and touch") {
@@ -1404,6 +1383,10 @@ private fun PlayerSettings() {
                 prefs.setHoldSeekSeconds(it.roundToInt())
             }
             Toggle("Haptics", "A light tap on buttons and swipes", s.haptics) { prefs.setHaptics(it) }
+        }
+        SessionButtonsGroup()
+        Group("Search") {
+            Toggle("Open the keyboard", "Ready to type when Search opens", s.searchKeyboard) { prefs.setSearchKeyboard(it) }
         }
     }
 }
@@ -1552,12 +1535,6 @@ private fun SoundPage() {
                 },
             )
             Chips(com.prism.music.data.prefs.Preload.entries, s.preload, { it.label }) { prefs.setPreload(it) }
-            Toggle(
-                "Load ahead on mobile data",
-                if (s.preload == com.prism.music.data.prefs.Preload.START) "About 0.3 MB a song" else "About 3–8 MB a song",
-                s.preloadCellular,
-                info = "Off, songs are only loaded ahead on Wi-Fi. Whole songs loaded ahead count toward Smart Downloads' space.",
-            ) { prefs.setPreloadCellular(it) }
         }
         Group("Crossfade") {
             Toggle(
@@ -1621,21 +1598,11 @@ private fun SoundPage() {
             Chips(listOf(480, 720, 1080, 1440), s.videoMaxHeight, { "${it}p" }) { prefs.setVideoMaxHeight(it) }
             Spacer(Modifier.height(6.dp))
         }
-        Group("Mobile data") {
-            Toggle(
-                "Data saver", "Uses much less data off Wi-Fi", s.dataSaver,
-                info = "On mobile data: pictures at the size they're shown, no artist photos for lists, no animated covers (saved ones still play), songs at your mobile data quality and at most Normal (even with lossless on), and videos at 480p at most. Wi-Fi is unaffected.",
-            ) { prefs.setDataSaver(it) }
-        }
         Group("Sound") {
             Toggle(
                 "Normalize volume", "Every song at the same loudness", s.normalize,
                 info = "Each song is measured on your phone and brought to the same level (-14 LUFS, like Spotify): loud ones down, quiet ones up, with a limiter so nothing clips. Works offline too.",
             ) { prefs.setNormalize(it) }
-            if (s.normalize || s.mix) Toggle(
-                "Measure songs on mobile data", "A small copy of each song, 1–4 MB", s.mixTempoOnCellular,
-                info = "Normalize volume and Crossfade measure each song once: its loudness, how its music starts and ends, its beat. Songs on your phone are measured from there. Off, the rest wait for Wi-Fi.",
-            ) { prefs.setMixTempoOnCellular(it) }
             SoundSettings(onOpenEq = { nav.go(Routes.EQ) })
         }
     }
@@ -1707,10 +1674,9 @@ private fun SingSettings() {
                 else if (downloading == null) scope.launch { c.sing.downloadEngine() }
             },
         )
-        Toggle("Get songs ready on mobile data", "A few MB a song", s.singOnCellular, info = "Sing needs each song whole on the phone. Off, it waits for Wi-Fi unless the song is downloaded or already played through.") { c.settings.setSingOnCellular(it) }
         Toggle(
             "Get songs ready while Sing is off", "So Sing starts at once when you turn it on", s.singAlwaysReady,
-            info = "The playing song and the next are separated in the background even with Sing off. It uses more battery while music plays; on mobile data it follows the setting above.",
+            info = "The playing song and the next are separated in the background even with Sing off. It uses more battery while music plays; on mobile data it follows Downloads, storage & data → Mobile data.",
         ) { c.settings.setSingAlwaysReady(it) }
         SliderSetting("Room for sung songs", s.singCacheMb.toFloat(), 256f..4096f, { "${(it / 1024f).let { gb -> if (gb >= 1) "%.1f GB".format(gb) else "${it.roundToInt()} MB" }}" }, steps = 14) {
             c.settings.setSingCacheMb(it.roundToInt())
@@ -1728,17 +1694,32 @@ private fun LyricsLookGroup(title: String = "Look") {
     Group(title) { LyricsLookDetails() }
 }
 
+/** Customize Prism → Lyrics (1.7.6): how the lyrics look, the less-used parts folded away. */
+@Composable
+private fun LyricsLookPage() {
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        LyricsStyleGroup()
+        LyricsLookGroup()
+        LyricsColorsGroup()
+        MoreOptions(listOf("Where the lines go", "Translations & romanized lines", "Background")) {
+            LyricsPlacementGroup()
+            LyricsExtrasGroup()
+            LyricsBackgroundGroup()
+        }
+    }
+}
+
+/** Settings → Lyrics & Sing: where lyrics come from, their language, Sing, and your files (their look is in Customize). */
 @Composable
 private fun LyricsSettings() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        LyricsStyleGroup()
-        LyricsLookGroup()
-        LyricsColorsGroup()
-        LyricsPlacementGroup()
-        LyricsExtrasGroup()
-        LyricsBackgroundGroup()
+        Group("Sources") {
+            Toggle("Prefer karaoke & synced lyrics", "Word by word first, then by line", s.preferSynced, info = "Karaoke lyrics (lit up word by word) from any source that has them come first, then time-synced lines, then plain text.") { prefs.setPreferSynced(it) }
+            Toggle("Uncensor lyrics", "Fills in starred-out words", s.skipCensored, info = "Swear words starred out (f**k) are filled back in from Genius, keeping the word timings, and a source that still stars them out is passed over.") { prefs.setSkipCensored(it) }
+            LyricSourcesOrder()
+        }
         Group("Language") {
             Toggle(
                 "Translate lyrics", "Your language under each line", s.lyricsTranslate,
@@ -1758,13 +1739,22 @@ private fun LyricsSettings() {
             JapaneseReadingData()
         }
         SingSettings()
-        Group("Sources") {
-            Toggle("Prefer karaoke & synced lyrics", "Word by word first, then by line", s.preferSynced, info = "Karaoke lyrics (lit up word by word) from any source that has them come first, then time-synced lines, then plain text.") { prefs.setPreferSynced(it) }
-            Toggle("Uncensor lyrics", "Fills in starred-out words", s.skipCensored, info = "Swear words starred out (f**k) are filled back in from Genius, keeping the word timings, and a source that still stars them out is passed over.") { prefs.setSkipCensored(it) }
-            Toggle(
-                "Lyrics on mobile data", if (s.lyricsOnMobileData) "Looked up as each song starts" else "Only once you open the lyrics", s.lyricsOnMobileData,
-                info = "Off, Prism doesn't look up lyrics on mobile data until you open them (the player's lyrics, Immersive mode or the source list). Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.",
-            ) { prefs.setLyricsOnMobileData(it) }
+        Group("Your music files") {
+            val c = LocalContainer.current
+            Item(
+                "Save lyrics into your music files", "So other players show them too",
+                info = "Synced lyrics go into your FLAC and MP3 files' tags (as LRC): Local files, and the lossless files played for songs. Lyrics already saved are used, others are looked up. Android asks once before any file is changed. For one song, use its ⋯ menu.",
+                onClick = { c.lyricsToFiles.request(null) },
+            )
+        }
+    }
+}
+
+/** The lyric sources in the order they're asked, each with its switch (#51); hold one to move it. */
+@Composable
+private fun LyricSourcesOrder() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
             Label("Order", info = "Tried top to bottom; hold one to move it. Switch source per song from the player's ⋯.")
             com.prism.music.ui.components.ReorderList(s.lyricsOrder, { it }, { prefs.setLyricsOrder(it) }) { src, i, held, mod ->
                 val on = src !in s.lyricsOff
@@ -1797,15 +1787,18 @@ private fun LyricsSettings() {
                     com.prism.music.ui.components.DragGrip(Modifier.dragHandle().padding(start = 2.dp), "Drag ${src.label}")
                 }
             }
-        }
-        Group("Your music files") {
-            val c = LocalContainer.current
-            Item(
-                "Save lyrics into your music files", "So other players show them too",
-                info = "Synced lyrics go into your FLAC and MP3 files' tags (as LRC): Local files, and the lossless files played for songs. Lyrics already saved are used, others are looked up. Android asks once before any file is changed. For one song, use its ⋯ menu.",
-                onClick = { c.lyricsToFiles.request(null) },
-            )
-        }
+}
+
+/**
+ * Settings → Car & devices (1.7.6): Android Auto (its lyrics and its look, from Lyrics before), then speakers, TVs and
+ * the browser remote, and Discord, each a page of its own.
+ */
+@Composable
+private fun DevicesPage() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    val nav = LocalNavigator.current
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Group("Android Auto") {
             Toggle("Lyrics in the car", "On the car's player", s.carLyrics, info = "In place of the song title and cover. The car's Lyrics button turns them on and off too.") { prefs.setCarLyrics(it) }
             if (s.carLyrics) {
@@ -1822,6 +1815,13 @@ private fun LyricsSettings() {
                 "Covers in a grid", "Home and Library as cover tiles", s.autoGrid,
                 info = "The car shows Home's sections as rows of covers under their headings, and Library and Made for you as covers, like Spotify's car screen. Off, they're plain lists. Takes effect the next time the car connects.",
             ) { prefs.setAutoGrid(it) }
+            Item("Buttons in the car", "Beside play, in the order the car shows them", onClick = { nav.go(Routes.settings(SettingsSection.CONTROLS.key, "Notification and car")) }) { Chevron() }
+        }
+        Group("Other devices") {
+            val dark = com.prism.music.ui.theme.LocalIsDark.current
+            listOf(SettingsSection.CONNECT, SettingsSection.DISCORD).forEach { sec ->
+                NavRow(sec.icon, sec.title, sec.summary(s, dark)) { nav.go(Routes.settings(sec.key)) }
+            }
         }
     }
 }
@@ -1876,6 +1876,34 @@ private fun DownloadSettings() {
                     if (s.smartDownloads) SmartDownloadWorker.runNow(context)
                 },
             )
+            Item("Clear Smart Downloads", "Your own downloads stay", info = "Removes the songs it downloaded ahead and the ones kept from streaming.", onClick = {
+                c.downloads.clearSmartDownloads()
+                cacheBytes = c.songCacheBytes()
+            })
+        }
+        if (s.canvasEnabled) Group("Animated covers") {
+            Toggle(
+                "Save with downloads", "Downloaded songs keep theirs", s.canvasWithDownloads,
+                info = "A downloaded song's animated cover is kept on the phone too, so it plays offline. An album's songs share one copy.",
+            ) {
+                prefs.setCanvasWithDownloads(it)
+                if (it) c.downloads.saveCanvases()
+            }
+            CanvasStorage()
+        }
+        // Every "on mobile data" choice in one place (1.7.6; they were spread over six pages). Each shows while the
+        // thing it's about is on. Streaming quality on mobile data stays with the other qualities in Playback & sound.
+        Group("Mobile data", info = "What Prism may use mobile data for. On Wi-Fi none of these change anything.") {
+            Toggle(
+                "Data saver", "Uses much less data off Wi-Fi", s.dataSaver,
+                info = "On mobile data: pictures at the size they're shown, no artist photos for lists, no animated covers (saved ones still play), songs at your mobile data quality and at most Normal (even with lossless on), and videos at 480p at most. Wi-Fi is unaffected.",
+            ) { prefs.setDataSaver(it) }
+            Toggle(
+                "Load ahead on mobile data",
+                if (s.preload == com.prism.music.data.prefs.Preload.START) "The next song's start, about 0.3 MB" else "Whole songs, about 3–8 MB each",
+                s.preloadCellular,
+                info = "Off, songs are only loaded ahead on Wi-Fi (Playback & sound → Load ahead). Whole songs loaded ahead count toward Smart Downloads' space.",
+            ) { prefs.setPreloadCellular(it) }
             if (s.smartDownloads) Toggle("Smart Downloads on mobile data", "About 3–8 MB a song", s.smartDownloadsCellular) {
                 prefs.setSmartDownloadsCellular(it)
                 // The worker's network rule is fixed when it's scheduled, so it's scheduled again with the new one.
@@ -1883,10 +1911,23 @@ private fun DownloadSettings() {
                 SmartDownloadWorker.runNow(context, force = false, cellular = it)
                 c.downloads.refreshSmartIds()
             }
-            Item("Clear Smart Downloads", "Your own downloads stay", info = "Removes the songs it downloaded ahead and the ones kept from streaming.", onClick = {
-                c.downloads.clearSmartDownloads()
-                cacheBytes = c.songCacheBytes()
-            })
+            Toggle(
+                "Lyrics on mobile data", if (s.lyricsOnMobileData) "Looked up as each song starts" else "Only once you open the lyrics", s.lyricsOnMobileData,
+                info = "Off, Prism doesn't look up lyrics on mobile data until you open them (the player's lyrics, Immersive mode or the source list). Lyrics already saved on the phone still show, and on Wi-Fi nothing changes.",
+            ) { prefs.setLyricsOnMobileData(it) }
+            if (s.canvasEnabled) Toggle("Animated covers on mobile data", "Saved covers play either way", s.canvasOnCellular) { prefs.setCanvasOnCellular(it) }
+            if (s.canvasEnabled && s.canvasWithDownloads) Toggle("Save animated covers on mobile data", "Otherwise they wait for Wi-Fi", s.canvasWithDownloadsCellular) {
+                prefs.setCanvasWithDownloadsCellular(it)
+                if (it) c.downloads.saveCanvases()
+            }
+            if (s.normalize || s.mix) Toggle(
+                "Measure songs on mobile data", "For Normalize volume and Crossfade, 1–4 MB a song", s.mixTempoOnCellular,
+                info = "Normalize volume and Crossfade measure each song once: its loudness, how its music starts and ends, its beat. Songs on your phone are measured from there. Off, the rest wait for Wi-Fi.",
+            ) { prefs.setMixTempoOnCellular(it) }
+            Toggle(
+                "Get songs ready for Sing on mobile data", "A few MB a song", s.singOnCellular,
+                info = "Sing needs each song whole on the phone. Off, it waits for Wi-Fi unless the song is downloaded or already played through.",
+            ) { prefs.setSingOnCellular(it) }
         }
     }
 }
@@ -1895,8 +1936,70 @@ private fun DownloadSettings() {
 
 private val libraryTabs = listOf("PLAYLISTS" to "Playlists", "SONGS" to "Songs", "ALBUMS" to "Albums", "ARTISTS" to "Artists", "HISTORY" to "History", "DOWNLOADS" to "Downloads")
 
+/** Customize Prism → Home & Library (1.7.6): how Home and Library are laid out. */
 @Composable
-private fun LibraryReplaySettings() {
+private fun HomeLibraryLook() {
+    val c = LocalContainer.current
+    val s = LocalAppSettings.current
+    val prefs = c.settings
+    val nav = LocalNavigator.current
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        Group("Home") {
+            Item("Customize Home", "Sections, the top of Home, shortcuts", onClick = { nav.go(Routes.CATALOGUE) }) { Chevron() }
+            Toggle("Add new sections automatically", "New YouTube Music shelves appear on Home", s.autoAddSections) { prefs.setAutoAddSections(it) }
+            Toggle(
+                "Continue line", "\"Continue …\" under the greeting", s.homeContinue,
+                info = "The album you were last playing (or your Rewind, in December), under Home's greeting. Tap it to open.",
+            ) { prefs.setHomeContinue(it) }
+            Toggle("Podcasts button", "At the top of Home", s.homePodcastsButton, info = "Off, Podcasts opens from Library → Playlists.") { prefs.setHomePodcastsButton(it) }
+            Toggle("Customize button at the top", "Top right of Home", s.homeCustomizeTopButton) { prefs.setHomeCustomizeTopButton(it) }
+            Toggle("Customize button at the bottom", "At the end of Home", s.homeCustomizeButton) { prefs.setHomeCustomizeButton(it) }
+        }
+        val look = ReplayCardStyle.entries.firstOrNull { it.name == s.replayCard } ?: ReplayCardStyle.WASH
+        Group("Replay card", info = "How Replay looks on Home, from the quietest to the most colorful. ${look.label}: ${look.note}") {
+            Chips(ReplayCardStyle.entries, look, { it.label }) { prefs.setReplayCard(it.name) }
+            ReplayCardPreview(look, Modifier.padding(top = 6.dp, bottom = 14.dp))
+        }
+        LibraryLookGroup()
+    }
+}
+
+/** Settings → Recommendations & Replay (1.7.6): what Prism suggests and from where, and your listening recap. */
+@Composable
+private fun RecommendationsPage() {
+    val c = LocalContainer.current
+    val s = LocalAppSettings.current
+    val prefs = c.settings
+    val nav = LocalNavigator.current
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        Group("Made for you") {
+            Item("Your artists", "They shape your mixes and Release Radar", onClick = { nav.go(Routes.PICK_ARTISTS) }) { Chevron() }
+            Toggle("New release notifications", "When a starred artist puts out music", s.releaseNotifications) { prefs.setReleaseNotifications(it) }
+            Item("Make my mixes again", "Fresh Daily Mixes now", onClick = {
+                c.scope.launch { c.forYou.refresh(force = true) }
+                android.widget.Toast.makeText(context, "Making your mixes…", android.widget.Toast.LENGTH_SHORT).show()
+            })
+            Item("Exclusions", "What's kept out of your music", info = "Artists not to play, and playlists or songs left out of your taste.", onClick = { nav.go(Routes.EXCLUSIONS) }) { Chevron() }
+        }
+        Group("Liked songs") {
+            Toggle(
+                "A song and its video as one", "Liked both? They show once, as the song", s.mergeLikedVideos,
+                info = "When you've liked a song and its music video, Liked songs, Library and the car show just the song. The video stays liked: unlike the song and it shows again. Nothing changes on YouTube Music.",
+            ) { prefs.setMergeLikedVideos(it) }
+        }
+        Group("Replay") {
+            Toggle("Show time in hours", if (s.replayHours) "Like \"20h 4m\"" else "Like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
+            Toggle("Use theme colors", "Your accent instead of Prism's gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }
+            Toggle("Rewind notification", "On December 1, when your year is ready", s.rewindNotification) { prefs.setRewindNotification(it) }
+        }
+        ContentCountrySetting()
+    }
+}
+
+/** How Library shows its playlists, albums and artists. */
+@Composable
+private fun LibraryLookGroup() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -1915,25 +2018,12 @@ private fun LibraryReplaySettings() {
             Chips(libraryTabs.map { it.first }, startTab, { k -> libraryTabs.firstOrNull { it.first == k }?.second ?: k }) { prefs.setLibraryStartTab(it) }
             Spacer(Modifier.height(6.dp))
             Toggle("Full-width playlist pictures", "Edge to edge, like an artist page", s.playlistHeroCover) { prefs.setPlaylistHeroCover(it) }
-            Toggle(
-                "A song and its video as one", "Liked both? They show once, as the song", s.mergeLikedVideos,
-                info = "When you've liked a song and its music video, Liked songs, Library and the car show just the song. The video stays liked: unlike the song and it shows again. Nothing changes on YouTube Music.",
-            ) { prefs.setMergeLikedVideos(it) }
             var editingTiles by remember { mutableStateOf(false) }
             Item(
                 "Library tiles", "${s.libraryTiles.size} of ${com.prism.music.data.prefs.LibraryTile.entries.size} shown · pick and order them",
                 onClick = { editingTiles = true },
             ) { Chevron() }
             if (editingTiles) LibraryTilesSheet { editingTiles = false }
-        }
-        Group("Replay") {
-            Toggle("Show time in hours", if (s.replayHours) "Like \"20h 4m\"" else "Like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
-            Toggle("Use theme colors", "Your accent instead of Prism's gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }
-            Toggle("Rewind notification", "On December 1, when your year is ready", s.rewindNotification) { prefs.setRewindNotification(it) }
-        }
-        Group("Recommendations") {
-            val nav = LocalNavigator.current
-            Item("Exclusions", "What's kept out of your music", info = "Artists not to play, and playlists or songs left out of your taste.", onClick = { nav.go(Routes.EXCLUSIONS) }) { Chevron() }
         }
     }
 }

@@ -266,6 +266,9 @@ object PrismIcons {
     val Cast = drawn("Cast")
     val Tv = drawn("Tv")
     val Handoff = drawn("Handoff")
+    // Settings' Car & devices and Controls & gestures pages (1.7.6).
+    val Car = drawn("Car")
+    val Touch = drawn("Touch")
     val Speed = drawn("Speed")
     val Timer = drawn("Timer")
     val Moon = drawn("Moon")

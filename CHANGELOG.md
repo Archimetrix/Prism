@@ -19,6 +19,20 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Settings, easier to find
+Settings are sorted by what they do, and every page is shorter. Nothing was removed; Settings search finds everything
+at its new place.
+- **Customize Prism** holds everything about how Prism looks, in one place: Looks, Color, Text, Icons & shapes, Glass &
+  backgrounds, then each part of Prism (Tabs & mini player, Home & Library, the Player, the Lyrics). The live preview
+  is at its top once, instead of pinned over every look page.
+- **Playback & sound**, **Lyrics & Sing** (sources, language, Sing), **Controls & gestures** (the player's swipes and
+  taps, holding previous / next, haptics, the notification's and car's buttons, Search's keyboard),
+  **Recommendations & Replay**, **Downloads, storage & data** and **Car & devices** (Android Auto, speakers and TVs,
+  Discord), then **Backup & about**.
+- **Every "on mobile data" choice is on one page** (Downloads, storage & data → Mobile data); they were on six.
+- Less-used groups (the player's title and visualizer, where lyric lines sit…) are folded under **More options**.
+- Color's preview, still pinned while you scroll, no longer lets the page show through behind it.
+
 ### Performance mode
 For phones that found 1.7 heavier than 1.6 (#103, #132, #134): **Settings → Performance mode**, one switch that draws
 Prism about as lightly as 1.6 did. It pauses blur and frosted glass, the frost behind pages, moving and illustrated

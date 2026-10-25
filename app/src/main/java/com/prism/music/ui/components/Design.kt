@@ -198,16 +198,21 @@ fun SubPage(
             content()
         }
         if (melts) TopScrollEdge({ bar }, 60.dp)
+        // Pinned, the preview sits on the page's own color edge to edge, so the rows scrolling up don't show beside or
+        // behind it (they did, through the title, on the owner's phone).
         if (pinned != null) androidx.compose.animation.AnimatedVisibility(
             showPinned,
-            Modifier.padding(top = statusTop + 60.dp, start = horizontalPadding + gutter, end = horizontalPadding + gutter),
+            Modifier.padding(top = statusTop + 60.dp).fillMaxWidth(),
             enter = androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.slideInVertically(tween(200)) { -it / 3 },
             exit = androidx.compose.animation.fadeOut(tween(140)),
-        ) { pinned() }
-        // On the ambient frost the content melts away under the bar; on a plain page the bar turns solid once scrolled.
+        ) {
+            Box(Modifier.fillMaxWidth().background(scheme.surface).padding(start = horizontalPadding + gutter, end = horizontalPadding + gutter, bottom = 6.dp)) { pinned() }
+        }
+        // On the ambient frost the content melts away under the bar; on a plain page the bar turns solid once scrolled
+        // (fully, while a preview is pinned under it).
         Box(
             Modifier.fillMaxWidth()
-                .background(if (melts) Color.Transparent else scheme.surface.copy(alpha = 0.92f * bar))
+                .background(if (showPinned) scheme.surface else if (melts) Color.Transparent else scheme.surface.copy(alpha = 0.92f * bar))
                 .statusBarsPadding()
                 .height(60.dp),
         ) {
