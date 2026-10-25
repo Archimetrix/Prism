@@ -27,6 +27,19 @@ class IssueFixes176Test {
         assertFalse(isOnAir(isLive = false, liveContent = false, hasHls = false, lengthSec = 200))
     }
 
+    /** H1: your own Home sections: a pinned item opens its page, a renamed section goes by its new name. */
+    @Test
+    fun ownHomeSections() {
+        val album = com.prism.music.data.model.AlbumItem("MPREb_x", "Thriller", "Album • Michael Jackson", null, "OLAK5uy_y")
+        val pin = com.prism.music.ui.screens.OwnSections.pinOf(album)!!
+        assertEquals("pin:album:MPREb_x", pin.key)
+        assertEquals(com.prism.music.ui.Routes.album("MPREb_x"), com.prism.music.ui.screens.OwnSections.pageOf(pin.key))
+        assertTrue(com.prism.music.ui.screens.OwnSections.isOwn(com.prism.music.data.prefs.HomeSections.yearKey(2025)))
+        assertEquals("Thriller", pin.titled())
+        assertEquals("Mine", pin.copy(name = "Mine").titled())
+        assertEquals("Quick picks", com.prism.music.data.prefs.HomeSectionConfig("local:quick_picks", "Quick picks").titled("Quick picks"))
+    }
+
     private fun track(id: Long, albumId: Long, album: String?, artist: String) = LocalMusic.Track(
         Song(id = Song.LOCAL_PREFIX + id, title = "Song $id", artists = listOf(ArtistRef(artist)), album = album?.let { AlbumRef(it) }),
         Uri.parse("content://media/external/audio/media/$id"), albumId, 1, 2020, 0, "audio/mpeg", 1,

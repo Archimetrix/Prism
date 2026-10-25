@@ -19,6 +19,14 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Home your way
+- **Pin to Home**: hold any album, playlist, artist or mix and pick "Pin to Home": it becomes a section of its own at
+  the top of Home, its songs ready to play, its name opening its page.
+- **Sections from your own listening** (Customize Home → Add a section → Your own): Liked this month, Downloads you
+  haven't played, and Most played in each year you've listened.
+- **Rename any section** from its ⋮ in Customize Home.
+- **Leave off music video or podcast sections**: YouTube Music's own sections of those kinds stay off Home.
+
 ### Library your way
 - **Playlist folders**: hold a playlist → "Move to a folder" (or make a new one there). Folders sit at the top of
   Library → Playlists; a folder's page renames it or takes it apart. Kept on the phone, and in backups.

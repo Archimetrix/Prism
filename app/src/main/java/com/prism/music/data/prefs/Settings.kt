@@ -327,7 +327,14 @@ data class HomeSectionConfig(
     val title: String,
     val visible: Boolean = true,
     val style: SectionStyle = SectionStyle.CAROUSEL,
-)
+    /** The listener's own name for it (1.7.6); null keeps its own. */
+    val name: String? = null,
+    /** A pinned album's, playlist's or artist's picture (1.7.6), for Customize Home's list. */
+    val art: String? = null,
+) {
+    /** What Home calls it: the listener's name for it, else [default] (or its own title). */
+    fun titled(default: String = title) = name ?: default
+}
 
 @Serializable
 data class EqSettings(
@@ -367,6 +374,20 @@ object HomeSections {
     const val TILES_TITLE = "Shortcut tiles"
     /** Release Radar's section: not "New releases", which is YouTube's own shelf on Home too. */
     const val NEW_RELEASES_TITLE = "New from your artists"
+
+    /** An album, playlist, artist or mix pinned to Home as a section of its own (1.7.6): "pin:album:<id>". */
+    const val PIN_PREFIX = "pin:"
+    fun pinKey(kind: String, id: String) = "$PIN_PREFIX$kind:$id"
+
+    /** Sections made from rules over your own listening (1.7.6). */
+    const val LIKED_MONTH = "rule:liked_month"
+    const val UNPLAYED_DOWNLOADS = "rule:unplayed_downloads"
+    const val YEAR_PREFIX = "rule:year:"
+    fun yearKey(year: Int) = "$YEAR_PREFIX$year"
+
+    /** Kinds of YouTube Music's own sections that can be left off Home (1.7.6). */
+    const val KIND_VIDEOS = "VIDEOS"
+    const val KIND_PODCASTS = "PODCASTS"
 
     val defaults = listOf(
         HomeSectionConfig(REPLAY, "Replay teaser", style = SectionStyle.HERO),
@@ -660,6 +681,8 @@ data class AppSettings(
     // Home
     val homeLayout: List<HomeSectionConfig> = HomeSections.initial,
     val autoAddSections: Boolean = true,
+    /** Kinds of YouTube Music's sections left off Home ([HomeSections.KIND_VIDEOS], [HomeSections.KIND_PODCASTS]; 1.7.6). */
+    val homeHideKinds: Set<String> = emptySet(),
     /** Replay shows listening time as hours and minutes (20h 4m) instead of minutes (1,204 min). */
     val replayHours: Boolean = true,
     /** Home's headline; blank means good morning / afternoon / evening. */
@@ -976,6 +999,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val eq = stringPreferencesKey("eq")
         val homeLayout = stringPreferencesKey("home_layout")
         val autoAddSections = booleanPreferencesKey("auto_add_sections")
+        val homeHideKinds = stringPreferencesKey("home_hide_kinds")
         val replayHours = booleanPreferencesKey("replay_hours")
         val greetingText = stringPreferencesKey("greeting_text")
         val greetingShowName = booleanPreferencesKey("greeting_show_name")
@@ -1161,7 +1185,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "video_continues", "lossless", "lossless_local", "normalize", "skip_silence", "mix", "mix_seconds", "mix_auto",
                 "mix_beat_match", "mix_tempo_cellular", "content_country", "video_max_height", "cache_size_mb", "download_wifi_only",
                 "download_likes", "smart_downloads", "smart_download_gb", "offline_gb", "smart_downloads_cellular", "eq",
-                "home_layout", "auto_add_sections", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
+                "home_layout", "auto_add_sections", "home_hide_kinds", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
                 "home_recent_tiles", "home_playlists", "home_customize_button", "home_continue", "quick_picks_radio",
                 "home_customize_top_button", "home_podcasts_button", "font_stamp", "lyrics_font_name", "local_sections", "local_sort",
                 "library_start_tab", "library_tiles", "library_playlists_first",
@@ -1350,6 +1374,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                     ?.map { s -> if (s.key == HomeSections.NEW_RELEASES && s.title == "New releases") s.copy(title = HomeSections.NEW_RELEASES_TITLE) else s }
             } ?: d.homeLayout,
             autoAddSections = p[K.autoAddSections] ?: d.autoAddSections,
+            homeHideKinds = p[K.homeHideKinds]?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHideKinds,
             replayHours = p[K.replayHours] ?: d.replayHours,
             greetingText = p[K.greetingText] ?: d.greetingText,
             greetingShowName = p[K.greetingShowName] ?: d.greetingShowName,
@@ -1690,6 +1715,10 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         it[K.homeLayout] = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(HomeSectionConfig.serializer()), v)
     }
     fun setAutoAddSections(v: Boolean) = edit { it[K.autoAddSections] = v }
+    fun setHomeHideKind(kind: String, hide: Boolean) = edit {
+        val now = (it[K.homeHideKinds]?.split(',')?.filter { k -> k.isNotBlank() }?.toSet() ?: emptySet()).let { s -> if (hide) s + kind else s - kind }
+        it[K.homeHideKinds] = now.joinToString(",")
+    }
     fun setReplayHours(v: Boolean) = edit { it[K.replayHours] = v }
     fun setGreetingText(v: String) = edit { it[K.greetingText] = v }
     fun setGreetingShowName(v: Boolean) = edit { it[K.greetingShowName] = v }

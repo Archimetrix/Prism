@@ -276,6 +276,10 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE liked = 1 ORDER BY likedAt DESC")
     suspend fun liked(): List<SongEntity>
 
+    /** Home's "Liked this month" (1.7.6). */
+    @Query("SELECT * FROM songs WHERE liked = 1 AND likedAt >= :since ORDER BY likedAt DESC")
+    suspend fun likedSince(since: Long): List<SongEntity>
+
     @Query("SELECT id FROM songs WHERE liked = 1")
     fun likedIdsFlow(): Flow<List<String>>
 
@@ -385,6 +389,18 @@ interface PlayEventDao {
 
     @Query("SELECT songId FROM play_events WHERE timestamp > :since GROUP BY songId ORDER BY COUNT(*) DESC LIMIT :limit")
     suspend fun mostPlayedIds(since: Long, limit: Int): List<String>
+
+    /** Home's "Most played in <year>" (1.7.6): the most played songs between two times. */
+    @Query("SELECT songId FROM play_events WHERE timestamp BETWEEN :from AND :to GROUP BY songId ORDER BY COUNT(*) DESC LIMIT :limit")
+    suspend fun mostPlayedIdsBetween(from: Long, to: Long, limit: Int): List<String>
+
+    /** Of [ids], the ones ever played (Home's "Downloads you haven't played", 1.7.6). */
+    @Query("SELECT DISTINCT songId FROM play_events WHERE songId IN (:ids)")
+    suspend fun playedOf(ids: List<String>): List<String>
+
+    /** The years with plays in them, newest first. */
+    @Query("SELECT DISTINCT CAST(strftime('%Y', timestamp / 1000, 'unixepoch', 'localtime') AS INTEGER) FROM play_events ORDER BY 1 DESC")
+    suspend fun yearsPlayed(): List<Int>
 
     /** Rewind: most-listened albums (songs with an album only). */
     @Query(

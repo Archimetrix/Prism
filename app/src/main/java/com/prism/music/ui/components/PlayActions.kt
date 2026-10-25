@@ -197,10 +197,19 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
         val copy = copyable?.let { (id, name) ->
             listOf(ActionItem(PrismIcons.PlaylistAdd, "Save a copy as a Prism playlist") { copyToPrism(c, context, id, name) })
         }.orEmpty()
+        // A section of its own on Home (1.7.6): its songs, under its name.
+        val pin = item?.let { com.prism.music.ui.screens.OwnSections.pinOf(it) }?.let { cfg ->
+            val layout = c.settings.current.homeLayout
+            val on = layout.any { it.key == cfg.key }
+            listOf(ActionItem(if (on) PrismIcons.PinFilled else PrismIcons.Pin, if (on) "Unpin from Home" else "Pin to Home") {
+                c.settings.setHomeLayout(if (on) layout.filterNot { it.key == cfg.key } else listOf(cfg) + layout)
+                Toast.makeText(context, if (on) "Taken off Home" else "Pinned to the top of Home", Toast.LENGTH_SHORT).show()
+            })
+        }.orEmpty()
         if (extraTitle != null) {
-            ActionGroup(null, djSet + copy + remove) { runAction(it, close) }
+            ActionGroup(null, djSet + copy + pin + remove) { runAction(it, close) }
             ActionGroup(extraTitle, extra.map { it.toAction() }) { runAction(it, close) }
-        } else ActionGroup(null, djSet + copy + extra.map { it.toAction() } + remove) { runAction(it, close) }
+        } else ActionGroup(null, djSet + copy + pin + extra.map { it.toAction() } + remove) { runAction(it, close) }
     }
 }
 
