@@ -35,6 +35,10 @@ frames drew 4–5× faster with it on.
   frame of a scrolling list.
 - The player's volume and output are asked of Android in the background, and the moods ranking is worked out there too.
 - Playback diagnostics now note Prism's memory every half minute, by kind, to find what grows on phones that close Prism.
+- **Animated covers use far less memory**: their player kept up to 50 seconds of video loaded ahead (looping the same
+  few seconds over and over), about 50 MB on a budget phone; it now keeps 10 seconds at most (8 MB). And a cover is no
+  bigger than the screen: a 720 px phone plays the 720 px clip, not the 1080 px one. Prism's memory on a budget phone
+  with an animated cover playing went from 77 to 53 MB.
 
 ### Search, redesigned (#124)
 Prism's own design, not YouTube's page:
