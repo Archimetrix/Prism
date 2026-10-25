@@ -2,6 +2,18 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.6 (unreleased)
+
+The fifth customization update: Home, Library and Search.
+
+### Fixes
+- **Podcast episodes no longer turn LIVE** a few seconds in (#128). Episodes recorded from a live broadcast were taken for
+  streams still on air, so the length disappeared and the progress bar stopped seeking. They play as normal episodes now.
+- **Each local song shows its own cover** (#129). Android files untagged songs from one folder (and other mixes) as one
+  album, so one file's cover went on all of them. Those songs now show the cover inside each file.
+- **Player, Layout & navigation and Lyrics are listed once** in Settings (#127): on the Settings page itself, no longer
+  again under Appearance.
+
 ## 1.7.5
 
 The fourth customization update: lyrics, your way.

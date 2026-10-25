@@ -204,7 +204,7 @@ object Tour {
         ),
         TourStep(
             V1_7_4, PrismIcons.PlayCircle, "The player, your way",
-            "Settings → Appearance → Player, or ⋯ → Player settings on the player itself.",
+            "Settings → Player, or ⋯ → Player settings on the player itself.",
             listOf(
                 "Layouts: Standard, a big Cover, Lyrics first, Minimal, Vinyl or Cassette (they turn as it plays)",
                 "A visualizer if you'd like one: bars, a wave, a ring, a pulse or a glow (off unless you pick it)",

@@ -736,11 +736,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.appearance() {
                 val s = LocalAppSettings.current
                 val nav = LocalNavigator.current
                 Group("Look") {
+                    // Layout & navigation, Player and Lyrics are on the Settings hub itself, so they aren't listed again here (#127).
                     listOf(SettingsSection.LOOKS, SettingsSection.COLOR, SettingsSection.TEXT, SettingsSection.ICONS, SettingsSection.GLASS).forEach { sec ->
-                        NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current)) { nav.go(Routes.settings(sec.key)) }
-                    }
-                    // The rest of the look lives with what it's the look of.
-                    listOf(SettingsSection.INTERFACE, SettingsSection.PLAYER, SettingsSection.LYRICS).forEach { sec ->
                         NavRow(sec.icon, sec.title, sec.summary(s, com.prism.music.ui.theme.LocalIsDark.current)) { nav.go(Routes.settings(sec.key)) }
                     }
                 }
