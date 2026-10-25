@@ -6,6 +6,19 @@ What changed in each release. Older releases are described on the [Releases page
 
 The fifth customization update: Home, Library and Search.
 
+### You asked for it
+- **Home opens straight away** (#126): the last Home is kept on the phone and shows at once when Prism starts, while the
+  new one loads behind it, instead of a loading spinner. It goes when you sign out or switch accounts.
+- **Full-bleed video** (#120, Settings → Player → Cover, or the new button on the video): a music video fills the top
+  of the player edge to edge and fades into the background, as on YouTube Music.
+- **The lyric line on the player, centered and on two lines** (#121, Settings → Lyrics → Where the lines go): the line
+  over the progress bar can sit in the middle, and a long line can wrap onto a second line instead of being cut off.
+- **Featured and Community playlists in Search** (#130): the Playlists filter is now two, YouTube Music's own playlists
+  and people's.
+- **Quick picks and Speed dial in any language** (#131): YouTube's Quick picks under another language's title stop at
+  each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
+  Music's only" leaves out the tiles Prism adds from your plays.
+
 ### Fixes
 - **Podcast episodes no longer turn LIVE** a few seconds in (#128). Episodes recorded from a live broadcast were taken for
   streams still on air, so the length disappeared and the progress bar stopped seeking. They play as normal episodes now.

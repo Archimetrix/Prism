@@ -45,6 +45,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -130,16 +131,22 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         // can land on a later page or drop out entirely. Page further for them, and keep the last
         // copy we saw rather than silently hiding a section the user turned on.
         val wanted = layoutNow.filter { it.visible && it.key.startsWith(HomeSections.YT_PREFIX) }.map { it.key }.toSet()
-        val fresh = c.ytm.fullHome(pages = 3, maxPages = 8) { got -> wanted.all { k -> got.any { shelfKey(it.title) == k } } }
+        val (fresh, pages) = c.ytm.fullHomePages(pages = 3, maxPages = 8) { got -> wanted.all { k -> got.any { shelfKey(it.title) == k } } }
+        // Kept for the next start, to show while this loads again (#126).
+        c.scope.launch { c.homeCache.write(pages) }
         val freshKeys = fresh.map { shelfKey(it.title) }.toSet()
         val kept = homeShelfCache.value.filter { shelfKey(it.title).let { k -> k in wanted && k !in freshKeys } }
         (fresh + kept).also { homeShelfCache.value = it }
+    }
+    // The last Home (from this session, else kept on the phone) shows until the new one is in: no spinner at start.
+    val lastHome by produceState(homeShelfCache.value.ifEmpty { null }) {
+        if (value == null) value = c.homeCache.read()?.also { if (homeShelfCache.value.isEmpty()) homeShelfCache.value = it }
     }
     val moods = rememberLoad("moods") { c.taste.rank(runCatching { c.ytm.moodsAndGenres() }.getOrDefault(emptyList())) }
     val recent by c.library.recent.collectAsState()
     val liked by c.library.likedShown.collectAsState()
 
-    val shelves = (home.state as? Load.Ok)?.value ?: emptyList()
+    val shelves = (home.state as? Load.Ok)?.value ?: lastHome ?: emptyList()
     // A reload whose feed has no Quick picks keeps the last ones, rather than the section vanishing or swapping.
     val picks = remember(shelves) { shelves.quickPicks()?.also { lastQuickPicks.value = it } ?: lastQuickPicks.value }
     val dialOn = settings.homeLayout.any { it.key == HomeSections.SPEED_DIAL && it.visible }
@@ -171,7 +178,12 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { speedDialFromHistory(c) }.getOrDefault(emptyList()) }
             .also { speedDialMine.value = it }
     }
-    val dialItems = remember(dial, dialMine) { (dial?.items.orEmpty().filter { it !is MoodItem } + dialMine).distinctBy { it.id }.take(SPEED_DIAL_SIZE) }
+    // YouTube's tiles lead; yours fill the rest, unless Customize Home says YouTube's only (#131). With none from
+    // YouTube (signed out, offline), yours stand in either way.
+    val youtubeDialOnly = settings.speedDialYouTubeOnly && (dial?.items?.size ?: 0) >= 3
+    val dialItems = remember(dial, dialMine, youtubeDialOnly) {
+        (dial?.items.orEmpty().filter { it !is MoodItem } + if (youtubeDialOnly) emptyList() else dialMine).distinctBy { it.id }.take(SPEED_DIAL_SIZE)
+    }
     // Quick picks made around the artists the listener plays (their favourites, new songs from radios of their top
     // artists, YouTube's own that fit): worked out once a session, again on pull to refresh.
     val youtubePicks = picks?.items?.filterIsInstance<SongItem>()?.map { it.song } ?: standIn
@@ -221,7 +233,8 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
             item(key = "update") { UpdateBanner() }
             if (!online) item(key = "offline") { OfflineNote() }
             if (online && home.state is Load.Loading && shelves.isEmpty()) item { LoadingState() }
-            (home.state as? Load.Err)?.takeIf { online }?.let { e -> item { ErrorState(e.message) { home.reload(false) } } }
+            // With the last Home on show, a failed refresh leaves it there (pull to refresh tries again).
+            (home.state as? Load.Err)?.takeIf { online && shelves.isEmpty() }?.let { e -> item { ErrorState(e.message) { home.reload(false) } } }
 
             layout.forEach { cfg ->
                 item(key = cfg.key) {
@@ -612,21 +625,16 @@ private fun SongSection(
 @Composable
 private fun ShelfSection(cfg: HomeSectionConfig, shelf: Shelf, open: (BrowseItem) -> Unit) {
     val nav = LocalNavigator.current
-    val c = LocalContainer.current
-    SectionHeader(shelf.title, strapline = shelf.strapline, onMore = shelf.moreBrowseId?.let { id -> { nav.go(Routes.browse(id, shelf.moreParams, shelf.title)) } })
+    val more = shelf.moreBrowseId?.let { id -> { nav.go(Routes.browse(id, shelf.moreParams, shelf.title)) } }
     val songs = shelf.items.filterIsInstance<SongItem>().map { it.song }
-    val allSongs = songs.size == shelf.items.size
-    when {
-        cfg.style == SectionStyle.LIST && allSongs -> LazyHorizontalGrid(
-            GridCells.Fixed(songs.size.coerceIn(1, 4)), Modifier.height(64.dp * songs.size.coerceIn(1, 4)), contentPadding = PaddingValues(horizontal = 4.dp),
-        ) {
-            items(songs.size) { i ->
-                Box(Modifier.width(330.dp)) { SongRow(songs[i]) { c.player.playQueue(songs, i, QueueSource(QueueKind.OTHER, shelf.title)) } }
-            }
-        }
-        // Every style, for every kind of item (List used to fall back to a carousel unless they were all songs).
-        else -> StyledItems(cfg.style, shelf.items, open)
+    // A shelf of song rows (YouTube's own Quick picks in another language, #131) stops on each column as Prism's does.
+    if (cfg.style == SectionStyle.LIST && songs.size == shelf.items.size) {
+        SongSection(cfg, shelf.title, shelf.strapline, songs, snap = shelf.rows, onMore = more)
+        return
     }
+    SectionHeader(shelf.title, strapline = shelf.strapline, onMore = more)
+    // Every style, for every kind of item (List used to fall back to a carousel unless they were all songs).
+    StyledItems(cfg.style, shelf.items, open)
 }
 
 /**

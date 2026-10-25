@@ -216,6 +216,8 @@ class AppContainer(val app: Application) {
     val artwork = com.prism.music.data.ArtworkStore(app, http) { quietNetwork() }
     /** The library's lists and opened playlists and albums, kept so they open offline. */
     val offline = com.prism.music.data.OfflineLibrary(app)
+    /** The last Home, shown at once at the next start while the new one loads (#126). */
+    val homeCache = com.prism.music.data.HomeCache(app.filesDir)
     val lyrics = LyricsRepository(http, db.lyrics(), ytm) { settings.current }.apply {
         choices = app.getSharedPreferences("lyrics_choice", android.content.Context.MODE_PRIVATE)
         searchNames = app.getSharedPreferences("lyrics_search_as", android.content.Context.MODE_PRIVATE)

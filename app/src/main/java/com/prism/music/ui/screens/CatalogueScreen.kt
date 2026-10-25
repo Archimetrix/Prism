@@ -169,6 +169,10 @@ fun CatalogueScreen(bottomPadding: Dp) {
                     if (settings.quickPicksRadio) "Tapping a pick plays it, then songs like it" else "Tapping a pick plays Quick picks in order from it",
                     settings.quickPicksRadio,
                 ) { c.settings.setQuickPicksRadio(it) }
+                Toggle(
+                    "Speed dial: YouTube Music's only", "Without the albums and songs Prism adds from your plays", settings.speedDialYouTubeOnly,
+                    info = "Speed dial starts with YouTube Music's own tiles and fills up with what you play most on this phone. On, it keeps to YouTube Music's. When YouTube Music has none (signed out, or offline), yours still show.",
+                ) { c.settings.setSpeedDialYouTubeOnly(it) }
                 Toggle("Customize button on Home", null, settings.homeCustomizeButton) { c.settings.setHomeCustomizeButton(it) }
             }
         }

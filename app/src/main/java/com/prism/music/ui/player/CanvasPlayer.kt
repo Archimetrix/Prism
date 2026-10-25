@@ -195,9 +195,9 @@ internal fun TextureView.cropTo(clipAspect: Float) {
     setTransform(m)
 }
 
-/** Dissolve the bottom edge on the TextureView's own node (a Compose mask can't reach video frames). */
+/** Dissolve the bottom edge on the view's own node (a Compose mask can't reach video frames). */
 @RequiresApi(31)
-private fun TextureView.bottomFade(fraction: Float) {
+internal fun android.view.View.bottomFade(fraction: Float) {
     if (fraction <= 0.001f || height <= 0) { setRenderEffect(null); return }
     val h = height.toFloat()
     val gradient = LinearGradient(0f, h * (1f - fraction), 0f, h, android.graphics.Color.BLACK, android.graphics.Color.TRANSPARENT, Shader.TileMode.CLAMP)
@@ -205,7 +205,9 @@ private fun TextureView.bottomFade(fraction: Float) {
 }
 
 /** Pre-API-31 bottom fade: draw the child into a layer and mask it. */
-private class FadingFrame(context: Context) : FrameLayout(context) {
+internal class FadingFrame(context: Context) : FrameLayout(context) {
+    /** The fade asked for (Android 12+ draws it as a render effect instead of [fade]). */
+    var wanted = 0f
     var fade = 0f
         set(v) { if (v != field) { field = v; invalidate() } }
     private val paint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }

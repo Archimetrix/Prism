@@ -459,6 +459,8 @@ data class AppSettings(
     /** Artwork runs edge to edge at the top of the player, dissolving into the backdrop. */
     // Aura × Spectrum: the cover framed, with a glow of its own color.
     val fullBleedArtwork: Boolean = false,
+    /** A music video fills the top of the player edge to edge, as YouTube Music's does (#120), instead of a box. */
+    val videoFullBleed: Boolean = false,
     /** Immersive mode (the player's ⋯ menu): the cover fills the screen, lyrics play over it, everything else hides. */
     val immersivePlayer: Boolean = false,
     val immersiveArt: ImmersiveArt = ImmersiveArt.ZOOMED,
@@ -641,6 +643,8 @@ data class AppSettings(
     val homeContinue: Boolean = true,
     /** Tapping a song in Quick picks starts a radio from it (as on YouTube Music), instead of playing Quick picks in order (#38). */
     val quickPicksRadio: Boolean = true,
+    /** Home's Speed dial shows only YouTube's own tiles, without the albums and songs Prism adds from your plays (#131). */
+    val speedDialYouTubeOnly: Boolean = false,
     /** The round Customize button at the top of Home (beside Podcasts); separate from the one at the bottom. */
     val homeCustomizeTopButton: Boolean = true,
     /** The Podcasts button at the top of Home. Off, Podcasts opens from a Library tile instead (#28). */
@@ -719,6 +723,9 @@ data class AppSettings(
     val lyricsBgColor2: Int = 0,
     /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
     val lyricsEverywhere: Boolean = true,
+    /** The current-lyric line on the player (#121): where it sits, and whether a long line may take two lines. */
+    val lyricsStripAlign: LyricsAlign = LyricsAlign.START,
+    val lyricsStripTwoLines: Boolean = false,
     // GitHub requests picked for 1.7.5.
     /** #111: a liked song and its liked music video show once, as the song (Liked songs, Library, the car). */
     val mergeLikedVideos: Boolean = true,
@@ -836,6 +843,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val frostedGlass = booleanPreferencesKey("frosted_glass")
         val haptics = booleanPreferencesKey("haptics")
         val fullBleedArtwork = booleanPreferencesKey("full_bleed_artwork")
+        val videoFullBleed = booleanPreferencesKey("video_full_bleed")
         val immersivePlayer = booleanPreferencesKey("immersive_player")
         val immersiveArt = stringPreferencesKey("immersive_art")
         val immersiveLyrics = stringPreferencesKey("immersive_lyrics")
@@ -931,6 +939,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val homeCustomizeButton = booleanPreferencesKey("home_customize_button")
         val homeContinue = booleanPreferencesKey("home_continue")
         val quickPicksRadio = booleanPreferencesKey("quick_picks_radio")
+        val speedDialYouTubeOnly = booleanPreferencesKey("speed_dial_youtube_only")
         val homeCustomizeTopButton = booleanPreferencesKey("home_customize_top_button")
         val homePodcastsButton = booleanPreferencesKey("home_podcasts_button")
         val fontChoice = stringPreferencesKey("font_choice")
@@ -1005,6 +1014,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsBgColor = intPreferencesKey("lyrics_bg_color")
         val lyricsBgColor2 = intPreferencesKey("lyrics_bg_color2")
         val lyricsEverywhere = booleanPreferencesKey("lyrics_everywhere")
+        val lyricsStripAlign = stringPreferencesKey("lyrics_strip_align")
+        val lyricsStripTwoLines = booleanPreferencesKey("lyrics_strip_two_lines")
         val mergeLikedVideos = booleanPreferencesKey("merge_liked_videos")
         val hideStatusBar = booleanPreferencesKey("hide_status_bar")
         val volumeControl = stringPreferencesKey("volume_control")
@@ -1017,7 +1028,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 lyricsSungCustom to 'i', lyricsOtherColor to 's', lyricsOtherCustom to 'i', lyricsWeight to 's', lyricsBackingSize to 'f',
                 lyricsShadow to 'b', lyricsUppercase to 'b', lyricsAhead to 's', lyricsPosition to 's', lyricsExtraSize to 'f',
                 lyricsExtraColor to 's', lyricsExtraItalic to 'b', lyricsExtraPlace to 's', lyricsBackground to 's', immersiveBackground to 's',
-                lyricsBgColor to 'i', lyricsBgColor2 to 'i', lyricsEverywhere to 'b',
+                lyricsBgColor to 'i', lyricsBgColor2 to 'i', lyricsEverywhere to 'b', lyricsStripAlign to 's', lyricsStripTwoLines to 'b',
             )
         }
         val coverSwipeLeft = stringPreferencesKey("cover_swipe_left")
@@ -1067,7 +1078,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 navStyle to 's', navLabels to 's', navHideOnScroll to 'b', navTabs to 's', startTab to 's',
                 miniPlayerStyle to 's', miniSkipButtons to 'b', miniPrevButton to 'b', miniProgress to 's',
                 playerBackground to 's', playerBackdropShow to 'f', playerArtCorners to 'i', transportStyle to 's', coverSize to 's',
-                scrubberStyle to 's', artShrinkOnPause to 'b', showOutputDevice to 'b', fullBleedArtwork to 'b', hideVolumeBar to 'b',
+                scrubberStyle to 's', artShrinkOnPause to 'b', showOutputDevice to 'b', fullBleedArtwork to 'b', videoFullBleed to 'b', hideVolumeBar to 'b',
                 showPlayingFrom to 'b', playerShuffleRepeat to 'b', immersiveArt to 's', immersiveLyrics to 's', immersiveControls to 'b',
                 playerLayout to 's', vinylTonearm to 'b', playerDeck to 's', playerButtons to 's', scrubberColor to 's', playerTitleAlign to 's',
                 playerTitleSize to 's', playerTitleScroll to 'b', playerTimes to 's', meshSpeed to 'f', meshIntensity to 'f', playerBlur to 'f',
@@ -1080,7 +1091,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
-                "merge_liked_videos", "volume_control", "app_volume",
+                "merge_liked_videos", "volume_control", "app_volume", "speed_dial_youtube_only",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
                 "soft_spatial", "soft_spatial_amount", "lyrics_on_player", "lyrics_order", "lyrics_off", "prefer_synced", "skip_censored",
@@ -1179,6 +1190,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             frostedGlass = p[K.frostedGlass] ?: d.frostedGlass,
             haptics = p[K.haptics] ?: d.haptics,
             fullBleedArtwork = p[K.fullBleedArtwork] ?: d.fullBleedArtwork,
+            videoFullBleed = p[K.videoFullBleed] ?: d.videoFullBleed,
             immersivePlayer = p[K.immersivePlayer] ?: d.immersivePlayer,
             immersiveArt = p.enum(K.immersiveArt, d.immersiveArt),
             immersiveLyrics = p.enum(K.immersiveLyrics, d.immersiveLyrics),
@@ -1293,6 +1305,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             homeCustomizeButton = p[K.homeCustomizeButton] ?: d.homeCustomizeButton,
             homeContinue = p[K.homeContinue] ?: d.homeContinue,
             quickPicksRadio = p[K.quickPicksRadio] ?: d.quickPicksRadio,
+            speedDialYouTubeOnly = p[K.speedDialYouTubeOnly] ?: d.speedDialYouTubeOnly,
             homeCustomizeTopButton = p[K.homeCustomizeTopButton] ?: d.homeCustomizeTopButton,
             homePodcastsButton = p[K.homePodcastsButton] ?: d.homePodcastsButton,
             fontChoice = p[K.fontChoice]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } } ?: d.fontChoice,
@@ -1369,6 +1382,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsBgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
             lyricsBgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
             lyricsEverywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+            lyricsStripAlign = p.enum(K.lyricsStripAlign, d.lyricsStripAlign),
+            lyricsStripTwoLines = p[K.lyricsStripTwoLines] ?: d.lyricsStripTwoLines,
             mergeLikedVideos = p[K.mergeLikedVideos] ?: d.mergeLikedVideos,
             hideStatusBar = p[K.hideStatusBar] ?: d.hideStatusBar,
             volumeControl = p.enum(K.volumeControl, d.volumeControl),
@@ -1522,6 +1537,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     @Suppress("UNCHECKED_CAST")
     fun resetColors() = edit { p -> K.colors.forEach { p.remove(it as Preferences.Key<Any>) } }
     fun setFullBleedArtwork(v: Boolean) = edit { it[K.fullBleedArtwork] = v }
+    fun setVideoFullBleed(v: Boolean) = edit { it[K.videoFullBleed] = v }
     fun setImmersivePlayer(v: Boolean) = edit { it[K.immersivePlayer] = v }
     fun setImmersiveArt(v: ImmersiveArt) = edit { it[K.immersiveArt] = v.name }
     fun setImmersiveLyrics(v: ImmersiveLyrics) = edit { it[K.immersiveLyrics] = v.name }
@@ -1619,6 +1635,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setHomeCustomizeButton(v: Boolean) = edit { it[K.homeCustomizeButton] = v }
     fun setHomeContinue(v: Boolean) = edit { it[K.homeContinue] = v }
     fun setQuickPicksRadio(v: Boolean) = edit { it[K.quickPicksRadio] = v }
+    fun setSpeedDialYouTubeOnly(v: Boolean) = edit { it[K.speedDialYouTubeOnly] = v }
     fun setHomeCustomizeTopButton(v: Boolean) = edit { it[K.homeCustomizeTopButton] = v }
     fun setHomePodcastsButton(v: Boolean) = edit { it[K.homePodcastsButton] = v }
     fun setFontChoice(v: FontChoice) = edit { it[K.fontChoice] = v.name }
@@ -1690,6 +1707,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setImmersiveBackground(v: LyricsBackground) = edit { it[K.immersiveBackground] = v.name }
     fun setLyricsBgColors(first: Int, second: Int) = edit { it[K.lyricsBgColor] = first; it[K.lyricsBgColor2] = second }
     fun setLyricsEverywhere(v: Boolean) = edit { it[K.lyricsEverywhere] = v }
+    fun setLyricsStripAlign(v: LyricsAlign) = edit { it[K.lyricsStripAlign] = v.name }
+    fun setLyricsStripTwoLines(v: Boolean) = edit { it[K.lyricsStripTwoLines] = v }
     fun setMergeLikedVideos(v: Boolean) = edit { it[K.mergeLikedVideos] = v }
     fun setHideStatusBar(v: Boolean) = edit { it[K.hideStatusBar] = v }
     fun setVolumeControl(v: VolumeControl) = edit { it[K.volumeControl] = v.name }

@@ -164,7 +164,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         )
         PLAYER -> listOf(
             "player_background", "player_backdrop_show", "transport_style", "scrubber_style", "cover_size", "player_art_corners",
-            "full_bleed_artwork", "art_shrink_on_pause", "show_playing_from", "player_shuffle_repeat", "hide_volume_bar",
+            "full_bleed_artwork", "video_full_bleed", "art_shrink_on_pause", "show_playing_from", "player_shuffle_repeat", "hide_volume_bar",
             "show_output_device", "immersive_art", "immersive_lyrics", "immersive_controls",
         )
         LYRICS -> listOf(
@@ -172,6 +172,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
             "lyrics_others_alpha", "lyrics_sung_color", "lyrics_sung_custom", "lyrics_other_color", "lyrics_other_custom", "lyrics_weight",
             "lyrics_backing_size", "lyrics_shadow", "lyrics_uppercase", "lyrics_ahead", "lyrics_position", "lyrics_extra_size", "lyrics_extra_color",
             "lyrics_extra_italic", "lyrics_extra_place", "lyrics_background", "immersive_background", "lyrics_bg_color", "lyrics_bg_color2", "lyrics_everywhere",
+            "lyrics_strip_align", "lyrics_strip_two_lines",
         )
         else -> emptyList()
     }
@@ -1349,6 +1350,10 @@ private fun PlayerCoverGroup() {
             "Full-bleed artwork", "Edge to edge at the top", s.fullBleedArtwork,
             info = "The cover runs to the screen's edges at the top of the player and fades into the background. Cover size then sets how far down it reaches.",
         ) { prefs.setFullBleedArtwork(it) }
+        Toggle(
+            "Full-bleed video", "Music videos fill the top of the player", s.videoFullBleed,
+            info = "A music video runs to the screen's edges at the top of the player, cropped to fill it, and fades into the background, as on YouTube Music. The button on the video switches it too.",
+        ) { prefs.setVideoFullBleed(it) }
         Toggle("Shrink when paused", "The cover eases back while paused", s.artShrinkOnPause) { prefs.setArtShrinkOnPause(it) }
         Toggle(
             "Square video covers", "No black bars when a video plays as a song", s.squareVideoCovers,

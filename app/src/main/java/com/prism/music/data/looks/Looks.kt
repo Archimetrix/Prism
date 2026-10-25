@@ -214,7 +214,7 @@ object LookLabels {
         "mini_prev_button" to "Mini player's Previous", "mini_progress" to "Mini player progress", "player_background" to "Player background",
         "player_backdrop_show" to "Player background showing", "player_art_corners" to "Cover corners", "transport_style" to "Controls",
         "cover_size" to "Cover size", "scrubber_style" to "Progress bar", "art_shrink_on_pause" to "Cover shrinks on pause",
-        "show_output_device" to "Output device", "full_bleed_artwork" to "Edge-to-edge cover", "hide_volume_bar" to "Hide volume bar",
+        "show_output_device" to "Output device", "full_bleed_artwork" to "Edge-to-edge cover", "video_full_bleed" to "Edge-to-edge video","hide_volume_bar" to "Hide volume bar",
         "show_playing_from" to "Playing from", "player_shuffle_repeat" to "Shuffle & repeat", "immersive_art" to "Immersive cover",
         "immersive_lyrics" to "Immersive lyrics", "immersive_controls" to "Immersive controls", "lyrics_align" to "Lyrics alignment",
         "lyrics_blur" to "Lyrics focus", "lyrics_progress_line" to "Lyrics progress line", "lyrics_scale" to "Lyrics size",
@@ -234,6 +234,7 @@ object LookLabels {
         "lyrics_extra_color" to "Translation color", "lyrics_extra_italic" to "Translation in italics", "lyrics_extra_place" to "Translation place",
         "lyrics_background" to "Lyrics background", "immersive_background" to "Immersive background", "lyrics_bg_color" to "Lyrics background color",
         "lyrics_bg_color2" to "Lyrics gradient's second color", "lyrics_everywhere" to "Same lyrics look everywhere",
+        "lyrics_strip_align" to "Lyric line on the player", "lyrics_strip_two_lines" to "Lyric line up to two lines",
         "hide_status_bar" to "Hide the status bar",
     )
 
@@ -268,6 +269,7 @@ object LookLabels {
             "immersive_art" to e(com.prism.music.data.prefs.ImmersiveArt.entries) { it.label },
             "immersive_lyrics" to e(com.prism.music.data.prefs.ImmersiveLyrics.entries) { it.label },
             "lyrics_align" to e(com.prism.music.data.prefs.LyricsAlign.entries) { it.label },
+            "lyrics_strip_align" to e(com.prism.music.data.prefs.LyricsAlign.entries) { it.label },
             "library_view" to e(com.prism.music.data.prefs.LibraryView.entries) { it.label },
             "player_layout" to e(com.prism.music.data.prefs.PlayerLayout.entries) { it.label },
             "scrubber_color" to e(com.prism.music.data.prefs.ScrubberColor.entries) { it.label },
@@ -338,7 +340,7 @@ object LookLabels {
         ),
         "player" to setOf(
             "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",
-            "show_output_device", "full_bleed_artwork", "hide_volume_bar", "show_playing_from", "player_shuffle_repeat", "immersive_art", "immersive_lyrics", "immersive_controls",
+            "show_output_device", "full_bleed_artwork", "video_full_bleed", "hide_volume_bar", "show_playing_from", "player_shuffle_repeat", "immersive_art", "immersive_lyrics", "immersive_controls",
             "player_layout", "vinyl_tonearm", "player_deck", "player_buttons", "scrubber_color", "player_title_align", "player_title_size",
             "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
             "scrubber_thickness", "scrubber_thumb", "visualizer", "visualizer_color",
@@ -348,6 +350,7 @@ object LookLabels {
             "lyrics_others_alpha", "lyrics_sung_color", "lyrics_sung_custom", "lyrics_other_color", "lyrics_other_custom", "lyrics_weight",
             "lyrics_backing_size", "lyrics_shadow", "lyrics_uppercase", "lyrics_ahead", "lyrics_position", "lyrics_extra_size", "lyrics_extra_color",
             "lyrics_extra_italic", "lyrics_extra_place", "lyrics_background", "immersive_background", "lyrics_bg_color", "lyrics_bg_color2", "lyrics_everywhere",
+            "lyrics_strip_align", "lyrics_strip_two_lines",
         ),
     )
 

@@ -91,7 +91,7 @@ class LibraryRepository(private val c: AppContainer) {
     /** Signed out: the account's lists, and its playlists and albums kept for offline, are gone from the phone. */
     fun forgetAccount() {
         playlists.value = emptyList(); albums.value = emptyList(); artists.value = emptyList()
-        c.scope.launch(Dispatchers.IO) { c.offline.clear() }
+        c.scope.launch(Dispatchers.IO) { c.offline.clear(); c.homeCache.clear() }
     }
 
     /**
