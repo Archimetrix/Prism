@@ -186,7 +186,10 @@ fun LibraryScreen(bottomPadding: Dp) {
     val artists = remember(remoteArtists, mine, thumbs, favorites) {
         val starred = favorites.map { f -> ArtistItem(f.id, f.name, "★ Favorite", f.thumbnail) }
         (starred + remoteArtists + LibraryRepository.artistsFrom(mine)).distinctBy { it.id }.map { a ->
-            if (a.thumbnail == null && a is ArtistItem) a.copy(thumbnail = thumbs[a.id]) else a
+            // Your own photo of them (1.7.6) first.
+            val own = c.covers.custom(c.covers.artistKey(a.id))
+            if (a is ArtistItem && own != null) a.copy(thumbnail = own)
+            else if (a.thumbnail == null && a is ArtistItem) a.copy(thumbnail = thumbs[a.id]) else a
         }
     }
 

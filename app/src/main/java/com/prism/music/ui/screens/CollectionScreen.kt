@@ -480,7 +480,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
         )
     }
     var coverSheet by remember { mutableStateOf(false) }
-    if (coverSheet && coverKey != null) CoverSheet(coverKey, page.songs) { coverSheet = false }
+    if (coverSheet && coverKey != null) CoverSheet(coverKey, page.title, page.songs) { coverSheet = false }
     // Liked songs: made into (and kept in step with) a real YouTube Music playlist.
     var likedPlaylistSheet by remember { mutableStateOf(false) }
     val likedPlaylistId by c.likedPlaylist.playlistId.collectAsState()
@@ -1144,10 +1144,12 @@ private fun EditPlaylistDialog(title: String, description: String, privacy: Stri
 /** Choose a playlist's picture: a photo, or one of its songs' covers. Kept in Prism on this phone. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun CoverSheet(key: String, songs: List<Song>, onDismiss: () -> Unit) {
+private fun CoverSheet(key: String, title: String, songs: List<Song>, onDismiss: () -> Unit) {
     val c = LocalContainer.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var making by remember { mutableStateOf(false) }
+    if (making) { CoverMakerSheet(key, title) { making = false; onDismiss() }; return }
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
             if (!c.covers.usePhoto(key, uri)) Toast.makeText(context, "Couldn't use that picture", Toast.LENGTH_SHORT).show()
@@ -1167,6 +1169,14 @@ private fun CoverSheet(key: String, songs: List<Song>, onDismiss: () -> Unit) {
                 modifier = Modifier.clickable {
                     picker.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
+            )
+            // 1.7.6: a cover made here, from its name, two colors and a pattern.
+            androidx.compose.material3.ListItem(
+                headlineContent = { Text("Make a cover") },
+                supportingContent = { Text("Its name on your colors and a pattern") },
+                leadingContent = { Icon(PrismIcons.Palette, null) },
+                colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable { making = true },
             )
             if (covers.isNotEmpty()) {
                 Text(

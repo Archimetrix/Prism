@@ -29,6 +29,12 @@ The fifth customization update: Home, Library and Search.
 - **The top of Home** (Customize Home → Top of Home): the greeting as now, just the buttons, the greeting over a
   picture (one of the background designs or your own photo), or over the playing cover, frosted; Short, Medium or Tall.
 
+### Covers you make
+- **Make a cover** (a playlist's picture → Make a cover): its name in large type over two colors of your choosing, with a
+  pattern from the backgrounds and the split light around it if you like, seen as you make it.
+- **Your own photo of an artist** (an artist page's ⋯ → Use your own photo): on their page and in Library.
+- Both stay on this phone (and in backups); YouTube Music keeps its own pictures.
+
 ### Library your way
 - **Playlist folders**: hold a playlist → "Move to a folder" (or make a new one there). Folders sit at the top of
   Library → Playlists; a folder's page renames it or takes it apart. Kept on the phone, and in backups.
