@@ -161,6 +161,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         INTERFACE -> listOf(
             "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab", "mini_player_style", "mini_skip_buttons",
             "mini_prev_button", "mini_progress", "ui_density", "title_size", "card_size", "hide_status_bar",
+            "tab_names", "nav_bar_size", "nav_bar_fill", "mini_player_joined",
         )
         PLAYER -> listOf(
             "player_background", "player_backdrop_show", "transport_style", "scrubber_style", "cover_size", "player_art_corners",
@@ -1062,10 +1063,18 @@ private fun NavBarGroup() {
         Chips(NavBarStyle.entries, s.navStyle, { it.label }) { prefs.setNavStyle(it) }
         // The Minimal bar has no labels to show.
         if (s.navStyle != NavBarStyle.MINIMAL) {
-            Label("Labels")
+            Label("Labels", info = "Never shows only the icons; Words only shows only the names.")
             Chips(NavLabels.entries, s.navLabels, { it.label }) { prefs.setNavLabels(it) }
         }
+        Label("Height")
+        Chips(com.prism.music.data.prefs.NavBarSize.entries, s.navBarSize, { it.label }) { prefs.setNavBarSize(it) }
+        Label("Background", info = "See-through lets the page show through the bar; Solid hides it. The blur itself comes from Glass (Appearance → Glass & backgrounds).")
+        Chips(com.prism.music.data.prefs.NavBarFill.entries, s.navBarFill, { it.label }) { prefs.setNavBarFill(it) }
         Toggle("Shrink while scrolling", "Slims down as you scroll", s.navHideOnScroll) { prefs.setNavHideOnScroll(it) }
+        Toggle(
+            "Swipe between tabs", "Swipe sideways on a tab's page", s.swipeTabs,
+            info = "A sideways swipe on a tab's own page goes to the tab beside it. Rows that scroll sideways (and Library's own pages) keep their swipes.",
+        ) { prefs.setSwipeTabs(it) }
     }
 }
 
@@ -1075,6 +1084,10 @@ private fun MiniPlayerGroup() {
     val prefs = LocalContainer.current.settings
     Group("Mini player") {
         Chips(MiniPlayerStyle.entries, s.miniPlayerStyle, { it.label }) { prefs.setMiniPlayerStyle(it) }
+        if (s.navStyle == NavBarStyle.FLOATING) Toggle(
+            "Joined to the tab bar", "One piece of glass with the tabs", s.miniPlayerJoined,
+            info = "The mini player sits on top of the tabs in the same floating bar, instead of floating above it.",
+        ) { prefs.setMiniPlayerJoined(it) }
         Toggle("Previous button", "Swiping right goes back too", s.miniPrevButton) { prefs.setMiniPrevButton(it) }
         Toggle("Next button", "Swiping left skips too", s.miniSkipButtons) { prefs.setMiniSkipButtons(it) }
         Label("Progress")
@@ -1189,21 +1202,27 @@ private fun TabsEditor() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
     val tabs = s.navTabs
-    Group("Tabs", info = "Tick your tabs and hold one to move it. Keep Home, Library or Settings, so Settings can always be reached.") {
+    var renaming by remember { mutableStateOf<NavTab?>(null) }
+    renaming?.let { t -> RenameTabDialog(t, s.tabNames[t] ?: t.label, { renaming = null }) { prefs.setTabName(t, it); renaming = null } }
+    Group("Tabs", info = "Tick up to ${NavTab.MAX} tabs and hold one to move it; tap a tab's name to rename it. Keep Home, Library or Settings, so Settings can always be reached.") {
         // Settings opens from Home and Library, or is a tab itself: one of them always stays.
-        fun allowed(next: List<NavTab>) = next.size >= 2 && next.any { it == NavTab.HOME || it == NavTab.LIBRARY || it == NavTab.SETTINGS }
+        fun allowed(next: List<NavTab>) = next.size in 2..NavTab.MAX && next.any { it == NavTab.HOME || it == NavTab.LIBRARY || it == NavTab.SETTINGS }
         @Composable
         fun TabRow(t: NavTab, i: Int, modifier: Modifier, grip: Modifier?, held: Boolean) {
             val on = t in tabs
+            val name = s.tabNames[t]
             Row(modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                PrismCheck(on, enabled = !on || allowed(tabs - t), label = t.label) { v ->
+                PrismCheck(on, enabled = if (on) allowed(tabs - t) else allowed(tabs + t), label = t.label) { v ->
                     val next = if (v) tabs + t else tabs - t
                     if (allowed(next)) {
                         prefs.setNavTabs(next)
                         if (!v && s.startTab == t) prefs.setStartTab(next.first())
                     }
                 }
-                Text(t.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClickLabel = "Rename ${t.label}") { renaming = t }.padding(vertical = 6.dp)) {
+                    Text(name ?: t.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (name != null) Text(t.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 if (on && !held) {
                     IconButton(onClick = { prefs.setNavTabs(tabs.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) { Icon(PrismIcons.ChevronUp, "Move ${t.label} up") }
                     IconButton(onClick = { prefs.setNavTabs(tabs.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < tabs.lastIndex) { Icon(PrismIcons.ChevronDown, "Move ${t.label} down") }
@@ -1214,9 +1233,32 @@ private fun TabsEditor() {
         com.prism.music.ui.components.ReorderList(tabs, { it }, { prefs.setNavTabs(it) }) { t, i, held, mod -> TabRow(t, i, mod, Modifier.dragHandle(), held) }
         NavTab.entries.filter { it !in tabs }.forEach { t -> TabRow(t, -1, Modifier, null, false) }
         Label("Open Prism on", info = "From Prism's next start.")
-        Chips(tabs, if (s.startTab in tabs) s.startTab else tabs.first(), { it.label }) { prefs.setStartTab(it) }
+        Chips(tabs, if (s.startTab in tabs) s.startTab else tabs.first(), { s.tabNames[it] ?: it.label }) { prefs.setStartTab(it) }
         Spacer(Modifier.height(4.dp))
     }
+}
+
+/** A tab's own name (1.7.6); blank gives it back its own. */
+@Composable
+private fun RenameTabDialog(tab: NavTab, current: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember { mutableStateOf(current) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename ${tab.label}") },
+        text = {
+            com.prism.music.ui.components.PrismTextField(
+                text, { text = com.prism.music.data.prefs.cleanTabName(it) }, Modifier.fillMaxWidth(), singleLine = true,
+                placeholder = { Text(tab.label) },
+            )
+        },
+        confirmButton = { PrismTextButton(onClick = { onSave(text) }) { Text("Save") } },
+        dismissButton = {
+            Row {
+                if (current != tab.label) PrismTextButton(onClick = { onSave("") }) { Text("Use \"${tab.label}\"") }
+                PrismTextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------- Player

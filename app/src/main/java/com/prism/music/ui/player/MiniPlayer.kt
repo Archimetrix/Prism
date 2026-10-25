@@ -64,7 +64,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
-fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
+fun MiniPlayer(
+    modifier: Modifier = Modifier,
+    /** No surface of its own: it sits in the tab bar's glass ("Joined to the tab bar", 1.7.6). */
+    bare: Boolean = false,
+    onOpen: () -> Unit,
+) {
     val pc = LocalContainer.current.player
     val song by pc.currentSong.collectAsState()
     val playing by pc.isPlaying.collectAsState()
@@ -117,7 +122,8 @@ fun MiniPlayer(modifier: Modifier = Modifier, onOpen: () -> Unit) {
     val glass = settings.liquidGlass || settings.frostedGlass
     val dark = com.prism.music.ui.theme.LocalIsDark.current
     val surface: @Composable (Modifier, @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) -> Unit = { m, content ->
-        if (bar && !glass) Box(
+        if (bare) Box(m, content = content)
+        else if (bar && !glass) Box(
             m.clip(shape).background(scheme.surfaceContainerLow)
                 .drawBehind {
                     drawLine(scheme.hairline, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx() * 0.75f)

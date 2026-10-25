@@ -210,7 +210,8 @@ object LookLabels {
         "backdrop_motion" to "Gentle motion", "reduce_motion" to "Reduce motion", "font_choice" to "Font", "app_font_name" to "Your font",
         "lyrics_font" to "Lyrics font", "text_scale" to "Text size", "corners" to "Corners", "ui_density" to "Spacing", "title_size" to "Page titles",
         "card_size" to "Cards", "nav_style" to "Tab bar", "nav_labels" to "Tab labels", "nav_hide_on_scroll" to "Shrink while scrolling",
-        "nav_tabs" to "Tabs", "start_tab" to "Start tab", "mini_player_style" to "Mini player", "mini_skip_buttons" to "Mini player's Next",
+        "nav_tabs" to "Tabs", "tab_names" to "Tab names", "nav_bar_size" to "Tab bar height", "nav_bar_fill" to "Tab bar background",
+        "mini_player_joined" to "Mini player joined to the tab bar", "start_tab" to "Start tab", "mini_player_style" to "Mini player", "mini_skip_buttons" to "Mini player's Next",
         "mini_prev_button" to "Mini player's Previous", "mini_progress" to "Mini player progress", "player_background" to "Player background",
         "player_backdrop_show" to "Player background showing", "player_art_corners" to "Cover corners", "transport_style" to "Controls",
         "cover_size" to "Cover size", "scrubber_style" to "Progress bar", "art_shrink_on_pause" to "Cover shrinks on pause",
@@ -259,6 +260,8 @@ object LookLabels {
             "card_size" to e(com.prism.music.data.prefs.CardSize.entries) { it.label },
             "nav_style" to e(com.prism.music.data.prefs.NavBarStyle.entries) { it.label },
             "nav_labels" to e(com.prism.music.data.prefs.NavLabels.entries) { it.label },
+            "nav_bar_size" to e(com.prism.music.data.prefs.NavBarSize.entries) { it.label },
+            "nav_bar_fill" to e(com.prism.music.data.prefs.NavBarFill.entries) { it.label },
             "start_tab" to e(com.prism.music.data.prefs.NavTab.entries) { it.label },
             "mini_player_style" to e(com.prism.music.data.prefs.MiniPlayerStyle.entries) { it.label },
             "mini_progress" to e(com.prism.music.data.prefs.MiniProgress.entries) { it.label },
@@ -316,6 +319,7 @@ object LookLabels {
             else -> when (name) {
                 "backdrops" -> "Changed"
                 "nav_tabs" -> v.split(',').joinToString(", ") { t -> choices["start_tab"]?.get(t) ?: t }
+                "tab_names" -> com.prism.music.data.prefs.parseTabNames(v).entries.joinToString(", ") { (t, n) -> "${t.label}: $n" }.ifEmpty { "Their own" }
                 "player_deck", "player_buttons" -> v.split(',').joinToString(", ") { t -> choices[name]?.get(t) ?: t }
                 "spectrum_stops" -> "${v.split(',').size} colors"
                 "replay_card", "app_font_name" -> v.lowercase().replaceFirstChar { it.uppercase() }
@@ -336,7 +340,7 @@ object LookLabels {
         "layout" to setOf(
             "corners", "ui_density", "title_size", "card_size", "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab",
             "mini_player_style", "mini_skip_buttons", "mini_prev_button", "mini_progress", "library_view", "playlist_hero_cover", "replay_theme_colors", "replay_card",
-            "hide_status_bar",
+            "hide_status_bar", "tab_names", "nav_bar_size", "nav_bar_fill", "mini_player_joined",
         ),
         "player" to setOf(
             "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",

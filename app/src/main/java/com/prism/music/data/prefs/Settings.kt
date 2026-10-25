@@ -115,7 +115,22 @@ enum class TitleSize(val label: String) { LARGE("Large"), MEDIUM("Medium"), SMAL
 enum class CardSize(val label: String, val widthDp: Int) { SMALL("Small", 124), MEDIUM("Medium", 152), LARGE("Large", 184) }
 
 enum class NavBarStyle(val label: String) { FLOATING("Floating"), DOCKED("Docked"), MINIMAL("Minimal") }
-enum class NavLabels(val label: String) { ALWAYS("Always"), SELECTED("Selected"), NEVER("Never") }
+enum class NavLabels(val label: String) { ALWAYS("Always"), SELECTED("Selected"), NEVER("Never"), WORDS("Words only") }
+
+/** A tab's own name as kept: one line, no separators, short enough for the bar. */
+fun cleanTabName(name: String) = name.replace(Regex("[|=\\n\\r]"), " ").trim().take(18)
+
+/** "HOME=Start|LIBRARY=Mine": tabs given their own names (a shared Look's are cleaned the same way). */
+fun parseTabNames(v: String): Map<NavTab, String> = v.split('|').mapNotNull { part ->
+    val tab = NavTab.entries.firstOrNull { it.name == part.substringBefore('=') } ?: return@mapNotNull null
+    cleanTabName(part.substringAfter('=', "")).takeIf { it.isNotEmpty() }?.let { tab to it }
+}.toMap()
+/** The tab bar's height (1.7.6): its floating, docked and minimal heights. */
+enum class NavBarSize(val label: String, val floating: Int, val docked: Int, val minimal: Int) {
+    COMPACT("Compact", 56, 54, 48), STANDARD("Standard", 64, 60, 54), TALL("Tall", 72, 68, 60),
+}
+/** What's behind the tabs (1.7.6): the glass as it is, lighter so the page shows through, or solid. */
+enum class NavBarFill(val label: String) { GLASS("As the glass"), LIGHT("See-through"), SOLID("Solid") }
 
 /** Tabs the bottom bar can hold. */
 /** The sections along the top of Local files, in the order the listener picked (#29). */
@@ -124,7 +139,16 @@ enum class LocalSection(val label: String) {
     ADDED_SONGS("Recently added"), ADDED_ALBUMS("Added albums"), DOWNLOADS("Downloads"),
 }
 
-enum class NavTab(val label: String) { HOME("Home"), SEARCH("Search"), LIBRARY("Library"), REPLAY("Replay"), SETTINGS("Settings"), LOCAL("Local files") }
+enum class NavTab(val label: String) {
+    HOME("Home"), SEARCH("Search"), LIBRARY("Library"), REPLAY("Replay"), SETTINGS("Settings"), LOCAL("Local files"),
+    // 1.7.6: any of these pages as a tab too.
+    DOWNLOADS("Downloads"), LIKED("Liked songs"), PODCASTS("Podcasts");
+
+    companion object {
+        /** The most tabs the bar holds (labels still fit on a phone). */
+        const val MAX = 6
+    }
+}
 
 enum class MiniPlayerStyle(val label: String) { CARD("Card"), SLIM("Slim"), PILL("Pill") }
 enum class MiniProgress(val label: String) { LINE("Line"), FILL("Fill"), NONE("None") }
@@ -669,6 +693,14 @@ data class AppSettings(
     val navLabels: NavLabels = NavLabels.ALWAYS,
     val navHideOnScroll: Boolean = true,
     val navTabs: List<NavTab> = listOf(NavTab.HOME, NavTab.LIBRARY, NavTab.SEARCH, NavTab.REPLAY),
+    /** Tabs given their own names (1.7.6); the rest keep theirs. */
+    val tabNames: Map<NavTab, String> = emptyMap(),
+    val navBarSize: NavBarSize = NavBarSize.STANDARD,
+    val navBarFill: NavBarFill = NavBarFill.GLASS,
+    /** Swiping sideways across a tab's page goes to the tab beside it (1.7.6, off by default). */
+    val swipeTabs: Boolean = false,
+    /** The mini player and the floating tab bar as one piece of glass (1.7.6). */
+    val miniPlayerJoined: Boolean = false,
     /** Local files' sections, shown in this order. */
     val localSections: List<LocalSection> = LocalSection.entries.toList(),
     /** Local files → Songs' order (a name from the page's sort list). */
@@ -957,6 +989,11 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val navLabels = stringPreferencesKey("nav_labels")
         val navHideOnScroll = booleanPreferencesKey("nav_hide_on_scroll")
         val navTabs = stringPreferencesKey("nav_tabs")
+        val tabNames = stringPreferencesKey("tab_names")
+        val navBarSize = stringPreferencesKey("nav_bar_size")
+        val navBarFill = stringPreferencesKey("nav_bar_fill")
+        val swipeTabs = booleanPreferencesKey("swipe_tabs")
+        val miniPlayerJoined = booleanPreferencesKey("mini_player_joined")
         val localSections = stringPreferencesKey("local_sections")
         val localSort = stringPreferencesKey("local_sort")
         val startTab = stringPreferencesKey("start_tab")
@@ -1058,6 +1095,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerTimes, meshSpeed, meshIntensity, playerBlur, canvasFillsBackground,
                 scrubberThickness, scrubberThumb, visualizer, visualizerColor,
                 lyricsBlur, lyricsScale, lyricsProgressLine, hideStatusBar,
+                tabNames, navBarSize, navBarFill, miniPlayerJoined,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1076,6 +1114,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 backdropMotion to 'b', reduceMotion to 'b',
                 fontChoice to 's', appFontName to 's', lyricsFont to 's', textScale to 'f', corners to 's', uiDensity to 's', titleSize to 's', cardSize to 's',
                 navStyle to 's', navLabels to 's', navHideOnScroll to 'b', navTabs to 's', startTab to 's',
+                tabNames to 's', navBarSize to 's', navBarFill to 's', miniPlayerJoined to 'b',
                 miniPlayerStyle to 's', miniSkipButtons to 'b', miniPrevButton to 'b', miniProgress to 's',
                 playerBackground to 's', playerBackdropShow to 'f', playerArtCorners to 'i', transportStyle to 's', coverSize to 's',
                 scrubberStyle to 's', artShrinkOnPause to 'b', showOutputDevice to 'b', fullBleedArtwork to 'b', videoFullBleed to 'b', hideVolumeBar to 'b',
@@ -1091,7 +1130,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
-                "merge_liked_videos", "volume_control", "app_volume", "speed_dial_youtube_only",
+                "merge_liked_videos", "volume_control", "app_volume", "speed_dial_youtube_only", "swipe_tabs",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
                 "soft_spatial", "soft_spatial_amount", "lyrics_on_player", "lyrics_order", "lyrics_off", "prefer_synced", "skip_censored",
@@ -1323,6 +1362,11 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             navLabels = p.enum(K.navLabels, d.navLabels),
             navHideOnScroll = p[K.navHideOnScroll] ?: d.navHideOnScroll,
             navTabs = p[K.navTabs]?.split(",")?.mapNotNull { n -> NavTab.entries.firstOrNull { it.name == n } }?.takeIf { it.isNotEmpty() } ?: d.navTabs,
+            tabNames = p[K.tabNames]?.let(::parseTabNames) ?: d.tabNames,
+            navBarSize = p.enum(K.navBarSize, d.navBarSize),
+            navBarFill = p.enum(K.navBarFill, d.navBarFill),
+            swipeTabs = p[K.swipeTabs] ?: d.swipeTabs,
+            miniPlayerJoined = p[K.miniPlayerJoined] ?: d.miniPlayerJoined,
             localSections = p[K.localSections]?.split(",")?.mapNotNull { n -> LocalSection.entries.firstOrNull { it.name == n } }?.takeIf { it.isNotEmpty() } ?: d.localSections,
             localSort = p[K.localSort] ?: d.localSort,
             startTab = p.enum(K.startTab, d.startTab),
@@ -1653,6 +1697,17 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setNavLabels(v: NavLabels) = edit { it[K.navLabels] = v.name }
     fun setNavHideOnScroll(v: Boolean) = edit { it[K.navHideOnScroll] = v }
     fun setNavTabs(v: List<NavTab>) = edit { it[K.navTabs] = v.joinToString(",") { t -> t.name } }
+    /** A tab's own name; blank gives it back its own. */
+    fun setTabName(tab: NavTab, name: String) = edit {
+        val names = (it[K.tabNames]?.let(::parseTabNames) ?: emptyMap()).toMutableMap()
+        val clean = cleanTabName(name)
+        if (clean.isEmpty() || clean == tab.label) names.remove(tab) else names[tab] = clean
+        it[K.tabNames] = names.entries.joinToString("|") { (t, n) -> "${t.name}=$n" }
+    }
+    fun setNavBarSize(v: NavBarSize) = edit { it[K.navBarSize] = v.name }
+    fun setNavBarFill(v: NavBarFill) = edit { it[K.navBarFill] = v.name }
+    fun setSwipeTabs(v: Boolean) = edit { it[K.swipeTabs] = v }
+    fun setMiniPlayerJoined(v: Boolean) = edit { it[K.miniPlayerJoined] = v }
     fun setLocalSections(v: List<LocalSection>) = edit { it[K.localSections] = v.joinToString(",") { t -> t.name } }
     fun setLocalSort(v: String) = edit { it[K.localSort] = v }
     fun setStartTab(v: NavTab) = edit { it[K.startTab] = v.name }

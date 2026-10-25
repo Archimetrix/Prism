@@ -19,6 +19,15 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Tabs your way (Settings → Layout & navigation)
+- **More tabs**: Downloads, Liked songs and Podcasts can be tabs too, up to six in all.
+- **Rename any tab**: tap its name in Tabs.
+- **Words only**: the tabs' names without icons (they shrink to fit five or six).
+- **Height** (Compact, Standard, Tall) and **Background** (as the glass, see-through or solid) for the tab bar.
+- **Swipe between tabs** (off by default): a sideways swipe on a tab's page goes to the tab beside it; rows that
+  scroll sideways keep their swipes.
+- **Mini player joined to the tab bar**: one floating piece of glass, the mini player on top of the tabs.
+
 ### Playlists without an account
 - **Keep a YouTube playlist in your library without signing in**: its page's "Add to library" (or a long press) keeps
   it on the phone, in Library → Playlists, opened fresh from YouTube each time. Mixes, which change every time, aren't kept.
