@@ -1755,38 +1755,38 @@ private fun LyricsSettings() {
 private fun LyricSourcesOrder() {
     val s = LocalAppSettings.current
     val prefs = LocalContainer.current.settings
-            Label("Order", info = "Tried top to bottom; hold one to move it. Switch source per song from the player's ⋯.")
-            com.prism.music.ui.components.ReorderList(s.lyricsOrder, { it }, { prefs.setLyricsOrder(it) }) { src, i, held, mod ->
-                val on = src !in s.lyricsOff
-                Row(mod.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(26.dp).clip(CircleShape).background(if (i == 0 && on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("${i + 1}", color = if (i == 0 && on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f).alpha(if (on) 1f else 0.45f)) {
-                        Text(src.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                        Text(src.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    // Turned off, a source is never asked (#51); at least one stays on.
-                    com.prism.music.ui.components.PrismSwitch(
-                        on, { v -> prefs.setLyricsOff(if (v) s.lyricsOff - src else s.lyricsOff + src) },
-                        enabled = !on || s.lyricsOrder.count { it !in s.lyricsOff } > 1,
-                        modifier = Modifier.scale(0.8f),
-                    )
-                    if (!held) {
-                        IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
-                            Icon(PrismIcons.ChevronUp, "Move ${src.label} up")
-                        }
-                        IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < s.lyricsOrder.lastIndex) {
-                            Icon(PrismIcons.ChevronDown, "Move ${src.label} down")
-                        }
-                    } else Spacer(Modifier.width(96.dp))
-                    com.prism.music.ui.components.DragGrip(Modifier.dragHandle().padding(start = 2.dp), "Drag ${src.label}")
-                }
+    Label("Order", info = "Tried top to bottom; hold one to move it. Switch source per song from the player's ⋯.")
+    com.prism.music.ui.components.ReorderList(s.lyricsOrder, { it }, { prefs.setLyricsOrder(it) }) { src, i, held, mod ->
+        val on = src !in s.lyricsOff
+        Row(mod.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(26.dp).clip(CircleShape).background(if (i == 0 && on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("${i + 1}", color = if (i == 0 && on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
             }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f).alpha(if (on) 1f else 0.45f)) {
+                Text(src.label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Text(src.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // Turned off, a source is never asked (#51); at least one stays on.
+            com.prism.music.ui.components.PrismSwitch(
+                on, { v -> prefs.setLyricsOff(if (v) s.lyricsOff - src else s.lyricsOff + src) },
+                enabled = !on || s.lyricsOrder.count { it !in s.lyricsOff } > 1,
+                modifier = Modifier.scale(0.8f),
+            )
+            if (!held) {
+                IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i - 1, removeAt(i)) }) }, enabled = i > 0) {
+                    Icon(PrismIcons.ChevronUp, "Move ${src.label} up")
+                }
+                IconButton(onClick = { prefs.setLyricsOrder(s.lyricsOrder.toMutableList().apply { add(i + 1, removeAt(i)) }) }, enabled = i < s.lyricsOrder.lastIndex) {
+                    Icon(PrismIcons.ChevronDown, "Move ${src.label} down")
+                }
+            } else Spacer(Modifier.width(96.dp))
+            com.prism.music.ui.components.DragGrip(Modifier.dragHandle().padding(start = 2.dp), "Drag ${src.label}")
+        }
+    }
 }
 
 /**

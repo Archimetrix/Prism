@@ -209,12 +209,17 @@ object Editions {
         "acoustic", "instrumental", "demo", "short version", "long version", "club mix", "unplugged", "sped up", "slowed",
     )
 
+    // Compiled once: marks() runs for every saved lyric row read back (all downloads' lyrics at each start).
+    private val bracketed = Regex("[(\\[]([^)\\]]*)[)\\]]")
+    private val wordPatterns = words.map { it to Regex("(?<![\\p{L}])${Regex.escape(it)}(?![\\p{L}])") }
+
     /** The words in brackets or after " - " that name an edition ("Single Version", "Live at Wembley"). */
     private fun marks(title: String): Set<String> {
         val t = title.lowercase()
-        val tails = Regex("[(\\[]([^)\\]]*)[)\\]]").findAll(t).map { it.groupValues[1] } + t.substringAfter(" - ", "")
+        val tails = bracketed.findAll(t).map { it.groupValues[1] } + t.substringAfter(" - ", "")
         val tail = tails.joinToString(" ")
-        return words.filter { Regex("(?<![\\p{L}])${Regex.escape(it)}(?![\\p{L}])").containsMatchIn(tail) }.toSet()
+        // A word that isn't in the tail at all can't be a mark: skip its regex (and the native matcher it makes).
+        return wordPatterns.filter { (w, re) -> w in tail && re.containsMatchIn(tail) }.map { it.first }.toSet()
     }
 
     /**

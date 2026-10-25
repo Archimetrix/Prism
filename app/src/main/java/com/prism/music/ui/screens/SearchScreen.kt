@@ -178,8 +178,10 @@ fun SearchScreen(bottomPadding: Dp) {
             // Leaned toward what this listener plays (built on the phone, never sent anywhere).
             val taste = runCatching { c.taste.searchTaste() }.getOrDefault(com.prism.music.data.innertube.SearchRank.Taste.NONE)
             // Read into results off the main thread (#132: typing on a Galaxy Note 8 waited on it).
+            // A search cancelled by the next keystroke (or by leaving) isn't a failure: runCatching would have caught the
+            // cancellation and shown "The coroutine scope left the composition" as the error.
             top = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.ytm.searchTop(live, taste) } }
-                .fold({ Load.Ok(it) }, { Load.Err(it.friendlyMessage("Search failed")) })
+                .fold({ Load.Ok(it) }, { if (it is kotlinx.coroutines.CancellationException) throw it; Load.Err(it.friendlyMessage("Search failed")) })
             // The top result is the likeliest tap: when it's a song, get it ready (on Wi-Fi) so it starts at once.
             ((top as? Load.Ok)?.value?.top as? SongItem)?.song?.let { song ->
                 val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
@@ -188,7 +190,7 @@ fun SearchScreen(bottomPadding: Dp) {
         } else {
             if (list == null) list = Load.Loading
             list = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { c.ytm.search(live, filter) } }
-                .fold({ continuation = it.continuation; Load.Ok(it.items) }, { Load.Err(it.friendlyMessage("Search failed")) })
+                .fold({ continuation = it.continuation; Load.Ok(it.items) }, { if (it is kotlinx.coroutines.CancellationException) throw it; Load.Err(it.friendlyMessage("Search failed")) })
         }
         loading = false
     }

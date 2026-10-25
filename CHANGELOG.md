@@ -9,9 +9,9 @@ The fifth customization update: Home, Library and Search.
 ### You asked for it
 - **Home opens straight away** (#126): the last Home is kept on the phone and shows at once when Prism starts, while the
   new one loads behind it, instead of a loading spinner. It goes when you sign out or switch accounts.
-- **Full-bleed video** (#120, Settings → Player → Cover, or the new button on the video): a music video fills the top
+- **Full-bleed video** (#120, Settings → Customize Prism → Player → Cover, or the new button on the video): a music video fills the top
   of the player edge to edge and fades into the background, as on YouTube Music.
-- **The lyric line on the player, centered and on two lines** (#121, Settings → Lyrics → Where the lines go): the line
+- **The lyric line on the player, centered and on two lines** (#121, Settings → Customize Prism → Lyrics → More options → Where the lines go): the line
   over the progress bar can sit in the middle, and a long line can wrap onto a second line instead of being cut off.
 - **Featured and Community playlists in Search** (#130): the Playlists filter is now two, YouTube Music's own playlists
   and people's.
@@ -95,7 +95,7 @@ Prism's own design, not YouTube's page:
   Library switches the tab you're on).
 - **Covers across** (Auto, 2, 3 or 4) for the grid, and **Details under each one** to hide song counts, owners and years.
 
-### Tabs your way (Settings → Layout & navigation)
+### Tabs your way (Settings → Customize Prism → Tabs & mini player)
 - **More tabs**: Downloads, Liked songs and Podcasts can be tabs too, up to six in all.
 - **Rename any tab**: tap its name in Tabs.
 - **Words only**: the tabs' names without icons (they shrink to fit five or six).
@@ -117,6 +117,14 @@ Prism's own design, not YouTube's page:
   length, and the show it's from. A show YouTube gives no description says so instead of showing nothing.
 
 ### Fixes
+- **About 200 MB less memory in the first minute after Prism opens** (likely #103). With a big library, working out your
+  artists' genres from what was already kept on the phone ran a text pattern over every song of every artist, and each
+  of those checks held a little memory until Android tidied up: on the test phones Prism climbed from ~190 to ~340 MB
+  of native memory for most of a minute after opening, enough for Android to close it on a phone with little memory.
+  Now each genre name is worked out once; it stays near 110 MB. Reading saved lyrics back (for every download, at each
+  start) no longer builds its patterns again each time either.
+- **A search no longer shows "The coroutine scope left the composition"** as its error when it was interrupted by the
+  next letter typed, or by leaving the page.
 - **The Card mini player is glass like the tab bar** under it, with the tab bar's own background (see-through or
   solid), and its progress line runs along its bottom edge. With Frosted Glass off it used to turn into a solid bar
   with the progress line on top.
