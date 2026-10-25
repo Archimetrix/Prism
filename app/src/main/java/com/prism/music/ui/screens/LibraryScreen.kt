@@ -141,7 +141,32 @@ fun LibraryScreen(bottomPadding: Dp) {
     var creating by remember { mutableStateOf(false) }
     val startPage = remember { LibTab.entries.indexOfFirst { it.name == settings.libraryStartTab }.coerceAtLeast(0) }
     val pager = rememberPagerState(initialPage = startPage) { LibTab.entries.size }
-    val asList = settings.libraryView == com.prism.music.data.prefs.LibraryView.LIST
+    // Each of Playlists, Albums and Artists can be a list or a grid of its own (1.7.6).
+    fun listFor(tab: LibTab) = (settings.libraryViews[tab.name] ?: settings.libraryView) == com.prism.music.data.prefs.LibraryView.LIST
+    val viewTab = LibTab.entries[pager.currentPage].takeIf { it == LibTab.PLAYLISTS || it == LibTab.ALBUMS || it == LibTab.ARTISTS }
+    val asList = listFor(viewTab ?: LibTab.PLAYLISTS)
+    val pinned by c.library.pinned.collectAsState()
+    val folders by c.prismLibrary.folders.collectAsState()
+    // Without the details (1.7.6): titles only under Library's covers and rows.
+    fun shown(item: com.prism.music.data.model.BrowseItem): com.prism.music.data.model.BrowseItem =
+        if (settings.librarySubtitles) item else when (item) {
+            is com.prism.music.data.model.PlaylistItem -> item.copy(subtitle = "")
+            is com.prism.music.data.model.AlbumItem -> item.copy(subtitle = "")
+            is ArtistItem -> item.copy(subtitle = "")
+            else -> item
+        }
+    /** Pinned ones first (newest pin on top), then the rest as sorted. */
+    fun <T : com.prism.music.data.model.BrowseItem> pinnedFirst(list: List<T>): List<T> {
+        if (pinned.isEmpty()) return list
+        val rank = pinned.withIndex().associate { (i, id) -> id.removePrefix("VL") to i }
+        val (top, rest) = list.partition { it.id.removePrefix("VL") in rank }
+        return top.sortedBy { rank[it.id.removePrefix("VL")] } + rest
+    }
+    var itemMenu by remember { mutableStateOf<com.prism.music.data.model.BrowseItem?>(null) }
+    var foldering by remember { mutableStateOf<com.prism.music.data.model.BrowseItem?>(null) }
+    var newFolder by remember { mutableStateOf(false) }
+    foldering?.let { p -> MoveToFolderSheet(p) { foldering = null } }
+    if (newFolder) FolderNameDialog("New folder", "", { newFolder = false }) { c.prismLibrary.createFolder(it); newFolder = false }
     val onSong: (SongItem) -> Unit = { c.player.playSingle(it.song) }
     // A long press on a playlist offers play / shuffle / delete; the one it asked to delete.
     var menuFor by remember { mutableStateOf<com.prism.music.data.model.BrowseItem?>(null) }
@@ -216,12 +241,14 @@ fun LibraryScreen(bottomPadding: Dp) {
     }
     var openingLink by remember { mutableStateOf(false) }
     if (openingLink) OpenPlaylistLinkDialog({ openingLink = false }) { id -> openingLink = false; nav.go(Routes.playlist(id)) }
-    val sortedPlaylists = remember(myPlaylists, playlistOrder, playlistSort) {
-        when (playlistSort) {
+    // Playlists in a folder (1.7.6) show in it, not in the list; pinned ones lead.
+    val inFolders = remember(folders) { folders.flatMap { f -> f.playlists.map { it.removePrefix("VL") } }.toSet() }
+    val sortedPlaylists = remember(myPlaylists, playlistOrder, playlistSort, pinned, inFolders) {
+        pinnedFirst(when (playlistSort) {
             PlaylistSort.CUSTOM -> LibraryRepository.inOrder(myPlaylists, playlistOrder)
             PlaylistSort.LIBRARY -> myPlaylists
             PlaylistSort.TITLE -> myPlaylists.sortedBy { it.title.lowercase() }
-        }
+        }).filterNot { it.id.removePrefix("VL") in inFolders }
     }
     var rearranging by rememberSaveable { mutableStateOf(false) }
     // Moving one (or starting to) saves the whole order as shown, and switches to it.
@@ -248,16 +275,18 @@ fun LibraryScreen(bottomPadding: Dp) {
             }
             // Pick and order the Playlists tab's tiles (it was a tile of its own at the end of them until 1.7.5).
             com.prism.music.ui.components.RoundAction(PrismIcons.Edit, "Edit tiles") { editingTiles = true }
-            com.prism.music.ui.components.RoundAction(
+            // This tab's own view (1.7.6); the others keep theirs.
+            if (viewTab != null) com.prism.music.ui.components.RoundAction(
                 if (asList) PrismIcons.Customize else PrismIcons.Queue,
                 if (asList) "Show as grid" else "Show as list",
-            ) { c.settings.setLibraryView(if (asList) com.prism.music.data.prefs.LibraryView.GRID else com.prism.music.data.prefs.LibraryView.LIST) }
+            ) { c.settings.setLibraryTabView(viewTab.name, if (asList) com.prism.music.data.prefs.LibraryView.GRID else com.prism.music.data.prefs.LibraryView.LIST) }
             if (com.prism.music.data.prefs.NavTab.SETTINGS !in settings.navTabs) com.prism.music.ui.components.RoundAction(PrismIcons.SettingsFilled, "Settings") { nav.go(Routes.SETTINGS) }
         }
         PagerChips(LibTab.entries.map { it.label }, pager)
 
         HorizontalPager(pager, Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
             val tab = LibTab.entries[page]
+            @Suppress("NAME_SHADOWING") val asList = listFor(tab)
             val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
             // Swapping playlists and tiles: back to the top, or the list would stay on the tile it showed and hide what moved above.
             if (tab == LibTab.PLAYLISTS) LaunchedEffect(settings.libraryPlaylistsFirst) { gridState.scrollToItem(0) }
@@ -277,7 +306,11 @@ fun LibraryScreen(bottomPadding: Dp) {
             } else null
             val fromAccountShown = fromAccount && settings.isLoggedIn
             LazyVerticalGrid(
-                if (asList) GridCells.Fixed(1) else GridCells.Adaptive(160.dp),
+                when {
+                    asList -> GridCells.Fixed(1)
+                    settings.libraryColumns.count > 0 -> GridCells.Fixed(settings.libraryColumns.count)
+                    else -> GridCells.Adaptive(160.dp)
+                },
                 Modifier.fillMaxSize(),
                 state = gridState,
                 contentPadding = PaddingValues(start = if (asList) 0.dp else 12.dp, end = if (asList) 0.dp else 12.dp, top = 4.dp, bottom = bottomPadding + 16.dp),
@@ -359,8 +392,18 @@ fun LibraryScreen(bottomPadding: Dp) {
                         }
                         if (rearranging) item(span = { GridItemSpan(maxLineSpan) }) {
                             RearrangePlaylists(sortedPlaylists, ::saveOrder)
-                        } else items(sortedPlaylists, key = { "p" + it.id }) { p ->
-                            LibraryItem(p, asList, onLongClick = { menuFor = p }) { nav.open(p, onSong) }
+                        } else {
+                            // Folders first (1.7.6), each opening its playlists.
+                            items(folders, key = { "f" + it.id }) { f ->
+                                val first = f.playlists.firstNotNullOfOrNull { id -> myPlaylists.firstOrNull { com.prism.music.data.PrismLibrary.samePlaylist(it.id, id) } }
+                                ShortcutTile(
+                                    f.name, if (!settings.librarySubtitles) "" else if (f.playlists.size == 1) "Folder · 1 playlist" else "Folder · ${f.playlists.size} playlists",
+                                    PrismIcons.Folder, asList, art = first?.let { c.covers.art(it) },
+                                ) { nav.go(Routes.folder(f.id)) }
+                            }
+                            items(sortedPlaylists, key = { "p" + it.id }) { p ->
+                                LibraryItem(shown(p), asList, onLongClick = { menuFor = p }) { nav.open(p, onSong) }
+                            }
                         }
                       }
                       // Playlists above the tiles, or below them as Prism ships (Edit tiles → "Playlists first").
@@ -385,13 +428,13 @@ fun LibraryScreen(bottomPadding: Dp) {
                         if (albums.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                             SortBar(if (albums.size == 1) "1 album" else "${albums.size} albums", AlbumSort.entries, albumSort, { it.label }) { albumSort = it; c.library.setSort("library:albums", it.name) }
                         }
-                        items(sortedAlbums, key = { "a" + it.id }) { a -> LibraryItem(a, asList) { nav.open(a, onSong) } }
+                        items(pinnedFirst(sortedAlbums), key = { "a" + it.id }) { a -> LibraryItem(shown(a), asList, onLongClick = { itemMenu = a }) { nav.open(a, onSong) } }
                     }
                     LibTab.ARTISTS -> {
                         if (artists.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                             SortBar(if (artists.size == 1) "1 artist" else "${artists.size} artists", ArtistSort.entries, artistSort, { it.label }) { artistSort = it; c.library.setSort("library:artists", it.name) }
                         }
-                        items(sortedArtists, key = { "r" + it.id }) { a -> LibraryItem(a, asList) { nav.open(a, onSong) } }
+                        items(pinnedFirst(sortedArtists), key = { "r" + it.id }) { a -> LibraryItem(shown(a), asList, onLongClick = { itemMenu = a }) { nav.open(a, onSong) } }
                     }
                     LibTab.HISTORY -> {
                         if (settings.isLoggedIn) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -466,14 +509,27 @@ fun LibraryScreen(bottomPadding: Dp) {
         }
     }
 
+    fun pinItem(p: com.prism.music.data.model.BrowseItem): com.prism.music.ui.components.SheetItem {
+        val on = pinned.any { it.removePrefix("VL") == p.id.removePrefix("VL") }
+        return com.prism.music.ui.components.SheetItem(if (on) PrismIcons.PinFilled else PrismIcons.Pin, if (on) "Unpin" else "Pin to the top") {
+            c.library.setPinned(pinned.firstOrNull { it.removePrefix("VL") == p.id.removePrefix("VL") } ?: p.id, !on)
+        }
+    }
     menuFor?.let { p ->
+        // A playlist kept on the phone without an account is only a bookmark: it comes out of the library, not deleted.
+        val deletable = com.prism.music.data.PrismLibrary.isPrismList(p.id) || settings.isLoggedIn
         com.prism.music.ui.components.PlayActionsSheet(
             com.prism.music.ui.components.Playable.Of(p),
-            extra = listOf(
+            extra = listOfNotNull(
+                pinItem(p),
+                com.prism.music.ui.components.SheetItem(PrismIcons.Folder, "Move to a folder") { foldering = p },
                 com.prism.music.ui.components.SheetItem(PrismIcons.SwapVertical, "Rearrange playlists") { saveOrder(sortedPlaylists); rearranging = true },
-                com.prism.music.ui.components.SheetItem(PrismIcons.Delete, "Delete playlist", danger = true) { deleting = p },
+                if (deletable) com.prism.music.ui.components.SheetItem(PrismIcons.Delete, "Delete playlist", danger = true) { deleting = p } else null,
             ),
         ) { menuFor = null }
+    }
+    itemMenu?.let { a ->
+        com.prism.music.ui.components.PlayActionsSheet(com.prism.music.ui.components.Playable.Of(a), extra = listOf(pinItem(a))) { itemMenu = null }
     }
 
     deleting?.let { p ->

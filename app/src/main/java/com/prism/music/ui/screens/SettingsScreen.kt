@@ -1841,8 +1841,14 @@ private fun LibraryReplaySettings() {
     val prefs = LocalContainer.current.settings
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Group("Library") {
-            Label("Albums, artists & playlists as")
-            Chips(LibraryView.entries, s.libraryView, { it.label }) { prefs.setLibraryView(it) }
+            // Each tab its own way (1.7.6); the button at the top of Library switches the tab you're on.
+            listOf("PLAYLISTS" to "Playlists as", "ALBUMS" to "Albums as", "ARTISTS" to "Artists as").forEach { (tab, title) ->
+                Label(title)
+                Chips(LibraryView.entries, s.libraryViews[tab] ?: s.libraryView, { it.label }) { prefs.setLibraryTabView(tab, it) }
+            }
+            Label("Covers across", info = "In the grid. Auto fits as many as the screen's width allows.")
+            Chips(com.prism.music.data.prefs.LibraryColumns.entries, s.libraryColumns, { it.label }) { prefs.setLibraryColumns(it) }
+            Toggle("Details under each one", "Song counts, owners and years", s.librarySubtitles) { prefs.setLibrarySubtitles(it) }
             Label("Open Library on")
             // "LOCAL" (On this phone) was a tab before Local files got its own page: Playlists stands in for it.
             val startTab = s.libraryStartTab.takeIf { k -> libraryTabs.any { it.first == k } } ?: "PLAYLISTS"

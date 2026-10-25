@@ -307,6 +307,14 @@ enum class LyricsAlign(val label: String) { START("Left"), CENTER("Center") }
 /** Lyrics in a script the listener can't read, in Latin letters too: under each line, or in its place. */
 enum class RomanizeMode(val label: String) { OFF("Off"), UNDER("Under each line"), INSTEAD("Instead") }
 enum class LibraryView(val label: String) { GRID("Grid"), LIST("List") }
+/** Covers across Library's grid: Auto fits as many as the width allows (as before 1.7.6). */
+enum class LibraryColumns(val label: String, val count: Int) { AUTO("Auto", 0), TWO("2", 2), THREE("3", 3), FOUR("4", 4) }
+
+/** "PLAYLISTS=GRID|ALBUMS=LIST": Library tabs shown their own way. */
+fun parseLibraryViews(v: String): Map<String, LibraryView> = v.split('|').mapNotNull { part ->
+    val tab = part.substringBefore('=').takeIf { it in setOf("PLAYLISTS", "ALBUMS", "ARTISTS") } ?: return@mapNotNull null
+    LibraryView.entries.firstOrNull { it.name == part.substringAfter('=', "") }?.let { tab to it }
+}.toMap()
 /** The tiles at the top of Library's Playlists tab (Reddit 1.7: "let me reorder or hide them"); shown in the order kept. */
 enum class LibraryTile(val label: String) {
     LIKED("Liked songs"), DOWNLOADS("Downloads"), LOCAL("Local files"), REPLAY("Replay"), PODCASTS("Podcasts"),
@@ -811,6 +819,12 @@ data class AppSettings(
     val miniSwipeDown: PlayerGesture = PlayerGesture.STOP,
     // Library & Replay
     val libraryView: LibraryView = LibraryView.LIST,
+    /** Library tabs shown their own way (1.7.6: "PLAYLISTS", "ALBUMS", "ARTISTS"); the rest as [libraryView]. */
+    val libraryViews: Map<String, LibraryView> = emptyMap(),
+    /** How many covers across Library's grid (1.7.6). */
+    val libraryColumns: LibraryColumns = LibraryColumns.AUTO,
+    /** Song counts, owners and years under Library's playlists, albums and artists (1.7.6). */
+    val librarySubtitles: Boolean = true,
     val libraryStartTab: String = "PLAYLISTS",
     /** Library's tiles that show, in order (the rest are hidden). */
     val libraryTiles: List<LibraryTile> = LibraryTile.entries,
@@ -1077,6 +1091,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val miniSwipeRight = stringPreferencesKey("mini_swipe_right")
         val miniSwipeDown = stringPreferencesKey("mini_swipe_down")
         val libraryView = stringPreferencesKey("library_view")
+        val libraryViews = stringPreferencesKey("library_views")
+        val libraryColumns = stringPreferencesKey("library_columns")
+        val librarySubtitles = booleanPreferencesKey("library_subtitles")
         val libraryStartTab = stringPreferencesKey("library_start_tab")
         val libraryTiles = stringPreferencesKey("library_tiles")
         val libraryPlaylistsFirst = booleanPreferencesKey("library_playlists_first")
@@ -1095,7 +1112,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerTimes, meshSpeed, meshIntensity, playerBlur, canvasFillsBackground,
                 scrubberThickness, scrubberThumb, visualizer, visualizerColor,
                 lyricsBlur, lyricsScale, lyricsProgressLine, hideStatusBar,
-                tabNames, navBarSize, navBarFill, miniPlayerJoined,
+                tabNames, navBarSize, navBarFill, miniPlayerJoined, libraryViews, libraryColumns, librarySubtitles,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1123,7 +1140,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 playerTitleSize to 's', playerTitleScroll to 'b', playerTimes to 's', meshSpeed to 'f', meshIntensity to 'f', playerBlur to 'f',
                 canvasFillsBackground to 'b', scrubberThickness to 'f', scrubberThumb to 's', visualizer to 's', visualizerColor to 's',
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
-                libraryView to 's', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
+                libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
             ) + lyricsLook
         }
 
@@ -1441,6 +1458,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             miniSwipeRight = p.enum(K.miniSwipeRight, d.miniSwipeRight),
             miniSwipeDown = p.enum(K.miniSwipeDown, d.miniSwipeDown),
             libraryView = p.enum(K.libraryView, d.libraryView),
+            libraryViews = p[K.libraryViews]?.let(::parseLibraryViews) ?: d.libraryViews,
+            libraryColumns = p.enum(K.libraryColumns, d.libraryColumns),
+            librarySubtitles = p[K.librarySubtitles] ?: d.librarySubtitles,
             libraryStartTab = p[K.libraryStartTab] ?: d.libraryStartTab,
             libraryPlaylistsFirst = p[K.libraryPlaylistsFirst] ?: d.libraryPlaylistsFirst,
             libraryTiles = p[K.libraryTiles]?.let { v -> if (v.isEmpty()) emptyList() else v.split(',').mapNotNull { n -> LibraryTile.entries.firstOrNull { it.name == n } } } ?: d.libraryTiles,
@@ -1779,7 +1799,14 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setArtShrinkOnPause(v: Boolean) = edit { it[K.artShrinkOnPause] = v }
     fun setShowOutputDevice(v: Boolean) = edit { it[K.showOutputDevice] = v }
     fun setLyricsAlign(v: LyricsAlign) = edit { it[K.lyricsAlign] = v.name }
-    fun setLibraryView(v: LibraryView) = edit { it[K.libraryView] = v.name }
+    fun setLibraryView(v: LibraryView) = edit { it[K.libraryView] = v.name; it.remove(K.libraryViews) }
+    /** One Library tab's view ("PLAYLISTS", "ALBUMS", "ARTISTS"). */
+    fun setLibraryTabView(tab: String, v: LibraryView) = edit {
+        val views = (it[K.libraryViews]?.let(::parseLibraryViews) ?: emptyMap()) + (tab to v)
+        it[K.libraryViews] = views.entries.joinToString("|") { (t, view) -> "$t=${view.name}" }
+    }
+    fun setLibraryColumns(v: LibraryColumns) = edit { it[K.libraryColumns] = v.name }
+    fun setLibrarySubtitles(v: Boolean) = edit { it[K.librarySubtitles] = v }
     fun setLibraryStartTab(v: String) = edit { it[K.libraryStartTab] = v }
     fun setLibraryTiles(v: List<LibraryTile>) = edit { it[K.libraryTiles] = v.joinToString(",") { t -> t.name } }
     fun setLibraryPlaylistsFirst(v: Boolean) = edit { it[K.libraryPlaylistsFirst] = v }

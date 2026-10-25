@@ -320,7 +320,11 @@ object SettingsIndex {
         SettingEntry(H, "Made for you", "New release notifications", "release radar new music alerts"),
         SettingEntry(H, "Made for you", "Make my mixes again", "daily mix refresh recommendations"),
         // Library & Replay
-        SettingEntry(R, "Library", "Albums, artists & playlists as", "grid list view"),
+        SettingEntry(R, "Library", "Playlists as", "grid list view"),
+        SettingEntry(R, "Library", "Albums as", "grid list view"),
+        SettingEntry(R, "Library", "Artists as", "grid list view"),
+        SettingEntry(R, "Library", "Covers across", "columns grid two three four"),
+        SettingEntry(R, "Library", "Details under each one", "subtitles counts song count owner year hide"),
         SettingEntry(R, "Library", "Open Library on", "start tab"),
         SettingEntry(R, "Library", "Full-width playlist pictures"),
         SettingEntry(R, "Library", "Library tiles", "liked downloads local files replay podcasts listen together blend recognized new playlist import reorder hide shortcuts"),

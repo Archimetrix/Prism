@@ -19,6 +19,14 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Library your way
+- **Playlist folders**: hold a playlist → "Move to a folder" (or make a new one there). Folders sit at the top of
+  Library → Playlists; a folder's page renames it or takes it apart. Kept on the phone, and in backups.
+- **Pin to the top**: hold a playlist, album or artist in Library to keep it first in its tab.
+- **Each tab its own view**: Playlists, Albums and Artists can each be a list or a grid (the button at the top of
+  Library switches the tab you're on).
+- **Covers across** (Auto, 2, 3 or 4) for the grid, and **Details under each one** to hide song counts, owners and years.
+
 ### Tabs your way (Settings → Layout & navigation)
 - **More tabs**: Downloads, Liked songs and Podcasts can be tabs too, up to six in all.
 - **Rename any tab**: tap its name in Tabs.

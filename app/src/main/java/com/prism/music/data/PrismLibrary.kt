@@ -53,11 +53,16 @@ data class SavedPlaylist(
     fun item() = PlaylistItem(id, title, subtitle, thumbnail)
 }
 
+/** A folder of playlists in Library (1.7.6): Prism's own, YouTube's and saved ones alike, by id. */
+@Serializable
+data class PlaylistFolder(val id: String, val name: String, val playlists: List<String> = emptyList(), val createdAt: Long)
+
 @Serializable
 private data class PrismLibraryFile(
     val lists: List<PrismList> = emptyList(),
     val albums: List<SavedAlbum> = emptyList(),
     val playlists: List<SavedPlaylist> = emptyList(),
+    val folders: List<PlaylistFolder> = emptyList(),
 )
 
 /**
@@ -71,6 +76,37 @@ class PrismLibrary(private val dir: File) {
     private val _lists = MutableStateFlow(data.value.lists)
     private val _albums = MutableStateFlow(data.value.albums)
     private val _playlists = MutableStateFlow(data.value.playlists)
+    private val _folders = MutableStateFlow(data.value.folders)
+
+    /** Library's playlist folders, in the order they were made. */
+    val folders: StateFlow<List<PlaylistFolder>> = _folders
+
+    fun folderOf(playlistId: String): PlaylistFolder? = _folders.value.firstOrNull { f -> f.playlists.any { samePlaylist(it, playlistId) } }
+
+    /** A new folder named [name], with [playlistId] in it if given; its id. */
+    fun createFolder(name: String, playlistId: String? = null): String {
+        val id = "folder:" + UUID.randomUUID().toString().replace("-", "").take(10)
+        change { lib ->
+            val out = lib.folders.map { f -> f.copy(playlists = f.playlists.filterNot { p -> playlistId != null && samePlaylist(p, playlistId) }) }
+            lib.copy(folders = out + PlaylistFolder(id, name.trim().ifBlank { "Folder" }, listOfNotNull(playlistId), System.currentTimeMillis()))
+        }
+        return id
+    }
+
+    fun renameFolder(id: String, name: String) = change { lib ->
+        lib.copy(folders = lib.folders.map { if (it.id == id) it.copy(name = name.trim().ifBlank { it.name }) else it })
+    }
+
+    /** The folder goes; its playlists go back to Library's list. */
+    fun deleteFolder(id: String) = change { lib -> lib.copy(folders = lib.folders.filterNot { it.id == id }) }
+
+    /** Puts the playlist in [folderId] (out of any other), or out of every folder when it's null. */
+    fun moveToFolder(playlistId: String, folderId: String?) = change { lib ->
+        lib.copy(folders = lib.folders.map { f ->
+            val without = f.playlists.filterNot { samePlaylist(it, playlistId) }
+            if (f.id == folderId) f.copy(playlists = without + playlistId) else f.copy(playlists = without)
+        })
+    }
 
     /** Newest change first. */
     val lists: StateFlow<List<PrismList>> = _lists
@@ -136,6 +172,7 @@ class PrismLibrary(private val dir: File) {
         _lists.value = data.value.lists
         _albums.value = data.value.albums
         _playlists.value = data.value.playlists
+        _folders.value = data.value.folders
         write(data.value)
     }
 

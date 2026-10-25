@@ -66,6 +66,8 @@ object Routes {
     fun settings(section: String, find: String? = null) = "settings/$section" + (find?.let { "?find=${Uri.encode(it)}" } ?: "")
     fun album(id: String) = "album/${Uri.encode(id)}"
     fun playlist(id: String) = "playlist/${Uri.encode(id)}"
+    /** A folder of playlists in Library (1.7.6). */
+    fun folder(id: String) = "folder/${Uri.encode(id)}"
     fun artist(id: String) = "artist/${Uri.encode(id)}"
     /** An artist's page; one a song names without a link (#78) is looked up by name when it opens. */
     fun artist(ref: com.prism.music.data.model.ArtistRef) =
