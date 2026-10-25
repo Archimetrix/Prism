@@ -136,6 +136,17 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
     }
 
     /**
+     * Typing suggestions (1.7.6 Search): the completions, and the artists, songs and albums YouTube Music offers beside
+     * them (with their pictures), in one request. Asked without the account, as searches are (#27).
+     */
+    suspend fun searchSuggestionsWithItems(query: String): Pair<List<String>, List<BrowseItem>> {
+        val res = api.postAnonymous("music/get_search_suggestions", buildJsonObject { put("input", query) })
+        val texts = res.findAll("searchSuggestionRenderer").mapNotNull { it.obj("suggestion").text() }.distinct()
+        val items = res.findAll("musicResponsiveListItemRenderer").mapNotNull { Parser.responsive(it) }.distinctBy { it.id }
+        return texts to items
+    }
+
+    /**
      * Songs, albums, artists, playlists and videos at once, ranked by how well they match and how
      * well they fit the listener's [taste] ([SearchRank]).
      */

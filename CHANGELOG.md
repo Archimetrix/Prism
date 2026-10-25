@@ -19,6 +19,17 @@ The fifth customization update: Home, Library and Search.
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
 
+### Search, redesigned (#124)
+Prism's own design, not YouTube's page:
+- **Before you type**: Prism's shortcuts (Recognize, Find by lyrics, Podcasts, Your files), what you opened lately by
+  its picture, your recent searches, your artists as a row of photos, and the moods and genres as Prism-drawn tiles
+  (their color, a pattern, the split light). **Arrange this page** shows, hides and orders the sections.
+- **While typing**: the artists, songs and albums YouTube Music suggests, with their pictures, under the completions;
+  a tap opens or plays one at once.
+- **In your library**: results that are already yours (liked songs, your playlists, albums and artists) come right
+  after the top result.
+- **Find by lyrics**: type a line from a song and Search looks among songs.
+
 ### Home your way
 - **Pin to Home**: hold any album, playlist, artist or mix and pick "Pin to Home": it becomes a section of its own at
   the top of Home, its songs ready to play, its name opening its page.

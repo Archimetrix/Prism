@@ -316,6 +316,16 @@ enum class HomeHeader(val label: String, val note: String) {
 }
 enum class HomeHeaderHeight(val label: String, val dp: Int) { SHORT("Short", 200), MEDIUM("Medium", 260), TALL("Tall", 340) }
 
+/** What Search shows before you type (1.7.6), in the listener's order; the ones left out are hidden. */
+enum class SearchSection(val label: String) {
+    SHORTCUTS("Shortcuts"), RECENT("Recent"), ARTISTS("Your artists"), MOODS("Moods & genres");
+
+    companion object {
+        fun parse(v: String?): List<SearchSection> =
+            v?.split(',')?.mapNotNull { n -> entries.firstOrNull { it.name == n } }?.distinct() ?: entries.toList()
+    }
+}
+
 /** Covers across Library's grid: Auto fits as many as the width allows (as before 1.7.6). */
 enum class LibraryColumns(val label: String, val count: Int) { AUTO("Auto", 0), TWO("2", 2), THREE("3", 3), FOUR("4", 4) }
 
@@ -690,6 +700,8 @@ data class AppSettings(
     // Home
     val homeLayout: List<HomeSectionConfig> = HomeSections.initial,
     val autoAddSections: Boolean = true,
+    /** Search's page before you type (1.7.6): its sections, in order. */
+    val searchSections: List<SearchSection> = SearchSection.entries.toList(),
     val homeHeader: HomeHeader = HomeHeader.GREETING,
     val homeHeaderHeight: HomeHeaderHeight = HomeHeaderHeight.MEDIUM,
     /** The picture behind a PICTURE header: a background design's name, or "PHOTO|<file>" (as backgrounds keep theirs). */
@@ -1013,6 +1025,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val homeLayout = stringPreferencesKey("home_layout")
         val autoAddSections = booleanPreferencesKey("auto_add_sections")
         val homeHideKinds = stringPreferencesKey("home_hide_kinds")
+        val searchSections = stringPreferencesKey("search_sections")
         val homeHeader = stringPreferencesKey("home_header")
         val homeHeaderHeight = stringPreferencesKey("home_header_height")
         val homeHeaderPicture = stringPreferencesKey("home_header_picture")
@@ -1203,7 +1216,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "video_continues", "lossless", "lossless_local", "normalize", "skip_silence", "mix", "mix_seconds", "mix_auto",
                 "mix_beat_match", "mix_tempo_cellular", "content_country", "video_max_height", "cache_size_mb", "download_wifi_only",
                 "download_likes", "smart_downloads", "smart_download_gb", "offline_gb", "smart_downloads_cellular", "eq",
-                "home_layout", "auto_add_sections", "home_hide_kinds", "home_header_picture", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
+                "home_layout", "auto_add_sections", "home_hide_kinds", "home_header_picture", "search_sections", "replay_hours", "greeting_text", "greeting_show_name", "home_shortcuts",
                 "home_recent_tiles", "home_playlists", "home_customize_button", "home_continue", "quick_picks_radio",
                 "home_customize_top_button", "home_podcasts_button", "font_stamp", "lyrics_font_name", "local_sections", "local_sort",
                 "library_start_tab", "library_tiles", "library_playlists_first",
@@ -1393,6 +1406,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             } ?: d.homeLayout,
             autoAddSections = p[K.autoAddSections] ?: d.autoAddSections,
             homeHideKinds = p[K.homeHideKinds]?.split(',')?.filter { it.isNotBlank() }?.toSet() ?: d.homeHideKinds,
+            searchSections = p[K.searchSections]?.let { SearchSection.parse(it) } ?: d.searchSections,
             homeHeader = p.enum(K.homeHeader, d.homeHeader),
             homeHeaderHeight = p.enum(K.homeHeaderHeight, d.homeHeaderHeight),
             homeHeaderPicture = p[K.homeHeaderPicture] ?: d.homeHeaderPicture,
@@ -1736,6 +1750,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         it[K.homeLayout] = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(HomeSectionConfig.serializer()), v)
     }
     fun setAutoAddSections(v: Boolean) = edit { it[K.autoAddSections] = v }
+    fun setSearchSections(v: List<SearchSection>) = edit { it[K.searchSections] = v.joinToString(",") { s -> s.name } }
     fun setHomeHeader(v: HomeHeader) = edit { it[K.homeHeader] = v.name }
     fun setHomeHeaderHeight(v: HomeHeaderHeight) = edit { it[K.homeHeaderHeight] = v.name }
     fun setHomeHeaderPicture(v: String) = edit { it[K.homeHeaderPicture] = v }
