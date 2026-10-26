@@ -1060,7 +1060,15 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
      * changes the timeline, so [prefetchNext] then gets the song ready.)
      */
     private fun songForNextVideo(item: MediaItem) {
-        if (!c.player.songsEverywhere() || item.videoModeId != null) return
+        if (item.videoModeId != null) return
+        // A radio or mix's videos too, with just "Songs, not videos" on (#138): YouTube stopped pairing them with their songs
+        // when the queue is made (2026-10), so a Discovery Mix came through as videos. Each is matched as it comes up next.
+        val fromRadio = c.settings.current.radioSongsOnly && run {
+            val at = (0 until player.mediaItemCount).firstOrNull { player.getMediaItemAt(it).mediaId == item.mediaId } ?: -1
+            val auto = c.queue.autoplayStart.value
+            c.queue.source.value.kind == QueueKind.RADIO || (auto in 0..at)
+        }
+        if (!c.player.songsEverywhere() && !fromRadio) return
         val video = item.toSong()?.takeIf { it.isVideo && !it.isLive && !it.isEpisode && !it.isLocal } ?: return
         if (!findingSongs.add(video.id)) return
         scope.launch {

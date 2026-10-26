@@ -21,6 +21,13 @@ What changed in each release. Older releases are described on the [Releases page
   looks. The strands hold still with Reduce motion or Performance mode.
 
 ### Fixes
+- **Songs, not videos works again** (#138): YouTube stopped telling apps which song a music video belongs to (October
+  2026) unless you're signed in, so a Discovery Mix and other mixes came through as videos, and some videos didn't find
+  their song. Each video coming up next is now matched to its song by Prism itself, an artist's own video may run up to
+  a minute longer than its song (an intro, a closing scene), and signed out Prism no longer asks YouTube for a pairing it
+  won't give (one request less for each).
+- **Shared song links show the song straight away**: YouTube now sends a song's queue separately, so "Play in Prism"
+  showed "Loading…" until the song started.
 - **The artist page's name follows your font** (#139): the plain Standard style was drawn in Google Sans on a Pixel and
   Android's own font elsewhere, whatever font you picked. The other signature styles keep their own typefaces.
 
