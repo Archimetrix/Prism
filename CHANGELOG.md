@@ -2,7 +2,7 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
-## 1.7.6 (unreleased)
+## 1.7.6
 
 Home, Library and Search your way, and a lighter, faster Prism. The fifth customization update, and a performance one:
 Performance mode for older phones, about 200 MB less memory at start, and quicker lists and Search.
