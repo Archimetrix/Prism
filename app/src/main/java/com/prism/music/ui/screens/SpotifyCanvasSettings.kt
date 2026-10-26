@@ -2,7 +2,9 @@ package com.prism.music.ui.screens
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +34,10 @@ fun SpotifyCanvasSettings() {
     val prefs = remember { c.app.getSharedPreferences("spotify_canvas", android.content.Context.MODE_PRIVATE) }
     var connected by remember { mutableStateOf(prefs.getString("sp_dc", null).orEmpty().isNotBlank()) }
     var showLogin by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         if (connected) {
             Text("Spotify connected", style = MaterialTheme.typography.bodyMedium)
             PrismTextButton(onClick = { c.canvas.spotifyCanvas?.disconnect(); connected = false }) { Text("Disconnect Spotify") }
@@ -54,6 +59,7 @@ private fun SpotifyCanvasLoginDialog(onConnected: () -> Unit, onDismiss: () -> U
     val prefs = remember { c.app.getSharedPreferences("spotify_canvas", android.content.Context.MODE_PRIVATE) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
+    var pageError by remember { mutableStateOf<String?>(null) }
     fun capture() {
         val cm = CookieManager.getInstance()
         val raw = cm.getCookie("https://open.spotify.com") ?: cm.getCookie("https://spotify.com")
@@ -74,20 +80,48 @@ private fun SpotifyCanvasLoginDialog(onConnected: () -> Unit, onDismiss: () -> U
             Column {
                 Text("Sign in on Spotify. Prism uses this session only to find the matching Canvas video; it stays on this device.", style = MaterialTheme.typography.bodySmall)
                 message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                pageError?.let { Text("Spotify sign-in page couldn't load: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 AndroidView(
                     modifier = Modifier.fillMaxWidth().height(480.dp).padding(top = 10.dp),
                     onRelease = { it.stopLoading(); it.destroy() },
                     factory = { context ->
                         CookieManager.getInstance().setAcceptCookie(true)
                         WebView(context).apply {
+                            // Match the measured Compose viewport; WRAP_CONTENT can give Spotify's responsive page a zero-sized viewport.
+                            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                             webView = this
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
-                            settings.userAgentString = settings.userAgentString.replace("; wv", "")
+                            settings.userAgentString = settings.userAgentString
+                                .replace(Regex(";\\s*wv\\)"), ")")
+                                .replace(Regex("\\s*Version/\\d+(\\.\\d+)*"), "")
                             CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                            webChromeClient = WebChromeClient()
                             webViewClient = object : WebViewClient() {
-                                override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) = capture()
+                                override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                                    pageError = null
+                                    capture()
+                                }
+
                                 override fun onPageFinished(view: WebView, url: String) = capture()
+
+                                override fun onReceivedError(
+                                    view: WebView,
+                                    request: android.webkit.WebResourceRequest,
+                                    error: android.webkit.WebResourceError,
+                                ) {
+                                    if (request.isForMainFrame) pageError = error.description?.toString() ?: "Network error"
+                                }
+
+                                override fun onReceivedHttpError(
+                                    view: WebView,
+                                    request: android.webkit.WebResourceRequest,
+                                    response: android.webkit.WebResourceResponse,
+                                ) {
+                                    if (request.isForMainFrame && response.statusCode >= 400) {
+                                        pageError = "Spotify returned HTTP ${response.statusCode}"
+                                    }
+                                }
                             }
                             loadUrl("https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F")
                         }
