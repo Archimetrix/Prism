@@ -78,7 +78,7 @@ private fun SpotifyCanvasLoginDialog(onConnected: () -> Unit, onDismiss: () -> U
         title = { Text("Connect Spotify") },
         text = {
             Column {
-                Text("Sign in on Spotify. Prism uses this session only to find the matching Canvas video; it stays on this device.", style = MaterialTheme.typography.bodySmall)
+                Text("Sign in on Spotify. Prism uses this session only to find Canvas videos. Prism backups include this sign-in, so keep backup files private.", style = MaterialTheme.typography.bodySmall)
                 message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 pageError?.let { Text("Spotify sign-in page couldn't load: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 AndroidView(

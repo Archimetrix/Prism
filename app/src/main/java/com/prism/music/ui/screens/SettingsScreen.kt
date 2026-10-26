@@ -1353,9 +1353,9 @@ private fun PlayerSettings() {
                     prefs.setCanvasSourcePriority(it)
                 }
             }
-            if (s.canvasEnabled) Toggle(
-                "Fill the player", "The animated cover plays behind everything", s.canvasFillsBackground,
-                info = "Spotify Canvas fills the player behind the controls. Its square thumbnail fades away when the video starts.",
+            if (s.canvasEnabled && s.canvasAppleEnabled) Toggle(
+                "Fill the player", "Apple Music artwork plays behind everything", s.canvasFillsBackground,
+                info = "Spotify Canvas always fills the player when a matching video is available. This option controls only Apple Music artwork.",
             ) { prefs.setCanvasFillsBackground(it) }
         }
         MoreOptions(listOf("Under the title", "Title and times", "Visualizer", "Immersive mode")) {

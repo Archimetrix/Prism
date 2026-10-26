@@ -383,8 +383,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // Cassette (1.7.4): the cover on a tape, its reels turning.
     val cassette = layout == com.prism.music.data.prefs.PlayerLayout.CASSETTE && !videoMode
     val spotifyCanvas = canvas?.source == "spotify"
-    // Spotify Canvas is a full-player background only; Apple Music's animated cover stays in the square artwork.
-    val canvasBehind = settings.canvasFillsBackground && spotifyCanvas && !videoMode && !wide
+    val appleArtwork = canvas?.source == "apple"
+    // Spotify Canvas always fills the player. Apple Music artwork uses its own optional fill setting.
+    val canvasBehind = (spotifyCanvas || (appleArtwork && settings.canvasFillsBackground)) && !videoMode && !wide
     val heroMode = settings.fullBleedArtwork && !canvasBehind && !videoMode && !wide && !vinyl && !cassette
     val canvasBackgroundMode = canvasBehind && spotifyCanvas
     var canvasControlsVisible by remember(song.id) { mutableStateOf(true) }
@@ -824,7 +825,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                     alpha = when {
                                         videoMode -> (2f * p() - 1f).coerceIn(0f, 1f)
                                         heroMode && artLoaded -> 1f - heroVisible()
-                                        canvasBackgroundMode -> 1f - canvasCover
+                                        canvasBehind -> 1f - canvasCover
                                         else -> 1f
                                     }
                                 }
@@ -1051,8 +1052,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             exit = fadeOut(tween(220)) + slideOutVertically(tween(280, easing = FastOutSlowInEasing)) { it / 2 },
         ) {
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                    .background(Color.Black.copy(alpha = 0.5f)).padding(horizontal = 18.dp, vertical = 12.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
