@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -231,7 +232,10 @@ fun SubPage(
 
 /** A choice: a glass pill, lifted and ringed in split light when picked ([idle] fills an unpicked one, where asked). */
 @Composable
-fun PrismChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier, icon: ImageVector? = null, idle: Color = Color.Unspecified) {
+fun PrismChip(
+    selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier, icon: ImageVector? = null,
+    idle: Color = Color.Unspecified, onLongClick: (() -> Unit)? = null, onLongClickLabel: String? = null,
+) {
     val scheme = MaterialTheme.colorScheme
     val quiet = glassFill(1.2f)
     val lifted = glassFill(2.6f)
@@ -241,7 +245,10 @@ fun PrismChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: M
         modifier.height(36.dp).clip(CircleShape).background(bg)
             .then(if (selected) Modifier.spectrumRing(CircleShape) else Modifier.border(1.dp, glassEdge(), CircleShape))
             .semantics { this.selected = selected }
-            .clickable(onClick = onClick).padding(horizontal = 15.dp),
+            .then(
+                if (onLongClick == null) Modifier.clickable(onClick = onClick)
+                else Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = onLongClickLabel),
+            ).padding(horizontal = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.width(6.dp)) }

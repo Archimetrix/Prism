@@ -31,14 +31,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextMeasurer
@@ -92,9 +95,15 @@ private fun DrawScope.drawCover(d: CoverDesign, text: TextMeasurer) {
     val w = size.width
     drawRect(Brush.verticalGradient(listOf(Color(d.top), Color(d.bottom))))
     d.pattern?.let { kind ->
-        // The pattern's own ink in white over the colors (its background left clear).
+        // The pattern's own ink in white over the colors (its background left clear). Waves stacks three bands along
+        // the foot, where the name sits (about half white there): drawn at half strength on a cover.
+        val layer = if (kind == BackdropKind.WAVES) 0.5f else 1f
+        if (layer < 1f) drawIntoCanvas { it.saveLayer(Rect(Offset.Zero, size), Paint().apply { alpha = layer }) }
         drawPattern(kind, Color.Transparent, Color.White, Color.White, dark = true, t = 0f, density = w / 360f, glow = 0f)
+        if (layer < 1f) drawIntoCanvas { it.restore() }
     }
+    // A little shade under the white name, so a pale top color or pattern doesn't wash it out.
+    drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f)), startY = size.height * 0.5f, endY = size.height), topLeft = Offset(0f, size.height * 0.5f), size = Size(w, size.height * 0.5f))
     // The name, bottom left, as large as it fits in three lines.
     val name = d.title.trim().ifEmpty { "Playlist" }
     val pad = w * 0.075f

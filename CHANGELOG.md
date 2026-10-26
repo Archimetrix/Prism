@@ -4,7 +4,8 @@ What changed in each release. Older releases are described on the [Releases page
 
 ## 1.7.6 (unreleased)
 
-The fifth customization update: Home, Library and Search.
+Home, Library and Search your way, and a lighter, faster Prism. The fifth customization update, and a performance one:
+Performance mode for older phones, about 200 MB less memory at start, and quicker lists and Search.
 
 ### You asked for it
 - **Home opens straight away** (#126): the last Home is kept on the phone and shows at once when Prism starts, while the
@@ -18,20 +19,6 @@ The fifth customization update: Home, Library and Search.
 - **Quick picks and Speed dial in any language** (#131): YouTube's Quick picks under another language's title stop at
   each column like Prism's, YouTube's own Speed dial is found in any language, and Customize Home → "Speed dial: YouTube
   Music's only" leaves out the tiles Prism adds from your plays.
-
-### Settings, easier to find
-Settings are sorted by what they do, and every page is shorter. Nothing was removed; Settings search finds everything
-at its new place.
-- **Customize Prism** holds everything about how Prism looks, in one place: Looks, Color, Text, Icons & shapes, Glass &
-  backgrounds, then each part of Prism (Tabs & mini player, Home & Library, the Player, the Lyrics). The live preview
-  is at its top once, instead of pinned over every look page.
-- **Playback & sound**, **Lyrics & Sing** (sources, language, Sing), **Controls & gestures** (the player's swipes and
-  taps, holding previous / next, haptics, the notification's and car's buttons, Search's keyboard),
-  **Recommendations & Replay**, **Downloads, storage & data** and **Car & devices** (Android Auto, speakers and TVs,
-  Discord), then **Backup & about**.
-- **Every "on mobile data" choice is on one page** (Downloads, storage & data → Mobile data); they were on six.
-- Less-used groups (the player's title and visualizer, where lyric lines sit…) are folded under **More options**.
-- Color's preview, still pinned while you scroll, no longer lets the page show through behind it.
 
 ### Performance mode
 For phones that found 1.7 heavier than 1.6 (#103, #132, #134): **Settings → Performance mode**, one switch that draws
@@ -56,9 +43,23 @@ frames drew 4–5× faster with it on.
   bigger than the screen: a 720 px phone plays the 720 px clip, not the 1080 px one. Prism's memory on a budget phone
   with an animated cover playing went from 77 to 53 MB.
 
+### Settings, easier to find
+Settings are sorted by what they do, and every page is shorter. Nothing was removed; Settings search finds everything
+at its new place.
+- **Customize Prism** holds everything about how Prism looks, in one place: Looks, Color, Text, Icons & shapes, Glass &
+  backgrounds, then each part of Prism (Tabs & mini player, Home & Library, the Player, the Lyrics). The live preview
+  is at its top once, instead of pinned over every look page.
+- **Playback & sound**, **Lyrics & Sing** (sources, language, Sing), **Controls & gestures** (the player's swipes and
+  taps, holding previous / next, haptics, the notification's and car's buttons, Search's keyboard),
+  **Recommendations & Replay**, **Downloads, storage & data** and **Car & devices** (Android Auto, speakers and TVs,
+  Discord), then **Backup & about**.
+- **Every "on mobile data" choice is on one page** (Downloads, storage & data → Mobile data); they were on six.
+- Less-used groups (the player's title and visualizer, where lyric lines sit…) are folded under **More options**.
+- Color's preview, still pinned while you scroll, no longer lets the page show through behind it.
+
 ### Search, redesigned (#124)
 Prism's own design, not YouTube's page:
-- **Search by lyrics, in the search box itself**: type a line from a song ("i got my driver's license last week") and
+- **Search by lyrics, in the search box itself**: type a line from a song ("i was too busy tryna find you with someone else") and
   the song it's from shows under **From the lyrics**, with the line as the song has it, first when the line is nearly
   word for word. Lyrics already on your phone are looked through first (offline too), then Genius's lyrics. They show
   only when Search didn't find the song by its name, and only for the words together as typed.
@@ -135,6 +136,7 @@ Prism's own design, not YouTube's page:
 - **Each local song shows its own cover** (#129). Android files untagged songs from one folder (and other mixes) as one
   album, so one file's cover went on all of them. Those songs now show the cover inside each file.
 - **Player, Layout & navigation and Lyrics are listed once** in Settings (#127), under Customize Prism, no longer twice.
+- US spelling in the last few places: Favorites, Centered.
 
 ## 1.7.5
 

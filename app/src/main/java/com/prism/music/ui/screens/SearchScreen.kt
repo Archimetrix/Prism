@@ -452,7 +452,8 @@ private fun TopResults(
     val q = com.prism.music.data.lyrics.LyricSearch.words(query)
     val titleFits = r.top?.let { t -> com.prism.music.data.lyrics.LyricSearch.coverage(q, com.prism.music.data.lyrics.LyricSearch.words(t.title)) >= 0.5f } == true
     val shownIds = (listOfNotNull(r.top?.id) + r.sections.flatMap { (_, items) -> items.map { it.id } }).toSet()
-    val hits = if (titleFits) emptyList() else lyricHits.filter { it.song.id !in shownIds }
+    val shownTitles = listOfNotNull(r.top?.title) + r.sections.flatMap { (_, items) -> items.map { it.title } }
+    val hits = if (titleFits) emptyList() else com.prism.music.data.lyrics.LyricSearch.toShow(lyricHits, shownIds, shownTitles)
     if (r.isEmpty && inLibrary.isEmpty() && onPhoneHits.isEmpty() && hits.isEmpty()) { ErrorState("No results"); return }
     // A line typed nearly word for word: the song it's from comes first.
     val lyricsFirst = hits.firstOrNull()?.sure == true

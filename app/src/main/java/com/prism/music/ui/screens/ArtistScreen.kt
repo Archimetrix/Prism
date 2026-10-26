@@ -396,7 +396,7 @@ private fun Hero(
             PlayCapsule(onPlay)
             HeroButton(PrismIcons.Shuffle, "Shuffle ${page.name}", onClick = onShuffle)
             HeroButton(
-                if (favorite) PrismIcons.StarFilled else PrismIcons.Star, if (favorite) "Remove from favourites" else "Add to favourites",
+                if (favorite) PrismIcons.StarFilled else PrismIcons.Star, if (favorite) "Remove from favorites" else "Add to favorites",
                 tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, onClick = onFavorite,
             )
         }
@@ -465,7 +465,7 @@ private fun TopBar(
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem({ Text("Share artist") }, { menu = false; onShare() }, leadingIcon = { Icon(PrismIcons.Share, null) })
                         DropdownMenuItem(
-                            { Text(if (favorite) "Remove from favourites" else "Add to favourites") }, { menu = false; onFavorite() },
+                            { Text(if (favorite) "Remove from favorites" else "Add to favorites") }, { menu = false; onFavorite() },
                             leadingIcon = { Icon(if (favorite) PrismIcons.StarFilled else PrismIcons.Star, null) },
                         )
                         DropdownMenuItem({ Text("Signature style") }, { menu = false; onSignature() }, leadingIcon = { Icon(PrismIcons.Signature, null) })
@@ -692,7 +692,7 @@ private fun InfoSheet(page: ArtistPage, genre: String?, favorite: Boolean, onFav
                     page.subscribers?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 IconButton(onClick = onFavorite) {
-                    Icon(if (favorite) PrismIcons.StarFilled else PrismIcons.Star, if (favorite) "Remove from favourites" else "Add to favourites", tint = MaterialTheme.colorScheme.primary)
+                    Icon(if (favorite) PrismIcons.StarFilled else PrismIcons.Star, if (favorite) "Remove from favorites" else "Add to favorites", tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = onShare) { Icon(PrismIcons.Share, "Share artist") }
             }

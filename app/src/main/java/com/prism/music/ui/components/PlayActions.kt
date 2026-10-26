@@ -264,7 +264,7 @@ private fun LibraryToggle(item: BrowseItem?) {
         is ArtistItem -> {
             val favorites by c.artistPrefs.favorites.collectAsState()
             val starred = favorites.any { it.id == item.id }
-            SheetIconButton(if (starred) PrismIcons.StarFilled else PrismIcons.Star, if (starred) "Remove from favourites" else "Add to favourites") {
+            SheetIconButton(if (starred) PrismIcons.StarFilled else PrismIcons.Star, if (starred) "Remove from favorites" else "Add to favorites") {
                 c.library.setFavoriteArtist(com.prism.music.data.FavoriteArtist(item.id, item.title, item.thumbnail), null, !starred)
             }
         }

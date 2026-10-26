@@ -40,6 +40,13 @@ class LyricSearchTest {
     }
 
     @Test
+    fun aWholeLineIsQuotedOnItsOwn() {
+        val lines = listOf("(Nothin', nothin', nothin', nothin') Yeah", "I was too busy tryna find you with someone else", "The one I couldn't stand to be with")
+        val (line, _) = LyricSearch.bestLine(w("i was too busy tryna find you with someone else"), lines)!!
+        assertEquals("I was too busy tryna find you with someone else", line)
+    }
+
+    @Test
     fun aWordMissedHereOrThereStillCounts() {
         val c = LyricSearch.coverage(w("we were young when i first saw you"), w("We were both young when I first saw you"))
         assertEquals(1f, c, 0.001f)
@@ -81,6 +88,27 @@ class LyricSearchTest {
         assertEquals(listOf("a"), hits.map { it.song.id })
         assertTrue(hits[0].sure)
         assertEquals("I got my driver's license last week", hits[0].line)
+    }
+
+    @Test
+    fun aCoverOfTheSongIsntAHitOfItsOwn() {
+        fun hit(id: String, title: String, artist: String, score: Float = 1f) =
+            LyricSearch.Hit(Song(id, title, listOf(ArtistRef(artist))), "I got my driver's license last week", score)
+        // Genius's order for that line: the song, its demo, jxdn's cover.
+        val hits = LyricSearch.oneEach(listOf(hit("o", "drivers license", "Olivia Rodrigo"), hit("d", "drivers license (Demo)", "Olivia Rodrigo"), hit("j", "drivers license", "jxdn"), hit("x", "Other song", "X", 0.8f)))
+        assertEquals(listOf("o", "x"), hits.map { it.song.id })
+    }
+
+    @Test
+    fun songsQuotingTheLineDontShowWhenSearchFoundIt() {
+        fun hit(id: String, title: String) = LyricSearch.Hit(Song(id, title, listOf(ArtistRef("A"))), "line", 1f)
+        val hits = listOf(hit("g", "Tomorrow 2"), hit("t", "Anti-Hero"))
+        // The song itself is the top result: the GloRilla song that quotes it isn't shown on its own.
+        assertTrue(LyricSearch.toShow(hits, setOf("t"), listOf("Anti-Hero")).isEmpty())
+        // Another upload or a remix of it (other id, same title) counts as found too.
+        assertTrue(LyricSearch.toShow(listOf(hit("r", "Shape of You (Major Lazer Remix)")), setOf("s"), listOf("Shape of You")).isEmpty())
+        // Search didn't find it: every hit shows.
+        assertEquals(2, LyricSearch.toShow(hits, setOf("z"), listOf("Something else")).size)
     }
 
     @Test

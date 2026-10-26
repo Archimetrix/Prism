@@ -169,9 +169,8 @@ internal fun SearchLanding(
                         item(key = "recents") {
                             FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 recents.take(10).forEach { r ->
-                                    Box(Modifier.clip(CircleShape).combinedClickable(onClick = { onPick(r) }, onLongClick = { onRemove(r) }, onLongClickLabel = "Remove")) {
-                                        PrismChip(false, { onPick(r) }, r, icon = PrismIcons.History)
-                                    }
+                                    // The chip takes the long press itself: wrapped in another clickable, its own click ate it.
+                                    PrismChip(false, { onPick(r) }, r, icon = PrismIcons.History, onLongClick = { onRemove(r) }, onLongClickLabel = "Remove")
                                 }
                             }
                         }

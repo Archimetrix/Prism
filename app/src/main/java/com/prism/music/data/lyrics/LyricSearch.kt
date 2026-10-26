@@ -53,9 +53,7 @@ class LyricSearch(
         if (!readsLikeALine(words)) return@coroutineScope emptyList()
         val local = async { runCatching { onThisPhone(query, words) }.getOrDefault(emptyList()) }
         val genius = async { runCatching { fromGenius(query, words) }.getOrDefault(emptyList()) }
-        val all = local.await() + genius.await()
-        // The same song from both (or two uploads of it): the better-matching one stays.
-        all.sortedByDescending { it.score }.distinctBy { key(it.song.title) + "|" + key(it.song.primaryArtist) }.take(MAX_HITS)
+        oneEach(local.await() + genius.await())
     }
 
     /** Lyrics saved on the phone: matched in full, on the spot, offline too. */
@@ -110,6 +108,28 @@ class LyricSearch(
         /** Nearly word for word: shown above the title matches. */
         const val SURE = 0.9f
 
+        /**
+         * One hit per song, best match first. Songs of one title that have the typed line are one song (its demo, a cover:
+         * Genius lists Olivia Rodrigo's "drivers license", its demo, then jxdn's cover): the first stays, which is what's
+         * on the phone, then Genius's own order. Otherwise Search, which leaves out a hit it already shows as the top
+         * result, put the cover alone under "From the lyrics" above the song itself.
+         */
+        fun oneEach(hits: List<Hit>): List<Hit> =
+            hits.sortedByDescending { it.score }.distinctBy { titleKey(it.song.title) }.take(MAX_HITS)
+
+        /** A title as one key, without its brackets or punctuation: "Shape of You (Major Lazer Remix)" = "shapeofyou". */
+        fun titleKey(title: String): String = key(bare(title))
+
+        /**
+         * What Search shows under "From the lyrics": nothing when the line's song is already on the page (by id, or a
+         * song of the same title: another upload or a remix of it), since then the other hits are songs that quote the
+         * line ("It's me, hi, I'm the problem" in a GloRilla song, Weird Al's polka of "Shake It Off").
+         */
+        fun toShow(hits: List<Hit>, shownIds: Set<String>, shownTitles: List<String>): List<Hit> {
+            val titles = shownTitles.map(::titleKey).toSet()
+            return if (hits.any { it.song.id in shownIds || titleKey(it.song.title) in titles }) emptyList() else hits
+        }
+
         /** Four words or more, as a line is: "daft punk one more" stays an ordinary search's. */
         fun readsLikeALine(words: List<String>): Boolean = words.size >= 4 && words.sumOf { it.length } >= 14
 
@@ -162,7 +182,8 @@ class LyricSearch(
                 val s1 = coverage(query, one)
                 val s2 = coverage(query, two)
                 val (text, s) = if (s2 > s1 + 0.01f) "${lines[i].trim()} / ${lines[i + 1].trim()}" to s2 else lines[i].trim() to s1
-                if (best == null || s > best.second) best = text to s
+                // As good a match in less: the line itself, not the line before it run into it.
+                if (best == null || s > best.second || (s == best.second && text.length < best.first.length)) best = text to s
             }
             return best
         }

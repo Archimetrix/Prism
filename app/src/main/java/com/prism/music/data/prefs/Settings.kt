@@ -135,7 +135,7 @@ enum class NavBarFill(val label: String) { GLASS("As the glass"), LIGHT("See-thr
 /** Tabs the bottom bar can hold. */
 /** The sections along the top of Local files, in the order the listener picked (#29). */
 enum class LocalSection(val label: String) {
-    SONGS("Songs"), FAVOURITES("Favourites"), ARTISTS("Artists"), ALBUMS("Albums"),
+    SONGS("Songs"), FAVOURITES("Favorites"), ARTISTS("Artists"), ALBUMS("Albums"),
     ADDED_SONGS("Recently added"), ADDED_ALBUMS("Added albums"), DOWNLOADS("Downloads"),
 }
 
@@ -278,7 +278,7 @@ enum class LyricsBackground(val label: String, val note: String) {
     COVER_COLOR("The cover's color", "One color taken from the cover"),
     COLOR("Your colors", "A color, or two as a gradient"),
 }
-enum class PlayerTitleAlign(val label: String) { START("Left"), CENTER("Centred") }
+enum class PlayerTitleAlign(val label: String) { START("Left"), CENTER("Centered") }
 enum class PlayerTitleSize(val label: String, val scale: Float) { SMALL("Small", 0.82f), MEDIUM("Medium", 1f), LARGE("Large", 1.2f) }
 /** The times under the progress bar. */
 enum class PlayerTimes(val label: String) { BOTH("Both"), ELAPSED("Elapsed"), LEFT("Time left"), NONE("None") }
@@ -424,7 +424,7 @@ object HomeSections {
         HomeSectionConfig(SPEED_DIAL, "Speed dial", style = SectionStyle.GRID),
         HomeSectionConfig(ON_REPEAT, "On repeat"),
         HomeSectionConfig(REPEAT_REWIND, "Repeat rewind"),
-        HomeSectionConfig(FORGOTTEN, "Forgotten favourites"),
+        HomeSectionConfig(FORGOTTEN, "Forgotten favorites"),
     )
 
     /** What a fresh install's Home shows (and what Reset goes back to). */

@@ -373,13 +373,16 @@ fun LibraryScreen(bottomPadding: Dp) {
                             }
                         }
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 8.dp)) {
-                                if (rearranging) Text(
-                                    "Hold and drag, or use the arrows", style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                ) else if (myPlaylists.size > 1) SortBar("${myPlaylists.size} playlists", PlaylistSort.entries, playlistSort, { it.label }, Modifier.weight(1f)) {
-                                    c.library.setPlaylistSort(it.name)
-                                } else Spacer(Modifier.weight(1f))
+                            // The count and sort on a line of their own: beside the two buttons, on a 448 dp phone, the
+                            // count was squeezed into a column a letter wide.
+                            Column(Modifier.padding(end = 8.dp)) {
+                            if (rearranging) Text(
+                                "Hold and drag, or use the arrows", style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                            ) else if (myPlaylists.size > 1) SortBar("${myPlaylists.size} playlists", PlaylistSort.entries, playlistSort, { it.label }) {
+                                c.library.setPlaylistSort(it.name)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp)) {
                                 // A playlist from a link (H7), without YouTube's share menu.
                                 if (!rearranging) com.prism.music.ui.components.PrismChip(false, { openingLink = true }, "Open a link", icon = PrismIcons.Link)
                                 if (myPlaylists.size > 1) com.prism.music.ui.components.PrismChip(
@@ -391,6 +394,7 @@ fun LibraryScreen(bottomPadding: Dp) {
                                     if (rearranging) "Done" else "Rearrange",
                                     icon = if (rearranging) PrismIcons.Check else PrismIcons.SwapVertical,
                                 )
+                            }
                             }
                         }
                         if (rearranging) item(span = { GridItemSpan(maxLineSpan) }) {
