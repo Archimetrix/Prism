@@ -28,6 +28,7 @@ data class CanvasArtwork(
     val title: String? = null,
     val artist: String? = null,
     val album: String? = null,
+    val source: String? = null,
 )
 
 /**
@@ -58,6 +59,8 @@ private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/53
  * track, because a wrong clip is worse than none; any failure is just "no canvas".
  */
 class CanvasRepository(private val http: OkHttpClient) {
+    /** Optional Spotify web session; set by the app container. */
+    var spotifyCanvas: SpotifyCanvasProvider? = null
     /** Songs whose animated artwork you've switched off from the player; set up by the app container. */
     var hiddenPrefs: android.content.SharedPreferences? = null
         set(v) { field = v; hidden.value = v?.getStringSet("ids", emptySet())?.toSet() ?: emptySet() }
@@ -115,7 +118,15 @@ class CanvasRepository(private val http: OkHttpClient) {
     }
     /** What each song's lookup found (or didn't), remembered across launches so clips start without searching again. */
     @Serializable
-    private data class Entry(val art: CanvasArtwork? = null, val hadAlbum: Boolean = false, val at: Long = 0, val album: String? = null, val v: Int = 0)
+    private data class Entry(
+        val art: CanvasArtwork? = null,
+        val hadAlbum: Boolean = false,
+        val at: Long = 0,
+        val album: String? = null,
+        val v: Int = 0,
+        /** Whether Spotify was tried for this lookup; connecting Spotify invalidates old provider-only results. */
+        val spotifyChecked: Boolean = false,
+    )
 
     private val cache = object : LinkedHashMap<String, Entry>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>) =
@@ -184,14 +195,18 @@ class CanvasRepository(private val http: OkHttpClient) {
     private fun latinless(s: String) = !Regex("[a-z0-9]").containsMatchIn(Normalizer.normalize(s, Normalizer.Form.NFD).lowercase(Locale.ROOT))
     private fun entry(song: Song): Entry? = cache[song.id]?.takeIf { !it.suspect(song) }
 
-    fun cached(song: Song): CanvasArtwork? = synchronized(cache) { entry(song)?.art }
+    private fun available(art: CanvasArtwork?) = art?.takeUnless { it.source == "spotify" && spotifyCanvas?.connected() != true }
+
+    fun cached(song: Song): CanvasArtwork? = synchronized(cache) { available(entry(song)?.art) }
 
     suspend fun canvasFor(song: Song): CanvasArtwork? {
         val now = System.currentTimeMillis()
         synchronized(cache) {
             entry(song)?.let { e ->
                 val fresh = isSaved(song) || !e.stale(now)
-                if (fresh && (e.art != null || e.hadAlbum || song.album == null)) return e.art
+                val spotifyReady = spotifyCanvas?.connected() != true || e.spotifyChecked
+                val wasSpotify = e.art?.source == "spotify" && spotifyCanvas?.connected() != true
+                if (fresh && spotifyReady && (available(e.art) != null || (!wasSpotify && e.hadAlbum) || song.album == null)) return available(e.art)
             }
         }
         val job = synchronized(inFlight) {
@@ -209,6 +224,7 @@ class CanvasRepository(private val http: OkHttpClient) {
         if (title.isBlank() || artist.isBlank()) return null
         val found = withContext(Dispatchers.IO) {
             listOf<() -> CanvasArtwork?>(
+                { spotifyCanvas?.find(title, artist, album) },
                 { apple(title, artist, album) },
                 { tidal(title, artist, album) },
                 { community(title, artist, album) },
@@ -217,8 +233,10 @@ class CanvasRepository(private val http: OkHttpClient) {
         }
         synchronized(cache) {
             // Offline or a source hiccup: keep the clip we already knew rather than forgetting it.
-            val known = entry(song)?.art
-            if (found != null || known == null) cache[song.id] = Entry(found, album != null, now, albumKey(song), MATCHING)
+            val known = available(entry(song)?.art)
+            if (found != null || known == null || spotifyCanvas?.connected() == true) {
+                cache[song.id] = Entry(found ?: known, album != null, now, albumKey(song), MATCHING, spotifyCanvas?.connected() == true)
+            }
         }
         scheduleWrite()
         return found ?: synchronized(cache) { entry(song)?.art }

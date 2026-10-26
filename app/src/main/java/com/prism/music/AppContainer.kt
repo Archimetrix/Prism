@@ -250,6 +250,9 @@ class AppContainer(val app: Application) {
     val canvas = com.prism.music.data.canvas.CanvasRepository(http).apply {
         hiddenPrefs = app.getSharedPreferences("canvas_hidden", android.content.Context.MODE_PRIVATE)
         savedPrefs = app.getSharedPreferences("canvas_saved", android.content.Context.MODE_PRIVATE)
+        spotifyCanvas = com.prism.music.data.canvas.SpotifyCanvasProvider(
+            http, app.getSharedPreferences("spotify_canvas", android.content.Context.MODE_PRIVATE),
+        )
         useIndex(File(app.filesDir, "canvas_index.json"))
     }
     val videoSync by lazy { com.prism.music.playback.VideoSync(app, streamHttp, streams, scope) }

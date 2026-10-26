@@ -1337,6 +1337,7 @@ private fun PlayerSettings() {
                 "Animated covers", "Moving artwork, when a song has it", s.canvasEnabled,
                 info = "Motion artwork and video covers. Turn them off for one song from the player's ⋯ menu. Whether they play on mobile data, and the ones kept on the phone, are in Downloads, storage & data.",
             ) { prefs.setCanvasEnabled(it) }
+            if (s.canvasEnabled) SpotifyCanvasSettings()
             if (s.canvasEnabled) Toggle(
                 "Fill the player", "The animated cover plays behind everything", s.canvasFillsBackground,
                 info = "The moving artwork fills the whole player, darkened under the controls, and the cover itself shows the still picture. Not with full-bleed artwork, which already shows it edge to edge.",
