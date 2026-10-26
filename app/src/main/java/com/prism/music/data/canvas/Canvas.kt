@@ -223,7 +223,7 @@ class CanvasRepository(private val http: OkHttpClient) {
         val artist = song.primaryArtist.cleaned()
         if (title.isBlank() || artist.isBlank()) return null
         val found = withContext(Dispatchers.IO) {
-            listOf<() -> CanvasArtwork?>(
+            listOf<suspend () -> CanvasArtwork?>(
                 { spotifyCanvas?.find(title, artist, album) },
                 { apple(title, artist, album) },
                 { tidal(title, artist, album) },
