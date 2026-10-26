@@ -690,7 +690,11 @@ fun PlaylistPicker(songs: List<Song>, what: String, onDismiss: () -> Unit) {
             onDismiss()
             if (!signedIn) { c.prismLibrary.create(name, songs); toast("Added to $name"); return@NewPlaylistDialog }
             c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                val id = runCatching { c.ytm.createPlaylist(name, ids, privacy = privacy) }.getOrNull()
+                // A long list (Liked songs, a big playlist) goes in 50 at a time after the first: one request with
+                // thousands of songs could be refused.
+                val id = runCatching {
+                    c.ytm.createPlaylist(name, ids.take(50), privacy = privacy)?.also { if (ids.size > 50) c.ytm.addAllToPlaylist(it, ids.drop(50)) }
+                }.getOrNull()
                 toast(if (id != null) "Added to $name" else "Couldn't make the playlist")
                 if (id != null) c.library.refreshCollections()
             }

@@ -1492,11 +1492,6 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         resequenceJob = scope.launch { delay(RESEQUENCE_GAP_MS); resequence() }
     }
 
-    /**
-     * Buttons beside play/pause/skip, in the listener's order (Settings → Player → Buttons, 1.7.4; like, shuffle, repeat,
-     * lyrics, start radio and "not for me" by default). The phone's media controls show the first two; the watch keeps
-     * previous/next beside play (see the session extras); Android Auto shows them all.
-     */
     /** The pitch music plays at: Sing's key while Sing is on (−6…+6 semitones), else the song's own. */
     private fun singPitch(): Float = if (c.sing.onNow) Math.pow(2.0, c.sing.semitones.value / 12.0).toFloat() else 1f
 
@@ -1505,6 +1500,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         WATCH_COMPANIONS.any { p -> runCatching { packageManager.getPackageInfo(p, 0) }.isSuccess }
     }
 
+    /**
+     * Buttons beside play/pause/skip, in the listener's order (Settings → Player → Buttons, 1.7.4; like, shuffle, repeat,
+     * lyrics, start radio and "not for me" by default). The phone's media controls show the first two; the watch keeps
+     * previous/next beside play (see the session extras); Android Auto shows them all.
+     */
     private fun updateButtons() {
         if (!::session.isInitialized) return
         val id = player.currentMediaItem?.mediaId

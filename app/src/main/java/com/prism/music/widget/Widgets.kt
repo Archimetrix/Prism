@@ -71,6 +71,9 @@ class CoverWidget : NowPlayingWidget()
 class DiscWidget : NowPlayingWidget()
 class StripWidget : NowPlayingWidget()
 
+/** The widgets' buttons that go to the player (a like doesn't need it). */
+private val PLAYER_ACTIONS = setOf(Widgets.ACTION_PLAY, Widgets.ACTION_NEXT, Widgets.ACTION_PREVIOUS, RecognizeWidgets.ACTION_PLAY)
+
 /** The widgets' buttons. Tapping one counts as using Prism, so playback may start from here. */
 class WidgetActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -88,6 +91,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
         }
         // With Prism not running, the player is reached a moment later (Reddit R4: widgets couldn't pause or skip): the
         // broadcast is held until the command has been handed over, so Android doesn't stop Prism first.
+        if (intent.action !in PLAYER_ACTIONS) return
         val pending = goAsync()
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         var finished = false
