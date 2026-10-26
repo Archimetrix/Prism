@@ -302,6 +302,9 @@ private fun QueueRow(
     val slide = remember { androidx.compose.animation.core.Animatable(0f) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val haptics = com.prism.music.ui.theme.rememberHaptics()
+    // The swipe outlives a recomposition (it's keyed on the song), so it calls the latest onRemove: the row's place
+    // in the queue changes when a song above it goes, and an old one would take out its neighbour.
+    val removeNow by androidx.compose.runtime.rememberUpdatedState(onRemove)
     val swipe = if (onRemove == null) Modifier else Modifier.pointerInput(song.id) {
         val goAt = size.width / 3f
         detectHorizontalDragGestures(
@@ -310,7 +313,7 @@ private fun QueueRow(
                     if (slide.value <= -goAt) {
                         haptics.gestureEnd()
                         slide.animateTo(-size.width.toFloat(), androidx.compose.animation.core.tween(160))
-                        onRemove()
+                        removeNow?.invoke()
                     } else slide.animateTo(0f)
                 }
             },

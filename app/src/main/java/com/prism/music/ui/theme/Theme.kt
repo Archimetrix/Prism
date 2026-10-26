@@ -442,7 +442,8 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     val whiteAccent = colors.whiteAccent
     if (PrismTokens.whiteAccent?.now != whiteAccent?.now || (PrismTokens.whiteAccent == null) != (whiteAccent == null)) PrismTokens.whiteAccent = whiteAccent
 
-    val ui = remember(settings.corners, settings.uiDensity, settings.cardSize, settings.titleSize, settings.reduceMotion) { PrismUi.from(settings) }
+    // Shapes (1.7.7) are part of it: a cover shape, the corner slider or the buttons' shape applies at once.
+    val ui = remember(settings.corners, settings.shapes, settings.uiDensity, settings.cardSize, settings.titleSize, settings.reduceMotion) { PrismUi.from(settings) }
     val typography = remember(settings.fontChoice, settings.fontStamp, settings.type) { appTypography(settings) }
     // Settings → Appearance → Text → "Lyrics font" (#12): null keeps each lyric style's own face.
     val lyricsFont = remember(settings.lyricsFont, settings.fontStamp) {

@@ -517,12 +517,24 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
         live.songs.value = order
         if (type == CollectionType.PRISM) { c.prismLibrary.reorder(page.id, order); return }
         val at = order.indexOfFirst { it.id == moved.id }
-        val slot = slots[moved.id] ?: return
-        val next = order.getOrNull(at + 1)?.let { slots[it.id] }
+        val successor = order.getOrNull(at + 1)
+        val slot = slots[moved.id]
+        val next = successor?.let { slots[it.id] }
+        // YouTube places a song by the slot of the one after it (none: the end). Without both, the move would land
+        // somewhere else on YouTube than on the page, so it isn't made.
+        if (slot == null || successor != null && next == null) {
+            live.songs.value = before
+            Toast.makeText(context, "Couldn't move it here. Open the playlist again and retry", Toast.LENGTH_SHORT).show()
+            return
+        }
         scope.launch {
             moves.withLock {
                 runCatching { c.ytm.movePlaylistItem(page.id, slot, next) }.onFailure {
-                    live.songs.value = before
+                    // Only this move is undone: moves made after it went to YouTube in turn and stay.
+                    live.songs.value = live.songs.value.toMutableList().apply {
+                        val k = indexOfFirst { it.id == moved.id }
+                        if (k >= 0) { removeAt(k); add(before.indexOfFirst { it.id == moved.id }.coerceIn(0, size), moved) }
+                    }
                     Toast.makeText(context, "Couldn't move it: ${it.friendlyMessage()}", Toast.LENGTH_SHORT).show()
                 }
             }

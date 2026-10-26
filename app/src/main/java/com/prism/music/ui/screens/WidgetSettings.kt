@@ -63,6 +63,9 @@ class WidgetConfigActivity : ComponentActivity() {
         if (id == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
         // Placed either way: leaving this screen keeps the widget, as designed.
         setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
+        // A widget with a settings screen gets no first update from Android: drawn now, it shows what's playing even if
+        // this screen is left without a change.
+        Widgets.refresh(this)
         val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(id)?.provider?.className
         val style = WidgetStyle.entries.firstOrNull { it.provider.name == provider } ?: run { finish(); return }
         enableEdgeToEdge()
