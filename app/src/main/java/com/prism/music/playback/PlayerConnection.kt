@@ -523,6 +523,27 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         val auto = c.queue.autoplayStart.value
         if (auto > index) c.queue.autoplayStart.value = auto - 1
     }
+
+    /**
+     * Takes the song at [index] out (a swipe in the queue, #149) and returns how to put it back where it was, or null
+     * when there's nothing there. The item itself goes back, so it keeps everything it was queued with.
+     */
+    fun removeForUndo(index: Int): (() -> Unit)? {
+        val p = player ?: return null
+        if (index !in 0 until p.mediaItemCount) return null
+        val item = p.getMediaItemAt(index)
+        val wasAuto = c.queue.autoplayStart.value.let { it in 0..index }
+        removeAt(index)
+        return {
+            withPlayer { q ->
+                val at = index.coerceAtMost(q.mediaItemCount)
+                q.addMediaItem(at, item)
+                val auto = c.queue.autoplayStart.value
+                // Back among the songs it was with: before autoplay's suggestions, or one of them.
+                if (auto >= 0 && (auto > at || auto == at && !wasAuto)) c.queue.autoplayStart.value = auto + 1
+            }
+        }
+    }
     fun move(from: Int, to: Int) = withPlayer { it.moveMediaItem(from, to) }
     /** Shuffle's button: off → shuffle → Smart Shuffle (where the queue allows it) → off. */
     fun toggleShuffle() = withPlayer {

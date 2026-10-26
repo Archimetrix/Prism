@@ -103,7 +103,7 @@ fun MiniPlayer(
             PlayerGesture.MENU -> menu = true
             PlayerGesture.STOP -> pc.stop()
             // The ones about the full player open it.
-            PlayerGesture.QUEUE, PlayerGesture.LYRICS, PlayerGesture.VIDEO, PlayerGesture.SING -> onOpen()
+            PlayerGesture.OPEN, PlayerGesture.QUEUE, PlayerGesture.LYRICS, PlayerGesture.VIDEO, PlayerGesture.SING -> onOpen()
             PlayerGesture.SEEK_SIDES, PlayerGesture.NONE -> {}
         }
     }
@@ -136,9 +136,22 @@ fun MiniPlayer(
             .graphicsLayer { alpha = 1f - (pull.value / (height.toPx() * 1.6f)).coerceIn(0f, 0.85f) }
             .pointerInput(Unit) {
                 val stopAt = height.toPx() * 0.9f
+                // Up (#149, 1.7.7): the card lifts a little against the finger (a third of the drag, at most a third of its
+                // height) and opens the player, or does what's set, once lifted past [upAt].
+                val upAt = -height.toPx() * 0.22f
+                val upMost = -height.toPx() * 0.34f
+                var raw = 0f
                 detectVerticalDragGestures(
+                    onDragStart = { raw = pull.value },
                     onDragEnd = {
                         scope.launch {
+                            val up = container.settings.current.miniSwipeUp
+                            if (pull.value <= upAt && up != PlayerGesture.NONE) {
+                                haptics.gestureEnd()
+                                runMiniGesture(up)
+                                pull.animateTo(0f)
+                                return@launch
+                            }
                             // Pulled down: stop (#59) or whatever's set in Settings → Player → Gestures (1.7.4).
                             val down = container.settings.current.miniSwipeDown
                             if (pull.value > stopAt && down != PlayerGesture.NONE) {
@@ -157,8 +170,9 @@ fun MiniPlayer(
                     onDragCancel = { scope.launch { pull.animateTo(0f) } },
                 ) { change, d ->
                     change.consume()
-                    val after = (pull.value + d).coerceAtLeast(0f)
-                    if ((pull.value < stopAt) != (after < stopAt)) haptics.threshold()
+                    raw += d
+                    val after = if (raw >= 0f) raw else (raw / 3f).coerceAtLeast(upMost)
+                    if ((pull.value < stopAt) != (after < stopAt) || (pull.value > upAt) != (after > upAt)) haptics.threshold()
                     scope.launch { pull.snapTo(after) }
                 }
             }

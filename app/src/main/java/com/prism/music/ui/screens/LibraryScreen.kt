@@ -353,7 +353,13 @@ fun LibraryScreen(bottomPadding: Dp) {
                                         PrismIcons.Phone, asList,
                                     ) { nav.go(Routes.LOCAL) }
                                 }
-                                LibraryTile.REPLAY -> item(key = "tile-replay") { ShortcutTile("Replay", "Your listening recap", PrismIcons.History, asList) { nav.go(Routes.REPLAY) } }
+                                LibraryTile.REPLAY -> item(key = "tile-replay") { ShortcutTile("Replay", "Your listening recap", if (LibraryTile.HISTORY in settings.libraryTiles) PrismIcons.Replay else PrismIcons.History, asList) { nav.go(Routes.REPLAY) } }
+                                // Replay keeps its clock unless History's tile is there too, which takes it (Replay gets its chart).
+                                LibraryTile.HISTORY -> item(key = "tile-history") {
+                                    ShortcutTile("History", "Everything you've played", PrismIcons.History, asList) {
+                                        scope.launch { pager.animateScrollToPage(LibTab.HISTORY.ordinal) }
+                                    }
+                                }
                                 // Home's Podcasts button turned off (#28): Podcasts lives here instead.
                                 LibraryTile.PODCASTS -> if (!settings.homePodcastsButton) item(key = "tile-podcasts") { ShortcutTile("Podcasts", "Shows and episodes", PrismIcons.Podcasts, asList) { nav.go(Routes.PODCASTS) } }
                                 LibraryTile.TOGETHER -> item(key = "tile-together") { ShortcutTile("Listen together", "With friends on the same Wi-Fi", PrismIcons.Groups, asList) { nav.go(Routes.TOGETHER) } }

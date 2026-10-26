@@ -1417,9 +1417,13 @@ private fun PlayerLookGroup() {
         Chips(TransportStyle.entries, s.transportStyle, { it.label }) { prefs.setTransportStyle(it) }
         Label(
             "Progress bar",
-            info = if (s.scrubberStyle == ScrubberStyle.WAVE) "Waveform: each song's own shape, from Prism's scan of it: a plain bar until a song has been scanned (a few seconds into it)." else null,
+            info = when (s.scrubberStyle) {
+                ScrubberStyle.WAVE -> "Waveform: each song's own shape, from Prism's scan of it: a plain bar until a song has been scanned (a few seconds into it)."
+                ScrubberStyle.RIBBONS -> "Ribbons flow only while a song plays and the player is open; with Reduce motion or Performance mode they hold still."
+                else -> null
+            },
         )
-        Chips(ScrubberStyle.entries, s.scrubberStyle, { it.label }) { prefs.setScrubberStyle(it) }
+        ScrubberStyleCards()
     }
 }
 

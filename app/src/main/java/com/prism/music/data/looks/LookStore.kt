@@ -442,6 +442,9 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     /** Takes back the last change. */
     fun undo() = goBack(0)
 
+    /** Forgets every step (#152); the look stays as it is now. */
+    fun clearHistory() = saveSteps(emptyList())
+
     /** Puts the look back as it was before step [index] (and everything after it). */
     fun goBack(index: Int) {
         val steps = _steps.value

@@ -856,6 +856,23 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         })
     }
 
+    /**
+     * Moves one song in an owned playlist (#140): the song in slot [setVideoId] goes just before the one in [beforeSetVideoId],
+     * or to the end when that's null. Slots stay the same, so the page's `setVideoIds` still hold after a move.
+     */
+    suspend fun movePlaylistItem(playlistId: String, setVideoId: String, beforeSetVideoId: String?) {
+        api.post("browse/edit_playlist", buildJsonObject {
+            put("playlistId", playlistId.removePrefix("VL"))
+            putJsonArray("actions") {
+                addJsonObject {
+                    put("action", "ACTION_MOVE_VIDEO_BEFORE")
+                    put("setVideoId", setVideoId)
+                    beforeSetVideoId?.let { put("movedSetVideoIdSuccessor", it) }
+                }
+            }
+        })
+    }
+
     /** Saves an album (by its playlist id) or someone else's playlist to the library, or takes it out. */
     suspend fun setLibrarySaved(playlistId: String, saved: Boolean) {
         api.post(if (saved) "like/like" else "like/removelike", buildJsonObject {

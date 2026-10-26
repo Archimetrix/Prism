@@ -45,8 +45,11 @@ fun signatureStyle(type: ArtistType, sizeSp: Float, align: TextAlign = TextAlign
     val ink = MaterialTheme.colorScheme.onSurface
     val dark = LocalIsDark.current
     val density = LocalDensity.current
+    // Standard is the plain headline, so it's in the font picked for Prism (#139: it was Google Sans Flex on a Pixel and
+    // Android's own font elsewhere, whatever the listener had chosen). The other styles are typefaces of their own.
+    val appFont = MaterialTheme.typography.headlineLarge.fontFamily
     val base = TextStyle(
-        fontFamily = type.family,
+        fontFamily = if (type.key == com.prism.music.ui.theme.ArtistTypography.standard.key && appFont != null) appFont else type.family,
         fontWeight = type.weight,
         fontStyle = if (type.italic) FontStyle.Italic else FontStyle.Normal,
         fontSize = sizeSp.sp,

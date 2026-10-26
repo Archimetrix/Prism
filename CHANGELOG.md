@@ -2,6 +2,28 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.7 (unreleased)
+
+### You asked for it
+- **Rearrange your playlists' songs** (#140): open one of your playlists → ⋯ → Rearrange songs, then hold a song (or
+  drag its grip) and move it. Each move goes straight to YouTube Music, so the order is the same everywhere, and is put
+  back if YouTube refuses. Prism playlists rearrange the same way.
+- **Newest first** (#141): the sort menu of your own playlists has "Newest first" (YouTube adds new songs at the end),
+  Liked songs has "Oldest first", and anyone else's playlist can be reversed.
+- **Swipe a song out of the queue** (#149): swipe it to the left; an Undo shows for a few seconds. The × still works,
+  and now has the Undo too.
+- **Swipe the mini player up** to open the player (#149), or pick what it does in Settings → Controls & gestures.
+- **Pull the queue down to close it** (#149): by its title, or by the song at the top.
+- **History as a Library tile** (#136): Edit tiles → History. (Replay's tile swaps its clock for its chart then.)
+- **Clear the Looks history** (#152): Customize Prism → Looks → History → Clear history. Your look stays as it is.
+- **Ribbons**, a new progress bar (#151, after One UI's): the bar and a knob, with thin strands flowing along the played
+  part while a song plays. Customize Prism → Player → Progress bar, where every style is now a card showing how it
+  looks. The strands hold still with Reduce motion or Performance mode.
+
+### Fixes
+- **The artist page's name follows your font** (#139): the plain Standard style was drawn in Google Sans on a Pixel and
+  Android's own font elsewhere, whatever font you picked. The other signature styles keep their own typefaces.
+
 ## 1.7.6
 
 Home, Library and Search your way, and a lighter, faster Prism. The fifth customization update, and a performance one:

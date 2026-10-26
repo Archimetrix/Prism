@@ -602,13 +602,23 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 com.prism.music.data.prefs.PlayerGesture.SING -> onButton(com.prism.music.data.prefs.PlayerButton.SING)
                 com.prism.music.data.prefs.PlayerGesture.MENU -> showActions = true
                 com.prism.music.data.prefs.PlayerGesture.STOP -> { pc.stop(); slideClosed() }
-                com.prism.music.data.prefs.PlayerGesture.SEEK_SIDES, com.prism.music.data.prefs.PlayerGesture.NONE -> {}
+                // OPEN is the mini player's; the player is open already.
+                com.prism.music.data.prefs.PlayerGesture.SEEK_SIDES, com.prism.music.data.prefs.PlayerGesture.OPEN,
+                com.prism.music.data.prefs.PlayerGesture.NONE -> {}
             }
         }
         // Drag on the sleeve: down closes the player, up does what's set (the queue comes in, by default).
         val sleeveGesture = Modifier.pointerInput(lyricsOpen, queueOpen, statsOpen) {
-            if (lyricsOpen || queueOpen || statsOpen) return@pointerInput
+            if (lyricsOpen || statsOpen) return@pointerInput
             var total = 0f
+            // With the queue open, pulling the header down closes the queue (#149), as swiping up brought it.
+            if (queueOpen) {
+                detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragEnd = { if (total > 90f) { haptics.gestureEnd(); toggleQueue() } },
+                ) { change, amount -> change.consume(); total += amount }
+                return@pointerInput
+            }
             detectVerticalDragGestures(
                 onDragStart = { total = 0f },
                 onDragEnd = {
@@ -938,6 +948,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         InlineQueue(
                             onRevealPlayer = { queueControlsOpen = true },
                             onHidePlayer = { queueControlsOpen = false },
+                            onClose = { haptics.gestureEnd(); toggleQueue() },
                             modifier = Modifier.fillMaxSize().padding(top = HEADER_HEIGHT + 8.dp).graphicsLayer {
                                 alpha = panelFade
                                 translationY = (1f - panelFade) * 26.dp.toPx()

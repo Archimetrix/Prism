@@ -171,7 +171,11 @@ enum class Preload(val label: String, val songs: Int) { START("Next song's start
 enum class ImmersiveLyrics(val label: String) { HIGH("High"), MIDDLE("Middle"), LOW("Low"), FULL("Full screen") }
 enum class ImmersiveArt(val label: String, val zoom: Float) { FILL("Fill the screen", 1f), ZOOMED("Zoomed out", 0.4f), WHOLE("Whole cover", 0f) }
 /** [WAVE] (1.7.4): the song's own loudness, drawn from its scan, as the bar (a plain line until the song's been scanned). */
-enum class ScrubberStyle(val label: String) { HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb"), WAVE("Waveform") }
+enum class ScrubberStyle(val label: String) {
+    HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb"), WAVE("Waveform"),
+    /** A filled bar and knob with thin strands flowing over the played part (#151, after One UI's; 1.7.7). */
+    RIBBONS("Ribbons"),
+}
 
 // ---------------------------------------------------------------------------- The player, your way (1.7.4)
 
@@ -289,14 +293,17 @@ enum class PlayerGesture(val label: String) {
     /** Double tap only: the cover's left half goes back, its right half ahead (#79). */
     SEEK_SIDES("Seek by side"),
     PLAY_PAUSE("Play / pause"), LIKE("Like"), QUEUE("Up next"), LYRICS("Lyrics"), SLEEP("Sleep timer"), VIDEO("Video"),
-    SING("Sing"), MENU("Song menu"), STOP("Stop"), NONE("Nothing");
+    SING("Sing"), MENU("Song menu"), STOP("Stop"),
+    /** Mini player only (#149, 1.7.7): what a tap does, for swiping up. */
+    OPEN("Open the player"),
+    NONE("Nothing");
 
     companion object {
         /** The choices offered for a gesture ([double]: double tap, which also has [SEEK_SIDES]; [mini]: the mini player). */
         fun choices(double: Boolean = false, mini: Boolean = false): List<PlayerGesture> = entries.filter {
             when (it) {
                 SEEK_SIDES -> double
-                STOP -> mini
+                STOP, OPEN -> mini
                 LYRICS, VIDEO, SING -> !mini
                 else -> true
             }
@@ -338,8 +345,15 @@ fun parseLibraryViews(v: String): Map<String, LibraryView> = v.split('|').mapNot
 }.toMap()
 /** The tiles at the top of Library's Playlists tab (Reddit 1.7: "let me reorder or hide them"); shown in the order kept. */
 enum class LibraryTile(val label: String) {
-    LIKED("Liked songs"), DOWNLOADS("Downloads"), LOCAL("Local files"), REPLAY("Replay"), PODCASTS("Podcasts"),
-    TOGETHER("Listen together"), BLEND("Blend"), RECOGNIZED("Recognized"), NEW_PLAYLIST("New playlist"), IMPORT("Import playlists"),
+    LIKED("Liked songs"), DOWNLOADS("Downloads"), LOCAL("Local files"), REPLAY("Replay"),
+    /** Library's own History tab as a tile (#136, 1.7.7); not shown until ticked. */
+    HISTORY("History"), PODCASTS("Podcasts"),
+    TOGETHER("Listen together"), BLEND("Blend"), RECOGNIZED("Recognized"), NEW_PLAYLIST("New playlist"), IMPORT("Import playlists");
+
+    companion object {
+        /** A new install's tiles: all but those added later, so nobody's Library changes on its own. */
+        val initial = entries - HISTORY
+    }
 }
 
 @Serializable
@@ -867,6 +881,8 @@ data class AppSettings(
     val miniSwipeLeft: PlayerGesture = PlayerGesture.NEXT,
     val miniSwipeRight: PlayerGesture = PlayerGesture.PREVIOUS,
     val miniSwipeDown: PlayerGesture = PlayerGesture.STOP,
+    /** Swiping the mini player up (#149, 1.7.7): it did nothing before, so opening the player changes no habit. */
+    val miniSwipeUp: PlayerGesture = PlayerGesture.OPEN,
     // Library & Replay
     val libraryView: LibraryView = LibraryView.LIST,
     /** Library tabs shown their own way (1.7.6: "PLAYLISTS", "ALBUMS", "ARTISTS"); the rest as [libraryView]. */
@@ -877,7 +893,7 @@ data class AppSettings(
     val librarySubtitles: Boolean = true,
     val libraryStartTab: String = "PLAYLISTS",
     /** Library's tiles that show, in order (the rest are hidden). */
-    val libraryTiles: List<LibraryTile> = LibraryTile.entries,
+    val libraryTiles: List<LibraryTile> = LibraryTile.initial,
     /** Library → Playlists shows your playlists above the tiles (Liked songs, Downloads…) instead of below them. */
     val libraryPlaylistsFirst: Boolean = false,
     /** Playlist pages open with their picture edge to edge, like an artist page. */
@@ -1179,6 +1195,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val miniSwipeLeft = stringPreferencesKey("mini_swipe_left")
         val miniSwipeRight = stringPreferencesKey("mini_swipe_right")
         val miniSwipeDown = stringPreferencesKey("mini_swipe_down")
+        val miniSwipeUp = stringPreferencesKey("mini_swipe_up")
         val libraryView = stringPreferencesKey("library_view")
         val libraryViews = stringPreferencesKey("library_views")
         val libraryColumns = stringPreferencesKey("library_columns")
@@ -1262,7 +1279,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "library_start_tab", "library_tiles", "library_playlists_first",
                 // 1.7.4: what buttons and gestures do is how you use Prism, not how it looks.
                 "session_buttons", "cover_swipe_left", "cover_swipe_right", "cover_swipe_up", "cover_double_tap", "cover_long_press",
-                "mini_swipe_left", "mini_swipe_right", "mini_swipe_down",
+                "mini_swipe_left", "mini_swipe_right", "mini_swipe_down", "mini_swipe_up",
             )
         }
     }
@@ -1557,6 +1574,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             miniSwipeLeft = p.enum(K.miniSwipeLeft, d.miniSwipeLeft),
             miniSwipeRight = p.enum(K.miniSwipeRight, d.miniSwipeRight),
             miniSwipeDown = p.enum(K.miniSwipeDown, d.miniSwipeDown),
+            miniSwipeUp = p.enum(K.miniSwipeUp, d.miniSwipeUp),
             libraryView = p.enum(K.libraryView, d.libraryView),
             libraryViews = p[K.libraryViews]?.let(::parseLibraryViews) ?: d.libraryViews,
             libraryColumns = p.enum(K.libraryColumns, d.libraryColumns),
@@ -1911,7 +1929,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         p[key] = v.name
     }
     private val gestureKeys = listOf(
-        K.coverSwipeLeft, K.coverSwipeRight, K.coverSwipeUp, K.coverDoubleTap, K.coverLongPress, K.miniSwipeLeft, K.miniSwipeRight, K.miniSwipeDown,
+        K.coverSwipeLeft, K.coverSwipeRight, K.coverSwipeUp, K.coverDoubleTap, K.coverLongPress, K.miniSwipeLeft, K.miniSwipeRight, K.miniSwipeDown, K.miniSwipeUp,
     ).associateBy { it.name }
     fun setArtShrinkOnPause(v: Boolean) = edit { it[K.artShrinkOnPause] = v }
     fun setShowOutputDevice(v: Boolean) = edit { it[K.showOutputDevice] = v }

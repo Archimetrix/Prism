@@ -284,7 +284,7 @@ private fun PreviewBar(s: AppSettings, light: Brush) {
         Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
             Box(Modifier.fillMaxWidth().height(bar).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)))
             Box(Modifier.fillMaxWidth(0.4f).height(bar).clip(CircleShape).background(fill))
-            if (s.scrubberStyle == ScrubberStyle.THUMB) Row {
+            if (s.scrubberStyle == ScrubberStyle.THUMB || s.scrubberStyle == ScrubberStyle.RIBBONS) Row {
                 Spacer(Modifier.fillMaxWidth(0.38f))
                 Box(Modifier.size(14.dp).clip(CircleShape).background(Color.White))
             }
