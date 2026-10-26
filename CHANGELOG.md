@@ -48,6 +48,8 @@ frames drew 4–5× faster with it on.
 - Covers kept on the phone are looked up from memory, without working out each picture's file name again on every
   frame of a scrolling list.
 - The player's volume and output are asked of Android in the background, and the moods ranking is worked out there too.
+- **Library and Settings open faster after an update**: the list of Prism's code that Android compiles ahead at install
+  now covers them too (since 1.7.4 it only had Home, Search and the player).
 - Playback diagnostics now note Prism's memory every half minute, by kind, to find what grows on phones that close Prism.
 - **Animated covers use far less memory**: their player kept up to 50 seconds of video loaded ahead (looping the same
   few seconds over and over), about 50 MB on a budget phone; it now keeps 10 seconds at most (8 MB). And a cover is no
@@ -132,8 +134,7 @@ Prism's own design, not YouTube's page:
   streams still on air, so the length disappeared and the progress bar stopped seeking. They play as normal episodes now.
 - **Each local song shows its own cover** (#129). Android files untagged songs from one folder (and other mixes) as one
   album, so one file's cover went on all of them. Those songs now show the cover inside each file.
-- **Player, Layout & navigation and Lyrics are listed once** in Settings (#127): on the Settings page itself, no longer
-  again under Appearance.
+- **Player, Layout & navigation and Lyrics are listed once** in Settings (#127), under Customize Prism, no longer twice.
 
 ## 1.7.5
 
