@@ -664,12 +664,21 @@ fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit) {
  * account's YouTube Music ones. A new one is a YouTube Music playlist when signed in, else a Prism one.
  */
 @Composable
-fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
+fun PlaylistPicker(song: Song, onDismiss: () -> Unit) = PlaylistPicker(listOf(song), song.title, onDismiss)
+
+/**
+ * Adds [songs] (a song, or a whole album or playlist: Reddit R8) to one of the listener's playlists, or to a new one.
+ * [what] names them under the sheet's title.
+ */
+@Composable
+fun PlaylistPicker(songs: List<Song>, what: String, onDismiss: () -> Unit) {
     val c = LocalContainer.current
     val playlists by c.library.playlists.collectAsState()
     val prismLists by c.prismLibrary.lists.collectAsState()
     // A file on the phone can only go in a Prism playlist (YouTube Music has no copy of it).
-    val signedIn = c.settings.current.isLoggedIn && !song.isLocal
+    val signedIn = c.settings.current.isLoggedIn && songs.none { it.isLocal }
+    val ids = songs.map { it.id }
+    val many = songs.size > 1
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var creating by remember { mutableStateOf(false) }
@@ -679,9 +688,9 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
         NewPlaylistDialog(onDismiss = { creating = false; onDismiss() }, local = !signedIn) { name, privacy ->
             creating = false
             onDismiss()
-            if (!signedIn) { c.prismLibrary.create(name, listOf(song)); toast("Added to $name"); return@NewPlaylistDialog }
+            if (!signedIn) { c.prismLibrary.create(name, songs); toast("Added to $name"); return@NewPlaylistDialog }
             c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                val id = runCatching { c.ytm.createPlaylist(name, listOf(song.id), privacy = privacy) }.getOrNull()
+                val id = runCatching { c.ytm.createPlaylist(name, ids, privacy = privacy) }.getOrNull()
                 toast(if (id != null) "Added to $name" else "Couldn't make the playlist")
                 if (id != null) c.library.refreshCollections()
             }
@@ -694,7 +703,10 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
     PrismSheet(onDismiss = onDismiss) { close ->
         Column(Modifier.padding(bottom = 20.dp)) {
             Text("Add to playlist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 20.dp))
-            Text(song.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(
+                if (many) "$what · ${com.prism.music.data.model.songCount(songs.size)}" else what,
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 20.dp),
+            )
             Spacer(Modifier.height(10.dp))
             SheetAction(PrismIcons.Add, "New playlist") { creating = true }
             if (mine.size > 8) SearchField(query, "Find a playlist", { query = it }, Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
@@ -708,12 +720,18 @@ fun PlaylistPicker(song: Song, onDismiss: () -> Unit) {
                         Modifier.fillMaxWidth().clickable {
                             close {
                                 if (com.prism.music.data.PrismLibrary.isPrismList(p.id)) {
-                                    val added = c.prismLibrary.add(p.id, listOf(song))
-                                    toast(if (added > 0) "Added to ${p.title}" else "Already in ${p.title}")
+                                    val added = c.prismLibrary.add(p.id, songs)
+                                    toast(
+                                        when {
+                                            added == 0 -> "Already in ${p.title}"
+                                            many -> "${com.prism.music.data.model.songCount(added)} added to ${p.title}"
+                                            else -> "Added to ${p.title}"
+                                        },
+                                    )
                                     return@close
                                 }
                                 c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                    val ok = runCatching { c.ytm.addToPlaylist(p.id, song.id) }.isSuccess
+                                    val ok = runCatching { if (many) c.ytm.addAllToPlaylist(p.id, ids) else c.ytm.addToPlaylist(p.id, ids.single()) }.isSuccess
                                     toast(if (ok) "Added to ${p.title}" else "Couldn't add to ${p.title}")
                                 }
                             }

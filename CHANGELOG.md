@@ -46,8 +46,34 @@ What changed in each release. Older releases are described on the [Releases page
 - **Ribbons**, a new progress bar (#151, after One UI's): the bar and a knob, with thin strands flowing along the played
   part while a song plays. Customize Prism → Player → Progress bar, where every style is now a card showing how it
   looks. The strands hold still with Reduce motion or Performance mode.
+- **Title weight on the player** (Reddit): Customize Prism → Player → Title and times → Title weight: Light (Prism's
+  own), Regular or Bold. Bold makes the artist's name heavier too.
+- **Add a whole album or playlist to a playlist** (Reddit): hold it (or its ⋯) → Add to playlist.
+- **Share as YouTube links** (Reddit): Settings → Car & devices → Sharing and links → Links you share → YouTube. Songs go
+  out as youtu.be links, playlists and artists as youtube.com ones (albums have no page on YouTube, so they stay
+  YouTube Music's).
+- **Open YouTube Music links in Prism** (Reddit): the same group has a button to Android's "Open by default" page for
+  Prism, and says whether music.youtube.com links open here.
 
 ### Fixes
+- **Album songs play as songs again** (Reddit): signed out, YouTube now lists an album's tracks as their music videos
+  where they have one, so a song could play its video's sound: a longer intro, or another song mixed in ("Death &
+  Romance" ran 8 minutes with "Fear, Sex" in it), and the lyrics out of time. Prism now reads the album's own playlist,
+  which still lists the songs, and plays those (one request per album). The video stays the song's Video button. Also,
+  on long album pages "Play" could start another album's songs.
+- **A song that won't play no longer becomes a different recording** (Reddit): when a song isn't available where you
+  are, Prism plays its music video's sound only when the video is the song's length; it now also does that when YouTube
+  keeps refusing the song's stream (it skipped instead), never for age-restricted or Premium songs.
+- **All your YouTube Music playlists in the Library** (Reddit): only the first 25 or so showed; Android Auto's Library
+  too.
+- **Crossfade with the equalizer on** (Reddit): the song fading out now plays on its own audio session with its own copy
+  of the equalizer, instead of sharing the main player's, where some phones' effects broke the blend.
+- **Widgets and other apps can skip again** (Reddit): since 1.6.1 Prism's media session didn't offer the standard
+  previous/next, so "Dynamic Island" apps and other widgets couldn't skip. They're back; only with a Pixel Watch or
+  Wear OS companion app on the phone does Prism keep the watch's own layout. Prism's widgets also hold on until a tap
+  has reached the player when Prism wasn't running.
+- **Sing's key holds through a crossfade** (Reddit): a beat-matched blend set the music back to its original key while
+  Sing still showed yours, and the song fading out played in the original key.
 - **Songs, not videos works again** (#138): YouTube stopped telling apps which song a music video belongs to (October
   2026) unless you're signed in, so a Discovery Mix and other mixes came through as videos, and some videos didn't find
   their song. Each video coming up next is now matched to its song by Prism itself, an artist's own video may run up to

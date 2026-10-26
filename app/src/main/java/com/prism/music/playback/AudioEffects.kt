@@ -101,7 +101,12 @@ internal class EffectQueue(private val executor: ExecutorService) {
  * released on [EffectQueue]'s own thread, in the order asked, and the effect objects and session are only touched
  * there. What callers set ([wanted], [wantedNormalizationDb]) is read by that thread when it gets to it.
  */
-class AudioEffects(private val context: Context, executor: ExecutorService = EffectQueue.thread()) {
+class AudioEffects(
+    private val context: Context,
+    executor: ExecutorService = EffectQueue.thread(),
+    /** Tells other effect engines (Dolby and the like) about the session; not for Crossfade's short-lived tail session. */
+    private val announce: Boolean = true,
+) {
     private val queue = EffectQueue(executor)
 
     // Touched only on the effects thread.
@@ -159,7 +164,7 @@ class AudioEffects(private val context: Context, executor: ExecutorService = Eff
         if (newSession == sessionId) return
         releaseNow(broadcast = true)
         sessionId = newSession
-        context.sendBroadcast(Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
+        if (announce) context.sendBroadcast(Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
             putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
             putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
             putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
@@ -226,7 +231,7 @@ class AudioEffects(private val context: Context, executor: ExecutorService = Eff
     }
 
     private fun releaseNow(broadcast: Boolean) {
-        if (sessionId != 0 && broadcast) {
+        if (sessionId != 0 && broadcast && announce) {
             context.sendBroadcast(Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
                 putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)

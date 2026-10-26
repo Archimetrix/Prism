@@ -45,6 +45,22 @@ suspend fun Lifecycle.framesWhileShown(onFrame: (seconds: Float) -> Unit) {
 }
 
 /**
+ * How many times the screen has come back (resumed), as a key for what's read from Android's own settings pages and may
+ * have been changed there while Prism was away.
+ */
+@androidx.compose.runtime.Composable
+fun rememberResumeCount(): Int {
+    var count by androidx.compose.runtime.remember { mutableStateOf(0) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) count++ }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+    return count
+}
+
+/**
  * Whether the full player hides the screens under it: open, done sliding in, and not being pulled down (a pull shows
  * the page behind it). The player is opaque, so while it hides them, what under it only moves for the eye (animated
  * backgrounds, the playing bars) holds still instead of being drawn every frame for nobody, beside the player's own.

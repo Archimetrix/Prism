@@ -86,6 +86,14 @@ class WidgetActionReceiver : BroadcastReceiver() {
                 Widgets.update(context, song, c.player.isPlaying.value, song.id !in c.library.likedIds.value, null, null)
             }
         }
+        // With Prism not running, the player is reached a moment later (Reddit R4: widgets couldn't pause or skip): the
+        // broadcast is held until the command has been handed over, so Android doesn't stop Prism first.
+        val pending = goAsync()
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var finished = false
+        fun finish() { if (!finished) { finished = true; pending.finish() } }
+        handler.postDelayed(::finish, 9_000)
+        c.player.afterPending { handler.post(::finish) }
     }
 }
 

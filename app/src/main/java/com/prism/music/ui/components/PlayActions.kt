@@ -87,6 +87,8 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
     val liked by c.library.likedShown.collectAsState()
     var sharing by remember { mutableStateOf<ShareTarget?>(null) }
     sharing?.let { t -> ShareSheet(t) { sharing = null; onDismiss() }; return }
+    // Its songs, on their way into a playlist (Reddit R8).
+    var adding by remember { mutableStateOf<List<Song>?>(null) }
     val ui = com.prism.music.ui.theme.LocalUi.current
     val (title, subtitle) = when (target) {
         Playable.Liked -> "Liked songs" to com.prism.music.data.model.songCount(liked.size)
@@ -102,6 +104,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
         is Playable.Page -> target.art
         is Playable.Of -> c.covers.art(target.item)
     }
+    adding?.let { songs -> PlaylistPicker(songs, title) { adding = null; onDismiss() }; return }
     fun play(shuffle: Boolean, mix: Boolean = false) = c.scope.launch(Dispatchers.Main) {
         val loaded = runCatching { withContext(Dispatchers.IO) { songsFor(c, target, shuffle, mix) } }.getOrNull()
         if (loaded == null || loaded.first.isEmpty()) {
@@ -188,6 +191,17 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
                 c.player.playDjSet(loaded.first, loaded.second)
             }
         })
+        // Every song of it into one of your playlists, as a song's menu does for one (Reddit R8).
+        val addTo = if (item is ArtistItem) emptyList() else listOf(ActionItem(PrismIcons.PlaylistAdd, "Add to playlist", keepOpen = true) {
+            c.scope.launch(Dispatchers.Main) {
+                val loaded = runCatching { withContext(Dispatchers.IO) { songsFor(c, target, shuffle = false, mix = false) } }.getOrNull()
+                if (loaded == null || loaded.first.isEmpty()) {
+                    Toast.makeText(context, if (loaded == null) "Couldn't load \"$title\"" else "Nothing to add in \"$title\"", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                adding = loaded.first
+            }
+        })
         // A YouTube playlist, copied whole into a Prism playlist of your own (H7; signed in or not).
         val copyable: Pair<String, String>? = when {
             item is PlaylistItem && !item.isMix -> item.id to item.title
@@ -207,9 +221,9 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
             })
         }.orEmpty()
         if (extraTitle != null) {
-            ActionGroup(null, djSet + copy + pin + remove) { runAction(it, close) }
+            ActionGroup(null, addTo + djSet + copy + pin + remove) { runAction(it, close) }
             ActionGroup(extraTitle, extra.map { it.toAction() }) { runAction(it, close) }
-        } else ActionGroup(null, djSet + copy + pin + extra.map { it.toAction() } + remove) { runAction(it, close) }
+        } else ActionGroup(null, addTo + djSet + copy + pin + extra.map { it.toAction() } + remove) { runAction(it, close) }
     }
 }
 

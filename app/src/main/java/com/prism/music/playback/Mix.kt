@@ -61,7 +61,11 @@ class MixEngine(
     private val buildTail: (ShiftProcessor) -> ExoPlayer,
     /** A blend is over (done or stopped) and the main player is back to normal: the listener's own speed can return. */
     private val onSettled: () -> Unit = {},
+    /** The pitch the music plays at (Sing's key, Reddit R6): blends change the speed only, never the key. */
+    private val pitch: () -> Float = { 1f },
 ) {
+    /** The main player at [speed], in the music's key. */
+    private fun at(speed: Float) = PlaybackParameters(speed, pitch())
     private class Plan(
         val fromId: String,
         val toId: String,
@@ -389,7 +393,7 @@ class MixEngine(
         t.volume = 1f
         main.volume = 0f
         main.seekTo(p.toIndex, p.inMs)
-        main.playbackParameters = PlaybackParameters(p.ratio, 1f)
+        main.playbackParameters = at(p.ratio)
         blendStartedAt = now
         syncActionAt = now
         windowFrom = 0L
@@ -469,7 +473,7 @@ class MixEngine(
         if (!main.isPlaying) { syncActionAt = now; windowFrom = 0L; return }
         if (catchUpUntil != 0L) {
             if (now < catchUpUntil) return
-            main.playbackParameters = PlaybackParameters(p.ratio, 1f)
+            main.playbackParameters = at(p.ratio)
             catchUpUntil = 0L
             syncActionAt = now
             return
@@ -493,7 +497,7 @@ class MixEngine(
             }
             else -> {
                 val faster = err < 0
-                main.playbackParameters = PlaybackParameters(p.ratio * (if (faster) 1 + CATCH_UP else 1 - CATCH_UP), 1f)
+                main.playbackParameters = at(p.ratio * (if (faster) 1 + CATCH_UP else 1 - CATCH_UP))
                 catchUpUntil = now + (abs(err) / (CATCH_UP * p.ratio)).toLong()
             }
         }
@@ -503,12 +507,12 @@ class MixEngine(
     private fun settling(): Long {
         val p = plan
         if (p != null && main.currentMediaItem?.mediaId != p.toId) {
-            main.playbackParameters = PlaybackParameters.DEFAULT
+            main.playbackParameters = at(1f)
             finish(); return 250
         }
         val f = ((SystemClock.elapsedRealtime() - settleStartedAt) / SETTLE_MS.toFloat()).coerceIn(0f, 1f)
-        main.playbackParameters = PlaybackParameters(settleFrom + (1f - settleFrom) * f, 1f)
-        if (f >= 1f) { main.playbackParameters = PlaybackParameters.DEFAULT; finish() }
+        main.playbackParameters = at(settleFrom + (1f - settleFrom) * f)
+        if (f >= 1f) { main.playbackParameters = at(1f); finish() }
         return 100
     }
 
@@ -535,7 +539,7 @@ class MixEngine(
         tail = null
         shifter = null
         if (main.volume != 1f) main.volume = 1f
-        if (main.playbackParameters.speed != 1f) main.playbackParameters = PlaybackParameters.DEFAULT
+        if (main.playbackParameters.speed != 1f) main.playbackParameters = at(1f)
         if (phase == Phase.PREPARED || phase == Phase.SYNCING) plan?.let { noPlanFor = it.fromId }
         catchUpUntil = 0L
         phase = Phase.IDLE

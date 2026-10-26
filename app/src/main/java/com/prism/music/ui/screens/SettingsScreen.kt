@@ -1989,6 +1989,43 @@ private fun DevicesPage() {
                 NavRow(sec.icon, sec.title, sec.summary(s, dark)) { nav.go(Routes.settings(sec.key)) }
             }
         }
+        SharingGroup()
+    }
+}
+
+/** What links Prism sends (Reddit R9), and YouTube Music links opening in Prism (R10). */
+@Composable
+private fun SharingGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    val context = LocalContext.current
+    // Android 12+ asks the listener whether Prism opens music.youtube.com links (an app that isn't YouTube Music can't
+    // claim them), so the state is read again whenever Prism comes back from that page.
+    val resumed = com.prism.music.ui.components.rememberResumeCount()
+    val opensLinks = remember(resumed) { com.prism.music.data.LinkHandling.opensYouTubeMusicLinks(context) }
+    Group("Sharing and links") {
+        Label("Links you share", info = "Albums have no page on YouTube, so an album's link is always YouTube Music's.")
+        ChoiceCards(
+            listOf(false, true), s.shareYoutubeLinks, title = { if (it) "YouTube" else "YouTube Music" },
+            detail = { if (it) "Opens in YouTube" else "Opens in YouTube Music" }, onSelect = { prefs.setShareYoutubeLinks(it) },
+        ) { youtube ->
+            Text(
+                if (youtube) "youtu.be/fJ9rUzIMcZQ" else "music.youtube.com/watch?v=fJ9rUzIMcZQ",
+                Modifier.fillMaxWidth().padding(vertical = 10.dp), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+        Item(
+            "Open YouTube Music links in Prism",
+            when (opensLinks) {
+                true -> "On: links you tap open here"
+                false -> "Off: turn on \"Open supported links\" for music.youtube.com"
+                null -> "Choose Prism when a link asks which app"
+            },
+            info = "Android only lets an app open a website's links when you say so. This opens Prism's page for it: turn on its links there.",
+            onClick = { com.prism.music.data.LinkHandling.openSettings(context) },
+        ) { Chevron() }
     }
 }
 

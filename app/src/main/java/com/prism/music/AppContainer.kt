@@ -229,7 +229,11 @@ class AppContainer(val app: Application) {
         .build()
 
     val innerTube = InnerTube(http, { settings.current }, settings::setVisitorData)
-    val ytm = YouTubeMusic(innerTube) { settings.current.let { it.radioSongsOnly && it.songsEverywhere } }
+    val ytm = YouTubeMusic(
+        innerTube,
+        songsEverywhere = { settings.current.let { it.radioSongsOnly && it.songsEverywhere } },
+        onPairs = { queue.counterparts.putAll(it) },
+    )
     val db = PrismDatabase.build(app)
     val streams by lazy { StreamResolver(app, http, settings, innerTube) }
     val translator = com.prism.music.data.lyrics.LyricsTranslator(http)

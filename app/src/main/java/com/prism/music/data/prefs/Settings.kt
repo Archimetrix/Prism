@@ -162,7 +162,19 @@ data class TypeLook(
     val spacing: TypeSpacing = TypeSpacing.NORMAL,
     /** Page, section and hero titles in another font than the rest; null: the same font. */
     val titleFont: FontChoice? = null,
+    /** The player's song title (and artist): how heavy (Reddit R7). */
+    val playerTitleWeight: PlayerTitleWeight = PlayerTitleWeight.LIGHT,
 )
+
+/**
+ * The player's title weight. [LIGHT] is Prism's own (its large titles are light, and Text → Weight moves them); the
+ * others set the title outright, and Bold makes the artist's name heavier too.
+ */
+enum class PlayerTitleWeight(val label: String, val title: androidx.compose.ui.text.font.FontWeight?, val artist: androidx.compose.ui.text.font.FontWeight?) {
+    LIGHT("Light", null, null),
+    REGULAR("Regular", androidx.compose.ui.text.font.FontWeight.Normal, null),
+    BOLD("Bold", androidx.compose.ui.text.font.FontWeight.Bold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+}
 
 /** Customize Prism → Icons & shapes (1.7.7). */
 data class ShapeLook(
@@ -698,6 +710,8 @@ data class AppSettings(
     val carLyricsKeepTitle: Boolean = false,
     /** Android Auto shows Home and Library as cover tiles under section headings (like Spotify's), not plain lists. */
     val autoGrid: Boolean = true,
+    /** Shared links as youtube.com / youtu.be ones instead of music.youtube.com (Reddit R9; albums stay YouTube Music's). */
+    val shareYoutubeLinks: Boolean = false,
     // Playback
     val showNerdStats: Boolean = false,
     /** Downloaded songs save their animated cover too. */
@@ -1113,6 +1127,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val carLyricsOnPhone = booleanPreferencesKey("car_lyrics_on_phone")
         val carLyricsKeepTitle = booleanPreferencesKey("car_lyrics_keep_title")
         val autoGrid = booleanPreferencesKey("auto_grid")
+        val shareYoutubeLinks = booleanPreferencesKey("share_youtube_links")
         val showNerdStats = booleanPreferencesKey("nerd_stats")
         val showQuality = booleanPreferencesKey("show_quality")
         val squareVideoCovers = booleanPreferencesKey("square_video_covers")
@@ -1193,6 +1208,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val typeWeight = stringPreferencesKey("type_weight")
         val typeSpacing = stringPreferencesKey("type_spacing")
         val titleFont = stringPreferencesKey("title_font")
+        val playerTitleWeight = stringPreferencesKey("player_title_weight")
         val uiDensity = stringPreferencesKey("ui_density")
         val titleSize = stringPreferencesKey("title_size")
         val cardSize = stringPreferencesKey("card_size")
@@ -1317,7 +1333,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 tabNames, navBarSize, navBarFill, miniPlayerJoined, libraryViews, libraryColumns, librarySubtitles,
                 homeHeader, homeHeaderHeight,
                 cornerScale, songShape, albumShape, artistShape, playerShape, buttonShape, playOutlined,
-                typeWeight, typeSpacing, titleFont, tabTint,
+                typeWeight, typeSpacing, titleFont, tabTint, playerTitleWeight,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1348,14 +1364,14 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b',
                 homeHeader to 's', homeHeaderHeight to 's', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
                 cornerScale to 'f', songShape to 's', albumShape to 's', artistShape to 's', playerShape to 's', buttonShape to 's', playOutlined to 'b',
-                typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's',
+                typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's', playerTitleWeight to 's',
             ) + lyricsLook
         }
 
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
-                "performance_mode", "performance_offered",
+                "performance_mode", "performance_offered", "share_youtube_links",
                 "merge_liked_videos", "volume_control", "app_volume", "speed_dial_youtube_only", "swipe_tabs",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
@@ -1504,6 +1520,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             carLyricsOnPhone = p[K.carLyricsOnPhone] ?: d.carLyricsOnPhone,
             carLyricsKeepTitle = p[K.carLyricsKeepTitle] ?: d.carLyricsKeepTitle,
             autoGrid = p[K.autoGrid] ?: d.autoGrid,
+            shareYoutubeLinks = p[K.shareYoutubeLinks] ?: d.shareYoutubeLinks,
             showNerdStats = p[K.showNerdStats] ?: d.showNerdStats,
             showQuality = p[K.showQuality] ?: d.showQuality,
             squareVideoCovers = p[K.squareVideoCovers] ?: d.squareVideoCovers,
@@ -1599,6 +1616,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 weight = p.enum(K.typeWeight, d.type.weight),
                 spacing = p.enum(K.typeSpacing, d.type.spacing),
                 titleFont = p[K.titleFont]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } },
+                playerTitleWeight = p.enum(K.playerTitleWeight, d.type.playerTitleWeight),
             ),
             uiDensity = p.enum(K.uiDensity, d.uiDensity),
             titleSize = p.enum(K.titleSize, d.titleSize),
@@ -1884,6 +1902,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCarLyricsOnPhone(v: Boolean) = edit { it[K.carLyricsOnPhone] = v }
     fun setCarLyricsKeepTitle(v: Boolean) = edit { it[K.carLyricsKeepTitle] = v }
     fun setAutoGrid(v: Boolean) = edit { it[K.autoGrid] = v }
+    fun setShareYoutubeLinks(v: Boolean) = edit { it[K.shareYoutubeLinks] = v }
     fun setShowNerdStats(v: Boolean) = edit { it[K.showNerdStats] = v }
     fun setShowQuality(v: Boolean) = edit { it[K.showQuality] = v }
     fun setSquareVideoCovers(v: Boolean) = edit { it[K.squareVideoCovers] = v }
@@ -1968,6 +1987,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setTabTint(v: TabTint) = edit { it[K.tabTint] = v.name }
     fun setTypeWeight(v: TypeWeight) = edit { it[K.typeWeight] = v.name }
     fun setTypeSpacing(v: TypeSpacing) = edit { it[K.typeSpacing] = v.name }
+    fun setPlayerTitleWeight(v: PlayerTitleWeight) = edit { it[K.playerTitleWeight] = v.name }
     /** Null: titles in the app's font. */
     fun setTitleFont(v: FontChoice?) = edit { if (v == null) it.remove(K.titleFont) else it[K.titleFont] = v.name }
     fun setPlayOutlined(v: Boolean) = edit { it[K.playOutlined] = v }

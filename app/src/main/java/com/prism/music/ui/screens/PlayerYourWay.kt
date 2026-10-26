@@ -363,6 +363,11 @@ fun PlayerTitleGroup() {
         ) { TitleSample(it) }
         Label("Title size")
         Chips(com.prism.music.data.prefs.PlayerTitleSize.entries, s.playerTitleSize, { it.label }) { prefs.setPlayerTitleSize(it) }
+        Label("Title weight", info = "Light is Prism's own, and follows Text → Weight. Bold makes the artist's name heavier too.")
+        ChoiceCards(
+            com.prism.music.data.prefs.PlayerTitleWeight.entries, s.type.playerTitleWeight, title = { it.label }, detail = { null },
+            onSelect = { prefs.setPlayerTitleWeight(it) },
+        ) { TitleSample(s.playerTitleAlign, it) }
         Toggle("Scrolling titles", "A long title scrolls across (off: it ends with …)", s.playerTitleScroll) { prefs.setPlayerTitleScroll(it) }
         Label("Times under the progress bar")
         ChoiceCards(
@@ -507,13 +512,17 @@ private fun VisualizerSample(style: com.prism.music.data.prefs.VisualizerStyle, 
 }
 
 @Composable
-private fun TitleSample(align: PlayerTitleAlign) {
+private fun TitleSample(align: PlayerTitleAlign, weight: com.prism.music.data.prefs.PlayerTitleWeight = LocalAppSettings.current.type.playerTitleWeight) {
     SampleScreen(Modifier.fillMaxWidth().height(56.dp)) {
         Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (align == PlayerTitleAlign.CENTER) Spacer(Modifier.width(22.dp))
             Column(Modifier.weight(1f), horizontalAlignment = if (align == PlayerTitleAlign.CENTER) Alignment.CenterHorizontally else Alignment.Start) {
-                Text("Northern Lights", color = Color.White, fontSize = 12.sp, maxLines = 1, textAlign = if (align == PlayerTitleAlign.CENTER) TextAlign.Center else TextAlign.Start)
-                Text("Prism Sample", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1)
+                Text(
+                    "Northern Lights", color = Color.White, fontSize = 12.sp, maxLines = 1, textAlign = if (align == PlayerTitleAlign.CENTER) TextAlign.Center else TextAlign.Start,
+                    // Prism's own big titles are light; at this size their own weight wouldn't show it.
+                    fontWeight = weight.title ?: androidx.compose.ui.text.font.FontWeight.Light,
+                )
+                Text("Prism Sample", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, fontWeight = weight.artist)
             }
             Box(Modifier.size(9.dp).clip(CircleShape).background(Faint))
             Spacer(Modifier.width(4.dp))

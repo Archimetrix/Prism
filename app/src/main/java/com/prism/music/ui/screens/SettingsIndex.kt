@@ -217,6 +217,7 @@ object SettingsIndex {
         SettingEntry(P, "Under the title", "Volume", "slider"),
         SettingEntry(P, "Title and times", "Title and times", "title alignment centered centre left"),
         SettingEntry(P, "Title and times", "Title size", "big small large font"),
+        SettingEntry(P, "Title and times", "Title weight", "bold heavy thick light regular font song artist name"),
         SettingEntry(P, "Title and times", "Scrolling titles", "marquee scroll long title ellipsis"),
         SettingEntry(P, "Title and times", "Times under the progress bar", "elapsed remaining time left none"),
         SettingEntry(P, "Title and times", "Progress bar color", "scrubber color accent white cover spectrum"),
@@ -313,6 +314,9 @@ object SettingsIndex {
         SettingEntry(DV, "Android Auto", "Buttons in the car", "android auto car buttons shuffle like radio"),
         SettingEntry(DV, "Other devices", "Speakers, TVs & browser", "prism connect cast remote handoff"),
         SettingEntry(DV, "Other devices", "Discord", "rich presence status"),
+        SettingEntry(DV, "Sharing and links", "Sharing and links", "share link"),
+        SettingEntry(DV, "Sharing and links", "Links you share", "share link youtube youtu.be youtube music url send copy"),
+        SettingEntry(DV, "Sharing and links", "Open YouTube Music links in Prism", "open by default supported links music.youtube.com default app handle"),
         // Downloads & storage
         SettingEntry(D, "Downloads", "Manage downloads", "offline delete"),
         SettingEntry(D, "Downloads", "Download on Wi-Fi only", "cellular mobile data"),

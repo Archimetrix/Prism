@@ -328,6 +328,7 @@ object Tour {
                 "Swipe a song out of the queue, swipe the mini player up to open it",
                 "The light from the playing cover: Color → From the cover",
                 "Ribbons, a progress bar with strands flowing along it",
+                "A bold title on the player, whole albums into a playlist, and YouTube links to share",
             ),
             listOf(PrismIcons.SwapVertical, PrismIcons.Palette),
         ),

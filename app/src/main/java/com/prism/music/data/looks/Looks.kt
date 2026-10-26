@@ -247,7 +247,7 @@ object LookLabels {
         "corner_scale" to "Corners", "cover_shape_songs" to "Songs' covers", "cover_shape_albums" to "Albums' covers",
         "cover_shape_artists" to "Artists' pictures", "cover_shape_player" to "Player's cover", "button_shape" to "Buttons",
         "play_outlined" to "Outlined Play", "type_weight" to "Text weight", "type_spacing" to "Letter spacing", "title_font" to "Titles' font",
-        "tab_icon_tint" to "The current tab's icon",
+        "tab_icon_tint" to "The current tab's icon", "player_title_weight" to "Title weight",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -273,6 +273,7 @@ object LookLabels {
             "button_shape" to e(com.prism.music.data.prefs.ButtonShape.entries) { it.label },
             "type_weight" to e(com.prism.music.data.prefs.TypeWeight.entries) { it.label },
             "tab_icon_tint" to e(com.prism.music.data.prefs.TabTint.entries) { it.label },
+            "player_title_weight" to e(com.prism.music.data.prefs.PlayerTitleWeight.entries) { it.label },
             "type_spacing" to e(com.prism.music.data.prefs.TypeSpacing.entries) { it.label },
             "title_font" to e(com.prism.music.data.prefs.FontChoice.entries) { it.label },
             "ui_density" to e(com.prism.music.data.prefs.UiDensity.entries) { it.label },
@@ -374,7 +375,7 @@ object LookLabels {
             "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",
             "show_output_device", "full_bleed_artwork", "video_full_bleed", "hide_volume_bar", "show_playing_from", "player_shuffle_repeat", "immersive_art", "immersive_lyrics", "immersive_controls",
             "player_layout", "vinyl_tonearm", "player_deck", "player_buttons", "scrubber_color", "player_title_align", "player_title_size",
-            "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
+            "player_title_weight", "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
             "scrubber_thickness", "scrubber_thumb", "visualizer", "visualizer_color",
         ),
         "lyrics" to setOf(

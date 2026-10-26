@@ -891,7 +891,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             PlayerMarquee(
                                 // The title leads, the artist under it a size smaller (#41). Spectrum: large and light
                                 // (a tenth under headlineMedium, so longer titles fit before they scroll).
-                                song.title, MaterialTheme.typography.headlineMedium.let { it.copy(fontSize = it.fontSize * 0.9f * titleScale, lineHeight = it.lineHeight * 0.9f * titleScale) }, Color.White, scrolls,
+                                song.title, MaterialTheme.typography.headlineMedium.let { it.copy(fontSize = it.fontSize * 0.9f * titleScale, lineHeight = it.lineHeight * 0.9f * titleScale, fontWeight = settings.type.playerTitleWeight.title ?: it.fontWeight) }, Color.White, scrolls,
                                 Modifier.clickable(enabled = song.album?.id != null) { song.album?.id?.let { onCollapse(); nav.go(Routes.album(it)) } },
                             )
                             // With more than one artist, the name asks which one to open (#42).
@@ -900,7 +900,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             var pickArtist by remember(song.id) { mutableStateOf(false) }
                             Box {
                                 PlayerMarquee(
-                                    song.artistText, MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 22.sp), Color.White.copy(alpha = 0.6f), scrolls,
+                                    song.artistText, MaterialTheme.typography.bodyLarge.let { it.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = settings.type.playerTitleWeight.artist ?: it.fontWeight) }, Color.White.copy(alpha = 0.6f), scrolls,
                                     Modifier.clickable(enabled = linked.isNotEmpty()) {
                                         if (linked.size > 1) pickArtist = true else linked.firstOrNull()?.let { onCollapse(); nav.go(Routes.artist(it)) }
                                     },

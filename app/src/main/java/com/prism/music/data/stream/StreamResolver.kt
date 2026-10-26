@@ -648,6 +648,9 @@ class StreamResolver(
         )
     }
 
+    /** [videoId]'s length in seconds as YouTube gives it (resolving it if it hasn't been), 0 when unknown. Blocking. */
+    fun durationSec(videoId: String): Long = formats(videoId).durationSec
+
     /** Whether [videoId] is a live stream (resolving it if it hasn't been). Blocking. */
     fun isLive(videoId: String): Boolean = formats(videoId).live
 

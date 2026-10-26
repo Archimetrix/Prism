@@ -256,9 +256,10 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         scope.launch { c.library.likedIds.collect { updateButtons() } }
         // Sing: getting the playing and next songs ready, and the key moved for the singer.
         scope.launch {
-            kotlinx.coroutines.flow.combine(c.sing.on, c.sing.semitones) { on, st -> on to st }.collect { (on, st) ->
-                val pitch = if (on) Math.pow(2.0, st / 12.0).toFloat() else 1f
+            kotlinx.coroutines.flow.combine(c.sing.on, c.sing.semitones) { on, st -> on to st }.collect { (on, _) ->
+                val pitch = singPitch()
                 if (player.playbackParameters.pitch != pitch) player.playbackParameters = androidx.media3.common.PlaybackParameters(player.playbackParameters.speed, pitch)
+                AudioDiagnostics.log("sing", "key ${c.sing.semitones.value} (pitch %.3f), Sing ${if (on) "on" else "off"}".format(pitch))
                 if (on) singAhead()
             }
         }
@@ -320,6 +321,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             scanFromPhone = { id -> scope.launch { c.mixTempo.measure(id, network = false) } },
             buildTail = ::buildTailPlayer,
             onSettled = ::restoreMusicSpeed,
+            pitch = ::singPitch,
         ).also { it.start() }
         // Prism Connect: the speaker or TV being cast to plays what this player plays, and its volume is the session's.
         sessionPlayer.remote = object : LyricsOverlayPlayer.Remote {
@@ -419,7 +421,21 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             .build()
             .also {
                 it.skipSilenceEnabled = false
-                it.setAudioSessionId(player.audioSessionId)
+                // The ending song in the key it was playing in (Sing): the blend used to drop back to the original key.
+                singPitch().takeIf { p -> p != 1f }?.let { p -> it.playbackParameters = androidx.media3.common.PlaybackParameters(1f, p) }
+                // With the equalizer on, the tail gets its own audio session and its own copy of the equalizer (Reddit R3:
+                // "crossfade breaks while the equalizer is on"). Two players on one session share one effect chain, which
+                // the platform rebuilds as the tail's track comes and goes. Without the equalizer it shares the main
+                // session, as before (other apps' effects such as Dolby follow that one).
+                if (s.eq.enabled) {
+                    val session = androidx.media3.common.util.Util.generateAudioSessionIdV21(this)
+                    it.setAudioSessionId(session)
+                    val tailEffects = AudioEffects(this, announce = false).apply { apply(s.eq); attach(session) }
+                    it.addAnalyticsListener(object : AnalyticsListener {
+                        override fun onPlayerReleased(eventTime: AnalyticsListener.EventTime) = tailEffects.shutdown()
+                    })
+                    AudioDiagnostics.log("mix", "tail on its own session $session with the equalizer (${s.eq.preset})")
+                } else it.setAudioSessionId(player.audioSessionId)
             }
     }
 
@@ -726,15 +742,24 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         // #93: a song YouTube won't play where the listener is, though its music video plays there: the video's sound
         // takes its place (the song stays the song: its lyrics, likes and history are its own).
         val song = player.currentMediaItem?.toSong()
-        if (song != null && !song.isVideo && !song.isLocal && !song.isLive && !song.isEpisode && !c.soundFrom.containsKey(id) && unavailableHere(error)) {
+        // Reddit R2: also a song whose stream YouTube keeps refusing ("BUZZ" skipped while its video played), since the
+        // video has to be the song's length (below), so it's the same recording.
+        if (song != null && !song.isVideo && !song.isLocal && !song.isLive && !song.isEpisode && !c.soundFrom.containsKey(id) && wontPlayHere(error, refused = httpCode == 403)) {
             val idx = player.currentMediaItemIndex
             scope.launch {
                 val video = videoIdFor(song).id?.takeIf { it != id }
+                // Only a video of the same length: one with a long intro or a second song in it (Reddit R1, "Death &
+                // Romance" as its 8-minute video) would play something else under this song's title and lyrics.
+                val videoSec = video?.let { v -> withContext(Dispatchers.IO) { runCatching { c.streams.durationSec(v) }.getOrDefault(0L) } } ?: 0L
+                // The video must resolve too (offline or blocked, it wouldn't play either, and it'd stay swapped in).
+                val fits = videoSec > 0 && (song.durationSec <= 0 || kotlin.math.abs(videoSec - song.durationSec) <= SOUND_FROM_SLACK_SEC)
                 if (player.currentMediaItemIndex != idx || player.currentMediaItem?.mediaId != id) return@launch
-                if (video == null) { failAndSkip(error); return@launch }
+                if (video != null && !fits) AudioDiagnostics.log("song", "$id isn't available here; its music video $video runs ${videoSec}s, not ${song.durationSec}s: not played in its place")
+                if (video == null || !fits) { failAndSkip(error); return@launch }
                 c.soundFrom[id] = video
-                AudioDiagnostics.log("song", "$id isn't available here: playing its music video $video's sound")
-                c.player.reportError("${song.title} isn't available where you are, so its music video's sound plays")
+                val here = unavailableHere(error)
+                AudioDiagnostics.log("song", "$id ${if (here) "isn't available here" else "won't play (${(error.cause ?: error).message})"}: playing its music video $video's sound")
+                c.player.reportError("${song.title} ${if (here) "isn't available where you are" else "wouldn't play"}, so its music video's sound plays")
                 player.prepare()
                 player.play()
             }
@@ -1472,6 +1497,14 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
      * lyrics, start radio and "not for me" by default). The phone's media controls show the first two; the watch keeps
      * previous/next beside play (see the session extras); Android Auto shows them all.
      */
+    /** The pitch music plays at: Sing's key while Sing is on (−6…+6 semitones), else the song's own. */
+    private fun singPitch(): Float = if (c.sing.onNow) Math.pow(2.0, c.sing.semitones.value / 12.0).toFloat() else 1f
+
+    /** A Wear OS watch's companion app (Pixel Watch, Wear OS) is on the phone ([updateButtons]). */
+    private val watchPaired by lazy {
+        WATCH_COMPANIONS.any { p -> runCatching { packageManager.getPackageInfo(p, 0) }.isSuccess }
+    }
+
     private fun updateButtons() {
         if (!::session.isInitialized) return
         val id = player.currentMediaItem?.mediaId
@@ -1495,14 +1528,16 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 SessionButton.AHEAD_30 -> button(CommandButton.ICON_SKIP_FORWARD_30, "Ahead 30 seconds", ahead30Command)
             }
         }
-        // Previous/next are named for their slots outright: with only custom buttons, a controller that lays out by
-        // slots (the Pixel Watch's media controls) filled the back/forward places with like and shuffle.
-        val buttons = listOf(
+        // Previous/next named for their slots outright: with only custom buttons, a controller that lays out by slots (the
+        // Pixel Watch's media controls) filled the back/forward places with like and shuffle (1.6.1). But with them
+        // Media3 takes the standard skip actions off the phone's media session, so widgets and "Dynamic Island" apps
+        // that read those couldn't skip (Reddit R4). So they're only named when a watch's companion app is on the phone.
+        val buttons = (if (watchPaired) listOf(
             CommandButton.Builder(CommandButton.ICON_PREVIOUS).setDisplayName("Previous")
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS).setSlots(CommandButton.SLOT_BACK).build(),
             CommandButton.Builder(CommandButton.ICON_NEXT).setDisplayName("Next")
                 .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT).setSlots(CommandButton.SLOT_FORWARD).build(),
-        ) + custom
+        ) else emptyList()) + custom
         session.setMediaButtonPreferences(buttons)
         pushWidgets()
     }
@@ -2025,7 +2060,31 @@ internal fun unavailableHere(error: Throwable): Boolean =
             e.message?.let { m -> UNAVAILABLE.any { m.contains(it, ignoreCase = true) } } == true
     }
 
+/** Wear OS watches' companion apps (also in the manifest's `<queries>`): their media controls lay buttons out by slot. */
+private val WATCH_COMPANIONS = listOf("com.google.android.apps.wear.companion", "com.google.android.wearable.app")
+
+/** How a stream refusal reads when only an account (age, Premium) or another network would help, not another recording. */
+private val NEEDS_MORE_THAN_A_VIDEO = listOf("age-restricted", "Premium", "limiting playback", "sign in to confirm")
+
+/**
+ * Whether a song that failed may play from its music video's sound instead (#93, Reddit R2): YouTube says it isn't
+ * available here ([unavailableHere]), its stream couldn't be got, or its server kept turning it away ([refused], after
+ * the retries). Never for age-restricted or Premium-only songs or a blocked network: the video won't help there.
+ */
+internal fun wontPlayHere(error: Throwable, refused: Boolean = false): Boolean {
+    val chain = generateSequence(error) { it.cause }.toList()
+    if (chain.any { e ->
+            e is org.schabi.newpipe.extractor.exceptions.AgeRestrictedContentException ||
+                e is org.schabi.newpipe.extractor.exceptions.YoutubeMusicPremiumContentException ||
+                e.message?.let { m -> NEEDS_MORE_THAN_A_VIDEO.any { m.contains(it, ignoreCase = true) } } == true
+        }) return false
+    return unavailableHere(error) || refused || chain.any { it is com.prism.music.data.stream.StreamException }
+}
+
 private const val TARGET_LUFS = -14f
+
+/** How far a music video's length may be from its song's for its sound to play in the song's place (#93, Reddit R1). */
+private const val SOUND_FROM_SLACK_SEC = 8
 
 /** A song's volume (normalization) can still be set this far into it; after that it stays put for the song. */
 private const val SETTLE_MS = 2_000L
