@@ -313,7 +313,7 @@ object Tour {
             listOf(
                 "Covers as circles, squircles, flowers, arches… for songs, albums, artists and the player",
                 "Corners on a slider, and pill, rounded or square buttons",
-                "Icons in outline, duotone or filled, and six more app icons",
+                "Icons in outline, duotone or filled, two new packs (Facet and Dots), and six more app icons",
                 "Bolder or lighter text, wider spacing, a font for titles, and two fonts made for reading",
                 "Each home-screen widget with its own background and buttons",
             ),

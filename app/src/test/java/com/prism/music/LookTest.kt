@@ -4,6 +4,7 @@ import com.prism.music.data.looks.Backgrounds
 import com.prism.music.data.looks.BuiltInLooks
 import com.prism.music.data.looks.Look
 import com.prism.music.data.looks.LookCode
+import com.prism.music.data.looks.LookIcons
 import com.prism.music.data.looks.LookLabels
 import com.prism.music.data.looks.SunClock
 import com.prism.music.data.looks.ZonePlaces
@@ -103,6 +104,13 @@ class LookTest {
         assertEquals("No paths from someone's phone", mapOf("HOME" to "AURORA"), Backgrounds.parse(back.values[Look.BACKDROPS]))
         assertNull(LookCode.decode("PRISMLOOK1:notreally", kinds))
         assertNull(LookCode.decode("nothing here", kinds))
+        // Every icon pack and fill style travels (1.7.7's Facet and Dots were once turned back into Prism's).
+        for (pack in listOf("FACET", "DOTS", "CUPERTINO")) {
+            val icons = LookCode.decode(LookCode.encode(look.copy(icons = LookIcons(pack = pack, fill = "DUOTONE"))), kinds)!!.icons
+            assertEquals(pack, icons.pack)
+            assertEquals("DUOTONE", icons.fill)
+        }
+        assertEquals("PRISM", LookCode.decode(LookCode.encode(look.copy(icons = LookIcons(pack = "NOPE", fill = "NOPE"))), kinds)!!.icons.pack)
         // Prism's own Looks are valid Looks, and each fits a QR code.
         BuiltInLooks.all.forEach { l ->
             assertEquals(l.id, l.values, LookCode.sanitized(l, kinds).values)

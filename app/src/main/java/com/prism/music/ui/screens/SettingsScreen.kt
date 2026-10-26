@@ -987,11 +987,24 @@ private fun IconSettings() {
                 )
             }
         }
-        Label("Pack", info = pack.detail)
-        Chips(com.prism.music.ui.theme.IconPack.entries, pack, { it.label }) {
-            pack = it
-            com.prism.music.ui.theme.IconStyle.savePack(context, it)
-            looks.iconsChanged()
+        // Packs (1.7.7 adds Facet and Dots): each card draws the same four icons in its pack.
+        Label("Pack")
+        ChoiceCards(
+            com.prism.music.ui.theme.IconPack.entries, pack, title = { it.label }, detail = { it.detail },
+            onSelect = {
+                pack = it
+                com.prism.music.ui.theme.IconStyle.savePack(context, it)
+                looks.iconsChanged()
+            },
+        ) { p ->
+            // Cupertino is drawn by hand for its own icons; the others come from the drawings.
+            val icons = remember(p) {
+                if (p == com.prism.music.ui.theme.IconPack.CUPERTINO) com.prism.music.ui.theme.PrismIcons.cupertinoPreview()
+                else listOf("Home", "Search", "Heart", "Play").map { com.prism.music.ui.theme.PrismIcons.preview(it, com.prism.music.ui.theme.IconFill.OUTLINE, p) }
+            }
+            Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                icons.forEach { Icon(it, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface) }
+            }
         }
         Label("Weight")
         Chips(com.prism.music.ui.theme.IconWeight.entries, saved.first, { it.label }) { save(it to saved.second) }
@@ -1312,6 +1325,7 @@ private fun ResetPage(section: SettingsSection) {
                     com.prism.music.ui.theme.IconStyle.save(context, com.prism.music.ui.theme.IconWeight.REGULAR, true)
                     com.prism.music.ui.theme.IconStyle.savePack(context, com.prism.music.ui.theme.IconPack.PRISM)
                     com.prism.music.ui.theme.IconStyle.saveLikeStar(context, false)
+                    com.prism.music.ui.theme.IconStyle.saveFill(context, com.prism.music.ui.theme.IconFill.OUTLINE)
                     c.looks.iconsChanged()
                 }
             }) { Text("Reset") }

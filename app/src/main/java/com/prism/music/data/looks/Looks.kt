@@ -10,7 +10,11 @@ import java.util.zip.Inflater
 
 /** The icon style a Look carries (Appearance → Icons & shapes; kept apart from the settings, see `IconStyle`). */
 @Serializable
-data class LookIcons(val pack: String = "PRISM", val weight: String = "REGULAR", val rounded: Boolean = true, val likeStar: Boolean = false)
+data class LookIcons(
+    val pack: String = "PRISM", val weight: String = "REGULAR", val rounded: Boolean = true, val likeStar: Boolean = false,
+    /** Outline, duotone or filled (1.7.7; Looks saved before carry the default). */
+    val fill: String = "OUTLINE",
+)
 
 /**
  * A Look (1.7.3): a named snapshot of how Prism looks, every setting in `SettingsRepository.lookSpec` as tagged text
@@ -129,9 +133,10 @@ object LookCode {
         }
         val icons = look.icons.let { i ->
             LookIcons(
-                pack = i.pack.takeIf { p -> p in setOf("PRISM", "CUPERTINO") } ?: "PRISM",
+                pack = i.pack.takeIf { p -> com.prism.music.ui.theme.IconPack.entries.any { it.name == p } } ?: "PRISM",
                 weight = i.weight.takeIf { w -> w in setOf("THIN", "REGULAR", "BOLD") } ?: "REGULAR",
                 rounded = i.rounded, likeStar = i.likeStar,
+                fill = i.fill.takeIf { f -> com.prism.music.ui.theme.IconFill.entries.any { it.name == f } } ?: "OUTLINE",
             )
         }
         val name = look.name.filter { !it.isISOControl() }.trim().take(Look.MAX_NAME).ifBlank { "A Look" }

@@ -11,6 +11,8 @@ What changed in each release. Older releases are described on the [Releases page
 - **Corners as a slider**, with the old Sharp, Subtle, Round and Extra as its marks (Looks that name a step still work).
 - **Buttons**: pill, rounded or square, and the Play on album and playlist pages filled (with its glow) or outlined.
 - **Icons**: outline, duotone (a light tone inside) or filled, and the tab you're on in ink, your accent or the light.
+- **Two more icon packs**: Facet (straight lines and sharp corners, every curve cut into facets) and Dots (drawn in
+  dots, like a dot-matrix display). Every one of Prism's icons comes in both, and Looks carry the pack and fill style.
 - **Six more app icons**: Dusk, Paper, Neon, Pastel, Line and Gold. Android Auto shows the one you pick.
 - **Text**: Light, Regular or Bold for all of Prism's text, tight, normal or wide letter spacing, and titles in a font of
   their own (big titles in Editorial and the rest in Prism, for example). Each choice is a card with its example.

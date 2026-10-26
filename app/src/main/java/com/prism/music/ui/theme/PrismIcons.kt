@@ -33,6 +33,10 @@ enum class IconWeight(val label: String, val scale: Float) { THIN("Thin", 0.64f)
 enum class IconPack(val label: String, val detail: String) {
     PRISM("Prism", "Prism's own icons"),
     CUPERTINO("Cupertino", "In the style of Apple's apps: filled tabs, a chevron for Back, two-triangle skips, circled menus"),
+    /** Every icon with its curves cut into straight facets and sharp corners (1.7.7, generated from Prism's drawings). */
+    FACET("Facet", "Straight lines and sharp corners: every curve cut into facets"),
+    /** Every icon in dots, like a dot-matrix display (1.7.7, generated from Prism's drawings). */
+    DOTS("Dots", "Drawn in dots, like a dot-matrix display"),
 }
 
 /** How Prism's icons are filled (1.7.7): lines, a light second tone inside, or solid. */
@@ -62,8 +66,7 @@ object IconStyle {
         weight = w; rounded = r
         pack = savedPack(context)
         likeStar = savedLikeStar(context)
-        fill = savedFill(context)
-    }
+        fill = savedFill(context)    }
 
     fun savedFill(context: android.content.Context): IconFill =
         context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString("fill", null)
@@ -154,13 +157,17 @@ object PrismIcons {
      * The icon drawn in design/icons/[name].svg, or its selected twin ([filled]: tinted or solid, as the drawing says), in
      * the fill style picked in Icons & shapes ([style]; Prism's own setting unless a preview asks for another).
      */
-    private fun drawn(name: String, filled: Boolean = false, style: IconFill = IconStyle.fill): ImageVector {
+    private fun drawn(name: String, filled: Boolean = false, style: IconFill = IconStyle.fill, pack: IconPack = IconStyle.pack): ImageVector {
         val s = PrismIconData.spec(name)
         val ink = SolidColor(Color.Black)
         // Filled: every icon as its solid twin. Duotone: the shapes a twin fills get a light tone inside.
         val twin = filled || (style == IconFill.FILLED && s.twin != 0)
+        if (pack == IconPack.DOTS) return dotted(name, if (twin) s.dotsFilled else s.dots, filled, s.mirror)
+        // Facet: the same drawing with its curves cut straight, sharp corners and square ends whatever the Rounded switch.
+        val facet = pack == IconPack.FACET
+        val round = IconStyle.rounded && !facet
         return ImageVector.Builder(if (filled) "${name}Filled" else name, 24.dp, 24.dp, 24f, 24f, autoMirror = s.mirror).apply {
-            for (p in s.parts) {
+            for (p in if (facet) s.facet else s.parts) {
                 val nodes = addPathNodes(p.d)
                 if (p.kind == 1) { addPath(nodes, fill = ink); continue }
                 val fillable = p.kind == 2 && s.twin != 0
@@ -175,15 +182,38 @@ object PrismIcons {
                     nodes,
                     fill = if (fill) ink else null, fillAlpha = alpha,
                     stroke = ink, strokeLineWidth = p.width * IconStyle.weight.scale,
-                    strokeLineCap = if (IconStyle.rounded) StrokeCap.Round else StrokeCap.Butt,
-                    strokeLineJoin = if (IconStyle.rounded) StrokeJoin.Round else StrokeJoin.Miter,
+                    strokeLineCap = if (round) StrokeCap.Round else StrokeCap.Butt,
+                    strokeLineJoin = if (round) StrokeJoin.Round else StrokeJoin.Miter,
                 )
             }
         }.build()
     }
 
-    /** [name] drawn in fill style [style], for Settings' example cards (the app's own icons are built once, at start). */
-    fun preview(name: String, style: IconFill): ImageVector = drawn(name, style = style)
+    /**
+     * The Dots pack: the icon's dots ([dots]: hex, four digits each, x and y in quarter units), one path of circles.
+     * Line weight sizes the dots a little (Thin smaller, Bold fuller).
+     */
+    private fun dotted(name: String, dots: String, filled: Boolean, mirror: Boolean): ImageVector {
+        val r = PrismIconData.DOT_SPACING * 0.36f * IconStyle.weight.scale.coerceIn(0.8f, 1.2f)
+        return ImageVector.Builder(if (filled) "${name}Filled" else name, 24.dp, 24.dp, 24f, 24f, autoMirror = mirror).apply {
+            addPath(
+                androidx.compose.ui.graphics.vector.PathBuilder().apply {
+                    for (k in 0 until dots.length / 4) {
+                        val x = dots.substring(k * 4, k * 4 + 2).toInt(16) / 4f
+                        val y = dots.substring(k * 4 + 2, k * 4 + 4).toInt(16) / 4f
+                        circle(x, y, r)
+                    }
+                }.nodes,
+                fill = SolidColor(Color.Black),
+            )
+        }.build()
+    }
+
+    /** Cupertino's Home, Search, Heart and Play, for its card in Settings (built when asked: the pack may not be in use). */
+    fun cupertinoPreview(): List<ImageVector> = listOf(Cupertino.Home, Cupertino.Search, Cupertino.Heart, Cupertino.Play)
+
+    /** [name] drawn in fill style [style] and [pack], for Settings' example cards (the app's own icons are built once, at start). */
+    fun preview(name: String, style: IconFill, pack: IconPack = IconStyle.pack): ImageVector = drawn(name, style = style, pack = pack)
 
     val Home = drawn("Home").or { Cupertino.Home }
     val HomeFilled = drawn("Home", filled = true).or { Cupertino.HomeFilled }
