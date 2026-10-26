@@ -29,7 +29,9 @@ jobs:
           packages: platform-tools
 
       - name: Install Android platform
-        run: sdkmanager "platforms;android-37"
+        run: |
+          sdkmanager "platforms;android-37.0"
+          ln -s "$ANDROID_SDK_ROOT/platforms/android-37.0" "$ANDROID_SDK_ROOT/platforms/android-37"
 
       - name: Build APK
         run: ./gradlew :app:assembleRelease --no-daemon
