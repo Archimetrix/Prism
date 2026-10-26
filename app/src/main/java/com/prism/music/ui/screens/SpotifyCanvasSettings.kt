@@ -58,7 +58,9 @@ private fun SpotifyCanvasLoginDialog(onConnected: () -> Unit, onDismiss: () -> U
         val cm = CookieManager.getInstance()
         val raw = cm.getCookie("https://open.spotify.com") ?: cm.getCookie("https://spotify.com")
         if (raw == null) { message = "Finish signing in, then tap Check sign-in."; return }
-        val cookies = raw.split(';').map { it.trim().split('=', limit = 2) }.filter { it.size == 2 }.toMap()
+        val cookies = raw.split(';').mapNotNull { cookie ->
+            cookie.trim().split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] }
+        }.toMap()
         val dc = cookies["sp_dc"]?.takeIf { it.isNotBlank() }
         if (dc == null) { message = "Spotify has not finished signing in yet."; return }
         prefs.edit().putString("sp_dc", dc).putString("sp_key", cookies["sp_key"].orEmpty()).apply()
