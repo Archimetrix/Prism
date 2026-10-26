@@ -16,7 +16,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,8 +32,6 @@ import com.prism.music.ui.theme.LocalContainer
 fun SpotifyCanvasSettings() {
     val c = LocalContainer.current
     val prefs = remember { c.app.getSharedPreferences("spotify_canvas", android.content.Context.MODE_PRIVATE) }
-    val statusState = c.canvas.spotifyCanvas?.lookupStatus?.collectAsState() ?: remember { mutableStateOf<String?>(null) }
-    val lookupStatus by statusState
     var connected by remember { mutableStateOf(prefs.getString("sp_dc", null).orEmpty().isNotBlank()) }
     var showLogin by remember { mutableStateOf(false) }
     Column(
@@ -43,19 +40,14 @@ fun SpotifyCanvasSettings() {
     ) {
         if (connected) {
             Text("Spotify connected", style = MaterialTheme.typography.bodyMedium)
-            lookupStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            PrismTextButton(onClick = {
-                c.canvas.spotifyCanvas?.disconnect()
-                c.canvas.onSpotifySessionChanged()
-                connected = false
-            }) { Text("Disconnect Spotify") }
+            PrismTextButton(onClick = { c.canvas.spotifyCanvas?.disconnect(); connected = false }) { Text("Disconnect Spotify") }
         } else {
             Text("Sign in to look up Spotify Canvas videos for the song playing.", style = MaterialTheme.typography.bodySmall)
             PrismButton(onClick = { showLogin = true }, Modifier.fillMaxWidth()) { Text("Connect Spotify") }
         }
     }
     if (showLogin) SpotifyCanvasLoginDialog(
-        onConnected = { c.canvas.onSpotifySessionChanged(); connected = true; showLogin = false },
+        onConnected = { connected = true; showLogin = false },
         onDismiss = { showLogin = false },
     )
 }

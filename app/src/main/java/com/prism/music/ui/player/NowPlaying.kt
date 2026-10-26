@@ -351,9 +351,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // ---------------------------------------------------------------- Canvas
     val metered = remember { context.getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered == true }
     val savedCanvases by c.canvas.saved.collectAsState()
-    val spotifySessionRevision by c.canvas.spotifySessionRevision.collectAsState()
     val canvasSaved = savedCanvases.has(song.id, com.prism.music.data.canvas.CanvasRepository.albumKey(song))
-    val songCanvas by produceState<CanvasArtwork?>(c.canvas.cached(song), song.id, song.album?.title, settings.canvasEnabled, spotifySessionRevision) {
+    val songCanvas by produceState<CanvasArtwork?>(c.canvas.cached(song), song.id, song.album?.title, settings.canvasEnabled) {
         // Saved clips play from the phone, so mobile data doesn't matter for them.
         if (!settings.canvasEnabled || (metered && (!settings.canvasOnCellular || settings.dataSaver) && !c.canvas.isSaved(song))) { value = null; return@produceState }
         val known = c.canvas.cached(song)
