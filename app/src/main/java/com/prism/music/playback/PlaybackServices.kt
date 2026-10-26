@@ -14,6 +14,13 @@ class PlaybackServiceSolid : PlaybackService()
 class PlaybackServiceLight : PlaybackService()
 class PlaybackServiceWave : PlaybackService()
 class PlaybackServiceMidnight : PlaybackService()
+// 1.7.7's icons.
+class PlaybackServiceDusk : PlaybackService()
+class PlaybackServicePaper : PlaybackService()
+class PlaybackServiceNeon : PlaybackService()
+class PlaybackServicePastel : PlaybackService()
+class PlaybackServiceLine : PlaybackService()
+class PlaybackServiceGold : PlaybackService()
 
 object PlaybackServices {
     /** The playback service class running in this process, if one is. */
@@ -26,6 +33,12 @@ object PlaybackServices {
         AppIcon.LIGHT -> PlaybackServiceLight::class.java
         AppIcon.WAVE -> PlaybackServiceWave::class.java
         AppIcon.MIDNIGHT -> PlaybackServiceMidnight::class.java
+        AppIcon.DUSK -> PlaybackServiceDusk::class.java
+        AppIcon.PAPER -> PlaybackServicePaper::class.java
+        AppIcon.NEON -> PlaybackServiceNeon::class.java
+        AppIcon.PASTEL -> PlaybackServicePastel::class.java
+        AppIcon.LINE -> PlaybackServiceLine::class.java
+        AppIcon.GOLD -> PlaybackServiceGold::class.java
     }
 
     /**

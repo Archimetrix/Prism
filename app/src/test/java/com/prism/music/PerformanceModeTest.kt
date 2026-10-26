@@ -18,8 +18,10 @@ class PerformanceModeTest {
     private val heavy = AppSettings(
         frostedGlass = true, liquidGlass = true, frostedPages = true, backdrops = mapOf("HOME" to "CONSTELLATION"),
         canvasEnabled = true, visualizer = VisualizerStyle.GLOW, meshSpeed = 0.8f, playerBackground = PlayerBackground.BLUR,
-        lyricsStyle = LyricsStyle.GLOW, lyricsBlurAmount = 1.5f, lyricsBackground = LyricsBackground.CANVAS,
-        homeHeader = HomeHeader.PICTURE, playerLayout = PlayerLayout.VINYL, lyricsSpacing = 1.4f,
+        lyricsLook = com.prism.music.data.prefs.LyricsLookPrefs(
+            style = LyricsStyle.GLOW, blurAmount = 1.5f, background = LyricsBackground.CANVAS, spacing = 1.4f,
+        ),
+        homeHeader = HomeHeader.PICTURE, playerLayout = PlayerLayout.VINYL,
     )
 
     @Test

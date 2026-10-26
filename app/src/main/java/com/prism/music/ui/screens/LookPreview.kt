@@ -76,7 +76,7 @@ private const val PHONE_DP = 360f
 @Composable
 fun LookTheme(s: AppSettings, dark: Boolean, content: @Composable (ThemeColors) -> Unit) {
     val c = rememberColors(s, dark)
-    val typography = remember(s.fontChoice, s.fontStamp) { prismTypography(AppFonts.family(s.fontChoice)) }
+    val typography = remember(s.fontChoice, s.fontStamp, s.type) { com.prism.music.ui.theme.appTypography(s) }
     val ui = remember(s.corners, s.uiDensity, s.cardSize, s.titleSize, s.reduceMotion) { PrismUi.from(s) }
     val density = LocalDensity.current
     CompositionLocalProvider(

@@ -239,6 +239,10 @@ object LookLabels {
         "lyrics_bg_color2" to "Lyrics gradient's second color", "lyrics_everywhere" to "Same lyrics look everywhere",
         "lyrics_strip_align" to "Lyric line on the player", "lyrics_strip_two_lines" to "Lyric line up to two lines",
         "hide_status_bar" to "Hide the status bar",
+        "corner_scale" to "Corners", "cover_shape_songs" to "Songs' covers", "cover_shape_albums" to "Albums' covers",
+        "cover_shape_artists" to "Artists' pictures", "cover_shape_player" to "Player's cover", "button_shape" to "Buttons",
+        "play_outlined" to "Outlined Play", "type_weight" to "Text weight", "type_spacing" to "Letter spacing", "title_font" to "Titles' font",
+        "tab_icon_tint" to "The current tab's icon",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -257,6 +261,15 @@ object LookLabels {
             "font_choice" to e(com.prism.music.data.prefs.FontChoice.entries) { it.label },
             "lyrics_font" to e(com.prism.music.data.prefs.FontChoice.entries) { it.label } + ("" to "App font"),
             "corners" to e(com.prism.music.data.prefs.Corners.entries) { it.label },
+            "cover_shape_songs" to e(com.prism.music.data.prefs.CoverShape.entries) { it.label },
+            "cover_shape_albums" to e(com.prism.music.data.prefs.CoverShape.entries) { it.label },
+            "cover_shape_artists" to e(com.prism.music.data.prefs.CoverShape.entries) { it.label },
+            "cover_shape_player" to e(com.prism.music.data.prefs.CoverShape.entries) { it.label },
+            "button_shape" to e(com.prism.music.data.prefs.ButtonShape.entries) { it.label },
+            "type_weight" to e(com.prism.music.data.prefs.TypeWeight.entries) { it.label },
+            "tab_icon_tint" to e(com.prism.music.data.prefs.TabTint.entries) { it.label },
+            "type_spacing" to e(com.prism.music.data.prefs.TypeSpacing.entries) { it.label },
+            "title_font" to e(com.prism.music.data.prefs.FontChoice.entries) { it.label },
             "ui_density" to e(com.prism.music.data.prefs.UiDensity.entries) { it.label },
             "title_size" to e(com.prism.music.data.prefs.TitleSize.entries) { it.label },
             "card_size" to e(com.prism.music.data.prefs.CardSize.entries) { it.label },
@@ -307,6 +320,7 @@ object LookLabels {
     private val percent = setOf(
         "text_scale", "lyrics_scale", "backdrop_dim", "player_backdrop_show", "surface_tint_strength", "mesh_speed", "mesh_intensity", "player_blur",
         "scrubber_thickness", "lyrics_blur_amount", "lyrics_spacing", "lyrics_others_alpha", "lyrics_backing_size", "lyrics_extra_size",
+        "corner_scale",
     )
     private val colors = setOf("accent", "accent_light", "surface_color", "lyrics_sung_custom", "lyrics_other_custom", "lyrics_bg_color", "lyrics_bg_color2")
 

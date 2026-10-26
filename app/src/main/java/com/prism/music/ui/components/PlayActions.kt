@@ -135,7 +135,7 @@ fun PlayActionsSheet(target: Playable, extra: List<SheetItem> = emptyList(), ext
     ActionSheet(art, onDismiss) { close ->
         ActionHeader(
             art, title, subtitle,
-            shape = if (item is ArtistItem) CircleShape else ui.art,
+            shape = if (item is ArtistItem) ui.artistArt else ui.albumArt,
             placeholderIcon = when {
                 target == Playable.Liked -> PrismIcons.HeartFilled
                 target == Playable.Downloads -> PrismIcons.DownloadDone

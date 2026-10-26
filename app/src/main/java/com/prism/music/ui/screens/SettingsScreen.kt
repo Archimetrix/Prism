@@ -1,5 +1,6 @@
 package com.prism.music.ui.screens
 
+import com.prism.music.ui.components.tabTint
 import com.prism.music.ui.components.PrismOutlinedButton
 import com.prism.music.ui.components.PrismSlider
 import com.prism.music.ui.components.PrismTextButton
@@ -165,8 +166,11 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
 
     /** The look settings on this page, for its "Reset this page" (empty: the page has none, or its own reset). */
     val lookKeys: List<String> get() = when (this) {
-        TEXT -> listOf("font_choice", "lyrics_font", "text_scale")
-        ICONS -> listOf("corners")
+        TEXT -> listOf("font_choice", "lyrics_font", "text_scale", "type_weight", "type_spacing", "title_font")
+        ICONS -> listOf(
+            "corners", "corner_scale", "cover_shape_songs", "cover_shape_albums", "cover_shape_artists", "cover_shape_player",
+            "button_shape", "play_outlined", "tab_icon_tint",
+        )
         GLASS -> listOf("liquid_glass", "glass_kind", "frosted_glass", "frosted_pages", "backdrops", "backdrop_dim", "backdrop_motion", "reduce_motion")
         INTERFACE -> listOf(
             "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab", "mini_player_style", "mini_skip_buttons",
@@ -337,7 +341,7 @@ private fun SettingsPage(
             SettingsSection.COLOR -> colorPage()
             SettingsSection.TEXT -> item(key = "text") { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { TypeSettings(); ResetPage(section) } }
             SettingsSection.ICONS -> item(key = "icons") {
-                Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings(); ResetPage(section) }
+                Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { IconSettings(); AppIconSettings(); ShapeSettings(); HomeWidgetsGroup(); ResetPage(section) }
             }
             SettingsSection.GLASS -> item(key = "glass") { Column(verticalArrangement = Arrangement.spacedBy(22.dp)) { GlassSettings(); ResetPage(section) } }
             SettingsSection.INTERFACE -> layoutAndNavigation()
@@ -902,6 +906,38 @@ private fun TypeSettings() {
         error?.let { Note(it) }
         SliderSetting("Text size", s.textScale, 0.85f..1.25f, { "${(it * 100).roundToInt()}%" }, steps = 7, info = "On top of your phone's own text size.") { prefs.setTextScale(it) }
     }
+    TypeFeelGroup()
+}
+
+/** Weight, letter spacing and the titles' own font (1.7.7), each shown on a page title and a line of text. */
+@Composable
+private fun TypeFeelGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    val scheme = MaterialTheme.colorScheme
+    @Composable
+    fun Sample(t: com.prism.music.data.prefs.TypeLook) {
+        val type = remember(s.fontChoice, s.fontStamp, t) { com.prism.music.ui.theme.appTypography(s.copy(type = t)) }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text("Songs", style = type.headlineSmall, color = scheme.onSurface, maxLines = 1)
+            Text("Played today", style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+    Group("Weight and spacing", info = "How heavy all of Prism's text is, and how far apart its letters sit, on top of the font's own design.") {
+        ChoiceCards(com.prism.music.data.prefs.TypeWeight.entries, s.type.weight, title = { it.label }, detail = { null }, columns = 3, onSelect = { prefs.setTypeWeight(it) }) {
+            Sample(s.type.copy(weight = it))
+        }
+        Label("Letter spacing")
+        ChoiceCards(com.prism.music.data.prefs.TypeSpacing.entries, s.type.spacing, title = { it.label }, detail = { null }, columns = 3, onSelect = { prefs.setTypeSpacing(it) }) {
+            Sample(s.type.copy(spacing = it))
+        }
+    }
+    Group("Titles", info = "Page, section and album titles can have a font of their own: big titles in Editorial and the rest in Prism, for example.") {
+        val options: List<FontChoice?> = listOf(null) + FontChoice.entries.filter { it != FontChoice.CUSTOM && it != s.fontChoice }
+        ChoiceCards(options, s.type.titleFont, title = { it?.label ?: "Same as the text" }, detail = { it?.face }, columns = 2, onSelect = { prefs.setTitleFont(it) }) {
+            Sample(s.type.copy(titleFont = it))
+        }
+    }
 }
 
 /**
@@ -921,7 +957,36 @@ private fun IconSettings() {
     }
     var pack by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedPack(context)) }
     var likeStar by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedLikeStar(context)) }
+    var fill by remember { mutableStateOf(com.prism.music.ui.theme.IconStyle.savedFill(context)) }
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
     Group("Icons") {
+        // Fill (1.7.7): each style drawn on four of Prism's icons, as they'd look.
+        ChoiceCards(
+            com.prism.music.ui.theme.IconFill.entries, fill, title = { it.label }, detail = { it.detail }, columns = 3,
+            onSelect = {
+                fill = it
+                com.prism.music.ui.theme.IconStyle.saveFill(context, it)
+                looks.iconsChanged()
+            },
+        ) { f ->
+            val icons = remember(f) { listOf("Home", "Library", "Heart", "Search").map { com.prism.music.ui.theme.PrismIcons.preview(it, f) } }
+            Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                icons.forEach { Icon(it, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface) }
+            }
+        }
+        Label("The tab you're on")
+        ChoiceCards(
+            com.prism.music.data.prefs.TabTint.entries, s.shapes.tabTint, title = { it.label }, detail = { null }, columns = 3,
+            onSelect = { prefs.setTabTint(it) },
+        ) { t ->
+            Box(Modifier.fillMaxWidth().padding(10.dp), contentAlignment = Alignment.Center) {
+                Icon(
+                    com.prism.music.ui.theme.PrismIcons.HomeFilled, null,
+                    Modifier.size(26.dp).tabTint(t),
+                )
+            }
+        }
         Label("Pack", info = pack.detail)
         Chips(com.prism.music.ui.theme.IconPack.entries, pack, { it.label }) {
             pack = it
@@ -936,7 +1001,8 @@ private fun IconSettings() {
             com.prism.music.ui.theme.IconStyle.saveLikeStar(context, it)
             looks.iconsChanged()
         }
-        if (saved != drawn || pack != com.prism.music.ui.theme.IconStyle.pack || likeStar != com.prism.music.ui.theme.IconStyle.likeStar) {
+        if (saved != drawn || pack != com.prism.music.ui.theme.IconStyle.pack || likeStar != com.prism.music.ui.theme.IconStyle.likeStar ||
+            fill != com.prism.music.ui.theme.IconStyle.fill) {
             Item("Restart Prism to see them", "Playback stops for a moment", onClick = {
                 val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
                 if (launch != null) {
@@ -1034,13 +1100,95 @@ private fun ShapeSettings() {
     val prefs = LocalContainer.current.settings
     val scheme = MaterialTheme.colorScheme
     Group("Shape") {
-        Label("Corners")
-        Chips(Corners.entries, s.corners, { it.label }) { prefs.setCorners(it) }
+        // Corners as a slider (1.7.7): the old four steps are its marks, and a Look that names a step still works.
+        val corner = s.shapes.cornerScale ?: s.corners.scale
+        SliderSetting(
+            "Corners", corner, 0f..2f,
+            { v -> Corners.entries.minByOrNull { kotlin.math.abs(it.scale - v) }!!.let { if (kotlin.math.abs(it.scale - v) < 0.08f) it.label else "${(v * 100).roundToInt()}%" } },
+        ) { v ->
+            // Close to a step: that step, so it reads by name.
+            Corners.entries.firstOrNull { kotlin.math.abs(it.scale - v) < 0.06f }?.let { prefs.setCorners(it) } ?: prefs.setCornerScale(v)
+        }
         // A peek at what the corners look like.
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val ui = LocalUi.current
             listOf(scheme.primary, scheme.tertiary, scheme.secondary).forEach { col ->
                 Box(Modifier.weight(1f).aspectRatio(1.3f).clip(ui.tile).background(Brush.linearGradient(listOf(col, col.copy(alpha = 0.55f)))))
+            }
+        }
+    }
+    CoverShapeGroup()
+    ButtonShapeGroup()
+}
+
+/** Covers' shapes (1.7.7): which kind of cover, then each shape drawn as a cover would be. */
+@Composable
+private fun CoverShapeGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    var which by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("songs") }
+    val kinds = listOf("songs" to "Songs", "albums" to "Albums", "artists" to "Artists", "player" to "Player")
+    val now = when (which) { "albums" -> s.shapes.albums; "artists" -> s.shapes.artists; "player" -> s.shapes.player; else -> s.shapes.songs }
+    Group("Covers' shapes", info = "Each kind of picture can have its own shape: songs in lists, albums and playlists, artists, and the cover in the player. A music video keeps its rounded corners.") {
+        com.prism.music.ui.components.Segmented(
+            kinds.map { it.first }, which, { k -> kinds.first { it.first == k }.second }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        ) { which = it }
+        ChoiceCards(
+            com.prism.music.data.prefs.CoverShape.entries, now, title = { it.label }, detail = { null }, columns = 4,
+            onSelect = { prefs.setCoverShape(which, it) },
+        ) { shape -> CoverShapeSample(shape, round = which == "artists") }
+    }
+}
+
+@Composable
+private fun CoverShapeSample(shape: com.prism.music.data.prefs.CoverShape, round: Boolean) {
+    val ui = LocalUi.current
+    val scheme = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.fillMaxWidth(0.82f).aspectRatio(1f)
+                .clip(com.prism.music.ui.theme.CoverShapes.of(shape, ui.r(14.dp)))
+                .background(Brush.linearGradient(listOf(scheme.primary, com.prism.music.ui.theme.PrismTokens.spectrumAt(if (round) 0.75f else 0.3f)))),
+            contentAlignment = Alignment.Center,
+        ) { Icon(if (round) PrismIcons.Person else PrismIcons.Song, null, tint = Color.White.copy(alpha = 0.85f)) }
+    }
+}
+
+/** Buttons' shape and the Play button (1.7.7). */
+@Composable
+private fun ButtonShapeGroup() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    val scheme = MaterialTheme.colorScheme
+    Group("Buttons") {
+        ChoiceCards(
+            com.prism.music.data.prefs.ButtonShape.entries, s.shapes.button, title = { it.label }, detail = { null }, columns = 3,
+            onSelect = { prefs.setButtonShape(it) },
+        ) { b ->
+            val shape = LocalUi.current.copy(buttonShape = b).button
+            Box(Modifier.fillMaxWidth().padding(10.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(30.dp).clip(shape).background(scheme.onSurface), contentAlignment = Alignment.Center) {
+                    Text("Play", style = MaterialTheme.typography.labelMedium, color = scheme.surface)
+                }
+            }
+        }
+        Label("Play on album and playlist pages")
+        ChoiceCards(
+            listOf(false, true), s.shapes.playOutlined, title = { if (it) "Outlined" else "Filled" },
+            detail = { if (it) "Just its outline" else "Solid, with a glow" },
+            onSelect = { prefs.setPlayOutlined(it) },
+        ) { outlined ->
+            val shape = LocalUi.current.button
+            Box(Modifier.fillMaxWidth().padding(10.dp), contentAlignment = Alignment.Center) {
+                Row(
+                    Modifier.fillMaxWidth().height(34.dp).clip(shape)
+                        .then(if (outlined) Modifier.border(1.5.dp, scheme.onSurface, shape) else Modifier.background(scheme.onSurface)),
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(PrismIcons.Play, null, Modifier.size(16.dp), tint = if (outlined) scheme.onSurface else scheme.surface)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Play", style = MaterialTheme.typography.labelMedium, color = if (outlined) scheme.onSurface else scheme.surface)
+                }
             }
         }
     }

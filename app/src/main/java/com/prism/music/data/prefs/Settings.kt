@@ -89,7 +89,12 @@ enum class SectionStyle(val label: String) { CAROUSEL("Carousel"), GRID("Grid"),
  */
 enum class FontChoice(val label: String, val face: String? = null) {
     PRISM("Prism", "Outfit"), CLEAN("Clean", "Manrope"), GEOMETRIC("Geometric", "Plus Jakarta Sans"), AIRY("Airy", "Urbanist"),
-    ROUNDED("Rounded", "Nunito"), SERIF("Editorial", "Fraunces"), MONO("Mono", "Geist Mono"), SYSTEM("System"),
+    ROUNDED("Rounded", "Nunito"), SERIF("Editorial", "Fraunces"), MONO("Mono", "Geist Mono"),
+    /** Made to be told apart at a glance: low vision (1.7.7). */
+    LEGIBLE("Legible", "Atkinson Hyperlegible"),
+    /** Weighted letters that don't flip or swap: dyslexia (1.7.7). Two weights, not variable. */
+    DYSLEXIC("Dyslexia-friendly", "OpenDyslexic"),
+    SYSTEM("System"),
     /** A .ttf / .otf the listener imported (#12; `AppFonts.FontSlot`). */
     CUSTOM("Your font");
 
@@ -104,6 +109,79 @@ enum class FontChoice(val label: String, val face: String? = null) {
 
 /** How round cards, tiles and artwork are. */
 enum class Corners(val label: String, val scale: Float) { SHARP("Sharp", 0.2f), SUBTLE("Subtle", 0.6f), ROUND("Round", 1f), EXTRA("Extra", 1.5f) }
+/** A cover's shape (1.7.7): drawn by Prism ([com.prism.music.ui.theme.CoverShapes]), no library. */
+enum class CoverShape(val label: String) {
+    ROUNDED("Rounded"), SQUARE("Square"), CIRCLE("Circle"), SQUIRCLE("Squircle"), FLOWER("Flower"), COOKIE("Cookie"), ARCH("Arch"), SLANTED("Slanted"),
+}
+/** Prism's buttons (Play, Shuffle, dialogs' buttons), 1.7.7. */
+enum class ButtonShape(val label: String) { PILL("Pill"), ROUNDED("Rounded"), SQUARE("Square") }
+
+/** Lyrics, your way (1.7.5). Every default draws the lyrics as 1.7.4 did. Nested since 1.7.7 (see [ShapeLook]). */
+data class LyricsLookPrefs(
+    val style: LyricsStyle = LyricsStyle.PRISM,
+    /** Focus blur's strength (0 off … 2 strong; 1 as before). It replaces the old on/off `lyricsBlur`, which it starts from. */
+    val blurAmount: Float = 1f,
+    /** Room between lines (0.6 tight … 1.8 airy; 1 as before). */
+    val spacing: Float = 1f,
+    /** How bright the lines not being sung are (0.2 … 1; 0.55 as before). */
+    val othersAlpha: Float = 0.55f,
+    val sungColor: LyricsColor = LyricsColor.WHITE,
+    val sungCustom: Int = 0xFFFFD166.toInt(),
+    val otherColor: LyricsColor = LyricsColor.WHITE,
+    val otherCustom: Int = 0xFFB8C4FF.toInt(),
+    val weight: LyricsWeight = LyricsWeight.LIGHT,
+    /** Background vocals' size against their line (0.4 … 0.9; 0.6 as before). */
+    val backingSize: Float = 0.6f,
+    /** A soft shadow under the words, for photo and animated backgrounds. */
+    val shadow: Boolean = false,
+    val uppercase: Boolean = false,
+    val ahead: LyricsAhead = LyricsAhead.ALL,
+    val position: LyricsPosition = LyricsPosition.TOP,
+    /** Translations and romanized lines: size (0.7 … 1.4 of before), color, italics and where they go. */
+    val extraSize: Float = 1f,
+    val extraColor: LyricsColor = LyricsColor.WHITE,
+    val extraItalic: Boolean = false,
+    val extraPlace: LyricsExtraPlace = LyricsExtraPlace.BELOW,
+    val background: LyricsBackground = LyricsBackground.PLAYER,
+    val immersiveBackground: LyricsBackground = LyricsBackground.PLAYER,
+    /** [LyricsBackground.COLOR]'s colors; the second is a gradient's end (0: one color). */
+    val bgColor: Int = 0xFF1B1530.toInt(),
+    val bgColor2: Int = 0,
+    /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
+    val everywhere: Boolean = true,
+)
+
+/** How heavy all of Prism's text is, against its own weights (1.7.7). */
+enum class TypeWeight(val label: String, val shift: Int) { LIGHT("Light", -100), REGULAR("Regular", 0), BOLD("Bold", 100) }
+/** How far apart letters sit (1.7.7), in em added to each style's own. */
+enum class TypeSpacing(val label: String, val em: Float) { TIGHT("Tight", -0.015f), NORMAL("Normal", 0f), WIDE("Wide", 0.03f) }
+
+/** Customize Prism → Text (1.7.7): weight, spacing, and a font of its own for titles. Nested (see [ShapeLook]). */
+data class TypeLook(
+    val weight: TypeWeight = TypeWeight.REGULAR,
+    val spacing: TypeSpacing = TypeSpacing.NORMAL,
+    /** Page, section and hero titles in another font than the rest; null: the same font. */
+    val titleFont: FontChoice? = null,
+)
+
+/** Customize Prism → Icons & shapes (1.7.7). */
+data class ShapeLook(
+    /** Corners as a slider: 0 square … 2× round; null follows [AppSettings.corners] (Looks made before 1.7.7 name a step). */
+    val cornerScale: Float? = null,
+    /** Covers' shapes: songs in lists, albums and playlists, artists, and the player's cover. */
+    val songs: CoverShape = CoverShape.ROUNDED,
+    val albums: CoverShape = CoverShape.ROUNDED,
+    val artists: CoverShape = CoverShape.CIRCLE,
+    val player: CoverShape = CoverShape.ROUNDED,
+    val button: ButtonShape = ButtonShape.PILL,
+    /** Album and playlist pages' Play: outlined rather than filled. */
+    val playOutlined: Boolean = false,
+    /** The current tab's icon: in ink as before, the accent, or the light. */
+    val tabTint: TabTint = TabTint.INK,
+)
+
+/** The current tab's icon color (1.7.7). */
+enum class TabTint(val label: String) { INK("Ink"), ACCENT("Accent"), LIGHT("The light") }
 
 /** How much room rows and sections get. */
 enum class UiDensity(val label: String, val scale: Float) { COMPACT("Compact", 0.7f), COMFORTABLE("Comfortable", 1f), ROOMY("Roomy", 1.3f) }
@@ -755,6 +833,13 @@ data class AppSettings(
     val lyricsFontName: String = "",
     val textScale: Float = 1f,
     val corners: Corners = Corners.ROUND,
+    /**
+     * Shapes (1.7.7), in one value: AppSettings is at the JVM's limit of a method's arguments (its copy and default
+     * constructors), so new groups of settings go in nested classes like this one.
+     */
+    val shapes: ShapeLook = ShapeLook(),
+    /** Weight, letter spacing and a title font (1.7.7). */
+    val type: TypeLook = TypeLook(),
     val uiDensity: UiDensity = UiDensity.COMFORTABLE,
     val titleSize: TitleSize = TitleSize.LARGE,
     val cardSize: CardSize = CardSize.MEDIUM,
@@ -795,38 +880,8 @@ data class AppSettings(
     val artShrinkOnPause: Boolean = true,
     val showOutputDevice: Boolean = true,
     val lyricsAlign: LyricsAlign = LyricsAlign.START,
-    // Lyrics, your way (1.7.5). Every default draws the lyrics as 1.7.4 did.
-    val lyricsStyle: LyricsStyle = LyricsStyle.PRISM,
-    /** Focus blur's strength (0 off … 2 strong; 1 as before). It replaces the old on/off [lyricsBlur], which it starts from. */
-    val lyricsBlurAmount: Float = 1f,
-    /** Room between lines (0.6 tight … 1.8 airy; 1 as before). */
-    val lyricsSpacing: Float = 1f,
-    /** How bright the lines not being sung are (0.2 … 1; 0.55 as before). */
-    val lyricsOthersAlpha: Float = 0.55f,
-    val lyricsSungColor: LyricsColor = LyricsColor.WHITE,
-    val lyricsSungCustom: Int = 0xFFFFD166.toInt(),
-    val lyricsOtherColor: LyricsColor = LyricsColor.WHITE,
-    val lyricsOtherCustom: Int = 0xFFB8C4FF.toInt(),
-    val lyricsWeight: LyricsWeight = LyricsWeight.LIGHT,
-    /** Background vocals' size against their line (0.4 … 0.9; 0.6 as before). */
-    val lyricsBackingSize: Float = 0.6f,
-    /** A soft shadow under the words, for photo and animated backgrounds. */
-    val lyricsShadow: Boolean = false,
-    val lyricsUppercase: Boolean = false,
-    val lyricsAhead: LyricsAhead = LyricsAhead.ALL,
-    val lyricsPosition: LyricsPosition = LyricsPosition.TOP,
-    /** Translations and romanized lines: size (0.7 … 1.4 of before), color, italics and where they go. */
-    val lyricsExtraSize: Float = 1f,
-    val lyricsExtraColor: LyricsColor = LyricsColor.WHITE,
-    val lyricsExtraItalic: Boolean = false,
-    val lyricsExtraPlace: LyricsExtraPlace = LyricsExtraPlace.BELOW,
-    val lyricsBackground: LyricsBackground = LyricsBackground.PLAYER,
-    val immersiveBackground: LyricsBackground = LyricsBackground.PLAYER,
-    /** [LyricsBackground.COLOR]'s colors; the second is a gradient's end (0: one color). */
-    val lyricsBgColor: Int = 0xFF1B1530.toInt(),
-    val lyricsBgColor2: Int = 0,
-    /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
-    val lyricsEverywhere: Boolean = true,
+    /** Lyrics, your way (1.7.5), in one value since 1.7.7 ([LyricsLookPrefs]); read as `lyricsStyle` etc. below. */
+    val lyricsLook: LyricsLookPrefs = LyricsLookPrefs(),
     /** The current-lyric line on the player (#121): where it sits, and whether a long line may take two lines. */
     val lyricsStripAlign: LyricsAlign = LyricsAlign.START,
     val lyricsStripTwoLines: Boolean = false,
@@ -912,6 +967,31 @@ data class AppSettings(
 ) {
     val isLoggedIn: Boolean get() = cookie.contains("SAPISID")
 
+    // The lyrics' look, read as before (1.7.7 moved them into [lyricsLook]; see [LyricsLookPrefs]).
+    val lyricsStyle: LyricsStyle get() = lyricsLook.style
+    val lyricsBlurAmount: Float get() = lyricsLook.blurAmount
+    val lyricsSpacing: Float get() = lyricsLook.spacing
+    val lyricsOthersAlpha: Float get() = lyricsLook.othersAlpha
+    val lyricsSungColor: LyricsColor get() = lyricsLook.sungColor
+    val lyricsSungCustom: Int get() = lyricsLook.sungCustom
+    val lyricsOtherColor: LyricsColor get() = lyricsLook.otherColor
+    val lyricsOtherCustom: Int get() = lyricsLook.otherCustom
+    val lyricsWeight: LyricsWeight get() = lyricsLook.weight
+    val lyricsBackingSize: Float get() = lyricsLook.backingSize
+    val lyricsShadow: Boolean get() = lyricsLook.shadow
+    val lyricsUppercase: Boolean get() = lyricsLook.uppercase
+    val lyricsAhead: LyricsAhead get() = lyricsLook.ahead
+    val lyricsPosition: LyricsPosition get() = lyricsLook.position
+    val lyricsExtraSize: Float get() = lyricsLook.extraSize
+    val lyricsExtraColor: LyricsColor get() = lyricsLook.extraColor
+    val lyricsExtraItalic: Boolean get() = lyricsLook.extraItalic
+    val lyricsExtraPlace: LyricsExtraPlace get() = lyricsLook.extraPlace
+    val lyricsBackground: LyricsBackground get() = lyricsLook.background
+    val immersiveBackground: LyricsBackground get() = lyricsLook.immersiveBackground
+    val lyricsBgColor: Int get() = lyricsLook.bgColor
+    val lyricsBgColor2: Int get() = lyricsLook.bgColor2
+    val lyricsEverywhere: Boolean get() = lyricsLook.everywhere
+
     /**
      * What Prism draws with: these settings, or with [performanceMode] the lighter look. Blurred glass, frosted pages
      * and the frost behind every page, moving and illustrated backgrounds (plain pages instead), animated covers, the
@@ -931,11 +1011,13 @@ data class AppSettings(
         meshSpeed = 0f,
         playerBackground = if (playerBackground == PlayerBackground.BLUR || playerBackground == PlayerBackground.APPEARANCE) PlayerBackground.MESH else playerBackground,
         lyricsBlur = false,
-        lyricsBlurAmount = 0f,
-        lyricsShadow = false,
-        lyricsStyle = if (lyricsStyle == LyricsStyle.GLOW) LyricsStyle.PRISM else lyricsStyle,
-        lyricsBackground = if (lyricsBackground == LyricsBackground.BLUR || lyricsBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else lyricsBackground,
-        immersiveBackground = if (immersiveBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else immersiveBackground,
+        lyricsLook = lyricsLook.copy(
+            blurAmount = 0f,
+            shadow = false,
+            style = if (lyricsStyle == LyricsStyle.GLOW) LyricsStyle.PRISM else lyricsStyle,
+            background = if (lyricsBackground == LyricsBackground.BLUR || lyricsBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else lyricsBackground,
+            immersiveBackground = if (immersiveBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else immersiveBackground,
+        ),
         homeHeader = if (homeHeader == HomeHeader.PICTURE || homeHeader == HomeHeader.NOW_PLAYING) HomeHeader.GREETING else homeHeader,
     )
 
@@ -1100,6 +1182,17 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsFontName = stringPreferencesKey("lyrics_font_name")
         val textScale = floatPreferencesKey("text_scale")
         val corners = stringPreferencesKey("corners")
+        val cornerScale = floatPreferencesKey("corner_scale")
+        val songShape = stringPreferencesKey("cover_shape_songs")
+        val albumShape = stringPreferencesKey("cover_shape_albums")
+        val artistShape = stringPreferencesKey("cover_shape_artists")
+        val playerShape = stringPreferencesKey("cover_shape_player")
+        val buttonShape = stringPreferencesKey("button_shape")
+        val playOutlined = booleanPreferencesKey("play_outlined")
+        val tabTint = stringPreferencesKey("tab_icon_tint")
+        val typeWeight = stringPreferencesKey("type_weight")
+        val typeSpacing = stringPreferencesKey("type_spacing")
+        val titleFont = stringPreferencesKey("title_font")
         val uiDensity = stringPreferencesKey("ui_density")
         val titleSize = stringPreferencesKey("title_size")
         val cardSize = stringPreferencesKey("card_size")
@@ -1223,6 +1316,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 lyricsBlur, lyricsScale, lyricsProgressLine, hideStatusBar,
                 tabNames, navBarSize, navBarFill, miniPlayerJoined, libraryViews, libraryColumns, librarySubtitles,
                 homeHeader, homeHeaderHeight,
+                cornerScale, songShape, albumShape, artistShape, playerShape, buttonShape, playOutlined,
+                typeWeight, typeSpacing, titleFont, tabTint,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1252,6 +1347,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
                 libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b',
                 homeHeader to 's', homeHeaderHeight to 's', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
+                cornerScale to 'f', songShape to 's', albumShape to 's', artistShape to 's', playerShape to 's', buttonShape to 's', playOutlined to 'b',
+                typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's',
             ) + lyricsLook
         }
 
@@ -1488,6 +1585,21 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsFontName = p[K.lyricsFontName] ?: d.lyricsFontName,
             textScale = p[K.textScale] ?: d.textScale,
             corners = p.enum(K.corners, d.corners),
+            shapes = ShapeLook(
+                cornerScale = p[K.cornerScale],
+                songs = p.enum(K.songShape, d.shapes.songs),
+                albums = p.enum(K.albumShape, d.shapes.albums),
+                artists = p.enum(K.artistShape, d.shapes.artists),
+                player = p.enum(K.playerShape, d.shapes.player),
+                button = p.enum(K.buttonShape, d.shapes.button),
+                playOutlined = p[K.playOutlined] ?: d.shapes.playOutlined,
+                tabTint = p.enum(K.tabTint, d.shapes.tabTint),
+            ),
+            type = TypeLook(
+                weight = p.enum(K.typeWeight, d.type.weight),
+                spacing = p.enum(K.typeSpacing, d.type.spacing),
+                titleFont = p[K.titleFont]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } },
+            ),
             uiDensity = p.enum(K.uiDensity, d.uiDensity),
             titleSize = p.enum(K.titleSize, d.titleSize),
             cardSize = p.enum(K.cardSize, d.cardSize),
@@ -1536,30 +1648,32 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             scrubberThumb = p.enum(K.scrubberThumb, d.scrubberThumb),
             visualizer = p.enum(K.visualizer, d.visualizer),
             visualizerColor = p.enum(K.visualizerColor, d.visualizerColor),
-            lyricsStyle = p.enum(K.lyricsStyle, d.lyricsStyle),
-            // Until it's set, the strength follows the old switch: on is 1.7's blur, off none.
-            lyricsBlurAmount = (p[K.lyricsBlurAmount] ?: if (p[K.lyricsBlur] ?: d.lyricsBlur) 1f else 0f).coerceIn(0f, 2f),
-            lyricsSpacing = (p[K.lyricsSpacing] ?: d.lyricsSpacing).coerceIn(0.6f, 1.8f),
-            lyricsOthersAlpha = (p[K.lyricsOthersAlpha] ?: d.lyricsOthersAlpha).coerceIn(0.2f, 1f),
-            lyricsSungColor = p.enum(K.lyricsSungColor, d.lyricsSungColor),
-            lyricsSungCustom = p[K.lyricsSungCustom] ?: d.lyricsSungCustom,
-            lyricsOtherColor = p.enum(K.lyricsOtherColor, d.lyricsOtherColor),
-            lyricsOtherCustom = p[K.lyricsOtherCustom] ?: d.lyricsOtherCustom,
-            lyricsWeight = p.enum(K.lyricsWeight, d.lyricsWeight),
-            lyricsBackingSize = (p[K.lyricsBackingSize] ?: d.lyricsBackingSize).coerceIn(0.4f, 0.9f),
-            lyricsShadow = p[K.lyricsShadow] ?: d.lyricsShadow,
-            lyricsUppercase = p[K.lyricsUppercase] ?: d.lyricsUppercase,
-            lyricsAhead = p.enum(K.lyricsAhead, d.lyricsAhead),
-            lyricsPosition = p.enum(K.lyricsPosition, d.lyricsPosition),
-            lyricsExtraSize = (p[K.lyricsExtraSize] ?: d.lyricsExtraSize).coerceIn(0.7f, 1.4f),
-            lyricsExtraColor = p.enum(K.lyricsExtraColor, d.lyricsExtraColor),
-            lyricsExtraItalic = p[K.lyricsExtraItalic] ?: d.lyricsExtraItalic,
-            lyricsExtraPlace = p.enum(K.lyricsExtraPlace, d.lyricsExtraPlace),
-            lyricsBackground = p.enum(K.lyricsBackground, d.lyricsBackground),
-            immersiveBackground = p.enum(K.immersiveBackground, d.immersiveBackground),
-            lyricsBgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
-            lyricsBgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
-            lyricsEverywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+            lyricsLook = LyricsLookPrefs(
+                style = p.enum(K.lyricsStyle, d.lyricsStyle),
+                // Until it's set, the strength follows the old switch: on is 1.7's blur, off none.
+                blurAmount = (p[K.lyricsBlurAmount] ?: if (p[K.lyricsBlur] ?: d.lyricsBlur) 1f else 0f).coerceIn(0f, 2f),
+                spacing = (p[K.lyricsSpacing] ?: d.lyricsSpacing).coerceIn(0.6f, 1.8f),
+                othersAlpha = (p[K.lyricsOthersAlpha] ?: d.lyricsOthersAlpha).coerceIn(0.2f, 1f),
+                sungColor = p.enum(K.lyricsSungColor, d.lyricsSungColor),
+                sungCustom = p[K.lyricsSungCustom] ?: d.lyricsSungCustom,
+                otherColor = p.enum(K.lyricsOtherColor, d.lyricsOtherColor),
+                otherCustom = p[K.lyricsOtherCustom] ?: d.lyricsOtherCustom,
+                weight = p.enum(K.lyricsWeight, d.lyricsWeight),
+                backingSize = (p[K.lyricsBackingSize] ?: d.lyricsBackingSize).coerceIn(0.4f, 0.9f),
+                shadow = p[K.lyricsShadow] ?: d.lyricsShadow,
+                uppercase = p[K.lyricsUppercase] ?: d.lyricsUppercase,
+                ahead = p.enum(K.lyricsAhead, d.lyricsAhead),
+                position = p.enum(K.lyricsPosition, d.lyricsPosition),
+                extraSize = (p[K.lyricsExtraSize] ?: d.lyricsExtraSize).coerceIn(0.7f, 1.4f),
+                extraColor = p.enum(K.lyricsExtraColor, d.lyricsExtraColor),
+                extraItalic = p[K.lyricsExtraItalic] ?: d.lyricsExtraItalic,
+                extraPlace = p.enum(K.lyricsExtraPlace, d.lyricsExtraPlace),
+                background = p.enum(K.lyricsBackground, d.lyricsBackground),
+                immersiveBackground = p.enum(K.immersiveBackground, d.immersiveBackground),
+                bgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
+                bgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
+                everywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+            ),
             lyricsStripAlign = p.enum(K.lyricsStripAlign, d.lyricsStripAlign),
             lyricsStripTwoLines = p[K.lyricsStripTwoLines] ?: d.lyricsStripTwoLines,
             mergeLikedVideos = p[K.mergeLikedVideos] ?: d.mergeLikedVideos,
@@ -1843,7 +1957,20 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setLyricsFont(v: String) = edit { it[K.lyricsFont] = v }
     fun setLyricsFontFile(name: String) = edit { it[K.lyricsFontName] = name; it[K.fontStamp] = System.currentTimeMillis() }
     fun setTextScale(v: Float) = edit { it[K.textScale] = v }
-    fun setCorners(v: Corners) = edit { it[K.corners] = v.name }
+    /** A corners step: the slider goes back to following it. */
+    fun setCorners(v: Corners) = edit { it[K.corners] = v.name; it.remove(K.cornerScale) }
+    fun setCornerScale(v: Float) = edit { it[K.cornerScale] = v.coerceIn(0f, 2f) }
+    fun setCoverShape(which: String, v: CoverShape) = edit { p ->
+        val key = when (which) { "songs" -> K.songShape; "albums" -> K.albumShape; "artists" -> K.artistShape; "player" -> K.playerShape; else -> return@edit }
+        p[key] = v.name
+    }
+    fun setButtonShape(v: ButtonShape) = edit { it[K.buttonShape] = v.name }
+    fun setTabTint(v: TabTint) = edit { it[K.tabTint] = v.name }
+    fun setTypeWeight(v: TypeWeight) = edit { it[K.typeWeight] = v.name }
+    fun setTypeSpacing(v: TypeSpacing) = edit { it[K.typeSpacing] = v.name }
+    /** Null: titles in the app's font. */
+    fun setTitleFont(v: FontChoice?) = edit { if (v == null) it.remove(K.titleFont) else it[K.titleFont] = v.name }
+    fun setPlayOutlined(v: Boolean) = edit { it[K.playOutlined] = v }
     fun setUiDensity(v: UiDensity) = edit { it[K.uiDensity] = v.name }
     fun setTitleSize(v: TitleSize) = edit { it[K.titleSize] = v.name }
     fun setCardSize(v: CardSize) = edit { it[K.cardSize] = v.name }

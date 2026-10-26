@@ -88,7 +88,7 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
 
     // A song taken out (swiped away or its ×, #149) can be put back for a few seconds.
     var undo by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
-    LaunchedEffect(undo) { if (undo != null) { kotlinx.coroutines.delay(5_000); undo = null } }
+    LaunchedEffect(undo) { if (undo != null) { kotlinx.coroutines.delay(8_000); undo = null } }
     val remove: (QueueEntry) -> Unit = { entry -> pc.removeForUndo(entry.index)?.let { undo = entry.song.title to it } }
 
     // DJ mode: its switch, energy curve and how far the scans have got; each song's key and tempo as badges.

@@ -4,6 +4,27 @@ What changed in each release. Older releases are described on the [Releases page
 
 ## 1.7.7 (unreleased)
 
+### Shapes, icons and type
+- **Covers' shapes**: Customize Prism → Icons & shapes → Covers' shapes. Songs, albums and playlists, artists and the
+  player's cover each in their own shape: rounded, square, circle, squircle, flower, cookie, arch or slanted, each shown
+  as a card. Drawn by Prism itself, no extra library.
+- **Corners as a slider**, with the old Sharp, Subtle, Round and Extra as its marks (Looks that name a step still work).
+- **Buttons**: pill, rounded or square, and the Play on album and playlist pages filled (with its glow) or outlined.
+- **Icons**: outline, duotone (a light tone inside) or filled, and the tab you're on in ink, your accent or the light.
+- **Six more app icons**: Dusk, Paper, Neon, Pastel, Line and Gold. Android Auto shows the one you pick.
+- **Text**: Light, Regular or Bold for all of Prism's text, tight, normal or wide letter spacing, and titles in a font of
+  their own (big titles in Editorial and the rest in Prism, for example). Each choice is a card with its example.
+- **Two fonts for reading**: Legible (Atkinson Hyperlegible, made to tell letters apart at a glance) and
+  Dyslexia-friendly (OpenDyslexic).
+
+### Widgets
+- **Each widget its own way**: when you add a Prism widget (or hold it → Settings on Android 12+, or from Customize
+  Prism → Icons & shapes → Home-screen widgets): its background as designed, in a color of yours, in the cover's color
+  or see-through, how solid, white or black text, and whether it shows the cover, like, previous and next, and the
+  progress. The preview is the widget itself. Two widgets of the same kind can look different.
+- **Widgets follow your light** (Android 12+): with a light other than Prism's own (a preset, your own or From the
+  cover), Prism's widgets take its colors for the progress and the play ring.
+
 ### You asked for it
 - **The light from the cover** (#123): Customize Prism → Color → Spectrum → "From the cover". The progress bar, Play ring,
   the playing song in lists, switches and the rest of the light take the playing cover's colors, new with each song

@@ -115,6 +115,30 @@
             android:enabled="false" android:icon="@mipmap/ic_launcher_midnight" android:roundIcon="@mipmap/ic_launcher_midnight">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity-alias>
+        <activity-alias android:name=".IconDusk" android:targetActivity=".PrismActivity" android:exported="true"
+            android:enabled="false" android:icon="@mipmap/ic_launcher_dusk" android:roundIcon="@mipmap/ic_launcher_dusk">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconPaper" android:targetActivity=".PrismActivity" android:exported="true"
+            android:enabled="false" android:icon="@mipmap/ic_launcher_paper" android:roundIcon="@mipmap/ic_launcher_paper">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconNeon" android:targetActivity=".PrismActivity" android:exported="true"
+            android:enabled="false" android:icon="@mipmap/ic_launcher_neon" android:roundIcon="@mipmap/ic_launcher_neon">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconPastel" android:targetActivity=".PrismActivity" android:exported="true"
+            android:enabled="false" android:icon="@mipmap/ic_launcher_pastel" android:roundIcon="@mipmap/ic_launcher_pastel">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconLine" android:targetActivity=".PrismActivity" android:exported="true"
+            android:enabled="false" android:icon="@mipmap/ic_launcher_line" android:roundIcon="@mipmap/ic_launcher_line">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
+        <activity-alias android:name=".IconGold" android:targetActivity=".PrismActivity" android:exported="true"
+            android:enabled="false" android:icon="@mipmap/ic_launcher_gold" android:roundIcon="@mipmap/ic_launcher_gold">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity-alias>
 
         <!-- "Hey Google, play … on Prism": Assistant / Gemini only offer apps that take this as music sources. -->
         <activity
@@ -203,6 +227,78 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+        <service
+            android:name=".playback.PlaybackServiceDusk"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_dusk"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServicePaper"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_paper"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceNeon"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_neon"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServicePastel"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_pastel"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceLine"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_line"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".playback.PlaybackServiceGold"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_gold"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
 
         <!-- Headset / Bluetooth media buttons and system playback resumption. -->
         <receiver
@@ -230,6 +326,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/share_paths" />
         </provider>
+
+        <!-- A widget's own settings (1.7.7): when it's added, and from holding it -> Settings. -->
+        <activity
+            android:name=".ui.screens.WidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Prism">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
 
         <!-- Home screen widgets: one per look, so each shows up in the launcher's list. -->
         <receiver

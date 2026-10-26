@@ -72,8 +72,8 @@ class LyricsLookTest {
         assertEquals(0f, c.position)
         assertEquals(Int.MAX_VALUE, c.ahead)
         // Bold card brings its color only when the background is left as it is.
-        assertEquals(LyricsBackground.COVER_COLOR, s.copy(lyricsStyle = LyricsStyle.CARD).lyricsPageBackground())
-        assertEquals(LyricsBackground.DARK, s.copy(lyricsStyle = LyricsStyle.CARD, lyricsBackground = LyricsBackground.DARK).lyricsPageBackground())
+        assertEquals(LyricsBackground.COVER_COLOR, s.copy(lyricsLook = s.lyricsLook.copy(style = LyricsStyle.CARD)).lyricsPageBackground())
+        assertEquals(LyricsBackground.DARK, s.copy(lyricsLook = s.lyricsLook.copy(style = LyricsStyle.CARD, background = LyricsBackground.DARK)).lyricsPageBackground())
     }
 
     @Test

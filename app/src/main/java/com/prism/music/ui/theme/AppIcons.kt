@@ -13,6 +13,13 @@ enum class AppIcon(val label: String, val alias: String, val background: Int, va
     LIGHT("Light", ".IconLight", R.drawable.ic_launcher_bg_light, R.drawable.ic_launcher_fg_dark),
     WAVE("Wave", ".IconWave", R.drawable.ic_launcher_bg_wave, R.drawable.ic_launcher_fg_wave),
     MIDNIGHT("Midnight", ".IconMidnight", R.drawable.ic_launcher_bg_midnight, R.drawable.ic_launcher_fg_midnight),
+    // 1.7.7.
+    DUSK("Dusk", ".IconDusk", R.drawable.ic_launcher_bg_dusk, R.drawable.ic_launcher_fg_white),
+    PAPER("Paper", ".IconPaper", R.drawable.ic_launcher_bg_paper, R.drawable.ic_launcher_fg_paper),
+    NEON("Neon", ".IconNeon", R.drawable.ic_launcher_bg_neon, R.drawable.ic_launcher_fg_neon),
+    PASTEL("Pastel", ".IconPastel", R.drawable.ic_launcher_bg_pastel, R.drawable.ic_launcher_fg_pastel),
+    LINE("Line", ".IconLine", R.drawable.ic_launcher_bg_line, R.drawable.ic_launcher_fg_line),
+    GOLD("Gold", ".IconGold", R.drawable.ic_launcher_bg_gold, R.drawable.ic_launcher_fg_gold),
 }
 
 /**

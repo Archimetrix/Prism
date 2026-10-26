@@ -590,7 +590,7 @@ private fun RearrangePlaylists(playlists: List<com.prism.music.data.model.Browse
             verticalAlignment = Alignment.CenterVertically,
         ) {
             com.prism.music.ui.components.Artwork(
-                c.covers.art(p), Modifier.size(44.dp), ui.smallArt, size = 226,
+                c.covers.art(p), Modifier.size(44.dp), ui.albumArt, size = 226,
                 placeholderIcon = PrismIcons.QueueMusic,
             )
             Spacer(Modifier.width(12.dp))

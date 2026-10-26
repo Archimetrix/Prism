@@ -348,7 +348,7 @@ private fun ReleaseRow(r: ReleaseEntity, today: LocalDate, onClick: () -> Unit) 
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Artwork(r.thumbnail, Modifier.size(60.dp), LocalUi.current.art, placeholderIcon = PrismIcons.Album)
+        Artwork(r.thumbnail, Modifier.size(60.dp), LocalUi.current.albumArt, placeholderIcon = PrismIcons.Album)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(r.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -568,7 +568,7 @@ fun ExclusionsScreen(bottomPadding: Dp) {
             }
             items(list, key = { "$title:${it.id}" }) { e ->
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Artwork(e.thumbnail, Modifier.size(44.dp), if (title.startsWith("Artists")) CircleShape else LocalUi.current.art, placeholderIcon = PrismIcons.Song)
+                    Artwork(e.thumbnail, Modifier.size(44.dp), if (title.startsWith("Artists")) LocalUi.current.artistArt else LocalUi.current.songArt, placeholderIcon = PrismIcons.Song)
                     Spacer(Modifier.width(12.dp))
                     Text(e.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     PrismTextButton({ bring(e) }) { Text("Bring back") }

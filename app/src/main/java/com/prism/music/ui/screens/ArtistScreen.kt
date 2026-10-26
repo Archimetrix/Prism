@@ -527,7 +527,7 @@ private fun Spotlight(item: AlbumItem, onOpen: () -> Unit) {
     val thisYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
     FrostedPanel(Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp).fillMaxWidth(), onClick = onOpen) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Artwork(item.thumbnail, Modifier.size(112.dp), LocalUi.current.art, size = 544)
+            Artwork(item.thumbnail, Modifier.size(112.dp), LocalUi.current.albumArt, size = 544)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Eyebrow(if (year == thisYear) "New release" else "Latest release", color = MaterialTheme.colorScheme.primary)
@@ -585,7 +585,7 @@ private fun TopSongsGrid(songs: List<Song>, title: String) {
                             .padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Artwork(s.thumbnail, Modifier.size(48.dp), LocalUi.current.smallArt, size = 226)
+                        Artwork(s.thumbnail, Modifier.size(48.dp), LocalUi.current.songArt, size = 226)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
@@ -624,7 +624,7 @@ private fun CardRow(items: List<BrowseItem>, width: Dp, aspect: Float = 1f, roun
             ) {
                 Artwork(
                     LocalContainer.current.covers.art(item), Modifier.fillMaxWidth().aspectRatio(aspect),
-                    if (round) CircleShape else ui.art,
+                    if (round) ui.artistArt else ui.albumArt,
                     size = if (aspect > 1f) 720 else 544,
                     placeholderIcon = if (item is ArtistItem) PrismIcons.Person else PrismIcons.Play,
                 )
@@ -875,7 +875,7 @@ private fun ReleaseCard(item: BrowseItem, modifier: Modifier, open: (BrowseItem)
             .combinedClickable(onClick = { open(item) }, onLongClick = item.playable()?.let { p -> { menu(p) } }),
     ) {
         Artwork(
-            LocalContainer.current.covers.art(item), Modifier.fillMaxWidth().aspectRatio(1f), ui.art,
+            LocalContainer.current.covers.art(item), Modifier.fillMaxWidth().aspectRatio(1f), ui.albumArt,
             size = 720, placeholderIcon = PrismIcons.Play,
         )
         Spacer(Modifier.height(8.dp))

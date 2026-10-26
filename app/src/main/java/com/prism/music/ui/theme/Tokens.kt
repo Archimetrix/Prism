@@ -29,6 +29,11 @@ data class PrismUi(
     val cardWidth: Dp = 152.dp,
     val titleSize: TitleSize = TitleSize.LARGE,
     val reduceMotion: Boolean = false,
+    /** Covers' and buttons' shapes (1.7.7, Icons & shapes). */
+    val songShape: com.prism.music.data.prefs.CoverShape = com.prism.music.data.prefs.CoverShape.ROUNDED,
+    val albumShape: com.prism.music.data.prefs.CoverShape = com.prism.music.data.prefs.CoverShape.ROUNDED,
+    val artistShape: com.prism.music.data.prefs.CoverShape = com.prism.music.data.prefs.CoverShape.CIRCLE,
+    val buttonShape: com.prism.music.data.prefs.ButtonShape = com.prism.music.data.prefs.ButtonShape.PILL,
 ) {
     /** A corner radius designed at [base] for the default "Round" setting. */
     fun r(base: Dp): Dp = base * corner
@@ -43,6 +48,19 @@ data class PrismUi(
     val art: RoundedCornerShape get() = shape(14.dp)
     val smallArt: RoundedCornerShape get() = shape(10.dp)
 
+    /** A song's cover in a list (was [smallArt]). */
+    val songArt: androidx.compose.ui.graphics.Shape get() = CoverShapes.of(songShape, r(10.dp))
+    /** An album's or playlist's cover (was [art]). */
+    val albumArt: androidx.compose.ui.graphics.Shape get() = CoverShapes.of(albumShape, r(14.dp))
+    /** An artist's picture (was always a circle). */
+    val artistArt: androidx.compose.ui.graphics.Shape get() = CoverShapes.of(artistShape, r(14.dp))
+    /** Prism's buttons: a pill, rounded, or square-cornered. */
+    val button: androidx.compose.ui.graphics.Shape get() = when (buttonShape) {
+        com.prism.music.data.prefs.ButtonShape.PILL -> androidx.compose.foundation.shape.CircleShape
+        com.prism.music.data.prefs.ButtonShape.ROUNDED -> shape(12.dp)
+        com.prism.music.data.prefs.ButtonShape.SQUARE -> RoundedCornerShape(3.dp)
+    }
+
     /** Material's components (dialogs, sheets, menus, text fields) take these. */
     val materialShapes: Shapes
         get() = Shapes(
@@ -52,11 +70,15 @@ data class PrismUi(
 
     companion object {
         fun from(s: AppSettings) = PrismUi(
-            corner = s.corners.scale,
+            corner = s.shapes.cornerScale ?: s.corners.scale,
             density = s.uiDensity.scale,
             cardWidth = s.cardSize.widthDp.dp,
             titleSize = s.titleSize,
             reduceMotion = s.reduceMotion,
+            songShape = s.shapes.songs,
+            albumShape = s.shapes.albums,
+            artistShape = s.shapes.artists,
+            buttonShape = s.shapes.button,
         )
     }
 }
@@ -90,7 +112,9 @@ object AppFonts {
         FontChoice.ROUNDED -> com.prism.music.R.font.nunito to emptyArray()
         FontChoice.SERIF -> com.prism.music.R.font.fraunces to arrayOf(FontVariation.Setting("opsz", 48f), FontVariation.Setting("WONK", 0f))
         FontChoice.MONO -> com.prism.music.R.font.geist_mono to emptyArray()
-        FontChoice.SYSTEM, FontChoice.CUSTOM -> null
+        FontChoice.LEGIBLE -> com.prism.music.R.font.atkinson_hyperlegible_next to emptyArray()
+        // OpenDyslexic comes in two weights rather than an axis ([build]).
+        FontChoice.DYSLEXIC, FontChoice.SYSTEM, FontChoice.CUSTOM -> null
     }
 
     /**
@@ -129,6 +153,10 @@ object AppFonts {
     private fun build(choice: FontChoice): FontFamily = when (choice) {
         FontChoice.SYSTEM -> FontFamily.Default
         FontChoice.CUSTOM -> FontFamily.Default // see [family]
+        FontChoice.DYSLEXIC -> FontFamily(
+            Font(com.prism.music.R.font.opendyslexic_regular, FontWeight.Normal),
+            Font(com.prism.music.R.font.opendyslexic_bold, FontWeight.Bold),
+        )
         else -> bundledFamily(choice, weights) ?: FontFamily.Default
     }
 

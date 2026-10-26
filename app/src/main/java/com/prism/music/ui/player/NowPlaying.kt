@@ -392,7 +392,13 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // Collapsed into the header thumbnail, the sleeve keeps gentle corners whatever the setting.
     // A Full width cover meets the screen's edges, so it has square corners until it shrinks into the header.
     val artCorners = if (settings.coverSize == com.prism.music.data.prefs.CoverSize.FULL) 0.dp else settings.playerArtCorners.dp
-    val artShape = if (vinyl) CircleShape else RoundedCornerShape(lerp(artCorners, 8.dp, collapse.value))
+    // Another shape picked for the player's cover (1.7.7) keeps it all the way into the header.
+    val artShape = when {
+        vinyl -> CircleShape
+        settings.shapes.player != com.prism.music.data.prefs.CoverShape.ROUNDED && !cassette ->
+            com.prism.music.ui.theme.CoverShapes.of(settings.shapes.player, artCorners)
+        else -> RoundedCornerShape(lerp(artCorners, 8.dp, collapse.value))
+    }
     val roomyCover = settings.coverSize != com.prism.music.data.prefs.CoverSize.STANDARD
 
     // ---------------------------------------------------------------- Visualizer (1.7.4, off by default)

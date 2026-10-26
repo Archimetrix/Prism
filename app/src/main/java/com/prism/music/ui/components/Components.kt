@@ -199,7 +199,7 @@ fun SongRowLayout(
 ) {
     val scheme = MaterialTheme.colorScheme
     val ui = com.prism.music.ui.theme.LocalUi.current
-    val art = ui.smallArt
+    val art = ui.songArt
     Row(
         modifier
             .fillMaxWidth()
@@ -294,7 +294,13 @@ fun ItemCard(item: BrowseItem, modifier: Modifier = Modifier, width: Dp = Dp.Uns
                 Artwork(
                     LocalContainer.current.covers.art(item),
                     Modifier.fillMaxWidth().aspectRatio(if (video) 16f / 9f else 1f),
-                    if (round) CircleShape else ui.art,
+                    // Each kind in its own shape (1.7.7); a wide video keeps rounded corners.
+                    when {
+                        round -> ui.artistArt
+                        video -> ui.art
+                        item is SongItem -> ui.songArt
+                        else -> ui.albumArt
+                    },
                     placeholderIcon = when (item) {
                         is ArtistItem -> PrismIcons.Person
                         is AlbumItem -> PrismIcons.Album
