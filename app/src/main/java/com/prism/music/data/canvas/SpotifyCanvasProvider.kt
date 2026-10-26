@@ -9,6 +9,7 @@ import com.prism.music.data.innertube.InnerTube
 import com.prism.music.data.innertube.str
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.coroutines.flow.MutableStateFlow
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -22,6 +23,8 @@ class SpotifyCanvasProvider(
     private val http: okhttp3.OkHttpClient,
     private val preferences: SharedPreferences,
 ) {
+    /** Last lookup result, shown in settings so a saved login isn't mistaken for a successful Canvas lookup. */
+    val lookupStatus = MutableStateFlow<String?>(null)
     @Volatile private var cachedToken: String? = null
     @Volatile private var tokenExpiry = 0L
 
@@ -34,9 +37,24 @@ class SpotifyCanvasProvider(
 
     /** Find the closest Spotify track by title and artist, then ask Spotify for its Canvas video. */
     fun find(title: String, artist: String, album: String?): CanvasArtwork? {
-        val token = accessToken() ?: return null
-        val track = searchTrack(title, artist, album, token) ?: return null
-        val trackId = track.str("id") ?: return null
+        lookupStatus.value = "Checking Spotify for a Canvas…"
+        val token = accessToken()
+        if (token == null) {
+            lookupStatus.value = "Spotify is connected, but its access token could not be fetched. Try reconnecting."
+            return null
+        }
+        val track = searchTrack(title, artist, album, token)
+        if (track == null) {
+            if (lookupStatus.value == "Checking Spotify for a Canvas…") {
+                lookupStatus.value = "Couldn't match this song in Spotify. Check its title and artist there."
+            }
+            return null
+        }
+        val trackId = track.str("id")
+        if (trackId == null) {
+            lookupStatus.value = "Spotify matched the song but returned no track ID."
+            return null
+        }
         val trackTitle = track.str("name") ?: title
         val trackArtists = (track["artists"] as? JsonArray)?.mapNotNull { it.str("name") }
         val uri = "spotify:track:$trackId".toByteArray(Charsets.UTF_8)
@@ -52,32 +70,63 @@ class SpotifyCanvasProvider(
             .header("Accept", "application/x-protobuf")
             .post(body)
             .build()
-        val bytes = runCatching { http.newCall(request).execute().use { r -> if (r.isSuccessful) r.body.bytes() else null } }.getOrNull() ?: return null
+        val bytes = runCatching {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    lookupStatus.value = "Spotify's Canvas service returned HTTP ${response.code}."
+                    null
+                } else response.body?.bytes()
+            }
+        }.getOrNull()
+        if (bytes == null) {
+            if (lookupStatus.value == "Checking Spotify for a Canvas…") {
+                lookupStatus.value = "Couldn't reach Spotify's Canvas service. Check your connection and retry."
+            }
+            return null
+        }
         val raw = String(bytes, Charsets.ISO_8859_1)
         val url = Regex("https://[a-zA-Z0-9./_?=&#:%+\\-]+")
             .findAll(raw).map { it.value.trimEnd('.', ',', ';', ')') }
-            .firstOrNull { it.contains("canvaz", true) || it.contains("video", true) } ?: return null
+            .firstOrNull { it.contains("canvaz", true) || it.contains("video", true) }
+        if (url == null) {
+            lookupStatus.value = "Spotify has no Canvas for this song."
+            return null
+        }
+        lookupStatus.value = "Canvas found for ${trackTitle}."
         return CanvasArtwork(url = url, title = trackTitle, artist = trackArtists?.joinToString(", ") ?: artist, album = album, source = "spotify")
     }
 
     private fun searchTrack(title: String, artist: String, album: String?, token: String): JsonObject? {
-        val query = buildString {
-            append("track:").append(title).append(" artist:").append(artist)
-            if (!album.isNullOrBlank()) append(" album:").append(album)
-        }
-        val url = "https://api.spotify.com/v1/search".toHttpUrl().newBuilder()
-            .addQueryParameter("q", query).addQueryParameter("type", "track").addQueryParameter("limit", "5").build()
-        val req = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
-        val json = runCatching { http.newCall(req).execute().use { if (it.isSuccessful) InnerTube.json.parseToJsonElement(it.body.string()) else null } }.getOrNull()
-        val items = ((json as? JsonObject)?.get("tracks") as? JsonObject)?.get("items") as? JsonArray ?: return null
         val wantTitle = title.normalizeForMatch()
         val wanted = splitArtists(artist)
-        return items.mapNotNull { it as? JsonObject }.firstOrNull { item ->
-            val gotTitle = item.str("name")?.normalizeForMatch().orEmpty()
-            val gotArtists = (item["artists"] as? JsonArray)?.mapNotNull { it.str("name") }?.flatMap(::splitArtists).orEmpty()
-            (gotTitle == wantTitle || gotTitle.startsWith("$wantTitle ") || wantTitle.startsWith("$gotTitle ")) &&
-                wanted.isNotEmpty() && wanted.any { it in gotArtists }
+        val baseQuery = "track:$title artist:$artist"
+        val queries = listOfNotNull(
+            if (!album.isNullOrBlank()) "$baseQuery album:$album" else null,
+            baseQuery,
+        ).distinct()
+        for (query in queries) {
+            val url = "https://api.spotify.com/v1/search".toHttpUrl().newBuilder()
+                .addQueryParameter("q", query).addQueryParameter("type", "track").addQueryParameter("limit", "5").build()
+            val req = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
+            val json = runCatching {
+                http.newCall(req).execute().use { response ->
+                    if (response.isSuccessful) InnerTube.json.parseToJsonElement(response.body.string())
+                    else {
+                        lookupStatus.value = "Spotify track search returned HTTP ${response.code}."
+                        null
+                    }
+                }
+            }.getOrNull()
+            val items = ((json as? JsonObject)?.get("tracks") as? JsonObject)?.get("items") as? JsonArray ?: continue
+            val match = items.mapNotNull { it as? JsonObject }.firstOrNull { item ->
+                val gotTitle = item.str("name")?.normalizeForMatch().orEmpty()
+                val gotArtists = (item["artists"] as? JsonArray)?.mapNotNull { it.str("name") }?.flatMap(::splitArtists).orEmpty()
+                (gotTitle == wantTitle || gotTitle.startsWith("$wantTitle ") || wantTitle.startsWith("$gotTitle ")) &&
+                    wanted.isNotEmpty() && wanted.any { it in gotArtists }
+            }
+            if (match != null) return match
         }
+        return null
     }
 
     @Synchronized

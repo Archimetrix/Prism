@@ -61,6 +61,18 @@ private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/53
 class CanvasRepository(private val http: OkHttpClient) {
     /** Optional Spotify web session; set by the app container. */
     var spotifyCanvas: SpotifyCanvasProvider? = null
+    /** Restarts the current player's lookup when a Spotify session is connected or disconnected. */
+    val spotifySessionRevision = kotlinx.coroutines.flow.MutableStateFlow(0)
+    fun onSpotifySessionChanged() {
+        spotifyCanvas?.lookupStatus?.value = null
+        synchronized(cache) {
+            cache.keys.toList().forEach { key ->
+                cache[key]?.let { cache[key] = it.copy(spotifyChecked = false) }
+            }
+        }
+        scheduleWrite()
+        spotifySessionRevision.value++
+    }
     /** Songs whose animated artwork you've switched off from the player; set up by the app container. */
     var hiddenPrefs: android.content.SharedPreferences? = null
         set(v) { field = v; hidden.value = v?.getStringSet("ids", emptySet())?.toSet() ?: emptySet() }
@@ -150,9 +162,15 @@ class CanvasRepository(private val http: OkHttpClient) {
                 InnerTube.json.decodeFromString(MapSerializer(String.serializer(), Entry.serializer()), file.readText())
             }.getOrNull() ?: return@launch
             val now = System.currentTimeMillis()
+            val spotifyConnected = spotifyCanvas?.connected() == true
             synchronized(cache) {
-                stored.forEach { (id, e) -> if (id !in cache && (isSaved(id, e) || !e.stale(now))) cache[id] = e }
+                stored.forEach { (id, e) ->
+                    if (id !in cache && (isSaved(id, e) || !e.stale(now))) {
+                        cache[id] = if (spotifyConnected) e.copy(spotifyChecked = false) else e
+                    }
+                }
             }
+            if (spotifyConnected) spotifySessionRevision.value++
         }
     }
 
