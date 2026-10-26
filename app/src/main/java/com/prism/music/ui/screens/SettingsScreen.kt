@@ -66,6 +66,7 @@ import com.prism.music.data.prefs.AppSettings
 import com.prism.music.data.prefs.AudioQuality
 import com.prism.music.data.prefs.CarLyricsStyle
 import com.prism.music.data.prefs.CardSize
+import com.prism.music.data.prefs.CanvasSourcePriority
 import com.prism.music.data.prefs.ColorSource
 import com.prism.music.data.prefs.Corners
 import com.prism.music.data.prefs.CoverSize
@@ -1337,10 +1338,24 @@ private fun PlayerSettings() {
                 "Animated covers", "Moving artwork, when a song has it", s.canvasEnabled,
                 info = "Motion artwork and video covers. Turn them off for one song from the player's ⋯ menu. Whether they play on mobile data, and the ones kept on the phone, are in Downloads, storage & data.",
             ) { prefs.setCanvasEnabled(it) }
-            if (s.canvasEnabled) SpotifyCanvasSettings()
+            if (s.canvasEnabled) {
+                Label("Spotify Canvas")
+                Toggle("Use Spotify Canvas", "Look up matching Spotify Canvas videos", s.canvasSpotifyEnabled) {
+                    prefs.setCanvasSpotifyEnabled(it)
+                }
+                if (s.canvasSpotifyEnabled) SpotifyCanvasSettings()
+                Label("Apple Music artwork")
+                Toggle("Use Apple Music artwork", "Show matching animated Apple Music artwork in the square cover", s.canvasAppleEnabled) {
+                    prefs.setCanvasAppleEnabled(it)
+                }
+                Label("When both are available")
+                Chips(CanvasSourcePriority.entries, s.canvasSourcePriority, { it.label }) {
+                    prefs.setCanvasSourcePriority(it)
+                }
+            }
             if (s.canvasEnabled) Toggle(
                 "Fill the player", "The animated cover plays behind everything", s.canvasFillsBackground,
-                info = "The moving artwork fills the whole player, darkened under the controls, and the cover itself shows the still picture. Not with full-bleed artwork, which already shows it edge to edge.",
+                info = "Spotify Canvas fills the player behind the controls. Its square thumbnail fades away when the video starts.",
             ) { prefs.setCanvasFillsBackground(it) }
         }
         MoreOptions(listOf("Under the title", "Title and times", "Visualizer", "Immersive mode")) {

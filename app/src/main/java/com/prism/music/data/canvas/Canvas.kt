@@ -3,6 +3,7 @@ package com.prism.music.data.canvas
 import com.prism.music.data.innertube.InnerTube
 import com.prism.music.data.innertube.str
 import com.prism.music.data.model.Song
+import com.prism.music.data.prefs.CanvasSourcePriority
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -126,6 +127,8 @@ class CanvasRepository(private val http: OkHttpClient) {
         val v: Int = 0,
         /** Whether Spotify was tried for this lookup; connecting Spotify invalidates old provider-only results. */
         val spotifyChecked: Boolean = false,
+        /** Source order and source toggles used to choose this cached result. */
+        val sourceProfile: String? = null,
     )
 
     private val cache = object : LinkedHashMap<String, Entry>(64, 0.75f, true) {
@@ -197,45 +200,71 @@ class CanvasRepository(private val http: OkHttpClient) {
 
     private fun available(art: CanvasArtwork?) = art?.takeUnless { it.source == "spotify" && spotifyCanvas?.connected() != true }
 
-    fun cached(song: Song): CanvasArtwork? = synchronized(cache) { available(entry(song)?.art) }
+    private fun sourceProfile(priority: CanvasSourcePriority, spotify: Boolean, apple: Boolean) =
+        "${priority.name}:$spotify:$apple"
 
-    suspend fun canvasFor(song: Song): CanvasArtwork? {
+    fun cached(
+        song: Song,
+        priority: CanvasSourcePriority = CanvasSourcePriority.SPOTIFY,
+        spotifyEnabled: Boolean = true,
+        appleEnabled: Boolean = true,
+    ): CanvasArtwork? = synchronized(cache) {
+        entry(song)?.takeIf { it.sourceProfile == sourceProfile(priority, spotifyEnabled, appleEnabled) }?.let { available(it.art) }
+    }
+
+    suspend fun canvasFor(
+        song: Song,
+        priority: CanvasSourcePriority = CanvasSourcePriority.SPOTIFY,
+        spotifyEnabled: Boolean = true,
+        appleEnabled: Boolean = true,
+    ): CanvasArtwork? {
         val now = System.currentTimeMillis()
+        val profile = sourceProfile(priority, spotifyEnabled, appleEnabled)
         synchronized(cache) {
             entry(song)?.let { e ->
                 val fresh = isSaved(song) || !e.stale(now)
                 val spotifyReady = spotifyCanvas?.connected() != true || e.spotifyChecked
                 val wasSpotify = e.art?.source == "spotify" && spotifyCanvas?.connected() != true
-                if (fresh && spotifyReady && (available(e.art) != null || (!wasSpotify && e.hadAlbum) || song.album == null)) return available(e.art)
+                if (fresh && e.sourceProfile == profile && spotifyReady && (available(e.art) != null || (!wasSpotify && e.hadAlbum) || song.album == null)) return available(e.art)
             }
         }
         val job = synchronized(inFlight) {
-            inFlight[song.id] ?: ioScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) {
-                try { lookup(song, now) } finally { synchronized(inFlight) { inFlight.remove(song.id) } }
-            }.also { inFlight[song.id] = it }
+            val requestKey = "${song.id}|$profile"
+            inFlight[requestKey] ?: ioScope.async(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+                try { lookup(song, now, priority, spotifyEnabled, appleEnabled, profile) } finally { synchronized(inFlight) { inFlight.remove(requestKey) } }
+            }.also { inFlight[requestKey] = it }
         }
         return job.await()
     }
 
-    private suspend fun lookup(song: Song, now: Long): CanvasArtwork? {
+    private suspend fun lookup(
+        song: Song,
+        now: Long,
+        priority: CanvasSourcePriority,
+        spotifyEnabled: Boolean,
+        appleEnabled: Boolean,
+        profile: String,
+    ): CanvasArtwork? {
         val album = song.album?.title
         val title = song.title.cleaned()
         val artist = song.primaryArtist.cleaned()
         if (title.isBlank() || artist.isBlank()) return null
         val found = withContext(Dispatchers.IO) {
-            listOf<suspend () -> CanvasArtwork?>(
-                { spotifyCanvas?.find(title, artist, album) },
+            val spotify = if (spotifyEnabled) listOf<suspend () -> CanvasArtwork?>({ spotifyCanvas?.find(title, artist, album) }) else emptyList()
+            val appleSources = if (appleEnabled) listOf<suspend () -> CanvasArtwork?>(
                 { apple(title, artist, album) },
-                { tidal(title, artist, album) },
-                { community(title, artist, album) },
                 { applePage(artist, album ?: title) },
-            ).firstNotNullOfOrNull { source -> runCatching { source() }.getOrNull() }
+            ) else emptyList()
+            val other = listOf<suspend () -> CanvasArtwork?>({ tidal(title, artist, album) }, { community(title, artist, album) })
+            val sources = if (priority == CanvasSourcePriority.SPOTIFY) spotify + appleSources + other else appleSources + spotify + other
+            sources.firstNotNullOfOrNull { source -> runCatching { source() }.getOrNull() }
         }
         synchronized(cache) {
             // Offline or a source hiccup: keep the clip we already knew rather than forgetting it.
-            val known = available(entry(song)?.art)
+            val previous = entry(song)
+            val known = previous?.takeIf { it.sourceProfile == profile }?.let { available(it.art) }
             if (found != null || known == null || spotifyCanvas?.connected() == true) {
-                cache[song.id] = Entry(found ?: known, album != null, now, albumKey(song), MATCHING, spotifyCanvas?.connected() == true)
+                cache[song.id] = Entry(found ?: known, album != null, now, albumKey(song), MATCHING, spotifyCanvas?.connected() == true, profile)
             }
         }
         scheduleWrite()
@@ -322,13 +351,13 @@ class CanvasRepository(private val http: OkHttpClient) {
             if (wanted.isEmpty() || !wanted.all { w -> hitArtists.any { it == w } }) continue
             val n = name.normalizeForMatch()
             if (n != wantTitle && !n.startsWith("$wantTitle ") && !wantTitle.startsWith("$n ")) continue
-            motionUrls(a.f("editorialVideo"))?.let { (p, alt) -> return CanvasArtwork(p, alt, name, a.str("artistName"), albumName) }
+            motionUrls(a.f("editorialVideo"))?.let { (p, alt) -> return CanvasArtwork(p, alt, name, a.str("artistName"), albumName, "apple") }
             val albumId = (hit.f("relationships").f("albums").f("data") as? JsonArray)?.firstOrNull().str("id")
                 ?: a.str("url")?.substringAfter("/album/", "")?.substringBefore("?")?.substringAfterLast("/")?.takeIf { it.all(Char::isDigit) }
                 ?: continue
             val albumUrl = "https://amp-api.music.apple.com/v1/catalog/$storefront/albums/$albumId?extend=editorialVideo"
             val albumData = (parse(get(albumUrl, headers)).f("data") as? JsonArray)?.firstOrNull().f("attributes")
-            motionUrls(albumData.f("editorialVideo"))?.let { (p, alt) -> return CanvasArtwork(p, alt, name, a.str("artistName"), albumName) }
+            motionUrls(albumData.f("editorialVideo"))?.let { (p, alt) -> return CanvasArtwork(p, alt, name, a.str("artistName"), albumName, "apple") }
         }
         return null
     }
@@ -351,7 +380,7 @@ class CanvasRepository(private val http: OkHttpClient) {
         val html = get(page)?.replace("\\u002F", "/")?.replace("\\/", "/") ?: return null
         fun grab(name: String) = Regex("\"$name\"\\s*:\\s*\\{[^}]*?\"video\"\\s*:\\s*\"(https://[^\"]+?\\.m3u8)\"").find(html)?.groupValues?.get(1)
         val square = grab("motionDetailSquare") ?: grab("motionSquareVideo1x1") ?: return null
-        return CanvasArtwork(square, grab("motionDetailTall"), album = hit.str("collectionName"), artist = hit.str("artistName"))
+        return CanvasArtwork(square, grab("motionDetailTall"), album = hit.str("collectionName"), artist = hit.str("artistName"), source = "apple")
     }
 
     // ------------------------------------------------------------ Tidal
@@ -372,7 +401,7 @@ class CanvasRepository(private val http: OkHttpClient) {
             val cover = track.f("album").str("videoCover")?.takeIf { it.isNotBlank() } ?: continue
             val parts = cover.split("-")
             if (parts.size != 5) continue
-            return CanvasArtwork("https://resources.tidal.com/videos/${parts.joinToString("/")}/1280x1280.mp4", title = name, album = track.f("album").str("title"))
+            return CanvasArtwork("https://resources.tidal.com/videos/${parts.joinToString("/")}/1280x1280.mp4", title = name, album = track.f("album").str("title"), source = "tidal")
         }
         return null
     }
@@ -389,7 +418,7 @@ class CanvasRepository(private val http: OkHttpClient) {
             manifestAt = now
             val items = parse(get("https://vivimusicanvas.mkmdevilmi.workers.dev/canvas.json")).f("items") as? JsonArray
             items?.mapNotNull { i ->
-                CanvasArtwork(i.str("url") ?: return@mapNotNull null, title = i.str("song") ?: return@mapNotNull null, artist = i.str("artist") ?: return@mapNotNull null, album = i.str("album"))
+                CanvasArtwork(i.str("url") ?: return@mapNotNull null, title = i.str("song") ?: return@mapNotNull null, artist = i.str("artist") ?: return@mapNotNull null, album = i.str("album"), source = "community")
             }?.takeIf { it.isNotEmpty() }?.let { manifest = it }
         }
         val t = title.normalizeForMatch()
