@@ -5,6 +5,10 @@ What changed in each release. Older releases are described on the [Releases page
 ## 1.7.7 (unreleased)
 
 ### You asked for it
+- **The light from the cover** (#123): Customize Prism → Color → Spectrum → "From the cover". The progress bar, Play ring,
+  the playing song in lists, switches and the rest of the light take the playing cover's colors, new with each song
+  (or each album, with "New albums only"). A grey cover keeps Prism's own light. Made from the palette Prism already
+  reads from each cover, so it costs nothing extra.
 - **Rearrange your playlists' songs** (#140): open one of your playlists → ⋯ → Rearrange songs, then hold a song (or
   drag its grip) and move it. Each move goes straight to YouTube Music, so the order is the same everywhere, and is put
   back if YouTube refuses. Prism playlists rearrange the same way.

@@ -299,7 +299,8 @@ object LookLabels {
             "lyrics_extra_place" to e(com.prism.music.data.prefs.LyricsExtraPlace.entries) { it.label },
             "lyrics_background" to e(com.prism.music.data.prefs.LyricsBackground.entries) { it.label },
             "immersive_background" to e(com.prism.music.data.prefs.LyricsBackground.entries) { it.label },
-            "spectrum_preset" to com.prism.music.ui.theme.SpectrumPresets.all.associate { it.key to it.label } + ("CUSTOM" to "Your own"),
+            "spectrum_preset" to com.prism.music.ui.theme.SpectrumPresets.all.associate { it.key to it.label } +
+                (com.prism.music.ui.theme.SpectrumPresets.COVER to com.prism.music.ui.theme.SpectrumPresets.COVER_LABEL) + ("CUSTOM" to "Your own"),
         )
     }
 

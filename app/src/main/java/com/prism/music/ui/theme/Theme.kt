@@ -409,7 +409,9 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     val white = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     if (PrismTokens.white != white) PrismTokens.white = white
     // Your light (1.7.2): the split light's own colors, worked out once per change.
-    val light = remember(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands) {
+    // From the cover (#123): a new light with each cover (no fade: the whole app would redraw every frame of one).
+    val coverStops = if (settings.spectrumPreset == SpectrumPresets.COVER) SpectrumPresets.coverStops else null
+    val light = remember(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands, coverStops) {
         SpectrumPresets.light(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands)
     }
     if (PrismTokens.light !== light) PrismTokens.light = light

@@ -154,7 +154,7 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         COLOR -> listOfNotNull(
             // The light's name (White shows as Black in light mode).
             if (s.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE) whiteName(dark) + " light"
-            else (com.prism.music.ui.theme.SpectrumPresets.preset(s.spectrumPreset)?.label ?: "Your own") + " light",
+            else com.prism.music.ui.theme.SpectrumPresets.label(s.spectrumPreset).let { if (it == com.prism.music.ui.theme.SpectrumPresets.COVER_LABEL) "Light from the cover" else "$it light" },
             when (s.colorSource) { ColorSource.CUSTOM -> com.prism.music.ui.theme.ColorMath.toHex(s.accent) + " accent"; ColorSource.ARTWORK -> "Accent from the cover"; ColorSource.DYNAMIC -> "Accent from the wallpaper" },
         ).joinToString(" · ")
         TEXT -> listOfNotNull(s.fontChoice.label + " font", if (s.textScale != 1f) "${(s.textScale * 100).roundToInt()}% size" else null).joinToString(" · ")
