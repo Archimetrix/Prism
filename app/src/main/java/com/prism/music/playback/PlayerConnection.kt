@@ -548,6 +548,29 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         }
     }
     fun move(from: Int, to: Int) = withPlayer { it.moveMediaItem(from, to) }
+
+    /**
+     * Shuffled, a song dragged in the queue: the queue shows the play order then, so the song moves there, to just after
+     * (or before) [beside], and the songs themselves stay where they are in the list behind it.
+     */
+    fun moveInPlayOrder(index: Int, beside: Int, after: Boolean) = withPlayer { p ->
+        if (!p.shuffleModeEnabled) return@withPlayer
+        val order = p.shuffleOrder as? HistoryShuffleOrder ?: HistoryShuffleOrder(playOrder(p).toIntArray()) { p.currentMediaItemIndex }
+        p.setShuffleOrder(order.placed(index, beside, after))
+    }
+
+    /** The queue's indices in the order they'll play (shuffled or not). */
+    private fun playOrder(p: ExoPlayer): List<Int> {
+        val t = p.currentTimeline
+        if (t.isEmpty) return emptyList()
+        val out = mutableListOf<Int>()
+        var i = t.getFirstWindowIndex(p.shuffleModeEnabled)
+        while (i != C.INDEX_UNSET && out.size < t.windowCount) {
+            out += i
+            i = t.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, p.shuffleModeEnabled)
+        }
+        return out
+    }
     /** Shuffle's button: off → shuffle → Smart Shuffle (where the queue allows it) → off. */
     fun toggleShuffle() = withPlayer {
         when {

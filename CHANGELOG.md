@@ -41,6 +41,8 @@ What changed in each release. Older releases are described on the [Releases page
   and now has the Undo too.
 - **Swipe the mini player up** to open the player (#149), or pick what it does in Settings → Controls & gestures.
 - **Pull the queue down to close it** (#149): by its title, or by the song at the top.
+- **Move songs in a shuffled queue**: with shuffle on, drag a song by its handle to change what plays next, as with
+  shuffle off. It moves in the shuffled order (what the queue shows), so Previous still goes back through what you heard.
 - **History as a Library tile** (#136): Edit tiles → History. (Replay's tile swaps its clock for its chart then.)
 - **Clear the Looks history** (#152): Customize Prism → Looks → History → Clear history. Your look stays as it is.
 - **Ribbons**, a new progress bar (#151, after One UI's): the bar and a knob, with thin strands flowing along the played

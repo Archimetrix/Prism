@@ -197,15 +197,15 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
             }
             if (queued.isNotEmpty()) {
                 item(key = "h-queued") { Heading("Next in queue", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(queued, reorder = !shuffled, badge = badge, onRemove = remove) { from, to -> pc.move(from, to) }
+                queueSection(queued, shuffled, badge = badge, onRemove = remove)
             }
             if (upcoming.isNotEmpty()) {
                 item(key = "h-next") { Heading("Next from: ${source.title.ifBlank { now?.song?.album?.title ?: "Queue" }}", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(upcoming, reorder = !shuffled, badge = badge, onRemove = remove) { from, to -> pc.move(from, to) }
+                queueSection(upcoming, shuffled, badge = badge, onRemove = remove)
             }
             if (settings.autoplay || autoplay.isNotEmpty()) {
                 item(key = "h-auto") { AutoplayHeading(autoplay.isNotEmpty()) }
-                queueSection(autoplay, reorder = !shuffled, badge = badge, onRemove = remove) { from, to -> pc.move(from, to) }
+                queueSection(autoplay, shuffled, badge = badge, onRemove = remove)
             }
         }
     }
@@ -214,19 +214,38 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
 /** How many played songs the queue lists above Now Playing (the latest ones). */
 private const val MAX_PLAYED = 100
 
-/** [reorder] is off while shuffled: dragging moves songs in the list, not in the shuffled order. */
+/**
+ * A section of the queue whose songs can be dragged: in the list itself, or while [shuffled] (the queue then shows the
+ * shuffled play order) in the play order, beside the song shown next to it in this section.
+ */
 private fun LazyListScope.queueSection(
     rows: List<QueueEntry>,
-    reorder: Boolean = true,
+    shuffled: Boolean,
     badge: (Song) -> String? = { null },
     onRemove: (QueueEntry) -> Unit,
-    onMove: (Int, Int) -> Unit,
 ) {
     items(rows, key = { it.uid }) { entry ->
         val pc = LocalContainer.current.player
         val rowPx = with(LocalDensity.current) { 56.dp.toPx() }
         var drag by remember { mutableFloatStateOf(0f) }
         var position by remember(entry.index) { mutableStateOf(entry.index) }
+        // Read at each step of a drag, not as they were when it started (the rows move under the finger).
+        val section by androidx.compose.runtime.rememberUpdatedState(rows)
+        val current by androidx.compose.runtime.rememberUpdatedState(entry)
+        val shuffleOn by androidx.compose.runtime.rememberUpdatedState(shuffled)
+        /** Moves the song one place down ([down]) or up; false at the section's end. */
+        fun step(down: Boolean): Boolean {
+            if (!shuffleOn) {
+                if (!down && position == 0) return false
+                val to = if (down) position + 1 else position - 1
+                pc.move(position, to); position = to
+                return true
+            }
+            val at = section.indexOfFirst { it.uid == current.uid }
+            val beside = section.getOrNull(if (down) at + 1 else at - 1) ?: return false
+            pc.moveInPlayOrder(current.index, beside.index, after = down)
+            return true
+        }
         QueueRow(
             entry.song,
             isCurrent = false,
@@ -234,7 +253,7 @@ private fun LazyListScope.queueSection(
             onRemove = { onRemove(entry) },
             badge = badge(entry.song),
             modifier = Modifier.offset { IntOffset(0, drag.roundToInt()) },
-            dragHandle = if (!reorder) Modifier else Modifier.pointerInput(entry.uid) {
+            dragHandle = Modifier.pointerInput(entry.uid) {
                 detectDragGestures(
                     onDragEnd = { drag = 0f },
                     onDragCancel = { drag = 0f },
@@ -242,8 +261,8 @@ private fun LazyListScope.queueSection(
                     change.consume()
                     drag += amount.y
                     // Trade places with a neighbour each time the row crosses one.
-                    if (drag > rowPx * 0.6f) { onMove(position, position + 1); position += 1; drag -= rowPx }
-                    else if (drag < -rowPx * 0.6f && position > 0) { onMove(position, position - 1); position -= 1; drag += rowPx }
+                    if (drag > rowPx * 0.6f) { if (step(down = true)) drag -= rowPx else drag = rowPx * 0.6f }
+                    else if (drag < -rowPx * 0.6f) { if (step(down = false)) drag += rowPx else drag = -rowPx * 0.6f }
                 }
             },
         )

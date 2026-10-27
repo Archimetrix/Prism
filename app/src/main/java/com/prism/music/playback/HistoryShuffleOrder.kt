@@ -76,6 +76,18 @@ class HistoryShuffleOrder(private val order: IntArray, private val current: () -
         return HistoryShuffleOrder(list.toIntArray(), current)
     }
 
+    /**
+     * The order with [index] moved to just after (or before) [beside]: a song dragged in the shuffled queue moves in the
+     * play order, which is what the queue shows while shuffled. Nothing moves when either isn't in the order.
+     */
+    fun placed(index: Int, beside: Int, after: Boolean): HistoryShuffleOrder {
+        if (index !in order.indices || beside !in order.indices || index == beside) return this
+        val list = order.toMutableList()
+        list.remove(index)
+        list.add(list.indexOf(beside) + if (after) 1 else 0, index)
+        return HistoryShuffleOrder(list.toIntArray(), current)
+    }
+
     companion object {
         /** A fresh random order of [count] songs with [first] (if it's one of them) at the start. */
         fun shuffled(count: Int, first: Int, current: () -> Int): HistoryShuffleOrder {
