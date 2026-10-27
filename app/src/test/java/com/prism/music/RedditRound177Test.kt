@@ -3,6 +3,7 @@ package com.prism.music
 import com.prism.music.data.innertube.YouTubeMusic
 import com.prism.music.data.stream.StreamException
 import com.prism.music.playback.wontPlayHere
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -40,5 +41,42 @@ class RedditRound177Test {
         assertTrue(YouTubeMusic.sameTrackTitle("Feeling DiskInserted", "Feeling Diskinserted"))
         assertFalse(YouTubeMusic.sameTrackTitle("Death & Romance", "Fear, Sex"))
         assertFalse(YouTubeMusic.sameTrackTitle("", ""))
+    }
+
+    /** One video or upload without Premium formats no longer pauses Premium quality; three answers in a row do. */
+    @Test
+    fun premiumQualityPausesOnlyAfterSeveralMisses() {
+        var now = 0L
+        val b = com.prism.music.data.stream.StreamResolver.PremiumBackoff { now }
+        assertFalse(b.missed())
+        assertFalse(b.missed())
+        b.found()
+        assertFalse(b.missed())
+        assertFalse(b.missed())
+        assertTrue(b.asking())
+        assertTrue(b.missed())
+        assertFalse(b.asking())
+        now += com.prism.music.data.stream.StreamResolver.PremiumBackoff.PAUSE_MS
+        assertTrue(b.asking())
+        assertFalse(b.missed())
+    }
+
+    /** Google merging lines no longer drops the translation: the lines are asked one at a time instead. */
+    @Test
+    fun translationFallsBackToLineByLine() = kotlinx.coroutines.runBlocking {
+        val fake = okhttp3.Interceptor { chain ->
+            val buf = okio.Buffer().also { chain.request().body!!.writeTo(it) }
+            val q = java.net.URLDecoder.decode(buf.readUtf8().removePrefix("q="), "UTF-8")
+            val lines = q.split("\n")
+            // Several lines: two come back as one. One line: translated as asked.
+            val back = if (lines.size > 1) listOf(lines[0] + " " + lines[1]) + lines.drop(2) else lines
+            val segs = back.joinToString(",") { l -> "[\"T:$l\\n\",\"$l\\n\"]" }
+            okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK")
+                .body("[[$segs],null,\"es\"]".toResponseBody()).build()
+        }
+        val t = com.prism.music.data.lyrics.LyricsTranslator(okhttp3.OkHttpClient.Builder().addInterceptor(fake).build())
+            .translate(listOf("uno", "", "dos", "tres"), "en")
+        org.junit.Assert.assertEquals(listOf("T:uno", null, "T:dos", "T:tres"), t.translations)
+        org.junit.Assert.assertEquals("es", t.from)
     }
 }

@@ -76,6 +76,11 @@ What changed in each release. Older releases are described on the [Releases page
   has reached the player when Prism wasn't running.
 - **Sing's key holds through a crossfade** (Reddit): a beat-matched blend set the music back to its original key while
   Sing still showed yours, and the song fading out played in the original key.
+- **Premium quality stays on** (Reddit): one song without Premium audio (a music video or an upload, which never have
+  it) turned Premium quality off for the next hour, so the songs after it played at normal quality. It now only pauses
+  after three songs in a row come without it.
+- **Lyric translations don't vanish** (Reddit): when Google's translation came back with lines merged or split, the
+  whole translation was dropped and nothing showed. Those lyrics are now translated a line at a time instead.
 - **Songs, not videos works again** (#138): YouTube stopped telling apps which song a music video belongs to (October
   2026) unless you're signed in, so a Discovery Mix and other mixes came through as videos, and some videos didn't find
   their song. Each video coming up next is now matched to its song by Prism itself, an artist's own video may run up to
