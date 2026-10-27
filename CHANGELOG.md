@@ -2,7 +2,7 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
-## 1.7.7 (unreleased)
+## 1.7.7
 
 ### Shapes, icons and type
 - **Covers' shapes**: Customize Prism → Icons & shapes → Covers' shapes. Songs, albums and playlists, artists and the

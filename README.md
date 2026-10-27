@@ -15,7 +15,7 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 
 ### [⬇ Download Prism.apk](../../releases/latest/download/Prism.apk)
 
-[What's new in 1.7.6](../../releases/tag/v1.7.6) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
+[What's new in 1.7.7](../../releases/tag/v1.7.7) · [Changelog](CHANGELOG.md) · [Watch the film](../../releases/download/v1.7.0/Prism-1.7-film.mp4)
 
 <a href="../../releases/download/v1.7.0/Prism-1.7-film.mp4"><img src="docs/screenshots/preview.gif" width="720" alt="Prism 1.7: word-by-word lyrics on the player. Click to watch the full film."></a>
 
@@ -29,16 +29,24 @@ A free, open-source YouTube Music client for Android, with word-by-word lyrics, 
 > [!NOTE]
 > Prism is an independent, unofficial app. It is not affiliated with, endorsed by, or connected to Google, YouTube or YouTube Music.
 
-## New in 1.7.6: Home, Library and Search your way, and a lighter, faster Prism
+## New in 1.7.7: shapes, icons, type and widgets your way
+
+The sixth of the 1.7.x customization updates, plus your requests from GitHub and Reddit.
+
+<img src="docs/screenshots/cover-shapes.jpg" width="32%" alt="Library's albums with flower-shaped covers">
+<img src="docs/screenshots/icon-packs.jpg" width="32%" alt="Icons & shapes: outline, duotone or filled icons, the tab's color, and the Prism, Cupertino, Facet and Dots packs">
+<img src="docs/screenshots/fonts.jpg" width="32%" alt="Text: every font as a card, with Legible and Dyslexia-friendly">
+
+- **Covers' shapes:** songs, albums and playlists, artists and the player's cover, each in its own shape (rounded, square, circle, squircle, flower, cookie, arch or slanted), corners as a slider, and buttons as a pill, rounded or square.
+- **Icons:** outline, duotone or filled, two new packs (**Facet** and **Dots**), and six more app icons (Dusk, Paper, Neon, Pastel, Line and Gold).
+- **Text:** Light, Regular or Bold for all of Prism, letter spacing, titles in a font of their own, and two fonts for reading: Legible (Atkinson Hyperlegible) and Dyslexia-friendly (OpenDyslexic).
+- **Widgets, each its own way:** background, color, text and what each widget shows, picked with a live preview; on Android 12+ they take your light's colors.
+- **You asked for it:** the light from the cover (#123), rearrange your playlists' songs (#140), Newest first (#141), swipe songs out of the queue, swipe the mini player up, pull the queue down to close it (#149), move songs while shuffled, a History tile (#136), clear the Looks history (#152), a Ribbons progress bar (#151), title weight on the player, add a whole album or playlist to a playlist, and share as YouTube links.
+- **Fixes for YouTube's October changes:** album songs play as songs again signed out, and Songs, not videos works again (#138). Plus every YouTube Music playlist in the Library, crossfade with the equalizer on, skipping from other apps' widgets, and more. See the [changelog](CHANGELOG.md).
+
+## 1.7.6: Home, Library and Search your way, and a lighter, faster Prism
 
 The fifth of the 1.7.x customization updates, and a performance one.
-
-<img src="docs/screenshots/home-yours.jpg" width="32%" alt="Home with a picture behind the greeting, a playlist pinned as its own section, and the mini player joined to the tab bar">
-<img src="docs/screenshots/search-lyrics.jpg" width="32%" alt="Search by lyrics: a line typed into the search box finds The Weeknd's Nothing Without You, with the line quoted">
-<img src="docs/screenshots/library-yours.jpg" width="32%" alt="Library's playlists as a grid of three, with a folder, a cover made in Prism and YouTube playlists kept without an account">
-<img src="docs/screenshots/search-landing.jpg" width="32%" alt="Search before you type: recently opened, recent searches and your artists">
-<img src="docs/screenshots/cover-maker.jpg" width="32%" alt="Make a cover: a playlist's name over two colors and a pattern, with the split light around it">
-<img src="docs/screenshots/settings-hub.jpg" width="32%" alt="Settings sorted by what they do, with Performance mode at the top">
 
 - **Performance mode:** one switch for slower phones that draws Prism about as lightly as 1.6 did (no blur, glass, moving backgrounds or animated covers), with nothing you picked changed. In testing on Android 9, Home scrolled with half the processor time and frames drew 4–5× faster. Phones on Android 9 or older, or with 4 GB of memory or less, are offered it once.
 - **Faster and lighter for everyone:** about 200 MB less memory in the first minute after opening (the likely cause of Prism being closed on phones with little memory, #103), animated covers using far less memory, long playlists and searches that no longer hold up the screen, and Library and Settings opening faster after an update.
