@@ -33,11 +33,20 @@ object CoverShapes {
         CoverShape.SLANTED -> slanted
     }
 
+    /**
+     * The outline a shadow under [shape] is cast from. Flower and Cookie dip inwards, and Android's renderer can spend
+     * seconds working out a concave outline's shadow (the 1.7.7 release check froze the player for over 5 s under a
+     * Flower cover: an ANR in Skia's concave shadow tessellator). Their shadow is cast from a circle instead, which they
+     * nearly fill; every other shape is convex and casts its own.
+     */
+    fun shadowOf(shape: Shape): Shape = if (shape === flower || shape === cookie) CircleShape else shape
+
     /** A superellipse (|x|⁴ + |y|⁴ = 1): a square gone soft all along its sides, as app icons are. */
     private val squircle = GenericShape { size, _ ->
         val n = 64
         val cx = size.width / 2; val cy = size.height / 2
-        for (i in 0..n) {
+        // Up to n - 1: close() joins the last point to the first (a repeated first point is an edge of no length).
+        for (i in 0 until n) {
             val t = 2 * PI * i / n
             val c = cos(t); val s = sin(t)
             val x = cx + cx * sign(c) * abs(c).pow(0.5)
@@ -51,7 +60,7 @@ object CoverShapes {
     private fun wavy(lobes: Int, depth: Float) = GenericShape { size, _ ->
         val n = lobes * 12
         val cx = size.width / 2; val cy = size.height / 2
-        for (i in 0..n) {
+        for (i in 0 until n) {
             val t = 2 * PI * i / n
             val r = 1f - depth + depth * cos(lobes * t).toFloat()
             val x = cx + cx * r * cos(t).toFloat()

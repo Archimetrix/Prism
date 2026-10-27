@@ -816,7 +816,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 }
                                 // A record keeps its own round shadow and clip (the tonearm reaches past its edge); a
                                 // tape draws its own shell.
-                                .then(if (vinyl || cassette) Modifier else Modifier.shadow(if (artLoaded) 10.dp else 0.dp, artShape).clip(artShape).background(Color.Black.copy(alpha = 0.18f))),
+                                .then(if (vinyl || cassette) Modifier else Modifier.shadow(if (artLoaded) 10.dp else 0.dp, com.prism.music.ui.theme.CoverShapes.shadowOf(artShape)).clip(artShape).background(Color.Black.copy(alpha = 0.18f))),
                             contentAlignment = Alignment.Center,
                         ) {
                             // Vinyl: the cover as a record's label, turning while it plays (the animated cover isn't used).

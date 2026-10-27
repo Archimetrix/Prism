@@ -970,7 +970,8 @@ private fun IconSettings() {
                 looks.iconsChanged()
             },
         ) { f ->
-            val icons = remember(f) { listOf("Home", "Library", "Heart", "Search").map { com.prism.music.ui.theme.PrismIcons.preview(it, f) } }
+            // Three: a fourth was squeezed to a dot in a third of a phone's width.
+            val icons = remember(f) { listOf("Home", "Library", "Heart").map { com.prism.music.ui.theme.PrismIcons.preview(it, f) } }
             Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 icons.forEach { Icon(it, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurface) }
             }
@@ -1092,7 +1093,8 @@ private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, on
                             Text(
                                 if (f == FontChoice.CUSTOM) customName ?: "Your font…" else f.label,
                                 style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
-                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                // Two lines: "Dyslexia-friendly" in its own wide letters didn't fit one.
+                                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             )
                             // The typeface's own name, quietly, so it can be looked up (and matched to a file for Your font).
                             f.face?.let {

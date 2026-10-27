@@ -32,7 +32,7 @@ enum class IconWeight(val label: String, val scale: Float) { THIN("Thin", 0.64f)
 /** Sets of icons to pick from (Settings → Appearance → Icons): Prism's own, or Cupertino, drawn after Apple's style. */
 enum class IconPack(val label: String, val detail: String) {
     PRISM("Prism", "Prism's own icons"),
-    CUPERTINO("Cupertino", "In the style of Apple's apps: filled tabs, a chevron for Back, two-triangle skips, circled menus"),
+    CUPERTINO("Cupertino", "In the style of Apple's apps: filled tabs, a chevron for Back"),
     /** Every icon with its curves cut into straight facets and sharp corners (1.7.7, generated from Prism's drawings). */
     FACET("Facet", "Straight lines and sharp corners: every curve cut into facets"),
     /** Every icon in dots, like a dot-matrix display (1.7.7, generated from Prism's drawings). */
