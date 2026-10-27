@@ -1062,6 +1062,23 @@ private fun AppIconSettings() {
 }
 
 /** Each font's name, set in that font, with the typeface it is. */
+/**
+ * [text] on up to [maxLines] lines in [style], made smaller a step at a time (down to about half) until every line ends
+ * between words or after a hyphen: a word too wide for the room is otherwise split mid-word. Judged from its own layout,
+ * not measured ahead (BoxWithConstraints can't sit in the font cards' row, which is sized by its contents).
+ */
+@Composable
+private fun WholeWords(text: String, style: TextStyle, color: Color, maxLines: Int = 2) {
+    var fitted by remember(text, style) { mutableStateOf(style) }
+    Text(
+        text, style = fitted, color = color, maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        onTextLayout = { l ->
+            val whole = !l.hasVisualOverflow && (0 until l.lineCount - 1).all { i -> text.getOrNull(l.getLineEnd(i) - 1).let { it == ' ' || it == '-' } }
+            if (!whole && fitted.fontSize.value > style.fontSize.value * 0.5f) fitted = fitted.copy(fontSize = fitted.fontSize * 0.9f)
+        },
+    )
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, onPick: (FontChoice) -> Unit) {
@@ -1090,11 +1107,12 @@ private fun FontPicker(current: FontChoice, customName: String?, stamp: Long, on
                                 .padding(10.dp),
                         ) {
                             Text("Aa", style = TextStyle(fontFamily = AppFonts.family(f), fontWeight = FontWeight.Medium, fontSize = MaterialTheme.typography.headlineSmall.fontSize), color = scheme.onSurface)
-                            Text(
+                            // "Dyslexia-friendly" in OpenDyslexic's wide letters: "friendly" alone is wider than the card,
+                            // so Android split the word. The name gets smaller until no word is split.
+                            WholeWords(
                                 if (f == FontChoice.CUSTOM) customName ?: "Your font…" else f.label,
-                                style = MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)), color = if (on) scheme.onSurface else scheme.onSurfaceVariant,
-                                // Two lines: "Dyslexia-friendly" in its own wide letters didn't fit one.
-                                maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                MaterialTheme.typography.labelMedium.copy(fontFamily = AppFonts.family(f)),
+                                if (on) scheme.onSurface else scheme.onSurfaceVariant,
                             )
                             // The typeface's own name, quietly, so it can be looked up (and matched to a file for Your font).
                             f.face?.let {
