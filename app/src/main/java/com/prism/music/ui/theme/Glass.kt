@@ -113,7 +113,8 @@ fun GlassSurface(
         )
     } else {
         val scheme = MaterialTheme.colorScheme
-        val fill = if (onMedia) Color.Black.copy(alpha = 0.35f) else scheme.surfaceContainerHigh.copy(alpha = 0.97f)
+        // Opaque: with no glass, rows scrolling under the mini player read through even a 3% see-through fill.
+        val fill = if (onMedia) Color.Black.copy(alpha = 0.35f) else scheme.surfaceContainerHigh
         Box(
             modifier
                 .shadow(elevation, shape, ambientColor = Color.Black.copy(alpha = 0.3f), spotColor = Color.Black.copy(alpha = 0.3f))
