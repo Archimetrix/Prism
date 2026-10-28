@@ -1543,6 +1543,10 @@ private fun PlayerSettings() {
                 info = "While a music video plays, the controls under it go after a few seconds, so the video has the screen. Paused, they stay.",
             ) { prefs.setVideoControlsHide(it) }
             Toggle(
+                "Cover flies into place", "Opening the player, the mini player's cover grows into it", s.view.coverFlight,
+                info = "Instead of the whole player sliding up, it fades in while the cover moves from the mini player to its place. Not with Reduce motion, and not for the record or tape layouts, full-bleed artwork or videos.",
+            ) { prefs.setCoverFlight(it) }
+            Toggle(
                 "Song length", "Instead of the time left", s.showTrackLength,
                 info = "The time on the right shows how long the song is rather than how much is left. Tapping the time on the player switches too.",
             ) { prefs.setShowTrackLength(it) }

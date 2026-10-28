@@ -68,6 +68,8 @@ Every one of these is a choice; nothing changes until you pick it.
 - **Video in immersive mode** (#170): a playing music video shows behind the lyrics instead of the cover.
 - **Full-bleed artwork, whole** (#175): Fill the screen (as before) or Whole cover, the square cover uncropped on a
   blurred copy of itself.
+- **The cover flies into place** (#199): opening the player, the mini player's cover grows into the player's while it
+  fades in, instead of the whole player sliding up (Player → Show on the player).
 - **Picture-in-picture only with its button** (#167), **Lock to portrait** (#190), **Pause when muted** (#157: the phone's
   media volume all the way down pauses, up again plays on).
 - **Replay for any dates** (#149): Today, This week and This month beside the usual ones, and "Other dates…" for any

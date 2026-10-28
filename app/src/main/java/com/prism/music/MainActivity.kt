@@ -755,9 +755,16 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                 }
                 }
 
+                // "Cover flies into place" (#199): the player fades in while the mini player's cover flies to its spot.
+                val flight = settings.view.coverFlight && !settings.reduceMotion
+                LaunchedEffect(playerOpen) {
+                    if (!playerOpen) com.prism.music.ui.player.CoverFlight.player = null
+                    else if (flight) com.prism.music.ui.player.CoverFlight.fly()
+                }
                 AnimatedVisibility(
                     playerOpen && song != null,
-                    enter = slideInVertically(tween(if (settings.reduceMotion) 260 else 420)) { it } + fadeIn(tween(200)),
+                    enter = if (flight) fadeIn(tween(com.prism.music.ui.player.CoverFlight.FLIGHT_MS))
+                        else slideInVertically(tween(if (settings.reduceMotion) 260 else 420)) { it } + fadeIn(tween(200)),
                     exit = slideOutVertically(tween(if (settings.reduceMotion) 240 else 360)) { it } + fadeOut(tween(300)),
                 ) {
                     // Settled once it's done sliding in; no longer the moment it starts to leave.
@@ -767,6 +774,7 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { playerCover.settled = false } }
                     Box(Modifier.customizable(com.prism.music.ui.components.CustomizeTarget.PLAYER)) { NowPlayingScreen { playerOpen = false } }
                 }
+                com.prism.music.ui.player.CoverFlightLayer(song?.thumbnail)
 
                 // Looks (1.7.3): "Undo" after each change to the look, and "Customize this" while it's on.
                 com.prism.music.ui.components.LookUndoBar(

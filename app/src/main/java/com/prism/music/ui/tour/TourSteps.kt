@@ -43,6 +43,8 @@ object Tour {
     private const val V1_7_6 = 45
     /** Prism 1.7.7 (build 46): shapes, icons, type and widgets, and what you asked for. */
     private const val V1_7_7 = 46
+    /** Prism 1.7.8 (build 48): sound, your way; Sing simpler; Classic Prism; your requests. */
+    private const val V1_7_8 = 48
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -80,12 +82,13 @@ object Tour {
             listOf(PrismIcons.Translate, PrismIcons.Romanize),
         ),
         TourStep(
-            V1_7, PrismIcons.Mic, "Sing",
+            // Simpler in 1.7.8: one button.
+            V1_7_8, PrismIcons.Mic, "Sing",
             "Karaoke with the song's own music: Prism takes the voice out, on your phone.",
             listOf(
-                "With the lyrics open, tap Sing at the bottom",
-                "Leave a little of the voice in to sing along, or none",
-                "Move the key up or down to suit your voice",
+                "With the lyrics open, tap the microphone at their lower right",
+                "Hold it and slide for how much of the voice stays in, or none",
+                "Move the key up or down in the player's ⋯ → Sing",
             ),
         ),
         TourStep(
@@ -331,6 +334,42 @@ object Tour {
                 "A bold title on the player, whole albums into a playlist, and YouTube links to share",
             ),
             listOf(PrismIcons.SwapVertical, PrismIcons.Palette),
+        ),
+        TourStep(
+            V1_7_8, PrismIcons.Equalizer, "Sound, your way",
+            "Settings → Playback & sound.",
+            listOf(
+                "Speed & pitch: slowed, sped up, or any key, from the player's ⋯",
+                "How songs cross in a crossfade, a mark where the next one comes in, and covers that blend",
+                "Normalize volume's level, and albums kept as they are",
+                "Your own equalizer presets, shared as codes, one for the car and one for your earbuds",
+                "Fades for the sleep timer and for pause and play",
+            ),
+            listOf(PrismIcons.Speed, PrismIcons.Equalizer),
+            showMe = Routes.settings("sound"),
+        ),
+        TourStep(
+            V1_7_8, PrismIcons.Looks, "Classic Prism",
+            "Liked how Prism 1.6 looked? It's back, as a choice.",
+            listOf(
+                "The Classic Look: Customize Prism → Looks",
+                "Or only its icons, its bold type or its plain controls",
+                "The player's buttons apart instead of in a capsule",
+            ),
+            listOf(PrismIcons.Looks, PrismIcons.Category),
+            showMe = Routes.settings("looks"),
+        ),
+        TourStep(
+            V1_7_8, PrismIcons.QueueMusic, "Also new",
+            "From your requests.",
+            listOf(
+                "Last.fm scrobbling, and Replay for any dates",
+                "Pick several songs in the queue to move or remove together, or lock its order",
+                "Choose what goes in a backup",
+                "Swipe up on the player for the queue, lock to portrait, pause when muted",
+                "Lyrics into your M4A files, and Apple Lossless with the lossless add-on",
+            ),
+            listOf(PrismIcons.Queue, PrismIcons.Calendar),
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",

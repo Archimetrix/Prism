@@ -255,6 +255,7 @@ object SettingsIndex {
         SettingEntry(H, "Home", "Recently played shows", "recently played albums playlists songs home section"),
         SettingEntry(P, "Lyrics and the queue", "Lyrics and the queue", "player controls hide full screen lyrics queue always shown"),
         SettingEntry(P, "Show on the player", "Hide controls over videos", "music video controls hide tap full"),
+        SettingEntry(P, "Show on the player", "Cover flies into place", "animation transition open player cover mini player apple music"),
         SettingEntry(P, "Lyrics and the queue", "Queue headings", "played now playing up next headings list"),
         SettingEntry(P, "Immersive mode", "Show the video", "immersive music video behind lyrics", needs = immersive),
         SettingEntry(CT, "Buttons and touch", "Swipe up for the queue", "gesture one hand queue lyrics swipe"),

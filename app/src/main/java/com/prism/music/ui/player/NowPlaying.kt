@@ -841,11 +841,15 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 aspect = if (cassette) CASSETTE_ASPECT else 1f,
                             )
                         }
+                        // The cover flying in from the mini player lands here (#199): where it is, and unseen until then.
+                        val flightTarget = !vinyl && !cassette && !heroMode && !videoMode
                         Box(
                             Modifier
                                 .fillMaxSize()
+                                .then(if (flightTarget) with(CoverFlight) { Modifier.playerCover() } else Modifier)
                                 .graphicsLayer {
                                     alpha = when {
+                                        CoverFlight.flying -> 0f
                                         videoMode -> (2f * p() - 1f).coerceIn(0f, 1f)
                                         heroMode && artLoaded -> 1f - heroVisible()
                                         else -> 1f
