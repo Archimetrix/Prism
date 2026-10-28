@@ -19,6 +19,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -745,6 +746,8 @@ fun LyricsPanel(
     modifier: Modifier = Modifier,
     /** The lyrics background is drawn behind this panel (the phone's player; a wide player's pane has none of its own). */
     lyricsGround: Boolean = true,
+    /** The line at the end of the lyrics opens the lyrics source sheet (1.7.8, V). */
+    onChangeSource: (() -> Unit)? = null,
 ) {
     val c = LocalContainer.current
     val settings by c.settings.flow.collectAsState()
@@ -979,11 +982,20 @@ fun LyricsPanel(
             }
         }
         item {
-            Text(
-                "Lyrics from ${state.lyrics?.source?.label ?: "—"}",
-                style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.4f),
-                modifier = Modifier.padding(top = 20.dp),
-            )
+            // Where the lyrics come from, where Apple puts the songwriters (1.7.8, V): a tap picks another source.
+            Row(
+                Modifier.padding(top = 20.dp).then(
+                    if (onChangeSource == null) Modifier
+                    else Modifier.clip(CircleShape).clickable(onClickLabel = "Change lyrics source", onClick = onChangeSource).padding(vertical = 6.dp, horizontal = 2.dp),
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Lyrics from ${state.lyrics?.source?.label ?: "—"}" + if (state.lyrics?.wordSynced == true) " · Karaoke" else "",
+                    style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.4f),
+                )
+                if (onChangeSource != null) Icon(PrismIcons.ChevronRight, null, Modifier.padding(start = 2.dp).size(14.dp), tint = Color.White.copy(alpha = 0.3f))
+            }
             // Japanese kanji were spelled out by Google (no reading data yet): offer the proper readings.
             val needsJapanese by c.romanizer.needsJapanese.collectAsState()
             val models by c.models.states.collectAsState()

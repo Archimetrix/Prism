@@ -281,7 +281,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     }
     // Sing's controls up over the lyrics: the deck stays (it holds them), and comes back when they're opened.
     val singing by c.sing.on.collectAsState()
-    val singControls = singing && SingUi.panel
+    // Sing's button held as a slider (1.7.8, V): the deck stays up while it's in use.
+    val singControls = singing && SingUi.holding
     LaunchedEffect(singControls) { if (singControls) lyricsControlsOpen = true }
     LaunchedEffect(lyricsOpen, lyricsControlsOpen, volume.dragging, singControls, controlsStay) {
         if (lyricsOpen && lyricsControlsOpen && !volume.dragging && !singControls && !controlsStay) { delay(5000); lyricsControlsOpen = false }
@@ -449,7 +450,8 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onCollapse = onCollapse,
             romanizable = hasForeignScript(lyricsState),
             // Sing from the menu: the lyrics open with Sing on and its controls up (the download sheet the first time).
-            onSing = { if (c.sing.engineReady()) { openLyrics(); if (!c.sing.on.value) c.sing.setOn(true); SingUi.panel = true } else showSing = true },
+            // ⋯ → Sing: its sheet (Sing on or off, the voice, the key; the one-time download first).
+            onSing = { showSing = true },
         ) { showActions = false }
         if (showSleep) SleepTimerDialog { showSleep = false }
         if (showTiming) LyricsTimingSheet { showTiming = false }
@@ -473,11 +475,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             com.prism.music.data.prefs.PlayerButton.ADD_TO_PLAYLIST -> showPlaylists = true
             com.prism.music.data.prefs.PlayerButton.SHARE -> showShare = true
             com.prism.music.data.prefs.PlayerButton.SPEED -> showSpeed = true
-            // As ⋯ → Sing: the lyrics open with Sing on and its controls up (the download sheet the first time).
-            com.prism.music.data.prefs.PlayerButton.SING ->
-                if (!c.sing.engineReady()) showSing = true
-                else if (c.sing.on.value) c.sing.setOn(false)
-                else { openLyrics(); c.sing.setOn(true); SingUi.panel = true }
+            // Sing on (with the lyrics opening) or off; the download sheet the first time.
+            com.prism.music.data.prefs.PlayerButton.SING -> {
+                if (c.sing.engineReady() && !c.sing.on.value) openLyrics()
+                toggleSing(c) { showSing = true }
+            }
             com.prism.music.data.prefs.PlayerButton.EQUALIZER -> { onCollapse(); nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.SOUND.key)) }
             else -> {}
         }
@@ -976,6 +978,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             onRevealControls = { lyricsControlsOpen = true },
                             onHideControls = { if (!controlsStay) lyricsControlsOpen = false },
                             modifier = Modifier.fillMaxSize().padding(top = HEADER_HEIGHT).graphicsLayer { alpha = panelFade },
+                            onChangeSource = { showProviders = true },
                         )
                     }
                     if (statsOpen && panelsSettled) {
@@ -1027,8 +1030,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     }
                     Column(swipes, horizontalAlignment = Alignment.CenterHorizontally) {
                         val deckGap = if (roomyCover) 12.dp else 18.dp
-                        // With the lyrics open: the glass foot of the lyrics (their source, and Sing with its controls).
-                        if (lyricsOpen) LyricsFooter(lyricsState, song, onChangeSource = { showProviders = true }, onNeedsDownload = { showSing = true }, modifier = Modifier.padding(bottom = 6.dp))
+                        // With the lyrics open: Sing's one button at their lower right (1.7.8, V; their source is a line
+                        // at their end now).
+                        if (lyricsOpen) SingButtonRow(song, onNeedsDownload = { showSing = true }, modifier = Modifier.padding(bottom = 6.dp))
                         // Minimal: play, and gestures for the rest (the lyrics and queue still have the whole deck).
                         if (layout == com.prism.music.data.prefs.PlayerLayout.MINIMAL && !lyricsOpen && !queueOpen && !statsOpen) {
                             MinimalPlay(isPlaying, buffering)
@@ -1043,7 +1047,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                     com.prism.music.data.prefs.DeckPart.SCRUBBER -> PlayheadScrubber(position, pc.duration) {
                                         // Settings → Player → "Stream quality" hides it (the full stats stay in the ⋯ menu).
                                         // In a song's opening seconds the middle offers its best part instead, while it's still ahead.
-                                        if (!BestPartChip() && settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = statsOpen) { toggleStats() }
+                                        if (!SingWord() && !BestPartChip() && settings.showQuality) QualityLabel(Modifier.align(Alignment.Center), selected = statsOpen) { toggleStats() }
                                     }
                                     com.prism.music.data.prefs.DeckPart.TRANSPORT ->
                                         TransportRow(isPlaying, buffering, previousEnabled = hasPrevious || pastStart, nextEnabled = hasNext, episode = song.isEpisode)

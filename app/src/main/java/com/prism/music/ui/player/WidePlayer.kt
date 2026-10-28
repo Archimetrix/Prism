@@ -208,8 +208,8 @@ internal fun WidePlayerContent(
             Crossfade(pane, Modifier.weight(1f).fillMaxWidth(), animationSpec = tween(220), label = "pane") { p ->
                 when (p) {
                     PlayerPane.LYRICS -> Column(Modifier.fillMaxSize()) {
-                        LyricsPanel(lyricsState, isPlaying && !covered, controlsOpen = true, onRevealControls = {}, onHideControls = {}, modifier = Modifier.weight(1f).fillMaxWidth(), lyricsGround = false)
-                        LyricsFooter(lyricsState, song, onChangeSource = onLyricsSource, onNeedsDownload = onSingNeedsDownload)
+                        LyricsPanel(lyricsState, isPlaying && !covered, controlsOpen = true, onRevealControls = {}, onHideControls = {}, modifier = Modifier.weight(1f).fillMaxWidth(), lyricsGround = false, onChangeSource = onLyricsSource)
+                        SingButtonRow(song, onNeedsDownload = onSingNeedsDownload)
                         Spacer(Modifier.height(10.dp))
                     }
                     PlayerPane.QUEUE -> InlineQueue(onRevealPlayer = {}, onHidePlayer = {}, modifier = Modifier.fillMaxSize())

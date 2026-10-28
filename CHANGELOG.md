@@ -26,6 +26,15 @@ Settings → Playback & sound. Every default sounds as 1.7.7 did.
 - **Skip silence for podcasts on its own**: songs and episodes each have their switch (episodes start where the one
   switch was).
 
+### Sing, simpler
+
+- **One button** (after Apple Music): with the lyrics open, a small glass button with the microphone at their lower right.
+  Tap it for Sing on or off. Hold it (or slide straight away) and it grows into a tall slider for how much of the voice
+  stays in, with a tick at none, half and full. A ring of light runs round it while the song is being got ready, and a
+  word under the progress bar says what happened ("Sing", "Sing off", "Voice 62%").
+- The glass bar under the lyrics is gone: where they come from is a line at their end (tap it to pick another source),
+  and the key is in the player's ⋯ → Sing, with the voice level and the switch.
+
 ### Your requests
 
 Every one of these is a choice; nothing changes until you pick it.
