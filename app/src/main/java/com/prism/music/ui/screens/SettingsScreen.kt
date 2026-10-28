@@ -101,6 +101,7 @@ import com.prism.music.ui.theme.AppFonts
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
 import com.prism.music.ui.theme.LocalUi
+import androidx.compose.runtime.CompositionLocalProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -923,6 +924,12 @@ private fun TypeFeelGroup() {
             Text("Played today", style = type.bodySmall, color = scheme.onSurfaceVariant, maxLines = 1)
         }
     }
+    // Classic type (1.7.8, #155): Prism 1.6's bold headings, or today's light ones.
+    Group("Type", info = "Prism 1.7 writes big titles light and thin; Prism 1.6 wrote them bold and tight. Weight and spacing below work on either.") {
+        ChoiceCards(listOf(false, true), s.type.classic, title = { if (it) "Classic" else "Prism" }, detail = { if (it) "Bold headings, as in 1.6" else "Light titles (as now)" }, onSelect = { prefs.setTypeClassic(it) }) {
+            Sample(s.type.copy(classic = it))
+        }
+    }
     Group("Weight and spacing", info = "How heavy all of Prism's text is, and how far apart its letters sit, on top of the font's own design.") {
         ChoiceCards(com.prism.music.data.prefs.TypeWeight.entries, s.type.weight, title = { it.label }, detail = { null }, columns = 3, onSelect = { prefs.setTypeWeight(it) }) {
             Sample(s.type.copy(weight = it))
@@ -1232,6 +1239,17 @@ private fun ButtonShapeGroup() {
                     Icon(PrismIcons.Play, null, Modifier.size(16.dp), tint = if (outlined) scheme.onSurface else scheme.surface)
                     Spacer(Modifier.width(4.dp))
                     Text("Play", style = MaterialTheme.typography.labelMedium, color = if (outlined) scheme.onSurface else scheme.surface)
+                }
+            }
+        }
+        // Classic controls (1.7.8, #155): each card draws a switch and a slider its way.
+        Label("Switches, sliders and buttons", info = "Prism's own, lit with your light, or Prism 1.6's: Android's own controls in your accent.")
+        ChoiceCards(listOf(false, true), s.shapes.classicControls, title = { if (it) "Classic" else "Prism" }, detail = { if (it) "As in 1.6" else "Lit with your light (as now)" }, onSelect = { prefs.setControlsClassic(it) }) { classic ->
+            CompositionLocalProvider(LocalUi provides LocalUi.current.copy(classicControls = classic)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    com.prism.music.ui.components.PrismSlider(0.6f, {}, Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    com.prism.music.ui.components.PrismSwitch(true, null)
                 }
             }
         }

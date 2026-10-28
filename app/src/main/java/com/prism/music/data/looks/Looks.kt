@@ -197,6 +197,19 @@ object BuiltInLooks {
                 "player_title_align" to "s:CENTER", "scrubber_color" to "s:ACCENT", "transport_style" to "s:OUTLINE", "player_times" to "s:BOTH",
             ),
         ),
+        // Prism 1.6 (#155): its icons, type, controls and plain color on today's screens, with every 1.7 feature.
+        // White light with the accent puts the accent where the split light would be (progress, play, the tab).
+        Look(
+            "classic", "Classic", builtIn = true, note = "Prism 1.6's look: its icons, bold type, plain controls, no glass",
+            values = mapOf(
+                "font_choice" to "s:SYSTEM", "type_classic" to "b:1", "controls_classic" to "b:1", "corners" to "s:ROUND",
+                "light_style" to "s:WHITE", "liquid_glass" to "b:0", "frosted_glass" to "b:0", "frosted_pages" to "b:0",
+                "nav_style" to "s:DOCKED", "nav_labels" to "s:ALWAYS", "mini_player_style" to "s:CARD", "mini_progress" to "s:LINE",
+                "transport_style" to "s:BUTTON", "scrubber_style" to "s:HAIRLINE", "scrubber_color" to "s:ACCENT", "player_art_corners" to "i:8",
+                "player_buttons_pill" to "b:0", "replay_card" to "s:QUIET",
+            ),
+            icons = LookIcons(pack = "CLASSIC"),
+        ),
     )
 
     fun of(id: String): Look? = all.firstOrNull { it.id == id }
@@ -246,12 +259,12 @@ object LookLabels {
         "lyrics_gap_mark" to "Instrumental breaks",
         "panel_player" to "Player over lyrics & queue", "queue_headings" to "Queue headings", "cast_mark" to "Cast mark under the player",
         "immersive_video" to "Video in immersive mode", "bleed_fit" to "Full-bleed artwork's fit", "cover_flight" to "Cover flies into the player",
-        "video_controls_hide" to "Controls hide over videos", "crossfade_mark" to "Crossfade mark", "blend_covers" to "Covers blend in a crossfade",
+        "video_controls_hide" to "Controls hide over videos", "crossfade_mark" to "Crossfade mark", "blend_covers" to "Covers blend in a crossfade", "player_buttons_pill" to "Player buttons in a capsule",
         "hide_status_bar" to "Hide the status bar",
         "corner_scale" to "Corners", "cover_shape_songs" to "Songs' covers", "cover_shape_albums" to "Albums' covers",
         "cover_shape_artists" to "Artists' pictures", "cover_shape_player" to "Player's cover", "button_shape" to "Buttons",
         "play_outlined" to "Outlined Play", "type_weight" to "Text weight", "type_spacing" to "Letter spacing", "title_font" to "Titles' font",
-        "tab_icon_tint" to "The current tab's icon", "player_title_weight" to "Title weight",
+        "tab_icon_tint" to "The current tab's icon", "player_title_weight" to "Title weight", "type_classic" to "Classic type", "controls_classic" to "Classic controls",
     )
 
     /** Settings whose stored names are enum names, with each name's label. */
@@ -368,12 +381,12 @@ object LookLabels {
             "color_source", "accent", "light_style", "accent_exact", "accent_light", "spectrum_preset", "spectrum_stops", "spectrum_bands",
             "surface_tint", "surface_tint_strength", "surface_color", "contrast_level", "artwork_swatch", "artwork_vivid", "artwork_change", "page_picture_accent",
         ),
-        "type" to setOf("font_choice", "app_font_name", "lyrics_font", "text_scale"),
+        "type" to setOf("font_choice", "app_font_name", "lyrics_font", "text_scale", "type_classic"),
         "backgrounds" to setOf("liquid_glass", "glass_kind", "frosted_glass", "frosted_pages", "backdrops", "backdrop_dim", "backdrop_motion", "reduce_motion"),
         "layout" to setOf(
             "corners", "ui_density", "title_size", "card_size", "nav_style", "nav_labels", "nav_hide_on_scroll", "nav_tabs", "start_tab",
             "mini_player_style", "mini_skip_buttons", "mini_prev_button", "mini_progress", "library_view", "library_views", "library_columns", "library_subtitles", "home_header", "home_header_height", "playlist_hero_cover", "replay_theme_colors", "replay_card",
-            "hide_status_bar", "tab_names", "nav_bar_size", "nav_bar_fill", "mini_player_joined",
+            "hide_status_bar", "tab_names", "nav_bar_size", "nav_bar_fill", "mini_player_joined", "controls_classic",
         ),
         "player" to setOf(
             "player_background", "player_backdrop_show", "player_art_corners", "transport_style", "cover_size", "scrubber_style", "art_shrink_on_pause",
@@ -381,7 +394,7 @@ object LookLabels {
             "player_layout", "vinyl_tonearm", "player_deck", "player_buttons", "scrubber_color", "player_title_align", "player_title_size",
             "player_title_weight", "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
             "scrubber_thickness", "scrubber_thumb", "visualizer", "visualizer_color",
-            "panel_player", "queue_headings", "cast_mark", "immersive_video", "bleed_fit", "cover_flight", "video_controls_hide", "crossfade_mark", "blend_covers",
+            "panel_player", "queue_headings", "cast_mark", "immersive_video", "bleed_fit", "cover_flight", "video_controls_hide", "crossfade_mark", "blend_covers", "player_buttons_pill",
         ),
         "lyrics" to setOf(
             "lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale", "lyrics_style", "lyrics_blur_amount", "lyrics_spacing",

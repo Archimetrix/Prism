@@ -35,6 +35,19 @@ Settings → Playback & sound. Every default sounds as 1.7.7 did.
 - The glass bar under the lyrics is gone: where they come from is a line at their end (tap it to pick another source),
   and the key is in the player's ⋯ → Sing, with the voice level and the switch.
 
+### Classic Prism
+
+For everyone who liked 1.6's look (#155). Nothing is taken away; each part is a choice of its own.
+
+- **The Classic Look** (Customize Prism → Looks): Prism 1.6's icons, bold type, plain controls and color, no glass,
+  docked tab bar, filled play button, on today's screens with everything 1.7 added.
+- **Classic icons** (Icons & shapes → Pack): 1.6's hand-drawn icons with their heavier line; Weight and Rounded work on
+  them as they did then. Icons that came after 1.6 keep today's drawing at Classic's line.
+- **Classic type** (Text → Type): 1.6's bold, tight headings instead of today's light titles.
+- **Classic controls** (Icons & shapes → Buttons): Android's own switches, sliders and buttons in your accent.
+- **Player buttons apart** (Player → Buttons): the row under the controls as separate buttons, as in 1.6, instead of
+  one glass capsule.
+
 ### Your requests
 
 Every one of these is a choice; nothing changes until you pick it.

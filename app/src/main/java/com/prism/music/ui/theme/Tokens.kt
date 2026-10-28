@@ -34,6 +34,8 @@ data class PrismUi(
     val albumShape: com.prism.music.data.prefs.CoverShape = com.prism.music.data.prefs.CoverShape.ROUNDED,
     val artistShape: com.prism.music.data.prefs.CoverShape = com.prism.music.data.prefs.CoverShape.CIRCLE,
     val buttonShape: com.prism.music.data.prefs.ButtonShape = com.prism.music.data.prefs.ButtonShape.PILL,
+    /** Prism 1.6's switches, sliders and buttons: Material's, in the accent (1.7.8, Classic controls). */
+    val classicControls: Boolean = false,
 ) {
     /** A corner radius designed at [base] for the default "Round" setting. */
     fun r(base: Dp): Dp = base * corner
@@ -79,6 +81,7 @@ data class PrismUi(
             albumShape = s.shapes.albums,
             artistShape = s.shapes.artists,
             buttonShape = s.shapes.button,
+            classicControls = s.shapes.classicControls,
         )
     }
 }

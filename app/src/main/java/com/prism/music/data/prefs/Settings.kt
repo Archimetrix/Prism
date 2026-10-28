@@ -169,6 +169,8 @@ data class TypeLook(
     val titleFont: FontChoice? = null,
     /** The player's song title (and artist): how heavy (Reddit R7). */
     val playerTitleWeight: PlayerTitleWeight = PlayerTitleWeight.LIGHT,
+    /** Prism 1.6's type (1.7.8, #155): bold headings, no thin titles, Material's sizes. */
+    val classic: Boolean = false,
 )
 
 /**
@@ -195,6 +197,8 @@ data class ShapeLook(
     val playOutlined: Boolean = false,
     /** The current tab's icon: in ink as before, the accent, or the light. */
     val tabTint: TabTint = TabTint.INK,
+    /** Prism 1.6's switches, sliders and buttons (1.7.8, #155): Material's, in the accent. */
+    val classicControls: Boolean = false,
 )
 
 /** The current tab's icon color (1.7.7). */
@@ -244,6 +248,8 @@ data class ViewLook(
     val crossfadeMark: Boolean = false,
     /** While a crossfade plays, the cover dissolves into the next song's over the blend (A6). */
     val blendCovers: Boolean = false,
+    /** The player's bottom row in one glass capsule (1.7), or as separate buttons as in 1.6 (#155). */
+    val buttonsPill: Boolean = true,
 )
 
 /**
@@ -1317,6 +1323,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val playerShape = stringPreferencesKey("cover_shape_player")
         val buttonShape = stringPreferencesKey("button_shape")
         val playOutlined = booleanPreferencesKey("play_outlined")
+        val typeClassic = booleanPreferencesKey("type_classic")
+        val controlsClassic = booleanPreferencesKey("controls_classic")
         val tabTint = stringPreferencesKey("tab_icon_tint")
         val typeWeight = stringPreferencesKey("type_weight")
         val typeSpacing = stringPreferencesKey("type_spacing")
@@ -1446,6 +1454,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val queueLocked = booleanPreferencesKey("queue_locked")
         val crossfadeMark = booleanPreferencesKey("crossfade_mark")
         val blendCovers = booleanPreferencesKey("blend_covers")
+        val buttonsPill = booleanPreferencesKey("player_buttons_pill")
         // 1.7.8 ([SoundPrefs]).
         val crossfadeCurve = stringPreferencesKey("crossfade_curve")
         val normalizeTarget = intPreferencesKey("normalize_target")
@@ -1473,9 +1482,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 tabNames, navBarSize, navBarFill, miniPlayerJoined, libraryViews, libraryColumns, librarySubtitles,
                 homeHeader, homeHeaderHeight,
                 cornerScale, songShape, albumShape, artistShape, playerShape, buttonShape, playOutlined,
-                typeWeight, typeSpacing, titleFont, tabTint, playerTitleWeight,
+                typeWeight, typeSpacing, titleFont, tabTint, playerTitleWeight, typeClassic, controlsClassic,
                 panelPlayer, queueHeadings, castMark, immersiveVideo, bleedFit, coverFlight, videoControlsHide,
-                crossfadeMark, blendCovers,
+                crossfadeMark, blendCovers, buttonsPill,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1506,9 +1515,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b',
                 homeHeader to 's', homeHeaderHeight to 's', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
                 cornerScale to 'f', songShape to 's', albumShape to 's', artistShape to 's', playerShape to 's', buttonShape to 's', playOutlined to 'b',
-                typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's', playerTitleWeight to 's',
+                typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's', playerTitleWeight to 's', typeClassic to 'b', controlsClassic to 'b',
                 panelPlayer to 's', queueHeadings to 'b', castMark to 'b', immersiveVideo to 'b', bleedFit to 's', coverFlight to 'b',
-                videoControlsHide to 'b', crossfadeMark to 'b', blendCovers to 'b',
+                videoControlsHide to 'b', crossfadeMark to 'b', blendCovers to 'b', buttonsPill to 'b',
             ) + lyricsLook
         }
 
@@ -1759,6 +1768,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 player = p.enum(K.playerShape, d.shapes.player),
                 button = p.enum(K.buttonShape, d.shapes.button),
                 playOutlined = p[K.playOutlined] ?: d.shapes.playOutlined,
+                classicControls = p[K.controlsClassic] ?: d.shapes.classicControls,
                 tabTint = p.enum(K.tabTint, d.shapes.tabTint),
             ),
             type = TypeLook(
@@ -1766,6 +1776,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 spacing = p.enum(K.typeSpacing, d.type.spacing),
                 titleFont = p[K.titleFont]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } },
                 playerTitleWeight = p.enum(K.playerTitleWeight, d.type.playerTitleWeight),
+                classic = p[K.typeClassic] ?: d.type.classic,
             ),
             view = ViewLook(
                 panelPlayer = p.enum(K.panelPlayer, d.view.panelPlayer),
@@ -1777,6 +1788,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 videoControlsHide = p[K.videoControlsHide] ?: d.view.videoControlsHide,
                 crossfadeMark = p[K.crossfadeMark] ?: d.view.crossfadeMark,
                 blendCovers = p[K.blendCovers] ?: d.view.blendCovers,
+                buttonsPill = p[K.buttonsPill] ?: d.view.buttonsPill,
             ),
             sound = SoundPrefs(
                 crossfadeCurve = p.enum(K.crossfadeCurve, d.sound.crossfadeCurve),
@@ -2198,6 +2210,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     /** Null: titles in the app's font. */
     fun setTitleFont(v: FontChoice?) = edit { if (v == null) it.remove(K.titleFont) else it[K.titleFont] = v.name }
     fun setPlayOutlined(v: Boolean) = edit { it[K.playOutlined] = v }
+    fun setTypeClassic(v: Boolean) = edit { it[K.typeClassic] = v }
+    fun setControlsClassic(v: Boolean) = edit { it[K.controlsClassic] = v }
     fun setUiDensity(v: UiDensity) = edit { it[K.uiDensity] = v.name }
     fun setTitleSize(v: TitleSize) = edit { it[K.titleSize] = v.name }
     fun setCardSize(v: CardSize) = edit { it[K.cardSize] = v.name }
@@ -2288,6 +2302,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setQueueLocked(v: Boolean) = edit { it[K.queueLocked] = v }
     fun setCrossfadeMark(v: Boolean) = edit { it[K.crossfadeMark] = v }
     fun setBlendCovers(v: Boolean) = edit { it[K.blendCovers] = v }
+    fun setButtonsPill(v: Boolean) = edit { it[K.buttonsPill] = v }
     fun setCrossfadeCurve(v: CrossfadeCurve) = edit { it[K.crossfadeCurve] = v.name }
     fun setNormalizeTarget(v: Int) = edit { it[K.normalizeTarget] = v.coerceIn(-30, -5) }
     fun setNormalizeAlbums(v: Boolean) = edit { it[K.normalizeAlbums] = v }

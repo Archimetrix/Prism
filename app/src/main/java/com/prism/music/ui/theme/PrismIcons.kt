@@ -37,6 +37,8 @@ enum class IconPack(val label: String, val detail: String) {
     FACET("Facet", "Straight lines and sharp corners: every curve cut into facets"),
     /** Every icon in dots, like a dot-matrix display (1.7.7, generated from Prism's drawings). */
     DOTS("Dots", "Drawn in dots, like a dot-matrix display"),
+    /** Prism 1.6's hand-drawn icons, a heavier line (1.7.8, #155; [ClassicIcons]). */
+    CLASSIC("Classic", "Prism 1.6's icons: a heavier line, as they were"),
 }
 
 /** How Prism's icons are filled (1.7.7): lines, a light second tone inside, or solid. */
@@ -147,6 +149,9 @@ object PrismIcons {
     // Drawn as SVG in design/icons (24-unit grid, 1.5-unit lines, round ends; see its README) and built from
     // PrismIconData, which the build generates from those files. To change an icon, change its drawing.
 
+    /** Classic's line against today's drawings' (1.8 / 1.5). */
+    private const val CLASSIC_LINE = 1.2f
+
     /** How strongly a selected twin's tinted shapes are filled. */
     private const val TINT = 0.18f
 
@@ -158,8 +163,12 @@ object PrismIcons {
      * the fill style picked in Icons & shapes ([style]; Prism's own setting unless a preview asks for another).
      */
     private fun drawn(name: String, filled: Boolean = false, style: IconFill = IconStyle.fill, pack: IconPack = IconStyle.pack): ImageVector {
+        // Classic (1.7.8, #155): 1.6.9's own drawing where it had one; Lyrics stays today's (the one #155 didn't miss).
+        if (pack == IconPack.CLASSIC && name != "Lyrics") ClassicIcons.find(if (filled) "${name}Filled" else name)?.let { return it }
         val s = PrismIconData.spec(name)
         val ink = SolidColor(Color.Black)
+        // Icons Classic has no drawing for: today's, at its line (1.8 units against today's 1.5).
+        val classicLine = if (pack == IconPack.CLASSIC) CLASSIC_LINE else 1f
         // Filled: every icon as its solid twin. Duotone: the shapes a twin fills get a light tone inside.
         val twin = filled || (style == IconFill.FILLED && s.twin != 0)
         if (pack == IconPack.DOTS) return dotted(name, if (twin) s.dotsFilled else s.dots, filled, s.mirror)
@@ -181,7 +190,7 @@ object PrismIcons {
                 addPath(
                     nodes,
                     fill = if (fill) ink else null, fillAlpha = alpha,
-                    stroke = ink, strokeLineWidth = p.width * IconStyle.weight.scale,
+                    stroke = ink, strokeLineWidth = p.width * IconStyle.weight.scale * classicLine,
                     strokeLineCap = if (round) StrokeCap.Round else StrokeCap.Butt,
                     strokeLineJoin = if (round) StrokeJoin.Round else StrokeJoin.Miter,
                 )

@@ -307,9 +307,39 @@ fun prismTypography(
 
 val PrismTypography = prismTypography()
 
+/**
+ * Prism 1.6's type (1.7.8, Classic type, #155): Material's sizes with tight, heavy headings over a calm body, as 1.6.9
+ * drew it. Text → Weight, spacing and the titles' font still apply on top.
+ */
+fun classicTypography(family: FontFamily, titleFamily: FontFamily = family, weightShift: Int = 0, tracking: Float = 0f): Typography {
+    fun TextStyle.f(title: Boolean = false, weight: FontWeight? = fontWeight) = copy(
+        fontFamily = if (title) titleFamily else family,
+        fontWeight = FontWeight(((weight ?: FontWeight.Normal).weight + weightShift).coerceIn(100, 900)),
+        letterSpacing = (letterSpacing.takeIf { it.isEm }?.value ?: 0f).plus(tracking).em,
+    )
+    return Typography(
+        displayLarge = base.displayLarge.copy(letterSpacing = (-0.035).em).f(true, FontWeight.Black),
+        displayMedium = base.displayMedium.copy(letterSpacing = (-0.03).em).f(true, FontWeight.Black),
+        displaySmall = base.displaySmall.copy(letterSpacing = (-0.025).em).f(true, FontWeight.ExtraBold),
+        headlineLarge = base.headlineLarge.copy(letterSpacing = (-0.025).em).f(true, FontWeight.ExtraBold),
+        headlineMedium = base.headlineMedium.copy(letterSpacing = (-0.02).em).f(true, FontWeight.Bold),
+        headlineSmall = base.headlineSmall.copy(letterSpacing = (-0.015).em).f(true, FontWeight.Bold),
+        titleLarge = base.titleLarge.copy(letterSpacing = (-0.012).em).f(true, FontWeight.Bold),
+        titleMedium = base.titleMedium.copy(letterSpacing = (-0.005).em).f(weight = FontWeight.SemiBold),
+        titleSmall = base.titleSmall.copy(letterSpacing = 0.em).f(weight = FontWeight.SemiBold),
+        labelLarge = base.labelLarge.copy(letterSpacing = 0.em).f(weight = FontWeight.SemiBold),
+        labelMedium = base.labelMedium.copy(letterSpacing = 0.em).f(weight = FontWeight.Medium),
+        labelSmall = base.labelSmall.copy(letterSpacing = 0.em).f(weight = FontWeight.Medium),
+        bodyLarge = base.bodyLarge.copy(letterSpacing = 0.006.em).f(),
+        bodyMedium = base.bodyMedium.copy(letterSpacing = 0.em).f(),
+        bodySmall = base.bodySmall.copy(letterSpacing = 0.em).f(),
+    )
+}
+
 /** The app's type for [s]: its font, titles in their own font if one's picked, the weight and spacing (1.7.7). */
 fun appTypography(s: AppSettings): Typography {
     val family = AppFonts.family(s.fontChoice)
+    if (s.type.classic) return classicTypography(family, s.type.titleFont?.let { AppFonts.family(it) } ?: family, s.type.weight.shift, s.type.spacing.em)
     return prismTypography(
         family, s.type.titleFont?.let { AppFonts.family(it) } ?: family,
         weightShift = s.type.weight.shift, tracking = s.type.spacing.em,
