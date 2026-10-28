@@ -1084,7 +1084,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 if (showCanvasLyrics && lyricsState.lyrics?.synced == true) {
-                    CurrentLyricStrip(lyricsState, isPlaying && !covered) { canvasControlsVisible = true }
+                    CurrentLyricStrip(lyricsState, isPlaying && !covered, onClick = { canvasControlsVisible = true })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
