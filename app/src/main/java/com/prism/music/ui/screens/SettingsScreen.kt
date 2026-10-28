@@ -1029,32 +1029,43 @@ private fun IconSettings() {
 }
 
 /** The launcher icon (#20), each shown as its own two layers in a rounded square. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AppIconSettings() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scheme = MaterialTheme.colorScheme
     var current by remember { mutableStateOf(com.prism.music.ui.theme.AppIcons.current(context)) }
     Group("App icon", info = "Your launcher may take a moment to update.") {
-        FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            com.prism.music.ui.theme.AppIcon.entries.forEach { icon ->
-                val on = icon == current
-                Column(
-                    Modifier.width(72.dp).clip(RoundedCornerShape(14.dp)).clickable {
-                        if (!on) { com.prism.music.ui.theme.AppIcons.set(context, icon); current = icon }
-                    }.padding(4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(
-                        Modifier.size(60.dp).then(if (on) Modifier.border(2.dp, com.prism.music.ui.theme.PrismTokens.spectrum, RoundedCornerShape(18.dp)) else Modifier)
-                            .padding(if (on) 4.dp else 0.dp).clip(RoundedCornerShape(15.dp)),
-                    ) {
-                        // An adaptive icon's layers are 108 units with the visible 72 in the middle: draw them 1.5× and crop.
-                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.background), null, Modifier.fillMaxSize().scale(1.5f))
-                        androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.foreground), null, Modifier.fillMaxSize().scale(1.5f))
+        // An even grid across the page (#194: fixed 72 dp cells left an empty column at the side with larger text, and
+        // cut "Spectrum" short): as many columns as fit, names made smaller rather than cut.
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            val cell = 76.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)
+            val columns = ((maxWidth + 8.dp) / (cell + 8.dp)).toInt().coerceIn(3, 6)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.prism.music.ui.theme.AppIcon.entries.chunked(columns).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { icon ->
+                            val on = icon == current
+                            Column(
+                                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable {
+                                    if (!on) { com.prism.music.ui.theme.AppIcons.set(context, icon); current = icon }
+                                }.padding(4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    Modifier.size(60.dp).then(if (on) Modifier.border(2.dp, com.prism.music.ui.theme.PrismTokens.spectrum, RoundedCornerShape(18.dp)) else Modifier)
+                                        .padding(if (on) 4.dp else 0.dp).clip(RoundedCornerShape(15.dp)),
+                                ) {
+                                    // An adaptive icon's layers are 108 units with the visible 72 in the middle: draw them 1.5× and crop.
+                                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.background), null, Modifier.fillMaxSize().scale(1.5f))
+                                    androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(icon.foreground), null, Modifier.fillMaxSize().scale(1.5f))
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                WholeWords(icon.label, MaterialTheme.typography.labelMedium, if (on) scheme.onSurface else scheme.onSurfaceVariant, maxLines = 1)
+                            }
+                        }
+                        // The last row keeps the others' column widths.
+                        repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(icon.label, style = MaterialTheme.typography.labelMedium, color = if (on) scheme.onSurface else scheme.onSurfaceVariant, maxLines = 1)
                 }
             }
         }

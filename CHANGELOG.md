@@ -2,6 +2,33 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.8 (unreleased)
+
+### Fixes
+
+- **Other apps can pause and skip again** (#178, #187): KDE Connect, "dynamic island" apps and launcher widgets
+  showed the song but their play, pause and skip did nothing. The media library Prism uses (Media3 1.11) only lets apps
+  it doesn't recognize read what's playing; Prism now lets every app that can reach its media session control it, as
+  music players do. Playback diagnostics also list each command another app sends and where it went.
+- **Lyric translations stopping after a while** (#198): Google stops answering a network that asks for many songs in a
+  short time. Translations are now kept on the phone (a song is translated once per language); when Google's main
+  service refuses, Prism asks its second one; and when both are resting, the lyrics say "Translation unavailable right
+  now" and Prism tries again later instead of showing nothing.
+- **Wrong covers on local songs without an album tag** (#143): Android names such a song's album after its folder
+  ("Quick Share", "Download"), so Prism took the folder for an album and gave songs with no cover of their own another
+  song's. A song whose album is only its folder's name is now checked against the file once: with no album tag, it's
+  shown without an album and only ever with its own cover.
+- **The player's ⋯ menu jumping when flung up** (#147): a fast fling past the end of the menu pushed the whole sheet up
+  under the status bar and it bounced back. The menu now keeps that fling to itself.
+- **Centered lyrics** (#158, #164): the instrumental "…" on the lyrics page follows the lyrics' alignment (it stayed on
+  the left), and the lyric line on the player is centered on its words alone (the arrow after it pushed it left).
+  New: Customize Prism → Lyrics → Instrumental breaks can show a music note instead of the dots.
+- **Local files' title at the top again** (#156): as a tab, the page's title sits beside Shuffle and Play, as in 1.6.9.
+- **FLAC files missing from Local files** (Reddit): files Android had no length for, or hadn't marked as music, are
+  listed now (their length is read from the file once).
+- **App icon picker** (#194): the icons fill the page in an even grid (with larger text there was an empty column at
+  the side) and names like "Spectrum" are no longer cut short.
+
 ## 1.7.7.1
 
 Fixes only.

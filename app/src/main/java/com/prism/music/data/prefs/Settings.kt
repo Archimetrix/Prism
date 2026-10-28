@@ -149,7 +149,12 @@ data class LyricsLookPrefs(
     val bgColor2: Int = 0,
     /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
     val everywhere: Boolean = true,
+    /** What an instrumental break shows on the lyrics page (#158): the three dots, or a music note. */
+    val gapMark: LyricsGapMark = LyricsGapMark.DOTS,
 )
+
+/** An instrumental break on the lyrics page (1.7.8, #158). */
+enum class LyricsGapMark(val label: String) { DOTS("Three dots"), NOTE("Music note") }
 
 /** How heavy all of Prism's text is, against its own weights (1.7.7). */
 enum class TypeWeight(val label: String, val shift: Int) { LIGHT("Light", -100), REGULAR("Regular", 0), BOLD("Bold", 100) }
@@ -1005,6 +1010,7 @@ data class AppSettings(
     val lyricsBgColor: Int get() = lyricsLook.bgColor
     val lyricsBgColor2: Int get() = lyricsLook.bgColor2
     val lyricsEverywhere: Boolean get() = lyricsLook.everywhere
+    val lyricsGapMark: LyricsGapMark get() = lyricsLook.gapMark
 
     /**
      * What Prism draws with: these settings, or with [performanceMode] the lighter look. Blurred glass, frosted pages
@@ -1279,6 +1285,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsBgColor = intPreferencesKey("lyrics_bg_color")
         val lyricsBgColor2 = intPreferencesKey("lyrics_bg_color2")
         val lyricsEverywhere = booleanPreferencesKey("lyrics_everywhere")
+        val lyricsGapMark = stringPreferencesKey("lyrics_gap_mark")
         val lyricsStripAlign = stringPreferencesKey("lyrics_strip_align")
         val lyricsStripTwoLines = booleanPreferencesKey("lyrics_strip_two_lines")
         val mergeLikedVideos = booleanPreferencesKey("merge_liked_videos")
@@ -1294,6 +1301,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 lyricsShadow to 'b', lyricsUppercase to 'b', lyricsAhead to 's', lyricsPosition to 's', lyricsExtraSize to 'f',
                 lyricsExtraColor to 's', lyricsExtraItalic to 'b', lyricsExtraPlace to 's', lyricsBackground to 's', immersiveBackground to 's',
                 lyricsBgColor to 'i', lyricsBgColor2 to 'i', lyricsEverywhere to 'b', lyricsStripAlign to 's', lyricsStripTwoLines to 'b',
+                lyricsGapMark to 's',
             )
         }
         val coverSwipeLeft = stringPreferencesKey("cover_swipe_left")
@@ -1691,6 +1699,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 bgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
                 bgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
                 everywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+                gapMark = p.enum(K.lyricsGapMark, d.lyricsGapMark),
             ),
             lyricsStripAlign = p.enum(K.lyricsStripAlign, d.lyricsStripAlign),
             lyricsStripTwoLines = p[K.lyricsStripTwoLines] ?: d.lyricsStripTwoLines,
@@ -2064,6 +2073,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setImmersiveBackground(v: LyricsBackground) = edit { it[K.immersiveBackground] = v.name }
     fun setLyricsBgColors(first: Int, second: Int) = edit { it[K.lyricsBgColor] = first; it[K.lyricsBgColor2] = second }
     fun setLyricsEverywhere(v: Boolean) = edit { it[K.lyricsEverywhere] = v }
+    fun setLyricsGapMark(v: LyricsGapMark) = edit { it[K.lyricsGapMark] = v.name }
     fun setLyricsStripAlign(v: LyricsAlign) = edit { it[K.lyricsStripAlign] = v.name }
     fun setLyricsStripTwoLines(v: Boolean) = edit { it[K.lyricsStripTwoLines] = v }
     fun setMergeLikedVideos(v: Boolean) = edit { it[K.mergeLikedVideos] = v }

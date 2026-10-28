@@ -150,6 +150,15 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
         c.scope.launch { c.homeCache.write(pages) }
         val freshKeys = fresh.map { shelfKey(it.title) }.toSet()
         val kept = homeShelfCache.value.filter { shelfKey(it.title).let { k -> k in wanted && k !in freshKeys } }
+        // What YouTube's Home held, and which shelves Prism took for Quick picks and Speed dial (#162, #163: an account
+        // in Spanish found neither), for a diagnostics log.
+        com.prism.music.playback.AudioDiagnostics.log(
+            "home",
+            "${pages.size} pages: " + fresh.joinToString { s ->
+                s.title + " (" + listOfNotNull("rows".takeIf { s.rows }, "stacked".takeIf { s.stacked }, "${s.items.size}").joinToString(" ") + ")"
+            } + "; Quick picks: ${fresh.quickPicks()?.title ?: "none"}; Speed dial: ${fresh.speedDial()?.title ?: "none"}" +
+                if (kept.isNotEmpty()) "; kept from before: ${kept.joinToString { it.title }}" else "",
+        )
         (fresh + kept).also { homeShelfCache.value = it }
     }
     // The last Home (from this session, else kept on the phone) shows until the new one is in: no spinner at start.

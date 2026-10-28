@@ -270,14 +270,20 @@ fun LocalMusicScreen(bottomPadding: Dp) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Back and the buttons on a bar at the top, the title under them, as on Prism's other pages.
+        // As a tab of its own (Settings → Layout & navigation) the top level has nothing to go back to.
+        val isTab = com.prism.music.data.prefs.NavTab.LOCAL in settings.navTabs
+        val inside = openAlbum != null || openArtist != null || openRecent
+        val title = album?.title ?: artist?.name ?: (if (openRecent) "Recently played" else "Local files")
+        // With no Back, the title takes its place at the very top, beside the buttons (#156, as in 1.6.9); with Back,
+        // the buttons are on a bar at the top and the title under them, as on Prism's other pages.
+        val titleOnTop = isTab && !inside
         Row(
-            Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = 12.dp),
+            Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(start = if (titleOnTop) 20.dp else 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // As a tab of its own (Settings → Layout & navigation) the top level has nothing to go back to.
-            val isTab = com.prism.music.data.prefs.NavTab.LOCAL in settings.navTabs
-            val inside = openAlbum != null || openArtist != null || openRecent
+            if (titleOnTop) {
+                Text(title, style = pageTitleStyle(), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 8.dp))
+            }
             if (!isTab || inside) {
                 RoundAction(PrismIcons.ArrowBack, "Back") {
                     when {
@@ -288,7 +294,7 @@ fun LocalMusicScreen(bottomPadding: Dp) {
                     }
                 }
             }
-            Spacer(Modifier.weight(1f))
+            if (!titleOnTop) Spacer(Modifier.weight(1f))
             // Recently played, Shuffle and Play at the top (#29), for whatever the page is showing.
             if (allowed && tracks.isNotEmpty()) {
                 if (!inside) {
@@ -307,7 +313,7 @@ fun LocalMusicScreen(bottomPadding: Dp) {
             }
         }
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 10.dp)) {
-            Text(album?.title ?: artist?.name ?: (if (openRecent) "Recently played" else "Local files"), style = pageTitleStyle(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (!titleOnTop) Text(title, style = pageTitleStyle(), maxLines = 2, overflow = TextOverflow.Ellipsis)
             // The count sits under the title (#29), where "Music files on this phone" was.
             val sub = when {
                 album != null -> listOfNotNull(album.artist.ifBlank { null }, album.year.takeIf { it > 0 }?.toString(), songCount(album.tracks.size)).joinToString(" · ")

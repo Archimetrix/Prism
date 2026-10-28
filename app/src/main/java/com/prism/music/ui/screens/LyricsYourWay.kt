@@ -58,6 +58,9 @@ import com.prism.music.data.prefs.LyricsStyle
 import com.prism.music.data.prefs.LyricsWeight
 import com.prism.music.ui.player.LyricsLook
 import com.prism.music.ui.player.RestingLine
+import com.prism.music.ui.player.drawNote
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.geometry.Offset
 import com.prism.music.ui.player.SungLine
 import com.prism.music.ui.player.cardColor
 import com.prism.music.ui.player.extraStyle
@@ -293,6 +296,28 @@ fun LyricsPlacementGroup() {
             "Up to two lines", "A long line wraps instead of being cut off", s.lyricsStripTwoLines,
             info = "The line keeps room for two lines all the time, so the player doesn't move as the lines change.",
         ) { prefs.setLyricsStripTwoLines(it) }
+        Label("Instrumental breaks", info = "What shows between lines while the music plays on its own. It lights up as the break goes by.")
+        ChoiceCards(
+            com.prism.music.data.prefs.LyricsGapMark.entries, s.lyricsGapMark, title = { it.label }, detail = { null },
+            onSelect = { prefs.setLyricsGapMark(it) },
+        ) { GapSample(it == com.prism.music.data.prefs.LyricsGapMark.NOTE, s.lyricsAlign == LyricsAlign.CENTER) }
+    }
+}
+
+/** An instrumental break as the lyrics page draws it: dots or a note, half lit, where the lines sit. */
+@Composable
+private fun GapSample(note: Boolean, centered: Boolean) {
+    Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 12.dp), contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) {
+        androidx.compose.foundation.Canvas(Modifier.size(width = if (note) 24.dp else 42.dp, height = if (note) 24.dp else 10.dp)) {
+            if (note) {
+                drawNote(Color.White.copy(alpha = 0.35f))
+                clipRect(top = size.height * 0.5f) { drawNote(Color.White) }
+            } else {
+                val r = size.height / 2
+                val stride = (size.width - 2 * r) / 2
+                repeat(3) { d -> drawCircle(Color.White.copy(alpha = if (d == 0) 1f else 0.35f), r, Offset(r + d * stride, size.height / 2)) }
+            }
+        }
     }
 }
 

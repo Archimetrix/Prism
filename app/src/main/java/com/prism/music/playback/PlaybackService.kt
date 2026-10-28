@@ -4,6 +4,7 @@ import com.prism.music.data.friendlyMessage
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import kotlinx.coroutines.flow.drop
@@ -223,6 +224,12 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         // Keep the media notification (and the system media controls) up for a
         // paused or restored queue, not only while audio is actively playing.
         setShowNotificationForIdlePlayer(MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS)
+        // Android refuses a foreground service started from the background unless the start is exempt (a media button,
+        // the system's own media controls); a play from another app then can't make sound. Logged for #187.
+        setListener(object : MediaSessionService.Listener {
+            override fun onForegroundServiceStartNotAllowedException() =
+                AudioDiagnostics.log("control", "Android refused to bring playback to the foreground (started from the background)")
+        })
 
         effects.attach(player.audioSessionId)
         c.onStreamResolved = { id -> scope.launch { applyStreamStats(id) } }
@@ -440,6 +447,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = session
+
+    /** Whether this service is in the foreground now (only known on Android 10+; below, it says yes). */
+    private fun inForeground(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || foregroundServiceType != 0
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         saveQueue()
@@ -1712,15 +1722,59 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 carControllers += controller
                 carLyrics.carConnected = true
             }
+            if (controller.packageName != packageName) {
+                AudioDiagnostics.log("control", "connected: ${controller.packageName} (${if (controller.isTrusted) "trusted" else "not trusted"})")
+            }
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                 .setAvailableSessionCommands(
                     MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon().apply { customCommands.forEach { add(it) } }.build()
                 )
+                // Every app may play, pause and skip (#178, #187). Media3 1.11 gives apps it doesn't count as trusted only
+                // the read-only player commands, so KDE Connect, "dynamic island" apps and launcher widgets showed the song
+                // but their pause and skip were dropped without a word. Android already limits who can reach a media
+                // session (the system, notification listeners, apps bound to the exported service), and a music player is
+                // there to be controlled.
+                .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
                 .build()
         }
 
         override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
             if (carControllers.remove(controller)) carLyrics.carConnected = carControllers.isNotEmpty()
+        }
+
+        // Every play, pause or skip another app sends (a widget, KDE Connect, a watch…), so a diagnostics log shows
+        // whether a command arrived at all and from whom (#187, #178). Prism's own screens aren't logged.
+        override fun onPlayerCommandRequest(session: MediaSession, controller: MediaSession.ControllerInfo, playerCommand: Int): Int {
+            if (AudioDiagnostics.enabled && controller.packageName != packageName) {
+                val what = when (playerCommand) {
+                    Player.COMMAND_PLAY_PAUSE -> "play/pause"
+                    Player.COMMAND_STOP -> "stop"
+                    Player.COMMAND_PREPARE -> "prepare"
+                    Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> "next"
+                    Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> "previous"
+                    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM -> "seek"
+                    else -> null
+                }
+                if (what != null) {
+                    AudioDiagnostics.log(
+                        "control",
+                        "$what from ${controller.packageName} (${if (controller.isTrusted) "trusted" else "not trusted"}, " +
+                            "service ${if (inForeground()) "in the foreground" else "in the background"}, ${this@PlaybackService.javaClass.simpleName})",
+                    )
+                }
+            }
+            return super.onPlayerCommandRequest(session, controller, playerCommand)
+        }
+
+        override fun onMediaButtonEvent(session: MediaSession, controllerInfo: MediaSession.ControllerInfo, intent: Intent): Boolean {
+            val key = runCatching {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<android.view.KeyEvent>(Intent.EXTRA_KEY_EVENT)
+            }.getOrNull()
+            if (key?.action == android.view.KeyEvent.ACTION_DOWN) {
+                AudioDiagnostics.log("control", "media button ${android.view.KeyEvent.keyCodeToString(key.keyCode)} from ${controllerInfo.packageName}")
+            }
+            return super.onMediaButtonEvent(session, controllerInfo, intent)
         }
 
         override fun onCustomCommand(
@@ -2047,6 +2101,22 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
 
         override fun onIsPlayingChanged(eventTime: AnalyticsListener.EventTime, isPlaying: Boolean) =
             AudioDiagnostics.log("state", (if (isPlaying) "playing" else "not playing (${player.playbackSuppressionReason.let { if (it == 0) "paused or waiting" else "suppressed: $it" }})") + " ${at(eventTime)}")
+
+        // Why play/pause changed: a refused audio focus (Android 15+ refuses it to apps in the background without a
+        // foreground service) shows up here as "audio focus loss" right after a play from another app (#187).
+        override fun onPlayWhenReadyChanged(eventTime: AnalyticsListener.EventTime, playWhenReady: Boolean, reason: Int) =
+            AudioDiagnostics.log(
+                "state",
+                (if (playWhenReady) "play" else "pause") + " (" + when (reason) {
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST -> "asked"
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS -> "audio focus loss"
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY -> "headphones unplugged"
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE -> "remote"
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM -> "end of song"
+                    Player.PLAY_WHEN_READY_CHANGE_REASON_SUPPRESSED_TOO_LONG -> "suppressed too long"
+                    else -> "reason $reason"
+                } + ") ${at(eventTime)}",
+            )
 
         override fun onMediaItemTransition(eventTime: AnalyticsListener.EventTime, mediaItem: MediaItem?, reason: Int) =
             AudioDiagnostics.log(

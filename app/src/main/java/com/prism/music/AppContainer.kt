@@ -236,7 +236,7 @@ class AppContainer(val app: Application) {
     )
     val db = PrismDatabase.build(app)
     val streams by lazy { StreamResolver(app, http, settings, innerTube) }
-    val translator = com.prism.music.data.lyrics.LyricsTranslator(http)
+    val translator = com.prism.music.data.lyrics.LyricsTranslator(http, File(app.filesDir, "translations"))
     val network = com.prism.music.data.NetworkState(app)
     /** Covers kept on the phone for downloads and the library, so they show offline. */
     val artwork = com.prism.music.data.ArtworkStore(app, http) { quietNetwork() }

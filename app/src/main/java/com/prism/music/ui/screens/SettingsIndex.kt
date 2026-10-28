@@ -297,6 +297,7 @@ object SettingsIndex {
         SettingEntry(YL, "Where the lines go", "Lines to come", "lyrics ahead next lines hide preview"),
         SettingEntry(YL, "Where the lines go", "The line on the player", "current lyric strip center centered left align player"),
         SettingEntry(YL, "Where the lines go", "Up to two lines", "current lyric strip wrap two lines verse cut off"),
+        SettingEntry(YL, "Where the lines go", "Instrumental breaks", "instrumental gap dots music note break"),
         SettingEntry(YL, "Translations & romanized lines", "Translation look", "translation romanization size color italic above below"),
         SettingEntry(YL, "Background", "Behind the lyrics", "lyrics background dark blurred animated cover color gradient"),
         SettingEntry(YL, "Background", "Immersive mode background", "immersive background cover dark blurred color"),

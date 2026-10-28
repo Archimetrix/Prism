@@ -243,6 +243,7 @@ object LookLabels {
         "lyrics_background" to "Lyrics background", "immersive_background" to "Immersive background", "lyrics_bg_color" to "Lyrics background color",
         "lyrics_bg_color2" to "Lyrics gradient's second color", "lyrics_everywhere" to "Same lyrics look everywhere",
         "lyrics_strip_align" to "Lyric line on the player", "lyrics_strip_two_lines" to "Lyric line up to two lines",
+        "lyrics_gap_mark" to "Instrumental breaks",
         "hide_status_bar" to "Hide the status bar",
         "corner_scale" to "Corners", "cover_shape_songs" to "Songs' covers", "cover_shape_albums" to "Albums' covers",
         "cover_shape_artists" to "Artists' pictures", "cover_shape_player" to "Player's cover", "button_shape" to "Buttons",
@@ -383,7 +384,7 @@ object LookLabels {
             "lyrics_others_alpha", "lyrics_sung_color", "lyrics_sung_custom", "lyrics_other_color", "lyrics_other_custom", "lyrics_weight",
             "lyrics_backing_size", "lyrics_shadow", "lyrics_uppercase", "lyrics_ahead", "lyrics_position", "lyrics_extra_size", "lyrics_extra_color",
             "lyrics_extra_italic", "lyrics_extra_place", "lyrics_background", "immersive_background", "lyrics_bg_color", "lyrics_bg_color2", "lyrics_everywhere",
-            "lyrics_strip_align", "lyrics_strip_two_lines",
+            "lyrics_strip_align", "lyrics_strip_two_lines", "lyrics_gap_mark",
         ),
     )
 
