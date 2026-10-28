@@ -807,6 +807,18 @@ class StreamResolver(
         if (f.live) throw LiveStreamException(videoId)
         val audio = pickAudio(f.audio, currentQuality())
             ?: throw StreamException("No playable audio stream was found")
+        // The account's link couldn't be unlocked (GitHub #179, 1.7.7.1: the player JS sandbox ran out of memory on a
+        // OnePlus) for a song that went through the account only for Premium quality: it plays as everyone gets it,
+        // at once, rather than failing and falling back to its music video's sound.
+        try {
+            audio.url
+        } catch (e: StreamException) {
+            if (!f.via.startsWith("account") || videoId in needsAccount || !accountRefused.add(videoId)) throw e
+            cache.remove(videoId)
+            Log.i("PrismStream", "$videoId: the account's link couldn't be unlocked (${e.message}); playing the usual stream")
+            runCatching { com.prism.music.playback.AudioDiagnostics.log("stream", "$videoId: the account's link couldn't be unlocked; playing the usual stream instead") }
+            return resolve(videoId, withVideo)
+        }
         val video = if (withVideo) {
             // Data saver on mobile data (#40): music videos at 480p at most.
             val maxHeight = if (settings.current.dataSaver && isMetered()) minOf(480, settings.current.videoMaxHeight) else settings.current.videoMaxHeight

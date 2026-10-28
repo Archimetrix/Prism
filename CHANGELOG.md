@@ -100,6 +100,10 @@ Every one of these is a choice; nothing changes until you pick it.
 
 ### Fixes
 
+- **Premium quality on phones where it still failed** (#179): on some phones the small sandbox Prism unlocks YouTube's
+  links in ran out of memory reading YouTube's newest player, so every Premium song (and its download) failed and fell
+  back to its music video's sound. It now gets the memory it needs, and if a Premium link still can't be unlocked, the
+  song plays at once in normal quality instead.
 - **Other apps can pause and skip again** (#178, #187): KDE Connect, "dynamic island" apps and launcher widgets
   showed the song but their play, pause and skip did nothing. The media library Prism uses (Media3 1.11) only lets apps
   it doesn't recognize read what's playing; Prism now lets every app that can reach its media session control it, as
