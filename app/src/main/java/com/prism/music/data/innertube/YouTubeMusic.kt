@@ -811,16 +811,23 @@ class YouTubeMusic(
         })
     }
 
-    suspend fun addToPlaylist(playlistId: String, videoId: String) {
-        api.post("browse/edit_playlist", buildJsonObject {
+    /**
+     * Adds a song to an owned playlist; false when it was already there (#159: it went in a second time; now it's
+     * skipped, as YouTube Music's own "Skip duplicates" does, and the listener is told).
+     */
+    suspend fun addToPlaylist(playlistId: String, videoId: String): Boolean {
+        val res = api.post("browse/edit_playlist", buildJsonObject {
             put("playlistId", playlistId.removePrefix("VL"))
             putJsonArray("actions") {
                 addJsonObject {
                     put("action", "ACTION_ADD_VIDEO")
                     put("addedVideoId", videoId)
+                    put("dedupeOption", "DEDUPE_OPTION_SKIP")
                 }
             }
         })
+        // Each song that went in comes back with its place's id; a skipped one doesn't.
+        return res.findFirst("playlistEditVideoAddedResultData") != null || res.findFirst("playlistEditResults") == null
     }
 
     /** Adds many songs to an owned playlist, 50 to a request; ones already in it are skipped. */

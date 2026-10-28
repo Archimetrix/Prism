@@ -11,6 +11,12 @@ Every one of these is a choice; nothing changes until you pick it.
 - **Lyrics and the queue, your way** (#193, #197): Customize Prism → Player → Lyrics and the queue: the player's controls
   hide after a moment (as before), always stay, or start hidden so the lyrics and the queue get the whole screen. The
   queue's headings ("Played", "Now Playing", "Up next") can go, for one continuous list.
+- **A queue made for editing** (Reddit, #159): hold a song to pick several, then move them up next, to the end, add them
+  to a playlist or take them out together. Each song has a ⋯ with the same (and "Clear everything after this"). The
+  lock at the top keeps the order still while you scroll (no drag handles, no swiping away), and the player's controls
+  step aside while you drag a song.
+- **No duplicates in your YouTube playlists** (#159): adding a song that's already there says so instead of adding it
+  twice.
 - **Swipe up for the queue** (#200, #197): Settings → Controls & gestures: swipe up on the player's controls for the queue
   (from their right half) or the lyrics (left half); swipe down there to close them. Made for one hand.
 - **Hide the controls over videos** (#166): while a music video plays, the controls go after a few seconds; a tap on the

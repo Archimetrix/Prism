@@ -735,8 +735,14 @@ fun PlaylistPicker(songs: List<Song>, what: String, onDismiss: () -> Unit) {
                                     return@close
                                 }
                                 c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                    val ok = runCatching { if (many) c.ytm.addAllToPlaylist(p.id, ids) else c.ytm.addToPlaylist(p.id, ids.single()) }.isSuccess
-                                    toast(if (ok) "Added to ${p.title}" else "Couldn't add to ${p.title}")
+                                    val added = runCatching { if (many) { c.ytm.addAllToPlaylist(p.id, ids); true } else c.ytm.addToPlaylist(p.id, ids.single()) }
+                                    toast(
+                                        when {
+                                            added.isFailure -> "Couldn't add to ${p.title}"
+                                            added.getOrNull() == false -> "Already in ${p.title}"
+                                            else -> "Added to ${p.title}"
+                                        },
+                                    )
                                 }
                             }
                         }.padding(horizontal = 20.dp, vertical = 8.dp),

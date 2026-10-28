@@ -86,6 +86,26 @@ class IssueFixes178Test {
         assertTrue(t.translations[2]!!.contains("bateau"))
     }
 
+    /** R11: several queue songs moved at once land in their order, and autoplay's suggestions stay after the listener's. */
+    @Test fun queueSongsMoveTogether() {
+        // Queue 0..7, playing 1, autoplay's suggestions from 5. Play 6 (autoplay's) and 3 next, in play order 3 then 6.
+        var anchor = 1
+        val next = com.prism.music.playback.QueueEdit.plan(8, listOf(3, 6), 5) { list, s -> (list.indexOf(anchor) + 1).also { anchor = s } }
+        assertEquals(listOf(0, 1, 3, 6, 2, 4, 5, 7), next.order)
+        // 5 is still autoplay's first suggestion; it sits at place 6 now.
+        assertEquals(6, next.autoplayStart)
+        // The player's moves give the same order.
+        val replay = MutableList(8) { it }
+        next.moves.forEach { (from, to) -> replay.add(to, replay.removeAt(from)) }
+        assertEquals(next.order, replay)
+        // To the end of what's queued: 2 goes just before autoplay's first, which stays first.
+        val end = com.prism.music.playback.QueueEdit.plan(8, listOf(2), 5) { list, _ -> list.indexOfFirst { it >= 5 && it != 2 } }
+        assertEquals(listOf(0, 1, 3, 4, 2, 5, 6, 7), end.order)
+        assertEquals(5, end.autoplayStart)
+        // With no autoplay, it stays none.
+        assertEquals(-1, com.prism.music.playback.QueueEdit.plan(4, listOf(3), -1) { _, _ -> 2 }.autoplayStart)
+    }
+
     @Test fun theMainEndpointIsUsedWhenItAnswers() = runBlocking {
         val google = FakeGoogle(dict = 500)
         val t = LyricsTranslator(OkHttpClient.Builder().addInterceptor(google).build()).translate(lines, "es")

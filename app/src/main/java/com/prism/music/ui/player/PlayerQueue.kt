@@ -4,6 +4,7 @@ import androidx.compose.foundation.border
 import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -91,6 +92,34 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
     LaunchedEffect(undo) { if (undo != null) { kotlinx.coroutines.delay(8_000); undo = null } }
     val remove: (QueueEntry) -> Unit = { entry -> pc.removeForUndo(entry.index)?.let { undo = entry.song.title to it } }
 
+    // A queue made for editing (R11, #159): hold a song to pick several and move or take them out together; each song's
+    // ⋯ has the same for one; "Lock" keeps the order still (no drag handles, no swiping away) while you scroll.
+    val locked = settings.behavior.queueLocked
+    var selected by remember { mutableStateOf<Set<String>?>(null) }
+    val selecting = selected != null
+    val toggle: (QueueEntry) -> Unit = { e -> selected = (selected ?: emptySet()).let { if (e.uid in it) it - e.uid else it + e.uid } }
+    val startSelecting: (QueueEntry) -> Unit = { e -> onHidePlayer(); selected = setOf(e.uid) }
+    androidx.activity.compose.BackHandler(selecting) { selected = null }
+    fun picked(): List<Int> = selected.orEmpty().let { uids -> queue.filter { it.uid in uids }.map { it.index } }
+    var menuFor by remember { mutableStateOf<QueueEntry?>(null) }
+    var adding by remember { mutableStateOf<List<Song>?>(null) }
+    // The current song can be picked too (to add to a playlist), but it never moves or goes.
+    menuFor?.let { e ->
+        val isNow = e.index == index
+        com.prism.music.ui.components.SongActionsSheet(
+            e.song,
+            extra = if (isNow) listOf(
+                com.prism.music.ui.components.SheetItem(PrismIcons.Delete, "Clear everything after this", danger = true) { pc.clearAfter(e.index) },
+            ) else listOf(
+                com.prism.music.ui.components.SheetItem(PrismIcons.PlaylistPlay, "Move up next") { pc.moveNext(listOf(e.index)) },
+                com.prism.music.ui.components.SheetItem(PrismIcons.QueueMusic, "Move to the end") { pc.moveToEnd(listOf(e.index)) },
+                com.prism.music.ui.components.SheetItem(PrismIcons.Close, "Remove from the queue") { remove(e) },
+                com.prism.music.ui.components.SheetItem(PrismIcons.Delete, "Clear everything after this", danger = true) { pc.clearAfter(e.index) },
+            ),
+        ) { menuFor = null }
+    }
+    adding?.let { songs -> com.prism.music.ui.components.PlaylistPicker(songs, "From your queue") { adding = null } }
+
     // DJ mode: its switch, energy curve and how far the scans have got; each song's key and tempo as badges.
     val dj by c.dj.on.collectAsState()
     val djProgress by c.dj.progress.collectAsState()
@@ -135,7 +164,21 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 onDragEnd = { if (total > 90f) onClose() },
             ) { change, amount -> change.consume(); total += amount }
         }
-        Row(pullToClose, verticalAlignment = Alignment.CenterVertically) {
+        if (selecting) {
+            val n = selected.orEmpty().size
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (n == 1) "1 song picked" else "$n songs picked", style = MaterialTheme.typography.titleLarge, color = Color.White, modifier = Modifier.weight(1f))
+                QueueChip("Done", selected = true) { selected = null }
+            }
+            Spacer(Modifier.height(10.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                val enabled = n > 0
+                QueueChip("Move up next") { if (enabled) { pc.moveNext(picked()); selected = null } }
+                QueueChip("Move to the end") { if (enabled) { pc.moveToEnd(picked()); selected = null } }
+                QueueChip("Add to playlist") { if (enabled) adding = pc.songsAt(picked()).filter { !it.isLive && !it.isEpisode } }
+                QueueChip("Remove") { if (enabled) { pc.removeMany(picked()); selected = null } }
+            }
+        } else Row(pullToClose, verticalAlignment = Alignment.CenterVertically) {
             Text("Queue", style = MaterialTheme.typography.titleLarge, color = Color.White, modifier = Modifier.weight(1f))
             if (order.size > 1) {
                 QueueChip("DJ", selected = dj) { pc.setDjMode(!dj) }
@@ -146,6 +189,13 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 Spacer(Modifier.width(8.dp))
                 QueueChip("Clear") { pc.clearUpcoming() }
             }
+            Spacer(Modifier.width(8.dp))
+            // The lock: the order stays put while you scroll (#159).
+            Box(
+                Modifier.size(34.dp).clip(CircleShape).background(if (locked) Color.White else Color.White.copy(alpha = 0.12f))
+                    .clickable(onClickLabel = if (locked) "Unlock the order" else "Lock the order") { c.settings.setQueueLocked(!locked) },
+                contentAlignment = Alignment.Center,
+            ) { Icon(PrismIcons.Lock, if (locked) "Order locked" else "Lock the order", tint = if (locked) Color.Black else Color.White, modifier = Modifier.size(17.dp)) }
         }
         if (dj) {
             Spacer(Modifier.height(10.dp))
@@ -189,26 +239,34 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 if (headings) item(key = "h-played") { Heading("Played", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
                 items(played, key = { "played-" + it.uid }) { entry ->
                     QueueRow(
-                        entry.song, isCurrent = false, onClick = { pc.skipTo(entry.index) }, onRemove = { remove(entry) },
+                        entry.song, isCurrent = false, onClick = { if (selecting) toggle(entry) else pc.skipTo(entry.index) },
+                        onRemove = if (selecting) null else { { remove(entry) } },
                         modifier = Modifier.alpha(0.6f),
+                        pick = selected?.let { entry.uid in it }, onLongClick = { startSelecting(entry) }, onMore = { menuFor = entry }, swipeable = !locked,
                     )
                 }
             }
             if (now != null) {
                 if (headings) item(key = "h-now") { Heading("Now Playing", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
-                item(key = "now-" + now.uid) { QueueRow(now.song, isCurrent = true, onClick = {}, onRemove = null, badge = badge(now.song)) }
+                item(key = "now-" + now.uid) {
+                    QueueRow(
+                        now.song, isCurrent = true, onClick = { if (selecting) toggle(now) }, onRemove = null, badge = badge(now.song),
+                        pick = selected?.let { now.uid in it }, onLongClick = { startSelecting(now) }, onMore = { menuFor = now },
+                    )
+                }
             }
+            val rows = SectionRows(selected, toggle, startSelecting, { menuFor = it }, locked, onDragStart = onHidePlayer)
             if (queued.isNotEmpty()) {
                 if (headings) item(key = "h-queued") { Heading("Next in queue", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(queued, shuffled, badge = badge, onRemove = remove)
+                queueSection(queued, shuffled, badge = badge, onRemove = remove, rows = rows)
             }
             if (upcoming.isNotEmpty()) {
                 if (headings) item(key = "h-next") { Heading("Next from: ${source.title.ifBlank { now?.song?.album?.title ?: "Queue" }}", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(upcoming, shuffled, badge = badge, onRemove = remove)
+                queueSection(upcoming, shuffled, badge = badge, onRemove = remove, rows = rows)
             }
             if (settings.autoplay || autoplay.isNotEmpty()) {
                 item(key = "h-auto") { AutoplayHeading(autoplay.isNotEmpty()) }
-                queueSection(autoplay, shuffled, badge = badge, onRemove = remove)
+                queueSection(autoplay, shuffled, badge = badge, onRemove = remove, rows = rows)
             }
         }
     }
@@ -221,19 +279,31 @@ private const val MAX_PLAYED = 100
  * A section of the queue whose songs can be dragged: in the list itself, or while [shuffled] (the queue then shows the
  * shuffled play order) in the play order, beside the song shown next to it in this section.
  */
+/** How a section's rows take part in editing the queue: picking several, each one's ⋯, the lock, a drag starting. */
+private class SectionRows(
+    val selected: Set<String>?,
+    val toggle: (QueueEntry) -> Unit,
+    val startSelecting: (QueueEntry) -> Unit,
+    val onMore: (QueueEntry) -> Unit,
+    val locked: Boolean,
+    val onDragStart: () -> Unit,
+)
+
 private fun LazyListScope.queueSection(
-    rows: List<QueueEntry>,
+    entries: List<QueueEntry>,
     shuffled: Boolean,
     badge: (Song) -> String? = { null },
     onRemove: (QueueEntry) -> Unit,
+    rows: SectionRows,
 ) {
-    items(rows, key = { it.uid }) { entry ->
+    val selecting = rows.selected != null
+    items(entries, key = { it.uid }) { entry ->
         val pc = LocalContainer.current.player
         val rowPx = with(LocalDensity.current) { 56.dp.toPx() }
         var drag by remember { mutableFloatStateOf(0f) }
         var position by remember(entry.index) { mutableStateOf(entry.index) }
         // Read at each step of a drag, not as they were when it started (the rows move under the finger).
-        val section by androidx.compose.runtime.rememberUpdatedState(rows)
+        val section by androidx.compose.runtime.rememberUpdatedState(entries)
         val current by androidx.compose.runtime.rememberUpdatedState(entry)
         val shuffleOn by androidx.compose.runtime.rememberUpdatedState(shuffled)
         /** Moves the song one place down ([down]) or up; false at the section's end. */
@@ -252,12 +322,19 @@ private fun LazyListScope.queueSection(
         QueueRow(
             entry.song,
             isCurrent = false,
-            onClick = { pc.skipTo(entry.index) },
-            onRemove = { onRemove(entry) },
+            onClick = { if (selecting) rows.toggle(entry) else pc.skipTo(entry.index) },
+            onRemove = if (selecting) null else { { onRemove(entry) } },
             badge = badge(entry.song),
             modifier = Modifier.offset { IntOffset(0, drag.roundToInt()) },
-            dragHandle = Modifier.pointerInput(entry.uid) {
+            pick = rows.selected?.let { entry.uid in it },
+            onLongClick = { rows.startSelecting(entry) },
+            onMore = { rows.onMore(entry) },
+            swipeable = !rows.locked,
+            // Locked (or picking songs), there's nothing to grab: scrolling can't move a song.
+            dragHandle = if (rows.locked || selecting) null else Modifier.pointerInput(entry.uid) {
                 detectDragGestures(
+                    // The player's controls go while a song is moved, so the list has the room (R11).
+                    onDragStart = { rows.onDragStart() },
                     onDragEnd = { drag = 0f },
                     onDragCancel = { drag = 0f },
                 ) { change, amount ->
@@ -318,6 +395,13 @@ private fun QueueRow(
     modifier: Modifier = Modifier,
     dragHandle: Modifier? = null,
     badge: String? = null,
+    /** Picking songs: whether this one is picked; null when not picking. */
+    pick: Boolean? = null,
+    onLongClick: (() -> Unit)? = null,
+    /** The song's ⋯ (its menu with the queue's own actions). */
+    onMore: (() -> Unit)? = null,
+    /** Swiping it away is on (off while the order is locked). */
+    swipeable: Boolean = true,
 ) {
     // Swiped left past a third of the row, it slides out and goes (#149); short of that it springs back. Moved in the
     // drawing layer, so a swipe doesn't lay the row out again each frame.
@@ -327,7 +411,7 @@ private fun QueueRow(
     // The swipe outlives a recomposition (it's keyed on the song), so it calls the latest onRemove: the row's place
     // in the queue changes when a song above it goes, and an old one would take out its neighbour.
     val removeNow by androidx.compose.runtime.rememberUpdatedState(onRemove)
-    val swipe = if (onRemove == null) Modifier else Modifier.pointerInput(song.id) {
+    val swipe = if (onRemove == null || !swipeable) Modifier else Modifier.pointerInput(song.id) {
         val goAt = size.width / 3f
         detectHorizontalDragGestures(
             onDragEnd = {
@@ -353,10 +437,16 @@ private fun QueueRow(
                 translationX = slide.value
                 alpha = 1f - (-slide.value / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.7f)
             }
-            .clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+            .clip(RoundedCornerShape(8.dp))
+            .then(if (pick == true) Modifier.background(Color.White.copy(alpha = 0.1f)) else Modifier)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (dragHandle != null) {
+        if (pick != null) {
+            if (pick) Icon(PrismIcons.CheckCircle, "Picked", tint = Color.White, modifier = Modifier.size(22.dp))
+            else Box(Modifier.size(22.dp).padding(2.dp).border(1.5.dp, Color.White.copy(alpha = 0.4f), CircleShape))
+            Spacer(Modifier.width(8.dp))
+        } else if (dragHandle != null) {
             Icon(PrismIcons.DragHandle, "Drag to reorder", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(20.dp).offset(x = (-4).dp).then(dragHandle))
             Spacer(Modifier.width(4.dp))
         }
@@ -376,6 +466,9 @@ private fun QueueRow(
         if (isCurrent) {
             Icon(PrismIcons.Equalizer, "Now playing", tint = Color.White, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
+        }
+        if (onMore != null && pick == null) Box(Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onMore), contentAlignment = Alignment.Center) {
+            Icon(PrismIcons.More, "More for ${song.title}", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(18.dp))
         }
         if (onRemove != null) Box(Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onRemove), contentAlignment = Alignment.Center) {
             Icon(PrismIcons.Close, "Remove", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(18.dp))

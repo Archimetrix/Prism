@@ -214,6 +214,8 @@ data class BehaviorPrefs(
     val panelSwipes: Boolean = false,
     /** Home's Recently played: every song, or the albums and playlists they were played from (#196). */
     val recentShows: RecentShows = RecentShows.SONGS,
+    /** The queue's order is locked: no drag handles, no swiping songs away (#159), so scrolling can't move anything. */
+    val queueLocked: Boolean = false,
 )
 
 /** Picture-in-picture for a playing video (1.7.8, #167). */
@@ -1389,6 +1391,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val pipMode = stringPreferencesKey("pip_mode")
         val panelSwipes = booleanPreferencesKey("panel_swipes")
         val recentShows = stringPreferencesKey("recent_shows")
+        val queueLocked = booleanPreferencesKey("queue_locked")
         val performanceMode = booleanPreferencesKey("performance_mode")
         /** The Home card offering Performance mode on a slower phone was answered (either way). */
         val performanceOffered = booleanPreferencesKey("performance_offered")
@@ -1471,7 +1474,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "session_buttons", "cover_swipe_left", "cover_swipe_right", "cover_swipe_up", "cover_double_tap", "cover_long_press",
                 "mini_swipe_left", "mini_swipe_right", "mini_swipe_down", "mini_swipe_up",
                 // 1.7.8 ([BehaviorPrefs]).
-                "lock_portrait", "pause_on_mute", "pip_mode", "panel_swipes", "recent_shows",
+                "lock_portrait", "pause_on_mute", "pip_mode", "panel_swipes", "recent_shows", "queue_locked",
             )
         }
     }
@@ -1712,6 +1715,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 pip = p.enum(K.pipMode, d.behavior.pip),
                 panelSwipes = p[K.panelSwipes] ?: d.behavior.panelSwipes,
                 recentShows = p.enum(K.recentShows, d.behavior.recentShows),
+                queueLocked = p[K.queueLocked] ?: d.behavior.queueLocked,
             ),
             uiDensity = p.enum(K.uiDensity, d.uiDensity),
             titleSize = p.enum(K.titleSize, d.titleSize),
@@ -2174,6 +2178,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setPipMode(v: PipMode) = edit { it[K.pipMode] = v.name }
     fun setPanelSwipes(v: Boolean) = edit { it[K.panelSwipes] = v }
     fun setRecentShows(v: RecentShows) = edit { it[K.recentShows] = v.name }
+    fun setQueueLocked(v: Boolean) = edit { it[K.queueLocked] = v }
     fun setLyricsStripAlign(v: LyricsAlign) = edit { it[K.lyricsStripAlign] = v.name }
     fun setLyricsStripTwoLines(v: Boolean) = edit { it[K.lyricsStripTwoLines] = v }
     fun setMergeLikedVideos(v: Boolean) = edit { it[K.mergeLikedVideos] = v }

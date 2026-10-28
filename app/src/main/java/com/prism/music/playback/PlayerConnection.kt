@@ -550,6 +550,75 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
     }
     fun move(from: Int, to: Int) = withPlayer { it.moveMediaItem(from, to) }
 
+    // ---- Editing several songs at once (R11, #159): what the queue's selection and its rows' ⋯ menus do.
+
+    /** [indices] in the order they play now (the queue lists them that way, shuffled or not). */
+    private fun inPlayOrder(p: ExoPlayer, indices: Collection<Int>): List<Int> {
+        val order = playOrder(p)
+        return indices.distinct().filter { it in 0 until p.mediaItemCount }.sortedBy { order.indexOf(it).let { at -> if (at < 0) Int.MAX_VALUE else at } }
+    }
+
+    /**
+     * Moves the songs at [indices] one after another into place, [to] giving each one's place in a running copy of the
+     * queue's order ([list], the songs' original indices) once it's out. The songs moved are the listener's from then on;
+     * autoplay's suggestions start again at the first of theirs that stayed.
+     */
+    private fun shift(p: ExoPlayer, indices: List<Int>, to: (MutableList<Int>, Int) -> Int) {
+        val plan = QueueEdit.plan(p.mediaItemCount, indices, c.queue.autoplayStart.value, to)
+        plan.moves.forEach { (from, at) -> p.moveMediaItem(from, at) }
+        c.queue.autoplayStart.value = plan.autoplayStart
+    }
+
+    /** The songs at [indices] play straight after the current one, in the order they're in now. */
+    fun moveNext(indices: Collection<Int>) = withPlayer { p ->
+        val cur = p.currentMediaItemIndex
+        val picked = inPlayOrder(p, indices).filter { it != cur }
+        if (picked.isEmpty()) return@withPlayer
+        c.queue.userQueued.value = c.queue.userQueued.value + picked.map { p.getMediaItemAt(it).mediaId }
+        if (p.shuffleModeEnabled) {
+            // Each one straight after the current song, last first, so they end up in their order.
+            picked.asReversed().forEach { moveInPlayOrder(it, cur, after = true) }
+            return@withPlayer
+        }
+        var anchor = cur
+        shift(p, picked) { list, s -> (list.indexOf(anchor) + 1).also { anchor = s } }
+    }
+
+    /** The songs at [indices] go to the end of what's queued, before autoplay's suggestions. */
+    fun moveToEnd(indices: Collection<Int>) = withPlayer { p ->
+        val cur = p.currentMediaItemIndex
+        val picked = inPlayOrder(p, indices).filter { it != cur }
+        if (picked.isEmpty()) return@withPlayer
+        if (p.shuffleModeEnabled) {
+            picked.forEach { s -> playOrder(p).lastOrNull { it != s }?.let { last -> moveInPlayOrder(s, last, after = true) } }
+            return@withPlayer
+        }
+        val auto = c.queue.autoplayStart.value
+        shift(p, picked) { list, _ ->
+            // Before autoplay's first suggestion that stays one (its place in the running copy), or the very end.
+            if (auto < 0) list.size else list.indices.firstOrNull { i -> list[i] >= auto && list[i] !in picked } ?: list.size
+        }
+    }
+
+    /** Takes the songs at [indices] out (never the current one). */
+    fun removeMany(indices: Collection<Int>) = withPlayer { p ->
+        val cur = p.currentMediaItemIndex
+        indices.distinct().filter { it != cur && it in 0 until p.mediaItemCount }.sortedDescending().forEach { removeAt(it) }
+    }
+
+    /** Takes out every song that plays after the one at [index] (the queue's "Clear everything after this"). */
+    fun clearAfter(index: Int) = withPlayer { p ->
+        val order = playOrder(p)
+        val at = order.indexOf(index)
+        if (at < 0) return@withPlayer
+        removeMany(order.drop(at + 1))
+    }
+
+    /** The songs at [indices], for adding them to a playlist. */
+    fun songsAt(indices: Collection<Int>): List<Song> = player?.let { p ->
+        inPlayOrder(p, indices).mapNotNull { p.getMediaItemAt(it).toSong() }
+    } ?: emptyList()
+
     /**
      * Shuffled, a song dragged in the queue: the queue shows the play order then, so the song moves there, to just after
      * (or before) [beside], and the songs themselves stay where they are in the list behind it.
