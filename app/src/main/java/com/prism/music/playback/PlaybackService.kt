@@ -705,6 +705,25 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
 
     override fun onPlayerError(error: PlaybackException) {
         val id = player.currentMediaItem?.mediaId ?: return
+        // An Apple Lossless file this phone has no decoder for (#135): the lossless add-on's file is set aside and the
+        // song's stream plays; a file of your own says so and stays put rather than being skipped.
+        val format = (error as? androidx.media3.exoplayer.ExoPlaybackException)?.takeIf { it.type == androidx.media3.exoplayer.ExoPlaybackException.TYPE_RENDERER }?.rendererFormat
+        if (format?.sampleMimeType?.contains("alac", true) == true) {
+            val idx = player.currentMediaItemIndex
+            if (id.startsWith(Song.LOCAL_PREFIX)) {
+                AudioDiagnostics.log("error", "$id is ALAC and this phone can't decode it (${error.errorCodeName})")
+                c.player.reportError("This phone can't play Apple Lossless (ALAC) files")
+                return
+            }
+            // Only once per file: one that can't be told apart (or was already set aside) fails as usual, never loops.
+            val file = c.localLossless.matched[id]?.uri
+            if (file == null || !c.localLossless.unplayable.add(file)) { failAndSkip(error); return }
+            AudioDiagnostics.log("error", "$id's ALAC file won't decode here: its stream plays instead")
+            player.seekToDefaultPosition(idx)
+            player.prepare()
+            player.play()
+            return
+        }
         // It turned out to be a live stream (a "Listen together" station): play it again as one, from its HLS manifest.
         val live = generateSequence(error as Throwable) { it.cause }.filterIsInstance<com.prism.music.data.stream.LiveStreamException>().firstOrNull()
         if (live != null) {

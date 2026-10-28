@@ -32,6 +32,9 @@ Every one of these is a choice; nothing changes until you pick it.
   Downloaded songs, each one ticked or not, so you can share your settings without your listening or your sign-in.
   Restoring replaces only what the file holds and says what that is first. (Backups from earlier versions restore as
   before; Prism before 1.7.8 asks to be updated before restoring a new one.)
+- **ALAC (Apple Lossless)** (#135): with the lossless add-on, your ALAC files (.m4a) play in place of songs as FLAC
+  files do. A phone without an ALAC decoder says so on a file of your own rather than skipping it, and plays the
+  song's stream instead of a matched ALAC file.
 - **Lyrics into M4A files** (Reddit): "Save lyrics into your files" now also writes AAC and ALAC files (.m4a), beside
   FLAC and MP3, keeping everything else in them; the audio is checked to be exactly the same before the file is
   changed.

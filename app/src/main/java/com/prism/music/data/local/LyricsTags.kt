@@ -17,7 +17,8 @@ object LyricsTags {
         mime.contains("flac", true) || name.endsWith(".flac", true) -> Kind.FLAC
         mime.contains("mpeg", true) || mime.contains("mp3", true) || name.endsWith(".mp3", true) -> Kind.MP3
         // AAC and ALAC in MP4 (1.7.8, Reddit): a ©lyr atom, as iTunes and most players read it.
-        mime.contains("mp4", true) || mime.contains("m4a", true) || mime.contains("aac", true) || name.endsWith(".m4a", true) -> Kind.M4A
+        mime.contains("mp4", true) || mime.contains("m4a", true) || mime.contains("aac", true) || mime.contains("alac", true) ||
+            name.endsWith(".m4a", true) -> Kind.M4A
         else -> null
     }
 

@@ -207,7 +207,7 @@ class Backup(private val c: AppContainer) {
             ).forEach { put(it, BackupPart.HISTORY) }
             listOf(
                 "canvas_saved", "download_lyrics", "download_failures", "download_auto_retry", "download_formats", "smart_downloads",
-                "lossless_links", "lossless_misses", "lossless_hidden",
+                "lossless_links", "lossless_misses", "lossless_hidden", "lossless_alac",
             ).forEach { put(it, BackupPart.DOWNLOADS) }
             // The Discord sign-in is a key to the whole Discord account; Prism Connect's pairings belong to this phone.
             listOf("discord", "connect_remote", "connect_handoff").forEach { put(it, null) }
