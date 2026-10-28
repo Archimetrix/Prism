@@ -1518,12 +1518,26 @@ private fun PlayerSettings() {
                         if (!it) container.player.setVideoMode(false)
                     },
                     ShowOption("Output device", s.showOutputDevice) { prefs.setShowOutputDevice(it) },
-                )
+                ) + if (s.showOutputDevice) listOf(ShowOption("Cast mark", s.view.castMark) { prefs.setCastMark(it) }) else emptyList()
             )
+            Toggle(
+                "Hide controls over videos", "They come back with a tap on the video", s.view.videoControlsHide,
+                info = "While a music video plays, the controls under it go after a few seconds, so the video has the screen. Paused, they stay.",
+            ) { prefs.setVideoControlsHide(it) }
             Toggle(
                 "Song length", "Instead of the time left", s.showTrackLength,
                 info = "The time on the right shows how long the song is rather than how much is left. Tapping the time on the player switches too.",
             ) { prefs.setShowTrackLength(it) }
+        }
+        Group("Lyrics and the queue", info = "The player's controls while the lyrics or the queue are open.") {
+            ChoiceCards(
+                com.prism.music.data.prefs.PanelPlayer.entries, s.view.panelPlayer, title = { it.label }, detail = { it.detail }, columns = 3,
+                onSelect = { prefs.setPanelPlayer(it) },
+            ) { PanelPlayerSample(it) }
+            Toggle(
+                "Queue headings", "\"Played\", \"Now Playing\" and \"Up next\"", s.view.queueHeadings,
+                info = "Off, the queue is one list of songs from the ones played to the ones coming up.",
+            ) { prefs.setQueueHeadings(it) }
         }
         Group("Animated covers") {
             Toggle(
@@ -1550,6 +1564,10 @@ private fun PlayerSettings() {
                 Label("Lyrics")
                 Chips(com.prism.music.data.prefs.ImmersiveLyrics.entries, s.immersiveLyrics, { it.label }) { prefs.setImmersiveLyrics(it) }
                 Toggle("Keep controls on screen", "Previous, play and next stay up", s.immersiveControls) { prefs.setImmersiveControls(it) }
+                Toggle(
+                    "Show the video", "A playing music video behind the lyrics", s.view.immersiveVideo,
+                    info = "When a music video is playing, immersive mode shows it behind the lyrics instead of the cover.",
+                ) { prefs.setImmersiveVideo(it) }
                 Spacer(Modifier.height(6.dp))
             }
         }
@@ -1576,6 +1594,19 @@ private fun ControlsPage() {
                 prefs.setHoldSeekSeconds(it.roundToInt())
             }
             Toggle("Haptics", "A light tap on buttons and swipes", s.haptics) { prefs.setHaptics(it) }
+            Toggle(
+                "Swipe up for the queue", "On the player's lower half; down closes it again", s.behavior.panelSwipes,
+                info = "Swipe up on the lower half of the player: from its right side for the queue, from its left side for the lyrics. " +
+                    "Swipe down on the lower half of the queue or the lyrics to close them. Easier one-handed than reaching for the top.",
+            ) { prefs.setPanelSwipes(it) }
+        }
+        Group("Screen") {
+            Toggle(
+                "Lock to portrait", "Prism stays upright when the phone turns", s.behavior.lockPortrait,
+                info = "On a phone, Prism no longer turns sideways. Tablets keep their own layouts, and a video in full screen still turns.",
+            ) { prefs.setLockPortrait(it) }
+            Label("Picture-in-picture", info = "When a playing music video floats in a small window over other apps.")
+            Chips(com.prism.music.data.prefs.PipMode.entries, s.behavior.pip, { it.label }) { prefs.setPipMode(it) }
         }
         SessionButtonsGroup()
         Group("Search") {
@@ -1620,6 +1651,35 @@ private fun PlayerLookGroup() {
     }
 }
 
+/** The player with its lyrics open, drawn small: lines of lyrics, and the controls under them as [mode] leaves them. */
+@Composable
+private fun PanelPlayerSample(mode: com.prism.music.data.prefs.PanelPlayer) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(96.dp).padding(horizontal = 18.dp, vertical = 6.dp)) {
+        val w = size.width
+        val h = size.height
+        drawRoundRect(ink.copy(alpha = 0.06f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx()))
+        val controls = mode != com.prism.music.data.prefs.PanelPlayer.HIDDEN
+        val linesEnd = if (controls) h * 0.62f else h * 0.92f
+        var y = h * 0.12f
+        var i = 0
+        while (y < linesEnd) {
+            drawRoundRect(
+                ink.copy(alpha = if (i == 1) 0.85f else 0.3f), androidx.compose.ui.geometry.Offset(w * 0.12f, y),
+                androidx.compose.ui.geometry.Size(w * (if (i % 2 == 0) 0.62f else 0.74f), h * 0.07f), androidx.compose.ui.geometry.CornerRadius(h * 0.035f),
+            )
+            y += h * 0.14f; i++
+        }
+        if (controls) {
+            val a = if (mode == com.prism.music.data.prefs.PanelPlayer.AUTO_HIDE) 0.3f else 0.85f
+            drawRect(ink.copy(alpha = a * 0.6f), androidx.compose.ui.geometry.Offset(w * 0.12f, h * 0.72f), androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.025f))
+            listOf(0.32f, 0.5f, 0.68f).forEachIndexed { k, x ->
+                drawCircle(ink.copy(alpha = a), if (k == 1) h * 0.08f else h * 0.05f, androidx.compose.ui.geometry.Offset(w * x, h * 0.86f))
+            }
+        }
+    }
+}
+
 @Composable
 private fun PlayerCoverGroup() {
     val s = LocalAppSettings.current
@@ -1632,6 +1692,7 @@ private fun PlayerCoverGroup() {
             "Full-bleed artwork", "Edge to edge at the top", s.fullBleedArtwork,
             info = "The cover runs to the screen's edges at the top of the player and fades into the background. Cover size then sets how far down it reaches.",
         ) { prefs.setFullBleedArtwork(it) }
+        if (s.fullBleedArtwork) Chips(com.prism.music.data.prefs.BleedFit.entries, s.view.bleedFit, { it.label }) { prefs.setBleedFit(it) }
         Toggle(
             "Full-bleed video", "Music videos fill the top of the player", s.videoFullBleed,
             info = "A music video runs to the screen's edges at the top of the player, cropped to fill it, and fades into the background, as on YouTube Music. The button on the video switches it too.",
@@ -1724,6 +1785,10 @@ private fun SoundPage() {
             Toggle("Keep playing videos", "After a video, the next song plays as video too", s.videoContinues) { prefs.setVideoContinues(it) }
             Toggle("Skip silence", "Trims silence at the start and end", s.skipSilence) { prefs.setSkipSilence(it) }
             Toggle("Stop when swiped away", "Swiping Prism out of recent apps stops it", s.stopOnSwipeAway) { prefs.setStopOnSwipeAway(it) }
+            Toggle(
+                "Pause when muted", "Volume all the way down pauses; up again plays on", s.behavior.pauseOnMute,
+                info = "Only the phone's media volume counts. A pause of your own stays paused when the volume comes back.",
+            ) { prefs.setPauseOnMute(it) }
             Label(
                 "Load ahead",
                 info = when (s.preload) {
@@ -2185,6 +2250,8 @@ private fun HomeLibraryLook() {
                 "Continue line", "\"Continue …\" under the greeting", s.homeContinue,
                 info = "The album you were last playing (or your Rewind, in December), under Home's greeting. Tap it to open.",
             ) { prefs.setHomeContinue(it) }
+            Label("Recently played shows", info = "Every song you played, or the albums and playlists you played them from (the ones started in Prism since 1.7.8).")
+            Chips(com.prism.music.data.prefs.RecentShows.entries, s.behavior.recentShows, { it.label }) { prefs.setRecentShows(it) }
             Toggle("Podcasts button", "At the top of Home", s.homePodcastsButton, info = "Off, Podcasts opens from Library → Playlists.") { prefs.setHomePodcastsButton(it) }
             Toggle("Customize button at the top", "Top right of Home", s.homeCustomizeTopButton) { prefs.setHomeCustomizeTopButton(it) }
             Toggle("Customize button at the bottom", "At the end of Home", s.homeCustomizeButton) { prefs.setHomeCustomizeButton(it) }

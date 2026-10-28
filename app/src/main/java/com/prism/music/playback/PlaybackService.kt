@@ -84,6 +84,8 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     private val vocals by lazy { com.prism.music.playback.sing.VocalStemProcessor(c.sing) }
     private val headphoneEq = ParametricEqProcessor()
     private val spatial = SpatialAudioProcessor()
+    /** "Pause when muted" (#157). */
+    private val muteWatch by lazy { MuteWatch(this, player) { c.settings.current.behavior.pauseOnMute } }
     private val normalizer = NormalizerProcessor()
     private var songLoudness: Float? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -235,6 +237,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         c.onStreamResolved = { id -> scope.launch { applyStreamStats(id) } }
         scope.launch { c.settings.flow.map { it.eq }.distinctUntilChanged().collect { effects.apply(it) } }
         scope.launch { c.settings.flow.map { it.skipSilence }.distinctUntilChanged().collect { player.skipSilenceEnabled = it } }
+        scope.launch { c.settings.flow.map { it.behavior.pauseOnMute }.distinctUntilChanged().collect { muteWatch.update() } }
         scope.launch { c.settings.flow.map { it.audioDiagnostics }.distinctUntilChanged().collect { on -> AudioDiagnostics.setEnabled(on) { AudioDiagnostics.about(c) } } }
         // The buttons beside play follow Settings → Player → Buttons as soon as they're changed.
         scope.launch { c.settings.flow.map { it.sessionButtons }.distinctUntilChanged().drop(1).collect { updateButtons() } }
@@ -473,6 +476,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             com.prism.music.widget.Widgets.update(this, song, false, song.id in c.library.likedIds.value, player.currentPosition, player.duration.takeIf { it > 0 })
         }
         mix.release()
+        muteWatch.release()
         c.cast.detach(player)
         c.player.detach()
         carLyrics.stop()

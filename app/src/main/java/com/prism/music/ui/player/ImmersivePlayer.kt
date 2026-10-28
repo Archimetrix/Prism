@@ -158,6 +158,8 @@ fun ImmersivePlayer(
     lyricsState: LyricsState,
     /** A sheet is over the player. The clip and the lyrics keep going under it (they used to freeze, which read as a bug). */
     covered: Boolean,
+    /** The song's music video is playing: it fills the screen in the cover's place (#170). */
+    video: Boolean = false,
     onExit: () -> Unit,
     onLyricsTiming: () -> Unit,
     onLyricsSource: () -> Unit,
@@ -243,8 +245,10 @@ fun ImmersivePlayer(
         // ---- Settings → Lyrics → Immersive background (1.7.5): the cover (as before, moving when it can), or something
         // plainer behind the words.
         val ground = settings.immersiveBackground
-        val coverShown = ground == com.prism.music.data.prefs.LyricsBackground.PLAYER || ground == com.prism.music.data.prefs.LyricsBackground.CANVAS
-        if (!coverShown) LyricsBackdrop(ground, settings, song.thumbnail, blurred, null, canvasSaved, isPlaying, Modifier.fillMaxSize())
+        // A playing music video takes the cover's place, cropped to fill the screen (#170).
+        if (video) MusicVideoSurface(Modifier.fillMaxSize().graphicsLayer { translationX = swipe * 0.35f }, fill = true)
+        val coverShown = !video && (ground == com.prism.music.data.prefs.LyricsBackground.PLAYER || ground == com.prism.music.data.prefs.LyricsBackground.CANVAS)
+        if (!coverShown && !video) LyricsBackdrop(ground, settings, song.thumbnail, blurred, null, canvasSaved, isPlaying, Modifier.fillMaxSize())
 
         // ---- Behind a zoomed-out cover, the cover blurred, so it still fills the screen.
         if (coverShown && art != ImmersiveArt.FILL) FullArtworkBlurBackdrop(blurred, scrim = 0.8f)

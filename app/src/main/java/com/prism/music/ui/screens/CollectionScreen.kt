@@ -344,6 +344,11 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     val source = QueueSource(
         if (type == CollectionType.ALBUM) QueueKind.ALBUM else QueueKind.PLAYLIST, page.title + (genreFilter?.let { " · $it" } ?: ""),
         originId = page.playlistId ?: page.id.removePrefix("VL").takeIf { type == CollectionType.PLAYLIST || type == CollectionType.MIX } ?: page.id,
+        page = when (type) {
+            CollectionType.ALBUM -> com.prism.music.data.model.AlbumItem(page.id, page.title, page.subtitle, page.thumbnail, page.playlistId)
+            CollectionType.PLAYLIST, CollectionType.PRISM -> com.prism.music.data.model.PlaylistItem(page.id, page.title, page.subtitle, page.thumbnail)
+            else -> null
+        },
     )
     // Offline (#55): only songs on the phone (downloaded, cached whole, or files) play; the rest show greyed out.
     val online by c.network.online.collectAsState()

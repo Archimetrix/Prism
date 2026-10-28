@@ -1077,8 +1077,8 @@ fun OutputCaption() {
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
-        // The cast mark says the line opens speakers and TVs (Reddit 1.7: "where's the cast button?").
-        if (!away) {
+        // The cast mark says the line opens speakers and TVs (Reddit 1.7: "where's the cast button?"); it can go (#149).
+        if (!away && settings.view.castMark) {
             Spacer(Modifier.width(7.dp))
             Icon(PrismIcons.Cast, "Play on a speaker or TV", Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.62f))
         }

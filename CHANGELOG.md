@@ -4,6 +4,28 @@ What changed in each release. Older releases are described on the [Releases page
 
 ## 1.7.8 (unreleased)
 
+### Your requests
+
+Every one of these is a choice; nothing changes until you pick it.
+
+- **Lyrics and the queue, your way** (#193, #197): Customize Prism → Player → Lyrics and the queue: the player's controls
+  hide after a moment (as before), always stay, or start hidden so the lyrics and the queue get the whole screen. The
+  queue's headings ("Played", "Now Playing", "Up next") can go, for one continuous list.
+- **Swipe up for the queue** (#200, #197): Settings → Controls & gestures: swipe up on the player's controls for the queue
+  (from their right half) or the lyrics (left half); swipe down there to close them. Made for one hand.
+- **Hide the controls over videos** (#166): while a music video plays, the controls go after a few seconds; a tap on the
+  video brings them back.
+- **Video in immersive mode** (#170): a playing music video shows behind the lyrics instead of the cover.
+- **Full-bleed artwork, whole** (#175): Fill the screen (as before) or Whole cover, the square cover uncropped on a
+  blurred copy of itself.
+- **Picture-in-picture only with its button** (#167), **Lock to portrait** (#190), **Pause when muted** (#157: the phone's
+  media volume all the way down pauses, up again plays on).
+- **Recently played as albums and playlists** (#196): Customize Prism → Home & Library → Recently played shows.
+- **Library → Songs** has search, Shuffle and Play, as the Liked songs page does (#184).
+- **Downloads take a music video's song** (#186), with "Songs, not videos" on: the audio, not the video's sound (the
+  video's sound when it has no song).
+- **Hide the cast mark** after your phone's name under the player (#149).
+
 ### Fixes
 
 - **Other apps can pause and skip again** (#178, #187): KDE Connect, "dynamic island" apps and launcher widgets

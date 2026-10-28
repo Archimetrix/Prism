@@ -425,8 +425,8 @@ private suspend fun playTop(c: com.prism.music.AppContainer, item: BrowseItem) {
     runCatching {
         when (item) {
             is SongItem -> c.player.playSingle(item.song)
-            is AlbumItem -> c.player.playQueue(c.ytm.album(item.id).songs, 0, QueueSource(QueueKind.ALBUM, item.title, originId = item.id))
-            is PlaylistItem -> c.player.playQueue(c.ytm.playlist(item.id).songs, 0, QueueSource(QueueKind.PLAYLIST, item.title, originId = item.id))
+            is AlbumItem -> c.player.playQueue(c.ytm.album(item.id).songs, 0, QueueSource(QueueKind.ALBUM, item.title, originId = item.id, page = item))
+            is PlaylistItem -> c.player.playQueue(c.ytm.playlist(item.id).songs, 0, QueueSource(QueueKind.PLAYLIST, item.title, originId = item.id, page = item))
             is ArtistItem -> {
                 val a = c.ytm.artist(item.id)
                 val list = a.shufflePlaylistId ?: a.radioPlaylistId ?: return

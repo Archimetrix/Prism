@@ -181,9 +181,12 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
             }
         }
         Spacer(Modifier.height(4.dp))
+        // "Queue headings" off (#197): one continuous list of songs (Autoplay keeps its heading: it holds the switch).
+        val headings = settings.view.queueHeadings
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().nestedScroll(controlsOnScroll), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (!headings) item(key = "h-gap") { Spacer(Modifier.height(8.dp)) }
             if (played.isNotEmpty()) {
-                item(key = "h-played") { Heading("Played", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
+                if (headings) item(key = "h-played") { Heading("Played", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
                 items(played, key = { "played-" + it.uid }) { entry ->
                     QueueRow(
                         entry.song, isCurrent = false, onClick = { pc.skipTo(entry.index) }, onRemove = { remove(entry) },
@@ -192,15 +195,15 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 }
             }
             if (now != null) {
-                item(key = "h-now") { Heading("Now Playing", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
+                if (headings) item(key = "h-now") { Heading("Now Playing", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
                 item(key = "now-" + now.uid) { QueueRow(now.song, isCurrent = true, onClick = {}, onRemove = null, badge = badge(now.song)) }
             }
             if (queued.isNotEmpty()) {
-                item(key = "h-queued") { Heading("Next in queue", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
+                if (headings) item(key = "h-queued") { Heading("Next in queue", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
                 queueSection(queued, shuffled, badge = badge, onRemove = remove)
             }
             if (upcoming.isNotEmpty()) {
-                item(key = "h-next") { Heading("Next from: ${source.title.ifBlank { now?.song?.album?.title ?: "Queue" }}", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
+                if (headings) item(key = "h-next") { Heading("Next from: ${source.title.ifBlank { now?.song?.album?.title ?: "Queue" }}", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
                 queueSection(upcoming, shuffled, badge = badge, onRemove = remove)
             }
             if (settings.autoplay || autoplay.isNotEmpty()) {

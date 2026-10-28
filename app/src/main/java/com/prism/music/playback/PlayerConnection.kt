@@ -271,6 +271,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
 
     fun playQueue(songs: List<Song>, startIndex: Int = 0, source: QueueSource, shuffle: Boolean = false) {
         if (songs.isEmpty()) return
+        source.page?.let { c.recentCollections.played(it) }
         val token = ++playToken
         val first = if (shuffle) songs.indices.random() else startIndex.coerceIn(0, songs.lastIndex)
         val tapped = songs[first]

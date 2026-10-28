@@ -244,6 +244,9 @@ object LookLabels {
         "lyrics_bg_color2" to "Lyrics gradient's second color", "lyrics_everywhere" to "Same lyrics look everywhere",
         "lyrics_strip_align" to "Lyric line on the player", "lyrics_strip_two_lines" to "Lyric line up to two lines",
         "lyrics_gap_mark" to "Instrumental breaks",
+        "panel_player" to "Player over lyrics & queue", "queue_headings" to "Queue headings", "cast_mark" to "Cast mark under the player",
+        "immersive_video" to "Video in immersive mode", "bleed_fit" to "Full-bleed artwork's fit", "cover_flight" to "Cover flies into the player",
+        "video_controls_hide" to "Controls hide over videos",
         "hide_status_bar" to "Hide the status bar",
         "corner_scale" to "Corners", "cover_shape_songs" to "Songs' covers", "cover_shape_albums" to "Albums' covers",
         "cover_shape_artists" to "Artists' pictures", "cover_shape_player" to "Player's cover", "button_shape" to "Buttons",
@@ -378,6 +381,7 @@ object LookLabels {
             "player_layout", "vinyl_tonearm", "player_deck", "player_buttons", "scrubber_color", "player_title_align", "player_title_size",
             "player_title_weight", "player_title_scroll", "player_times", "mesh_speed", "mesh_intensity", "player_blur", "canvas_fills_background",
             "scrubber_thickness", "scrubber_thumb", "visualizer", "visualizer_color",
+            "panel_player", "queue_headings", "cast_mark", "immersive_video", "bleed_fit", "cover_flight", "video_controls_hide",
         ),
         "lyrics" to setOf(
             "lyrics_align", "lyrics_blur", "lyrics_progress_line", "lyrics_scale", "lyrics_style", "lyrics_blur_amount", "lyrics_spacing",

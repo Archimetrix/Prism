@@ -199,6 +199,7 @@ fun LibraryScreen(bottomPadding: Dp) {
 
     // ---- Sorting (each tab remembers its own, kept between visits)
     var songSort by remember { mutableStateOf(SongSort.entries.firstOrNull { it.name == c.library.sortOf("library:songs") } ?: SongSort.RECENT) }
+    var songQuery by rememberSaveable { mutableStateOf("") }
     var albumSort by remember { mutableStateOf(AlbumSort.entries.firstOrNull { it.name == c.library.sortOf("library:albums") } ?: AlbumSort.LIBRARY) }
     var artistSort by remember { mutableStateOf(ArtistSort.entries.firstOrNull { it.name == c.library.sortOf("library:artists") } ?: ArtistSort.LIBRARY) }
     val sortedSongs = remember(liked, songSort) {
@@ -434,11 +435,26 @@ fun LibraryScreen(bottomPadding: Dp) {
                       }
                     }
                     LibTab.SONGS -> {
-                        if (liked.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                            SortBar(com.prism.music.data.model.songCount(liked.size), SongSort.entries, songSort, { it.label }) { songSort = it; c.library.setSort("library:songs", it.name) }
+                        // As the Liked songs page has them (#184: the tab had no search, Shuffle or Play): a search through
+                        // your liked songs, and Shuffle / Play for what's shown.
+                        val source = com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.LIBRARY, "Liked songs")
+                        val shownSongs = if (songQuery.isBlank()) sortedSongs else sortedSongs.filter { s ->
+                            listOf(s.title, s.artistText, s.album?.title.orEmpty()).any { it.contains(songQuery.trim(), ignoreCase = true) }
                         }
-                        items(sortedSongs, key = { "s" + it.id }, span = { GridItemSpan(maxLineSpan) }) { s ->
-                            SongRow(s) { c.player.playQueue(sortedSongs, sortedSongs.indexOf(s), com.prism.music.playback.QueueSource(com.prism.music.playback.QueueKind.LIBRARY, "Liked songs")) }
+                        if (liked.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                com.prism.music.ui.components.SearchField(songQuery, "Search liked songs", { q -> songQuery = q }, Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                com.prism.music.ui.components.RoundAction(PrismIcons.Shuffle, "Shuffle") { if (shownSongs.isNotEmpty()) c.player.playQueue(shownSongs, 0, source, shuffle = true) }
+                                Spacer(Modifier.width(8.dp))
+                                com.prism.music.ui.components.RoundAction(PrismIcons.Play, "Play") { if (shownSongs.isNotEmpty()) c.player.playQueue(shownSongs, 0, source) }
+                            }
+                        }
+                        if (liked.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
+                            SortBar(com.prism.music.data.model.songCount(shownSongs.size), SongSort.entries, songSort, { it.label }) { songSort = it; c.library.setSort("library:songs", it.name) }
+                        }
+                        items(shownSongs, key = { "s" + it.id }, span = { GridItemSpan(maxLineSpan) }) { s ->
+                            SongRow(s) { c.player.playQueue(shownSongs, shownSongs.indexOf(s), source) }
                         }
                     }
                     LibTab.ALBUMS -> {

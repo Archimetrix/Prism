@@ -202,9 +202,12 @@ open class MainActivity : ComponentActivity() {
 
     private val pipSupported by lazy { packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE) }
 
+    /** Settings → Controls & gestures → Picture-in-picture: "Only with its button" (#167) never floats the video by itself. */
+    private val pipOnLeave: Boolean get() = container.settings.current.behavior.pip == com.prism.music.data.prefs.PipMode.AUTO
+
     private fun pipParams(): android.app.PictureInPictureParams = android.app.PictureInPictureParams.Builder()
         .setAspectRatio(pipAspect)
-        .apply { if (Build.VERSION.SDK_INT >= 31) { setAutoEnterEnabled(pipEligible); setSeamlessResizeEnabled(true) } }
+        .apply { if (Build.VERSION.SDK_INT >= 31) { setAutoEnterEnabled(pipEligible && pipOnLeave); setSeamlessResizeEnabled(true) } }
         .build()
 
     /** The player says whether a music video is playing on it, and its shape ([width] × [height], 0 if unknown). */
@@ -229,7 +232,7 @@ open class MainActivity : ComponentActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         // Before Android 12 there's no auto-enter: going Home with a video playing floats it here.
-        if (Build.VERSION.SDK_INT < 31 && pipEligible) enterPip()
+        if (Build.VERSION.SDK_INT < 31 && pipEligible && pipOnLeave) enterPip()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
@@ -393,6 +396,14 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
             }
             lifecycle.addObserver(watcher)
             onDispose { lifecycle.removeObserver(watcher) }
+        }
+        // Settings → Controls & gestures → "Lock to portrait" (#190): phones stay upright; tablets keep their own layouts.
+        // A full-screen video still turns sideways (it sets its own and puts this back after).
+        val tablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
+        androidx.compose.runtime.LaunchedEffect(settings.behavior.lockPortrait, tablet) {
+            (rootView.context as? android.app.Activity)?.requestedOrientation =
+                if (settings.behavior.lockPortrait && !tablet) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
         val navController = rememberNavController()
         var playerOpen by rememberSaveable { mutableStateOf(false) }

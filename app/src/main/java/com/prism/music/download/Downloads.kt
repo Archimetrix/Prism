@@ -450,12 +450,22 @@ class DownloadRepository(private val context: Context, private val c: AppContain
     /** True when this song is only here as a lossless file on the phone (not downloaded by Prism). */
     fun isLosslessOnly(id: String) = id in _lossless.value && id !in _media.value
 
-    fun download(song: Song) {
+    fun download(song: Song, asIs: Boolean = false) {
         // A file on the phone is already offline.
         if (song.isLocal) return
         // A lossless file that was taken out of Downloads just comes back.
         if (c.losslessSync.unhide(song.id)) return
         if (_downloads.value[song.id]?.state.let { it == Download.STATE_COMPLETED || it == Download.STATE_DOWNLOADING || it == Download.STATE_QUEUED }) return
+        // A music video comes down as its song (#186), with "Songs, not videos" on: the audio, without the video's intro
+        // and outro. When there's no song for it, the video's own sound, as before.
+        if (!asIs && song.isVideo && !song.isUpload && !song.isLive && !song.isEpisode && c.settings.current.radioSongsOnly) {
+            c.scope.launch {
+                val audio = c.player.songFor(song)
+                if (audio != null) com.prism.music.playback.AudioDiagnostics.log("download", "${song.id} is a music video: downloading its song ${audio.id} instead")
+                download(audio ?: song, asIs = true)
+            }
+            return
+        }
         val request = DownloadRequest.Builder(song.id, android.net.Uri.parse("prism://audio/${song.id}"))
             .setCustomCacheKey(song.id)
             .setData(InnerTube.json.encodeToString(Song.serializer(), song).toByteArray())

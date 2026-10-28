@@ -200,6 +200,56 @@ data class ShapeLook(
 /** The current tab's icon color (1.7.7). */
 enum class TabTint(val label: String) { INK("Ink"), ACCENT("Accent"), LIGHT("The light") }
 
+/**
+ * How Prism behaves, added in 1.7.8 (not part of a Look). Nested (see [ShapeLook]). Every default keeps 1.7.7's way.
+ */
+data class BehaviorPrefs(
+    /** Phones stay upright (#190); tablets keep their own layouts. */
+    val lockPortrait: Boolean = false,
+    /** Turning the phone's media volume all the way down pauses, turning it up again plays on (#157). */
+    val pauseOnMute: Boolean = false,
+    /** When a video goes picture-in-picture (#167). */
+    val pip: PipMode = PipMode.AUTO,
+    /** Swipe up on the player's lower half for the queue (or lyrics), down to close them (#200, #197). */
+    val panelSwipes: Boolean = false,
+    /** Home's Recently played: every song, or the albums and playlists they were played from (#196). */
+    val recentShows: RecentShows = RecentShows.SONGS,
+)
+
+/** Picture-in-picture for a playing video (1.7.8, #167). */
+enum class PipMode(val label: String) { AUTO("When you leave Prism"), MENU("Only with its button") }
+
+/** What Home's Recently played lists (1.7.8, #196). */
+enum class RecentShows(val label: String) { SONGS("Songs"), COLLECTIONS("Albums & playlists") }
+
+/** The player's look, added in 1.7.8 (part of a Look). Nested (see [ShapeLook]). Every default keeps 1.7.7's look. */
+data class ViewLook(
+    /** The player's controls while the lyrics or the queue are open (#193, #197). */
+    val panelPlayer: PanelPlayer = PanelPlayer.AUTO_HIDE,
+    /** The queue's "Played" and "Up next" headings (#197). */
+    val queueHeadings: Boolean = true,
+    /** The cast mark after the output's name under the player (#149, R13). */
+    val castMark: Boolean = true,
+    /** Immersive mode shows the playing video behind the lyrics instead of the cover (#170). */
+    val immersiveVideo: Boolean = false,
+    /** Full-bleed artwork: the cover cropped to fill the screen, or shown whole with a blurred fill around it (#175). */
+    val bleedFit: BleedFit = BleedFit.FILL,
+    /** Opening the player, the mini player's cover flies into place (#199); off, the player slides up as before. */
+    val coverFlight: Boolean = false,
+    /** Over a playing video, the controls hide after a few seconds; a tap brings them back (#166). */
+    val videoControlsHide: Boolean = false,
+)
+
+/** The player's controls over the lyrics and the queue (1.7.8). */
+enum class PanelPlayer(val label: String, val detail: String) {
+    AUTO_HIDE("Hide after a moment", "As now: they come back when you tap or stop scrolling"),
+    ALWAYS("Always shown", "The controls stay under the lyrics and the queue"),
+    HIDDEN("Full screen", "Lyrics and the queue get the whole screen; swipe up or tap for the controls"),
+}
+
+/** Full-bleed artwork's fit (1.7.8, #175). */
+enum class BleedFit(val label: String) { FILL("Fill the screen"), FIT("Whole cover") }
+
 /** How much room rows and sections get. */
 enum class UiDensity(val label: String, val scale: Float) { COMPACT("Compact", 0.7f), COMFORTABLE("Comfortable", 1f), ROOMY("Roomy", 1.3f) }
 
@@ -859,6 +909,9 @@ data class AppSettings(
     val shapes: ShapeLook = ShapeLook(),
     /** Weight, letter spacing and a title font (1.7.7). */
     val type: TypeLook = TypeLook(),
+    /** 1.7.8's player look and behaviour options. */
+    val view: ViewLook = ViewLook(),
+    val behavior: BehaviorPrefs = BehaviorPrefs(),
     val uiDensity: UiDensity = UiDensity.COMFORTABLE,
     val titleSize: TitleSize = TitleSize.LARGE,
     val cardSize: CardSize = CardSize.MEDIUM,
@@ -1323,6 +1376,19 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val playlistHeroCover = booleanPreferencesKey("playlist_hero_cover")
         val frostedPages = booleanPreferencesKey("frosted_pages")
         val replayThemeColors = booleanPreferencesKey("replay_theme_colors")
+        // 1.7.8: the player's look ([ViewLook]) and Prism's behaviour ([BehaviorPrefs]).
+        val panelPlayer = stringPreferencesKey("panel_player")
+        val queueHeadings = booleanPreferencesKey("queue_headings")
+        val castMark = booleanPreferencesKey("cast_mark")
+        val immersiveVideo = booleanPreferencesKey("immersive_video")
+        val bleedFit = stringPreferencesKey("bleed_fit")
+        val coverFlight = booleanPreferencesKey("cover_flight")
+        val videoControlsHide = booleanPreferencesKey("video_controls_hide")
+        val lockPortrait = booleanPreferencesKey("lock_portrait")
+        val pauseOnMute = booleanPreferencesKey("pause_on_mute")
+        val pipMode = stringPreferencesKey("pip_mode")
+        val panelSwipes = booleanPreferencesKey("panel_swipes")
+        val recentShows = stringPreferencesKey("recent_shows")
         val performanceMode = booleanPreferencesKey("performance_mode")
         /** The Home card offering Performance mode on a slower phone was answered (either way). */
         val performanceOffered = booleanPreferencesKey("performance_offered")
@@ -1342,6 +1408,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 homeHeader, homeHeaderHeight,
                 cornerScale, songShape, albumShape, artistShape, playerShape, buttonShape, playOutlined,
                 typeWeight, typeSpacing, titleFont, tabTint, playerTitleWeight,
+                panelPlayer, queueHeadings, castMark, immersiveVideo, bleedFit, coverFlight, videoControlsHide,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1373,6 +1440,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 homeHeader to 's', homeHeaderHeight to 's', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
                 cornerScale to 'f', songShape to 's', albumShape to 's', artistShape to 's', playerShape to 's', buttonShape to 's', playOutlined to 'b',
                 typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's', playerTitleWeight to 's',
+                panelPlayer to 's', queueHeadings to 'b', castMark to 'b', immersiveVideo to 'b', bleedFit to 's', coverFlight to 'b',
+                videoControlsHide to 'b',
             ) + lyricsLook
         }
 
@@ -1401,6 +1470,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 // 1.7.4: what buttons and gestures do is how you use Prism, not how it looks.
                 "session_buttons", "cover_swipe_left", "cover_swipe_right", "cover_swipe_up", "cover_double_tap", "cover_long_press",
                 "mini_swipe_left", "mini_swipe_right", "mini_swipe_down", "mini_swipe_up",
+                // 1.7.8 ([BehaviorPrefs]).
+                "lock_portrait", "pause_on_mute", "pip_mode", "panel_swipes", "recent_shows",
             )
         }
     }
@@ -1625,6 +1696,22 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 spacing = p.enum(K.typeSpacing, d.type.spacing),
                 titleFont = p[K.titleFont]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } },
                 playerTitleWeight = p.enum(K.playerTitleWeight, d.type.playerTitleWeight),
+            ),
+            view = ViewLook(
+                panelPlayer = p.enum(K.panelPlayer, d.view.panelPlayer),
+                queueHeadings = p[K.queueHeadings] ?: d.view.queueHeadings,
+                castMark = p[K.castMark] ?: d.view.castMark,
+                immersiveVideo = p[K.immersiveVideo] ?: d.view.immersiveVideo,
+                bleedFit = p.enum(K.bleedFit, d.view.bleedFit),
+                coverFlight = p[K.coverFlight] ?: d.view.coverFlight,
+                videoControlsHide = p[K.videoControlsHide] ?: d.view.videoControlsHide,
+            ),
+            behavior = BehaviorPrefs(
+                lockPortrait = p[K.lockPortrait] ?: d.behavior.lockPortrait,
+                pauseOnMute = p[K.pauseOnMute] ?: d.behavior.pauseOnMute,
+                pip = p.enum(K.pipMode, d.behavior.pip),
+                panelSwipes = p[K.panelSwipes] ?: d.behavior.panelSwipes,
+                recentShows = p.enum(K.recentShows, d.behavior.recentShows),
             ),
             uiDensity = p.enum(K.uiDensity, d.uiDensity),
             titleSize = p.enum(K.titleSize, d.titleSize),
@@ -2074,6 +2161,19 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setLyricsBgColors(first: Int, second: Int) = edit { it[K.lyricsBgColor] = first; it[K.lyricsBgColor2] = second }
     fun setLyricsEverywhere(v: Boolean) = edit { it[K.lyricsEverywhere] = v }
     fun setLyricsGapMark(v: LyricsGapMark) = edit { it[K.lyricsGapMark] = v.name }
+    // 1.7.8
+    fun setPanelPlayer(v: PanelPlayer) = edit { it[K.panelPlayer] = v.name }
+    fun setQueueHeadings(v: Boolean) = edit { it[K.queueHeadings] = v }
+    fun setCastMark(v: Boolean) = edit { it[K.castMark] = v }
+    fun setImmersiveVideo(v: Boolean) = edit { it[K.immersiveVideo] = v }
+    fun setBleedFit(v: BleedFit) = edit { it[K.bleedFit] = v.name }
+    fun setCoverFlight(v: Boolean) = edit { it[K.coverFlight] = v }
+    fun setVideoControlsHide(v: Boolean) = edit { it[K.videoControlsHide] = v }
+    fun setLockPortrait(v: Boolean) = edit { it[K.lockPortrait] = v }
+    fun setPauseOnMute(v: Boolean) = edit { it[K.pauseOnMute] = v }
+    fun setPipMode(v: PipMode) = edit { it[K.pipMode] = v.name }
+    fun setPanelSwipes(v: Boolean) = edit { it[K.panelSwipes] = v }
+    fun setRecentShows(v: RecentShows) = edit { it[K.recentShows] = v.name }
     fun setLyricsStripAlign(v: LyricsAlign) = edit { it[K.lyricsStripAlign] = v.name }
     fun setLyricsStripTwoLines(v: Boolean) = edit { it[K.lyricsStripTwoLines] = v }
     fun setMergeLikedVideos(v: Boolean) = edit { it[K.mergeLikedVideos] = v }

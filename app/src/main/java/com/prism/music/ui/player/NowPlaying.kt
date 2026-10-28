@@ -125,6 +125,8 @@ private val THUMB_SIZE = 54.dp
 private val HEADER_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
 private val DISMISS_STRIP = 32.dp
+/** How far a swipe on the controls goes before it opens or closes the queue or the lyrics (#200), in pixels. */
+private const val PANEL_SWIPE_PX = 90f
 private val ART_BOX_TOP_PAD = 8.dp
 /** How far the title may drop below the cover toward the scrubber, when the screen has room to spare. */
 private val TITLE_DROP_MAX = 24.dp
@@ -259,12 +261,17 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         onDispose { view.keepScreenOn = false }
     }
 
-    val openLyrics = { lyricsControlsOpen = true; lyricsOpen = true; queueOpen = false; statsOpen = false }
+    // Settings → Player → "Lyrics and the queue" (#193, #197): the controls hide after a moment (as before), always stay,
+    // or start hidden so the lyrics and the queue get the whole screen (a tap or a swipe up brings them).
+    val panelPlayer = settings.view.panelPlayer
+    val controlsStay = panelPlayer == com.prism.music.data.prefs.PanelPlayer.ALWAYS
+    val controlsAtOpen = panelPlayer != com.prism.music.data.prefs.PanelPlayer.HIDDEN
+    val openLyrics = { lyricsControlsOpen = controlsAtOpen; lyricsOpen = true; queueOpen = false; statsOpen = false }
     val closeLyrics = { lyricsControlsOpen = false; lyricsOpen = false }
     val toggleQueue = {
         val opening = !queueOpen
         queueOpen = opening
-        if (opening) { closeLyrics(); statsOpen = false; queueControlsOpen = true }
+        if (opening) { closeLyrics(); statsOpen = false; queueControlsOpen = controlsAtOpen }
     }
     val toggleStats = {
         val opening = !statsOpen
@@ -275,13 +282,18 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val singing by c.sing.on.collectAsState()
     val singControls = singing && SingUi.panel
     LaunchedEffect(singControls) { if (singControls) lyricsControlsOpen = true }
-    LaunchedEffect(lyricsOpen, lyricsControlsOpen, volume.dragging, singControls) {
-        if (lyricsOpen && lyricsControlsOpen && !volume.dragging && !singControls) { delay(5000); lyricsControlsOpen = false }
+    LaunchedEffect(lyricsOpen, lyricsControlsOpen, volume.dragging, singControls, controlsStay) {
+        if (lyricsOpen && lyricsControlsOpen && !volume.dragging && !singControls && !controlsStay) { delay(5000); lyricsControlsOpen = false }
     }
     // Cover layout: a tap on the cover brings the controls up; they go again after a few seconds of music.
     var coverDeck by remember { mutableStateOf(false) }
-    LaunchedEffect(coverDeck, isPlaying, volume.dragging) {
-        if (coverDeck && isPlaying && !volume.dragging && layout == com.prism.music.data.prefs.PlayerLayout.COVER) { delay(5000); coverDeck = false }
+    // A playing music video does the same when "Controls hide over videos" is on (#166): they show as the video starts,
+    // go after a few seconds, and a tap on the video brings them; they stay away from song to song.
+    val videoHidesDeck = settings.view.videoControlsHide && videoMode
+    val deckOnTap = layout == com.prism.music.data.prefs.PlayerLayout.COVER || videoHidesDeck
+    LaunchedEffect(videoHidesDeck) { if (videoHidesDeck) coverDeck = true }
+    LaunchedEffect(coverDeck, isPlaying, volume.dragging, deckOnTap) {
+        if (coverDeck && isPlaying && !volume.dragging && deckOnTap) { delay(5000); coverDeck = false }
     }
     // Lyrics layout: each song opens on its lyrics once they're in (a song without any stays on the cover).
     val hasLyrics = lyricsState.lyrics != null
@@ -468,11 +480,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     }
 
     // ------------------------------------------------ Immersive mode (⋯ menu): the cover fills the screen, lyrics over it
-    if (settings.immersivePlayer && !videoMode) {
+    // A music video playing leaves it for the normal player, unless immersive's "Show the video" is on (#170).
+    if (settings.immersivePlayer && (!videoMode || settings.view.immersiveVideo)) {
         // Back leaves immersive mode for the normal player, as it leaves a full-screen video; Back again closes it.
         BackHandler { c.settings.setImmersivePlayer(false) }
         ImmersivePlayer(
-            song, canvas, canvasSaved, isPlaying, lyricsState, covered,
+            song, canvas, canvasSaved, isPlaying, lyricsState, covered, video = videoMode,
             onExit = { c.settings.setImmersivePlayer(false) },
             onLyricsTiming = { showTiming = true },
             onLyricsSource = { showProviders = true },
@@ -550,10 +563,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
         // ------------------------------------------------ Full-bleed banner (+ canvas)
         if (heroMode && heroHeight > 0.dp && !(collapsePastHalf && heroVisible() < 0.001f)) {
-            AsyncImage(
-                artRequest, null, contentScale = ContentScale.Crop,
-                onState = { if (it is AsyncImagePainter.State.Success) artLoaded = true },
-                modifier = Modifier
+            // "Whole cover" (#175): the square cover isn't cropped to the banner's shape; it sits whole on a blurred,
+            // cropped copy of itself that fills the rest.
+            val fit = settings.view.bleedFit == com.prism.music.data.prefs.BleedFit.FIT
+            Box(
+                Modifier
                     .fillMaxWidth()
                     .height(heroHeight)
                     .graphicsLayer {
@@ -567,7 +581,18 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             blendMode = BlendMode.DstIn,
                         )
                     },
-            )
+            ) {
+                // Prism's own software frost of the cover, so it's soft below Android 12 too.
+                val frost = if (fit) com.prism.music.ui.components.rememberFrost(artUrl) else null
+                if (frost != null) androidx.compose.foundation.Image(
+                    frost.image, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().graphicsLayer { alpha = 0.8f },
+                )
+                AsyncImage(
+                    artRequest, null, contentScale = if (fit) ContentScale.Fit else ContentScale.Crop,
+                    onState = { if (it is AsyncImagePainter.State.Success) artLoaded = true },
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
             canvas?.takeIf { !collapsePastHalf }?.let { clip ->
                 CanvasPlayer(
                     clip, canvasSaved, isPlaying,
@@ -652,7 +677,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         val doubleTap = settings.coverDoubleTap.takeUnless { it == com.prism.music.data.prefs.PlayerGesture.SEEK_SIDES && seekStep <= 0 }
             ?: com.prism.music.data.prefs.PlayerGesture.NONE
         val longPress = settings.coverLongPress
-        val tapForDeck = layout == com.prism.music.data.prefs.PlayerLayout.COVER
+        val tapForDeck = deckOnTap
         val doubleTapSeek = Modifier.pointerInput(lyricsOpen, queueOpen, statsOpen, seekStep, doubleTap, longPress, tapForDeck) {
             if (lyricsOpen || queueOpen || statsOpen) return@pointerInput
             if (doubleTap == com.prism.music.data.prefs.PlayerGesture.NONE && longPress == com.prism.music.data.prefs.PlayerGesture.NONE && !tapForDeck) return@pointerInput
@@ -762,7 +787,11 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 .requiredWidth(sleeveMaxWidth + PLAYER_GUTTER * 2)
                                 .height(fullArt + ART_TITLE_GAP / 2)
                                 .graphicsLayer { alpha = 1f - 2f * p() }
-                                .then(sleeveGesture),
+                                .then(sleeveGesture)
+                                // Controls hidden over the video (#166): a tap on it brings them, another sends them away.
+                                .then(
+                                    if (videoHidesDeck) Modifier.pointerInput(Unit) { detectTapGestures(onTap = { coverDeck = !coverDeck }) } else Modifier
+                                ),
                         ) {
                             // One video view at a time: full-bleed, it's drawn behind the player (see videoBehind).
                             if (!videoBehind) MusicVideoSurface(Modifier.fillMaxSize(), fill = videoFill)
@@ -940,7 +969,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         LyricsPanel(
                             lyricsState, isPlaying && !covered, lyricsControlsOpen,
                             onRevealControls = { lyricsControlsOpen = true },
-                            onHideControls = { lyricsControlsOpen = false },
+                            onHideControls = { if (!controlsStay) lyricsControlsOpen = false },
                             modifier = Modifier.fillMaxSize().padding(top = HEADER_HEIGHT).graphicsLayer { alpha = panelFade },
                         )
                     }
@@ -955,7 +984,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                     if (queueOpen && panelsSettled) {
                         InlineQueue(
                             onRevealPlayer = { queueControlsOpen = true },
-                            onHidePlayer = { queueControlsOpen = false },
+                            onHidePlayer = { if (!controlsStay) queueControlsOpen = false },
                             onClose = { haptics.gestureEnd(); toggleQueue() },
                             modifier = Modifier.fillMaxSize().padding(top = HEADER_HEIGHT + 8.dp).graphicsLayer {
                                 alpha = panelFade
@@ -967,14 +996,31 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
 
                 // ------------------------------------------------ The deck
                 // Cover layout: the deck stays away until the cover's tapped (the lyrics and queue bring it as before).
-                val deckShown = (!lyricsOpen || lyricsControlsOpen) && (!queueOpen || queueControlsOpen) &&
-                    (layout != com.prism.music.data.prefs.PlayerLayout.COVER || coverDeck || lyricsOpen || queueOpen || statsOpen)
+                val deckShown = (!lyricsOpen || lyricsControlsOpen || controlsStay) && (!queueOpen || queueControlsOpen || controlsStay) &&
+                    (!deckOnTap || coverDeck || lyricsOpen || queueOpen || statsOpen || (videoHidesDeck && !isPlaying))
                 AnimatedVisibility(
                     deckShown,
                     enter = expandVertically(tween(420, easing = FastOutSlowInEasing), expandFrom = Alignment.Top) + fadeIn(tween(420)),
                     exit = shrinkVertically(tween(420, easing = FastOutSlowInEasing), shrinkTowards = Alignment.Top) + fadeOut(tween(300)),
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Settings → Controls & gestures → "Swipe up for the queue" (#200, #197): up on the controls opens the
+                    // queue (from their right half) or the lyrics (left half); down closes whichever is open. One-handed,
+                    // instead of reaching for the buttons or the top of the screen.
+                    val swipes = if (!settings.behavior.panelSwipes) Modifier else Modifier.pointerInput(panelPlayer) {
+                        var total = 0f
+                        var fromRight = true
+                        detectVerticalDragGestures(
+                            onDragStart = { at -> total = 0f; fromRight = at.x > size.width / 2 },
+                            onDragEnd = {
+                                when {
+                                    total < -PANEL_SWIPE_PX && !lyricsOpen && !queueOpen -> { haptics.gestureEnd(); if (fromRight) toggleQueue() else openLyrics() }
+                                    total > PANEL_SWIPE_PX && queueOpen -> { haptics.gestureEnd(); toggleQueue() }
+                                    total > PANEL_SWIPE_PX && lyricsOpen -> { haptics.gestureEnd(); closeLyrics() }
+                                }
+                            },
+                        ) { change, amount -> change.consume(); total += amount }
+                    }
+                    Column(swipes, horizontalAlignment = Alignment.CenterHorizontally) {
                         val deckGap = if (roomyCover) 12.dp else 18.dp
                         // With the lyrics open: the glass foot of the lyrics (their source, and Sing with its controls).
                         if (lyricsOpen) LyricsFooter(lyricsState, song, onChangeSource = { showProviders = true }, onNeedsDownload = { showSing = true }, modifier = Modifier.padding(bottom = 6.dp))
@@ -1024,6 +1070,17 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         Spacer(Modifier.height(deckGap))
                     }
                 }
+                // The controls away over the lyrics or the queue: a swipe up from the bottom edge brings them back (a tap
+                // on the lyrics or the queue does too).
+                if (!deckShown && (lyricsOpen || queueOpen)) Box(
+                    Modifier.fillMaxWidth().height(40.dp).pointerInput(Unit) {
+                        var total = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { total = 0f },
+                            onDragEnd = { if (total < -40f) { lyricsControlsOpen = true; queueControlsOpen = true } },
+                        ) { change, amount -> change.consume(); total += amount }
+                    },
+                )
             }
         }
     }

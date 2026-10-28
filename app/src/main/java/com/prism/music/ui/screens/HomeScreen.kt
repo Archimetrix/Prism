@@ -280,7 +280,14 @@ fun HomeScreen(bottomPadding: androidx.compose.ui.unit.Dp) {
                                 play = if (settings.quickPicksRadio) { list, i -> c.player.playRadio(list[i]) } else null,
                             )
                         }
-                        HomeSections.RECENT -> recent.filter(offline).take(20).let { if (it.isNotEmpty()) SongSection(cfg, cfg.titled(), null, it) }
+                        HomeSections.RECENT -> {
+                            // "Albums & playlists" (#196): what the songs were played from, as cards; songs until there are any.
+                            val played by c.recentCollections.items.collectAsState()
+                            if (settings.behavior.recentShows == com.prism.music.data.prefs.RecentShows.COLLECTIONS && played.isNotEmpty()) {
+                                SectionHeader(cfg.titled())
+                                StyledItems(cfg.style, played, openItem)
+                            } else recent.filter(offline).take(20).let { if (it.isNotEmpty()) SongSection(cfg, cfg.titled(), null, it) }
+                        }
                         HomeSections.LIKED -> liked.filter(offline).take(20).let { if (it.isNotEmpty()) SongSection(cfg, cfg.titled("Liked songs"), null, it) { nav.go(Routes.liked()) } }
                         HomeSections.ON_REPEAT -> yours?.onRepeat?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.titled(), "Your most played this month", it) }
                         HomeSections.REPEAT_REWIND -> yours?.repeatRewind?.takeIf { it.isNotEmpty() }?.let { SongSection(cfg, cfg.titled(), "What you used to play on repeat", it) }
