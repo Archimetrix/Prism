@@ -38,6 +38,8 @@ fun PlayerOptionsSheet(
     onToggleStats: () -> Unit,
     onSleepTimer: () -> Unit,
     onCollapse: () -> Unit,
+    /** Speed & pitch for songs (1.7.8, R12). */
+    onSpeedPitch: () -> Unit = {},
     /** The lyrics have lines in a script other than Latin letters: romanizing them is offered. */
     romanizable: Boolean = false,
     onSing: () -> Unit = {},
@@ -140,8 +142,15 @@ fun PlayerOptionsSheet(
     )
     val cover = com.prism.music.data.canvas.CanvasRepository.albumKey(song)
     val immersive = c.settings.flow.collectAsState().value.immersivePlayer
+    val musicSpeed by c.player.musicSpeed.collectAsState()
+    val musicPitch by c.player.musicPitch.collectAsState()
     val player = listOfNotNull(
         ActionItem(PrismIcons.Cast, "Play on a speaker or TV", keepOpen = true) { outputs = true },
+        if (song.isLive) null else ActionItem(
+            PrismIcons.Speed, "Speed & pitch",
+            value = if (musicSpeed == 1f && musicPitch == 0) null else "${com.prism.music.ui.screens.speedText(musicSpeed)} · ${com.prism.music.ui.screens.pitchText(musicPitch)}",
+            active = musicSpeed != 1f || musicPitch != 0, onClick = onSpeedPitch,
+        ),
         // The cover fills the screen with the lyrics over it; a tap there brings this back.
         ActionItem(PrismIcons.Fullscreen, "Immersive mode", value = if (immersive) "On" else null, active = immersive) { c.settings.setImmersivePlayer(!immersive) },
         com.prism.music.ui.components.videoDownloadAction(song, videos[song.id]),

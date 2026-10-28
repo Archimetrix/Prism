@@ -366,6 +366,10 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
     val shift by pc.lyricShift.collectAsState()
     val bestMark = best?.takeIf { it.songId == current?.id && LocalAppSettings.current.bestPartButton }
         ?.startMs?.let { ((it - shift).toFloat() / duration).takeIf { f -> f in 0.01f..0.99f } }
+    // Where the crossfade into the next song starts (A6, an option): once it's known, while Crossfade is on.
+    val blend by c.mixState.mark.collectAsState()
+    val blendMark = blend?.takeIf { LocalAppSettings.current.view.crossfadeMark && it.songId == current?.id }
+        ?.let { (it.startMs.toFloat() / duration).takeIf { f -> f in 0.01f..0.99f } }
     val times = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
     val settings = LocalAppSettings.current
     val fill = scrubberFill(settings.scrubberColor, current?.thumbnail)
@@ -404,7 +408,7 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
             thumb = knob != com.prism.music.data.prefs.ScrubberThumb.NONE,
             thumbShape = knob,
             spectrum = true,
-            marks = listOfNotNull(bestMark),
+            marks = listOfNotNull(bestMark, blendMark),
             fill = fill,
             wave = wave,
             pulse = pulse?.let { level -> { level.floatValue } },
@@ -879,15 +883,15 @@ private fun PlayerButtonGlyph(
             )
         }
         PlayerButton.RADIO -> BottomGlyph(PrismIcons.Radio, "Start radio", false, { pc.playRadio(s) }, width, enabled = !s.isLocal)
-        // Songs a little faster or slower (1.7.4): each tap the next speed; the speed itself shows while it isn't 1×.
+        // Songs faster or slower (1.7.4), and higher or lower (1.7.8): a tap opens Speed & pitch; the speed shows while it isn't 1×.
         PlayerButton.SPEED -> {
             val speed by pc.musicSpeed.collectAsState()
-            val next = MUSIC_SPEEDS[(MUSIC_SPEEDS.indexOf(speed) + 1).mod(MUSIC_SPEEDS.size)]
+            val pitch by pc.musicPitch.collectAsState()
             val haptics = rememberHaptics()
-            if (speed == 1f) BottomGlyph(PrismIcons.Speed, "Playback speed 1×", false, { pc.setMusicSpeed(next) }, width, enabled = !s.isLive)
+            if (speed == 1f) BottomGlyph(PrismIcons.Speed, if (pitch == 0) "Speed & pitch" else "Speed & pitch, pitch moved", pitch != 0, { onButton(b) }, width, enabled = !s.isLive)
             else Box(
                 Modifier.size(width = width, height = BOTTOM_ACTION_SIZE).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
-                    .clickable(onClickLabel = "Playback speed ${speedText(speed)}") { haptics.tick(); pc.setMusicSpeed(next) },
+                    .clickable(onClickLabel = "Speed & pitch, ${speedText(speed)}") { haptics.tick(); onButton(b) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(speedText(speed), style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"), color = Color.White)

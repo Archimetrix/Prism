@@ -240,7 +240,58 @@ data class ViewLook(
     val coverFlight: Boolean = false,
     /** Over a playing video, the controls hide after a few seconds; a tap brings them back (#166). */
     val videoControlsHide: Boolean = false,
+    /** A mark on the progress bar where the crossfade into the next song starts (A6). */
+    val crossfadeMark: Boolean = false,
+    /** While a crossfade plays, the cover dissolves into the next song's over the blend (A6). */
+    val blendCovers: Boolean = false,
 )
+
+/**
+ * How music sounds, added in 1.7.8 (A1–A5, R12; not part of a Look). Nested (see [ShapeLook]). Every default keeps
+ * 1.7.7's sound.
+ */
+data class SoundPrefs(
+    /** How the two songs' volumes cross in a crossfade (A1). */
+    val crossfadeCurve: CrossfadeCurve = CrossfadeCurve.EQUAL_POWER,
+    /** Normalize volume's level, in LUFS (A2). */
+    val normalizeTarget: Int = -14,
+    /** An album playing through keeps its own song-to-song levels: one level for the whole album (A2). */
+    val normalizeAlbums: Boolean = false,
+    /** Songs' speed each time Prism starts (A4, R12): 0.5–2. */
+    val musicSpeed: Float = 1f,
+    /** Songs' pitch each time Prism starts, in semitones (A4, R12): −12 … +12. */
+    val musicPitch: Int = 0,
+    /** Skip silence in podcast episodes (A4); [AppSettings.skipSilence] is for songs. */
+    val skipSilenceEpisodes: Boolean = false,
+    /** The sleep timer fades the music out over this many seconds before it pauses (A5); 0 stops at once. */
+    val sleepFadeSeconds: Int = 0,
+    /** Pausing and playing fade the sound out and in over a moment instead of cutting (A5). */
+    val pauseFade: Boolean = false,
+)
+
+/** How a crossfade's two volumes cross (1.7.8, A1). */
+enum class CrossfadeCurve(val label: String, val detail: String) {
+    EQUAL_POWER("Smooth", "Equal power: the loudness holds all the way through (as before)"),
+    LINEAR("Straight", "One goes down as the other comes up, evenly: a slight dip in the middle"),
+    S_CURVE("Gentle", "Slow at both ends, quicker in the middle"),
+    DJ_CUT("DJ cut", "Both play at full, then a quick swap halfway through");
+
+    /** The (incoming, outgoing) volumes at [p] (0 … 1) of the way through the blend. */
+    fun gains(p: Float): Pair<Float, Float> {
+        val x = p.coerceIn(0f, 1f)
+        return when (this) {
+            EQUAL_POWER -> kotlin.math.sin(x * Math.PI / 2).toFloat() to kotlin.math.cos(x * Math.PI / 2).toFloat()
+            LINEAR -> x to 1f - x
+            S_CURVE -> (x * x * (3 - 2 * x)).let { it to 1f - it }
+            DJ_CUT -> ((x - 0.42f) / 0.16f).coerceIn(0f, 1f).let {
+                kotlin.math.sin(it * Math.PI / 2).toFloat() to kotlin.math.cos(it * Math.PI / 2).toFloat()
+            }
+        }
+    }
+}
+
+/** Normalize volume's levels (A2): the loudness each one brings songs to. */
+val NORMALIZE_TARGETS = listOf(-8 to "Loud", -11 to "Louder", -14 to "Standard", -16 to "Quieter", -23 to "Broadcast")
 
 /** The player's controls over the lyrics and the queue (1.7.8). */
 enum class PanelPlayer(val label: String, val detail: String) {
@@ -913,6 +964,7 @@ data class AppSettings(
     val type: TypeLook = TypeLook(),
     /** 1.7.8's player look and behaviour options. */
     val view: ViewLook = ViewLook(),
+    val sound: SoundPrefs = SoundPrefs(),
     val behavior: BehaviorPrefs = BehaviorPrefs(),
     val uiDensity: UiDensity = UiDensity.COMFORTABLE,
     val titleSize: TitleSize = TitleSize.LARGE,
@@ -1392,6 +1444,17 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val panelSwipes = booleanPreferencesKey("panel_swipes")
         val recentShows = stringPreferencesKey("recent_shows")
         val queueLocked = booleanPreferencesKey("queue_locked")
+        val crossfadeMark = booleanPreferencesKey("crossfade_mark")
+        val blendCovers = booleanPreferencesKey("blend_covers")
+        // 1.7.8 ([SoundPrefs]).
+        val crossfadeCurve = stringPreferencesKey("crossfade_curve")
+        val normalizeTarget = intPreferencesKey("normalize_target")
+        val normalizeAlbums = booleanPreferencesKey("normalize_albums")
+        val musicSpeedDefault = floatPreferencesKey("music_speed")
+        val musicPitchDefault = intPreferencesKey("music_pitch")
+        val skipSilenceEpisodes = booleanPreferencesKey("skip_silence_episodes")
+        val sleepFade = intPreferencesKey("sleep_fade")
+        val pauseFade = booleanPreferencesKey("pause_fade")
         val performanceMode = booleanPreferencesKey("performance_mode")
         /** The Home card offering Performance mode on a slower phone was answered (either way). */
         val performanceOffered = booleanPreferencesKey("performance_offered")
@@ -1412,6 +1475,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 cornerScale, songShape, albumShape, artistShape, playerShape, buttonShape, playOutlined,
                 typeWeight, typeSpacing, titleFont, tabTint, playerTitleWeight,
                 panelPlayer, queueHeadings, castMark, immersiveVideo, bleedFit, coverFlight, videoControlsHide,
+                crossfadeMark, blendCovers,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1444,7 +1508,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 cornerScale to 'f', songShape to 's', albumShape to 's', artistShape to 's', playerShape to 's', buttonShape to 's', playOutlined to 'b',
                 typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's', playerTitleWeight to 's',
                 panelPlayer to 's', queueHeadings to 'b', castMark to 'b', immersiveVideo to 'b', bleedFit to 's', coverFlight to 'b',
-                videoControlsHide to 'b',
+                videoControlsHide to 'b', crossfadeMark to 'b', blendCovers to 'b',
             ) + lyricsLook
         }
 
@@ -1475,6 +1539,9 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "mini_swipe_left", "mini_swipe_right", "mini_swipe_down", "mini_swipe_up",
                 // 1.7.8 ([BehaviorPrefs]).
                 "lock_portrait", "pause_on_mute", "pip_mode", "panel_swipes", "recent_shows", "queue_locked",
+                // 1.7.8 ([SoundPrefs]).
+                "crossfade_curve", "normalize_target", "normalize_albums", "music_speed", "music_pitch",
+                "skip_silence_episodes", "sleep_fade", "pause_fade",
             )
         }
     }
@@ -1708,6 +1775,19 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 bleedFit = p.enum(K.bleedFit, d.view.bleedFit),
                 coverFlight = p[K.coverFlight] ?: d.view.coverFlight,
                 videoControlsHide = p[K.videoControlsHide] ?: d.view.videoControlsHide,
+                crossfadeMark = p[K.crossfadeMark] ?: d.view.crossfadeMark,
+                blendCovers = p[K.blendCovers] ?: d.view.blendCovers,
+            ),
+            sound = SoundPrefs(
+                crossfadeCurve = p.enum(K.crossfadeCurve, d.sound.crossfadeCurve),
+                normalizeTarget = (p[K.normalizeTarget] ?: d.sound.normalizeTarget).coerceIn(-30, -5),
+                normalizeAlbums = p[K.normalizeAlbums] ?: d.sound.normalizeAlbums,
+                musicSpeed = (p[K.musicSpeedDefault] ?: d.sound.musicSpeed).coerceIn(0.5f, 2f),
+                musicPitch = (p[K.musicPitchDefault] ?: d.sound.musicPitch).coerceIn(-12, 12),
+                // Skip silence used to be one switch for everything: episodes keep what it was until set apart.
+                skipSilenceEpisodes = p[K.skipSilenceEpisodes] ?: p[K.skipSilence] ?: d.sound.skipSilenceEpisodes,
+                sleepFadeSeconds = (p[K.sleepFade] ?: d.sound.sleepFadeSeconds).coerceIn(0, 60),
+                pauseFade = p[K.pauseFade] ?: d.sound.pauseFade,
             ),
             behavior = BehaviorPrefs(
                 lockPortrait = p[K.lockPortrait] ?: d.behavior.lockPortrait,
@@ -2206,6 +2286,17 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setPanelSwipes(v: Boolean) = edit { it[K.panelSwipes] = v }
     fun setRecentShows(v: RecentShows) = edit { it[K.recentShows] = v.name }
     fun setQueueLocked(v: Boolean) = edit { it[K.queueLocked] = v }
+    fun setCrossfadeMark(v: Boolean) = edit { it[K.crossfadeMark] = v }
+    fun setBlendCovers(v: Boolean) = edit { it[K.blendCovers] = v }
+    fun setCrossfadeCurve(v: CrossfadeCurve) = edit { it[K.crossfadeCurve] = v.name }
+    fun setNormalizeTarget(v: Int) = edit { it[K.normalizeTarget] = v.coerceIn(-30, -5) }
+    fun setNormalizeAlbums(v: Boolean) = edit { it[K.normalizeAlbums] = v }
+    fun setMusicDefaults(speed: Float, pitch: Int) = edit {
+        it[K.musicSpeedDefault] = speed.coerceIn(0.5f, 2f); it[K.musicPitchDefault] = pitch.coerceIn(-12, 12)
+    }
+    fun setSkipSilenceEpisodes(v: Boolean) = edit { it[K.skipSilenceEpisodes] = v }
+    fun setSleepFade(v: Int) = edit { it[K.sleepFade] = v.coerceIn(0, 60) }
+    fun setPauseFade(v: Boolean) = edit { it[K.pauseFade] = v }
     fun setLyricsStripAlign(v: LyricsAlign) = edit { it[K.lyricsStripAlign] = v.name }
     fun setLyricsStripTwoLines(v: Boolean) = edit { it[K.lyricsStripTwoLines] = v }
     fun setMergeLikedVideos(v: Boolean) = edit { it[K.mergeLikedVideos] = v }

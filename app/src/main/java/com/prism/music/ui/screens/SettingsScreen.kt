@@ -1783,7 +1783,11 @@ private fun SoundPage() {
                 info = "Music videos in search, albums, playlists, Liked songs and downloads play as their song, with its album and cover. The Video button still shows the video; a video with no song plays as it is.",
             ) { prefs.setSongsEverywhere(it) }
             Toggle("Keep playing videos", "After a video, the next song plays as video too", s.videoContinues) { prefs.setVideoContinues(it) }
-            Toggle("Skip silence", "Trims silence at the start and end", s.skipSilence) { prefs.setSkipSilence(it) }
+            Toggle("Skip silence", "Trims silence in songs", s.skipSilence) { prefs.setSkipSilence(it) }
+            Toggle(
+                "Skip silence in podcasts", "Trims pauses in episodes", s.sound.skipSilenceEpisodes,
+                info = "Podcasts have their own switch: trimming every pause suits talk more than music.",
+            ) { prefs.setSkipSilenceEpisodes(it) }
             Toggle("Stop when swiped away", "Swiping Prism out of recent apps stops it", s.stopOnSwipeAway) { prefs.setStopOnSwipeAway(it) }
             Toggle(
                 "Pause when muted", "Volume all the way down pauses; up again plays on", s.behavior.pauseOnMute,
@@ -1813,8 +1817,18 @@ private fun SoundPage() {
                     "Match tempo and beats (DJ-style)", "Beats line up while songs overlap", s.mixBeatMatch,
                     info = "The next song plays at the ending one's tempo with its beats lined up while they overlap, then eases back. Off, they crossfade at their own speed.",
                 ) { prefs.setMixBeatMatch(it) }
+                CrossfadeCurveCards()
+                Toggle(
+                    "Crossfade mark", "Where the next song comes in, on the progress bar", s.view.crossfadeMark,
+                    info = "A small mark on the player's progress bar where the crossfade into the next song will start. It shows once Prism knows, and moves if the plan changes.",
+                ) { prefs.setCrossfadeMark(it) }
+                Toggle(
+                    "Covers blend too", "The cover dissolves into the next one", s.view.blendCovers,
+                    info = "While a crossfade plays, the player's cover fades from the ending song's into the next one's over the blend, instead of switching at once. With Reduce motion it switches halfway.",
+                ) { prefs.setBlendCovers(it) }
             }
         }
+        Group("Speed, pitch and fades") { SpeedAndFades() }
         Group("Quality") {
             Toggle(
                 "Lossless playback",
@@ -1863,8 +1877,9 @@ private fun SoundPage() {
         Group("Sound") {
             Toggle(
                 "Normalize volume", "Every song at the same loudness", s.normalize,
-                info = "Each song is measured on your phone and brought to the same level (-14 LUFS, like Spotify): loud ones down, quiet ones up, with a limiter so nothing clips. Works offline too.",
+                info = "Each song is measured on your phone and brought to the same level: loud ones down, quiet ones up, with a limiter so nothing clips. Works offline too.",
             ) { prefs.setNormalize(it) }
+            if (s.normalize) NormalizeLevel()
             SoundSettings(onOpenEq = { nav.go(Routes.EQ) })
         }
     }

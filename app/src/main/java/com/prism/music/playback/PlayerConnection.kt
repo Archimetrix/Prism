@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class QueueEntry(val index: Int, val song: Song, val uid: String)
@@ -197,12 +198,39 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
     }
 
     private val _musicSpeed = MutableStateFlow(1f)
-    /** Songs' playback speed (1.7.4, the Speed button under the player; 1× unless picked, for this session). */
+    /**
+     * Songs' playback speed (1.7.4, the Speed button under the player; 1.7.8's Speed & pitch sheet): for this session,
+     * starting from Settings' default each time Prism starts.
+     */
     val musicSpeed: StateFlow<Float> = _musicSpeed
 
     fun setMusicSpeed(speed: Float) {
-        _musicSpeed.value = speed
-        service?.musicSpeed = speed
+        speedTouched = true
+        _musicSpeed.value = speed.coerceIn(0.5f, 2f)
+        service?.musicSpeed = _musicSpeed.value
+    }
+
+    private val _musicPitch = MutableStateFlow(0)
+    /** Songs' pitch in semitones (1.7.8, R12), apart from Sing's key; for this session, as [musicSpeed]. */
+    val musicPitch: StateFlow<Int> = _musicPitch
+
+    fun setMusicPitch(semitones: Int) {
+        speedTouched = true
+        _musicPitch.value = semitones.coerceIn(-12, 12)
+        service?.musicPitch = _musicPitch.value
+    }
+
+    /** The sheet was used before Settings' defaults were read: those don't overwrite the listener's pick. */
+    private var speedTouched = false
+
+    init {
+        scope.launch {
+            val s = c.settings.flow.first().sound
+            if (!speedTouched) {
+                _musicSpeed.value = s.musicSpeed; _musicPitch.value = s.musicPitch
+                service?.let { it.musicSpeed = s.musicSpeed; it.musicPitch = s.musicPitch }
+            }
+        }
     }
 
     fun setOutput(device: AudioDeviceInfo?, reason: String = "picked in the device sheet") {
@@ -225,6 +253,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         service = s
         s.episodeSpeed = _episodeSpeed.value
         s.musicSpeed = _musicSpeed.value
+        s.musicPitch = _musicPitch.value
         s.player.addListener(this)
         refresh()
         pending.toList().forEach { it(s.player) }
@@ -501,7 +530,9 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         if (!p.isPlaying) ensureStarted()
         if (p.playbackState == Player.STATE_IDLE) p.prepare()
         if (p.playbackState == Player.STATE_ENDED) p.seekTo(0, 0)
-        if (p.isPlaying) p.pause() else p.play()
+        val play = !p.isPlaying
+        // With "Fade on pause and play" (A5) the service fades it; else at once.
+        if (service?.gentle(play) != true) { if (play) p.play() else p.pause() }
     }
 
     fun next() = withPlayer { it.seekToNext() }
@@ -714,11 +745,25 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         _sleepAt.value = if (minutes <= 0) 0 else System.currentTimeMillis() + minutes * 60_000L
         if (minutes > 0) scope.launch {
             val target = _sleepAt.value
-            kotlinx.coroutines.delay(minutes * 60_000L)
+            // A5: the music fades out over the last seconds instead of stopping mid-note.
+            val fadeMs = c.settings.current.sound.sleepFadeSeconds * 1000L
+            kotlinx.coroutines.delay((minutes * 60_000L - fadeMs).coerceAtLeast(0))
+            if (_sleepAt.value != target) return@launch
+            if (fadeMs > 0 && player?.isPlaying == true) {
+                val from = android.os.SystemClock.elapsedRealtime()
+                while (_sleepAt.value == target) {
+                    val f = ((android.os.SystemClock.elapsedRealtime() - from).toFloat() / fadeMs).coerceIn(0f, 1f)
+                    NormalizerProcessor.fadeVolume = (1 - f) * (1 - f)
+                    if (f >= 1f) break
+                    kotlinx.coroutines.delay(100)
+                }
+            }
             if (_sleepAt.value == target) {
                 player?.pause()
                 _sleepAt.value = 0
+                kotlinx.coroutines.delay(400) // what's already queued for the speaker plays out silent
             }
+            NormalizerProcessor.fadeVolume = 1f
         }
     }
 

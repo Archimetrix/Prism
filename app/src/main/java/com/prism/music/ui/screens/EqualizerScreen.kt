@@ -46,7 +46,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.prism.music.data.prefs.EqPresetStore
 import com.prism.music.data.prefs.EqSettings
+import com.prism.music.data.prefs.SavedEq
+import androidx.compose.runtime.collectAsState
 import com.prism.music.playback.AudioEffects
 import com.prism.music.playback.EqPresets
 import com.prism.music.ui.LocalNavigator
@@ -86,6 +89,7 @@ fun EqualizerScreen(bottomPadding: Dp) {
                     ) { (name, bands) -> update(eq.copy(enabled = true, preset = name, bands = bands)) }
                 }
             }
+            item { YourEqPresets(eq) { update(it) } }
             item {
                 Group("Tone") {
                     SliderRow("Preamp", "%+.1f dB".format(eq.preampDb), eq.preampDb, -12f..6f) { update(eq.copy(enabled = true, preampDb = it)) }
@@ -103,6 +107,90 @@ fun EqualizerScreen(bottomPadding: Dp) {
                     if (s.spatial) SliderRow("Intensity", "${(s.spatialAmount * 100).toInt()}%", s.spatialAmount, 0.1f..1f) { c.settings.setSpatialAmount(it) }
                 }
             }
+    }
+}
+
+/**
+ * Your own presets (1.7.8, A3): save the equalizer as it is under a name, share one as a code, paste one in, and pick a
+ * preset for the output playing now (the car's, the earbuds') so it plays through that one there.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun YourEqPresets(eq: EqSettings, onApply: (EqSettings) -> Unit) {
+    val c = LocalContainer.current
+    val context = LocalContext.current
+    val saved by c.eqPresets.saved.collectAsState()
+    val outputs by c.eqPresets.outputs.collectAsState()
+    val output by c.headphoneEq.output.collectAsState()
+    var naming by remember { mutableStateOf(false) }
+    var menuFor by remember { mutableStateOf<SavedEq?>(null) }
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    Group(
+        "Your presets",
+        info = "Save the equalizer as it is now under a name, send one to a friend as a code, and pick a preset for whatever is playing the music now: Prism switches to it whenever that output plays.",
+    ) {
+        if (saved.isNotEmpty()) FlowRow(
+            Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            saved.forEach { p ->
+                Box {
+                    com.prism.music.ui.components.PrismChip(
+                        eq.enabled && eq.preset == p.name, { onApply(p.applyTo(eq)) }, p.name,
+                        onLongClick = { menuFor = p },
+                    )
+                    androidx.compose.material3.DropdownMenu(menuFor == p, { menuFor = null }) {
+                        androidx.compose.material3.DropdownMenuItem({ Text("Share as a code") }, {
+                            menuFor = null
+                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "${p.name}: an equalizer preset for Prism\n${EqPresetStore.code(p)}"), null))
+                        })
+                        androidx.compose.material3.DropdownMenuItem({ Text("Save the equalizer as it is now") }, { menuFor = null; c.eqPresets.save(p.name, eq) })
+                        androidx.compose.material3.DropdownMenuItem({ Text("Delete") }, { menuFor = null; c.eqPresets.delete(p.name) })
+                    }
+                }
+            }
+        }
+        Item("Save as a preset", if (saved.isEmpty()) "Keep this sound under a name" else "Hold a preset to share or delete it", onClick = { naming = true })
+        Item("Add a shared preset", "Paste a code someone sent you", onClick = {
+            val preset = clipboard.getText()?.text?.let { EqPresetStore.parse(it) }
+            if (preset == null) Toast.makeText(context, "Copy a Prism equalizer code first", Toast.LENGTH_SHORT).show()
+            else {
+                c.eqPresets.add(preset)
+                onApply(preset.applyTo(eq))
+                Toast.makeText(context, "Added \"${preset.name}\"", Toast.LENGTH_SHORT).show()
+            }
+        })
+        output?.let { out ->
+            val bound = outputs[out.key]
+            Label(
+                "For ${out.name}",
+                info = "Whenever ${out.name} plays the music, it plays through the preset picked here, whatever the equalizer is set to for everything else. \"As set\" follows the equalizer above.",
+            )
+            val names = listOf<String?>(null) + saved.map { it.name } + EqPresets.presets.keys
+            com.prism.music.ui.components.ChoiceFlow(names.distinct(), { it == bound }, { it ?: "As set" }, Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                c.eqPresets.bind(out.key, it)
+            }
+        }
+    }
+    if (naming) {
+        var name by remember { mutableStateOf(if (eq.preset == "Custom" || eq.preset in EqPresets.presets) "" else eq.preset) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { naming = false },
+            title = { Text("Save as a preset") },
+            text = {
+                com.prism.music.ui.components.PrismTextField(
+                    name, { name = it.take(SavedEq.MAX_NAME) }, singleLine = true,
+                    placeholder = { Text("Car, Running, Late night…") },
+                )
+            },
+            confirmButton = {
+                com.prism.music.ui.components.PrismTextButton({
+                    naming = false
+                    onApply(c.eqPresets.save(name, eq).applyTo(eq))
+                }, enabled = name.isNotBlank()) { Text("Save") }
+            },
+            dismissButton = { com.prism.music.ui.components.PrismTextButton({ naming = false }) { Text("Cancel") } },
+        )
     }
 }
 

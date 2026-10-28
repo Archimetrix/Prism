@@ -235,8 +235,15 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
 
         effects.attach(player.audioSessionId)
         c.onStreamResolved = { id -> scope.launch { applyStreamStats(id) } }
-        scope.launch { c.settings.flow.map { it.eq }.distinctUntilChanged().collect { effects.apply(it) } }
-        scope.launch { c.settings.flow.map { it.skipSilence }.distinctUntilChanged().collect { player.skipSilenceEnabled = it } }
+        // The equalizer as set, or the preset picked for the output playing now (the car's, the earbuds'; A3).
+        scope.launch {
+            kotlinx.coroutines.flow.combine(c.settings.flow.map { it.eq }, c.headphoneEq.output, c.eqPresets.outputs, c.eqPresets.saved) { eq, out, map, saved ->
+                com.prism.music.data.prefs.EqPresetStore.effective(eq, out?.key, map, saved)
+            }.distinctUntilChanged().collect { eqNow = it; effects.apply(it) }
+        }
+        scope.launch { c.settings.flow.map { it.skipSilence to it.sound.skipSilenceEpisodes }.distinctUntilChanged().collect { applySkipSilence() } }
+        scope.launch { c.settings.flow.map { it.sound.normalizeTarget to it.sound.normalizeAlbums }.distinctUntilChanged().drop(1).collect { applyNormalization() } }
+        sessionPlayer.gentle = ::gentle
         scope.launch { c.settings.flow.map { it.behavior.pauseOnMute }.distinctUntilChanged().collect { muteWatch.update() } }
         scope.launch { c.settings.flow.map { it.audioDiagnostics }.distinctUntilChanged().collect { on -> AudioDiagnostics.setEnabled(on) { AudioDiagnostics.about(c) } } }
         // The buttons beside play follow Settings → Player → Buttons as soon as they're changed.
@@ -267,8 +274,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         // Sing: getting the playing and next songs ready, and the key moved for the singer.
         scope.launch {
             kotlinx.coroutines.flow.combine(c.sing.on, c.sing.semitones) { on, st -> on to st }.collect { (on, _) ->
-                val pitch = singPitch()
-                if (player.playbackParameters.pitch != pitch) player.playbackParameters = androidx.media3.common.PlaybackParameters(player.playbackParameters.speed, pitch)
+                val pitch = applyPitch()
                 AudioDiagnostics.log("sing", "key ${c.sing.semitones.value} (pitch %.3f), Sing ${if (on) "on" else "off"}".format(pitch))
                 if (on) singAhead()
             }
@@ -331,7 +337,9 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             scanFromPhone = { id -> scope.launch { c.mixTempo.measure(id, network = false) } },
             buildTail = ::buildTailPlayer,
             onSettled = ::restoreMusicSpeed,
-            pitch = ::singPitch,
+            pitch = ::pitchNow,
+            curve = { c.settings.current.sound.crossfadeCurve },
+            state = c.mixState,
         ).also { it.start() }
         // Prism Connect: the speaker or TV being cast to plays what this player plays, and its volume is the session's.
         sessionPlayer.remote = object : LyricsOverlayPlayer.Remote {
@@ -346,13 +354,14 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
                 // The renderer gets the sound only: a video goes back to the song, and episodes play at 1×.
                 videoWanted = false
                 if (player.currentMediaItem?.videoModeId != null) scope.launch { setVideoMode(false) }
-                if (player.playbackParameters.speed != 1f) player.setPlaybackSpeed(1f)
+                if (player.playbackParameters != androidx.media3.common.PlaybackParameters.DEFAULT) player.playbackParameters = androidx.media3.common.PlaybackParameters.DEFAULT
             }
 
             override fun afterCasting() {
                 val now = player.currentMediaItem?.toSong()
                 if (now?.isEpisode == true && episodeSpeed != 1f) player.setPlaybackSpeed(episodeSpeed)
                 else if (now != null && !now.isEpisode && !now.isLive && musicSpeed != 1f) player.setPlaybackSpeed(musicSpeed)
+                applyPitch()
             }
 
             override fun remoteChanged() = sessionPlayer.remoteChanged()
@@ -362,6 +371,8 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     private lateinit var mix: MixEngine
+    /** The equalizer in use now (as set, or the output's own preset). */
+    private var eqNow = com.prism.music.data.prefs.EqSettings()
 
     /**
      * Whether Mix may blend these two: not an album running into its own next track (albums are made to flow on
@@ -432,19 +443,20 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             .also {
                 it.skipSilenceEnabled = false
                 // The ending song in the key it was playing in (Sing): the blend used to drop back to the original key.
-                singPitch().takeIf { p -> p != 1f }?.let { p -> it.playbackParameters = androidx.media3.common.PlaybackParameters(1f, p) }
+                pitchNow().takeIf { p -> p != 1f }?.let { p -> it.playbackParameters = androidx.media3.common.PlaybackParameters(1f, p) }
                 // With the equalizer on, the tail gets its own audio session and its own copy of the equalizer (Reddit R3:
                 // "crossfade breaks while the equalizer is on"). Two players on one session share one effect chain, which
                 // the platform rebuilds as the tail's track comes and goes. Without the equalizer it shares the main
                 // session, as before (other apps' effects such as Dolby follow that one).
-                if (s.eq.enabled) {
+                val eq = eqNow
+                if (eq.enabled) {
                     val session = androidx.media3.common.util.Util.generateAudioSessionIdV21(this)
                     it.setAudioSessionId(session)
-                    val tailEffects = AudioEffects(this, announce = false).apply { apply(s.eq); attach(session) }
+                    val tailEffects = AudioEffects(this, announce = false).apply { apply(eq); attach(session) }
                     it.addAnalyticsListener(object : AnalyticsListener {
                         override fun onPlayerReleased(eventTime: AnalyticsListener.EventTime) = tailEffects.shutdown()
                     })
-                    AudioDiagnostics.log("mix", "tail on its own session $session with the equalizer (${s.eq.preset})")
+                    AudioDiagnostics.log("mix", "tail on its own session $session with the equalizer (${eq.preset})")
                 } else it.setAudioSessionId(player.audioSessionId)
             }
     }
@@ -553,6 +565,8 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             if (lastWasEpisode) videoWanted = false
         }
         lastWasEpisode = song.isEpisode
+        applyPitch()
+        applySkipSilence()
         // Already playing: a seamless move on (gapless, or a Mix blend); nothing to time.
         startedLoading = if (player.isPlaying) null else song.id to SystemClock.elapsedRealtime()
         retries.remove(song.id)
@@ -608,6 +622,66 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             val song = player.currentMediaItem?.toSong() ?: return
             if (!song.isEpisode && !song.isLive && !c.cast.casting) player.setPlaybackSpeed(v)
         }
+
+    /** Songs' own pitch in semitones (1.7.8, R12; the Speed & pitch sheet), apart from Sing's key. */
+    var musicPitch = 0
+        set(v) { field = v; if (::player.isInitialized) applyPitch() }
+
+    /** The pitch to play at now: Sing's key and the listener's own pitch, for songs (episodes, live and casting at 1). */
+    private fun pitchNow(): Float {
+        val song = player.currentMediaItem?.toSong()
+        val own = if (song == null || song.isEpisode || song.isLive || c.cast.casting) 0 else musicPitch
+        return singPitch() * Math.pow(2.0, own / 12.0).toFloat()
+    }
+
+    /** Puts [pitchNow] on the player (the speed stays); returns it. */
+    private fun applyPitch(): Float {
+        val pitch = pitchNow()
+        if (player.playbackParameters.pitch != pitch) player.playbackParameters = androidx.media3.common.PlaybackParameters(player.playbackParameters.speed, pitch)
+        return pitch
+    }
+
+    /** Skip silence for what's playing: songs and podcast episodes each have their own switch (1.7.8, A4). */
+    private fun applySkipSilence() {
+        val s = c.settings.current
+        val on = if (player.currentMediaItem?.toSong()?.isEpisode == true) s.sound.skipSilenceEpisodes else s.skipSilence
+        if (player.skipSilenceEnabled != on) player.skipSilenceEnabled = on
+    }
+
+    private var fadeJob: Job? = null
+
+    /**
+     * "Fade on pause and play" (1.7.8, A5): a pause fades the sound out over a quarter of a second first, a play starts
+     * silent and comes up. Through the player's own volume (heard at once). Not mid-crossfade (the blend owns the volume)
+     * or while casting. Returns false when the change should simply be made.
+     */
+    internal fun gentle(play: Boolean): Boolean {
+        if (!c.settings.current.sound.pauseFade || mixing() || c.cast.casting) return false
+        if (play == player.playWhenReady && fadeJob?.isActive != true) return false
+        fadeJob?.cancel()
+        fadeJob = scope.launch {
+            if (!play) {
+                val from = player.volume
+                for (i in 1..PAUSE_FADE_STEPS) {
+                    player.volume = from * (1f - i.toFloat() / PAUSE_FADE_STEPS).let { it * it }
+                    delay(PAUSE_FADE_STEP_MS)
+                }
+                player.pause()
+                player.volume = 1f
+            } else {
+                val from = if (player.playWhenReady) player.volume else 0f
+                player.volume = from
+                if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                player.play()
+                for (i in 1..PAUSE_FADE_STEPS) {
+                    delay(PAUSE_FADE_STEP_MS)
+                    player.volume = from + (1f - from) * (i.toFloat() / PAUSE_FADE_STEPS).let { it * it }
+                }
+                player.volume = 1f
+            }
+        }
+        return true
+    }
 
     private fun mixing() = ::mix.isInitialized && mix.blending
 
@@ -847,16 +921,33 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
      */
     private fun settling() = player.currentPosition < SETTLE_MS
 
+    /**
+     * "Albums as they are" (A2): while an album plays through, every song gets the same gain, set by the loudest of its
+     * songs measured so far, so a quiet interlude stays quiet next to the single. Null otherwise.
+     */
+    private fun albumLoudness(): Float? {
+        if (!c.settings.current.sound.normalizeAlbums || c.queue.source.value.kind != QueueKind.ALBUM) return null
+        val album = trackedSong?.album?.id ?: return null
+        return (0 until player.mediaItemCount).mapNotNull { i ->
+            val item = player.getMediaItemAt(i)
+            if (item.toSong()?.album?.id == album) c.mixTempo.loudness(item.mediaId) else null
+        }.maxOrNull()
+    }
+
     private fun applyNormalization() {
         // The song's own measured loudness (integrated LUFS, from [MixTempo]'s scan) is the real figure. YouTube's
         // loudnessDb hardly differs between a loud master and a quiet one, so it only stands in until the song is
         // measured.
         val measured = trackedSong?.id?.let { c.mixTempo.loudness(it) }
         val yt = songLoudness
+        // The level picked (A2; -14 LUFS unless changed), and with "Albums as they are" one level for a whole album.
+        val target = c.settings.current.sound.normalizeTarget.toFloat()
+        val album = albumLoudness()
         val gain = when {
             !c.settings.current.normalize -> 0f
-            measured != null -> (TARGET_LUFS - measured).coerceIn(-12f, 6f)
-            yt != null -> (-yt).coerceIn(-12f, 6f)
+            album != null -> (target - album).coerceIn(-12f, 6f)
+            measured != null -> (target - measured).coerceIn(-12f, 6f)
+            yt != null -> (-yt + (target - TARGET_LUFS)).coerceIn(-12f, 6f)
             else -> 0f
         }
         // Once the song is under way, a better figure eases in over two seconds, and a small one isn't worth a change
@@ -2194,6 +2285,9 @@ internal fun wontPlayHere(error: Throwable, refused: Boolean = false): Boolean {
 }
 
 private const val TARGET_LUFS = -14f
+/** "Fade on pause and play" (A5): 8 steps of 30 ms. */
+private const val PAUSE_FADE_STEPS = 8
+private const val PAUSE_FADE_STEP_MS = 30L
 
 /** How far a music video's length may be from its song's for its sound to play in the song's place (#93, Reddit R1). */
 private const val SOUND_FROM_SLACK_SEC = 8

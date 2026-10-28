@@ -208,13 +208,14 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     var showOutputs by remember { mutableStateOf(false) }
     var showPlaylists by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
+    var showSpeed by remember { mutableStateOf(false) }
     var fullscreenVideo by rememberSaveable { mutableStateOf(false) }
     var videoFill by rememberSaveable { mutableStateOf(true) }
 
     // A sheet over the player (⋯, lyrics source, sleep timer): what moves underneath it every frame (the animated
     // cover, the word sweep, the title marquee) holds still, since both windows draw on the same thread and dragging
     // the sheet stuttered. The timing sheet isn't counted: the lyrics are what's being lined up there.
-    val covered = showActions || showProviders || showSleep || showSing || showOutputs || showPlaylists || showShare
+    val covered = showActions || showProviders || showSleep || showSing || showOutputs || showPlaylists || showShare || showSpeed
     // Where the lyrics are on show (the lyrics view, immersive mode, the source sheet): with "Lyrics on mobile data"
     // off, that's when they're looked up on mobile data (#95).
     // Settings → Player → Layout (1.7.4); a wide player (tablet, landscape) keeps its own.
@@ -444,6 +445,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             onRedownloadLyrics = { lyricsState.redownload() },
             onToggleStats = { toggleStats() },
             onSleepTimer = { showSleep = true },
+            onSpeedPitch = { showSpeed = true },
             onCollapse = onCollapse,
             romanizable = hasForeignScript(lyricsState),
             // Sing from the menu: the lyrics open with Sing on and its controls up (the download sheet the first time).
@@ -461,6 +463,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
         }
         if (showPlaylists) com.prism.music.ui.components.PlaylistPicker(song) { showPlaylists = false }
         if (showShare) com.prism.music.ui.components.ShareSheet(song.shareTarget()) { showShare = false }
+        if (showSpeed) SpeedPitchSheet(song) { showSpeed = false }
     }
     // The bottom row's buttons that open something over the player (Settings → Player → Buttons).
     val onButton: (com.prism.music.data.prefs.PlayerButton) -> Unit = { b ->
@@ -469,6 +472,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             com.prism.music.data.prefs.PlayerButton.OUTPUT -> showOutputs = true
             com.prism.music.data.prefs.PlayerButton.ADD_TO_PLAYLIST -> showPlaylists = true
             com.prism.music.data.prefs.PlayerButton.SHARE -> showShare = true
+            com.prism.music.data.prefs.PlayerButton.SPEED -> showSpeed = true
             // As ⋯ → Sing: the lyrics open with Sing on and its controls up (the download sheet the first time).
             com.prism.music.data.prefs.PlayerButton.SING ->
                 if (!c.sing.engineReady()) showSing = true
@@ -868,6 +872,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 onState = { if (it is AsyncImagePainter.State.Success) artLoaded = true },
                                 modifier = Modifier.fillMaxSize(),
                             )
+                            if (!videoMode) BlendingCover(song.id, Modifier.fillMaxSize())
                             }
                             if (!heroMode && !videoMode && !canvasBehind && !vinyl && !cassette) canvas?.takeIf { !collapsePastHalf }?.let { clip ->
                                 CanvasPlayer(clip, canvasSaved, isPlaying, Modifier.fillMaxSize(), onCoverChanged = { canvasCover = it })
@@ -1253,4 +1258,26 @@ internal fun SeekLabel(f: SeekFlash, modifier: Modifier) {
         )
         if (f.ahead) Icon(PrismIcons.Next, null, tint = Color.White, modifier = Modifier.size(16.dp))
     }
+}
+
+/**
+ * "Covers blend too" (1.7.8, A6, after Apple Music): while a crossfade plays into [songId], the ending song's cover lies
+ * over it and fades away over the blend, so the cover changes with the sound instead of at the blend's start. With
+ * Reduce motion it simply switches halfway. Nothing is drawn otherwise.
+ */
+@Composable
+private fun BlendingCover(songId: String, modifier: Modifier) {
+    val c = LocalContainer.current
+    val settings = com.prism.music.ui.theme.LocalAppSettings.current
+    if (!settings.view.blendCovers) return
+    val blend by c.mixState.blend.collectAsState()
+    val now = blend?.takeIf { it.toId == songId } ?: return
+    val queue by c.player.queue.collectAsState()
+    val from = remember(now.fromId) { queue.firstOrNull { it.song.id == now.fromId }?.song } ?: return
+    val alpha = if (settings.reduceMotion) (if (now.progress < 0.5f) 1f else 0f) else 1f - now.progress
+    if (alpha <= 0f) return
+    coil3.compose.AsyncImage(
+        hiRes(from.thumbnail, 1200), null, contentScale = ContentScale.Crop,
+        modifier = modifier.graphicsLayer { this.alpha = alpha },
+    )
 }

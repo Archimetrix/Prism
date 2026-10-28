@@ -440,6 +440,10 @@ class AppContainer(val app: Application) {
     val recognizer by lazy { com.prism.music.data.recognize.Recognizer(this) }
 
     /** Headphone correction (AutoEq profiles per headphones). */
+    /** Crossfade's plan and progress, for the player's mark and blended covers (1.7.8, A6). */
+    val mixState = com.prism.music.playback.MixState()
+    /** Your own equalizer presets, and the one picked for each output (1.7.8, A3). */
+    val eqPresets by lazy { com.prism.music.data.prefs.EqPresetStore(app) }
     val headphoneEq by lazy { com.prism.music.data.HeadphoneEq(app, http, scope, player.preferredOutput) }
 
     /** "Listening to Prism" on the listener's Discord profile, when they've turned it on (Settings → Discord). */

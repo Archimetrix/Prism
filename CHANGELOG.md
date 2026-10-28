@@ -4,6 +4,28 @@ What changed in each release. Older releases are described on the [Releases page
 
 ## 1.7.8 (unreleased)
 
+### Sound, your way
+
+Settings → Playback & sound. Every default sounds as 1.7.7 did.
+
+- **Speed & pitch** (Reddit): the Speed button under the player (and the player's ⋯) opens a sheet with speed from 0.5×
+  to 2× and pitch up to 12 semitones up or down, each on its own, plus quick picks: Slowed, Sped up, A little faster.
+  "Start like this every time" keeps them for when Prism opens (also in Settings). Podcasts keep their own speed; live
+  streams and casting play as they are. Sing's key change comes on top.
+- **How songs cross in a crossfade**: Smooth (equal power, as before), Straight, Gentle (an S-curve) or DJ cut (both at
+  full, then a quick swap halfway), each drawn on its card.
+- **Crossfade mark and blending covers** (Reddit): a mark on the progress bar where the next song will come in, and the
+  player's cover dissolving into the next one's over the crossfade instead of switching at its start.
+- **Normalize volume's level**: Loud (-8 LUFS), Louder (-11), Standard (-14, as before), Quieter (-16, like Apple Music)
+  or Broadcast (-23). **Albums as they are**: an album playing through gets one volume change for all its songs, so a
+  quiet interlude stays quiet next to the single.
+- **Your own equalizer presets**: save the equalizer under a name, send one to a friend as a code and paste theirs in,
+  and pick a preset for whatever plays the music now (the car, your earbuds): Prism switches to it whenever that output
+  plays.
+- **Fades**: the sleep timer can fade the music out over up to a minute, and pausing and playing can fade instead of cut.
+- **Skip silence for podcasts on its own**: songs and episodes each have their switch (episodes start where the one
+  switch was).
+
 ### Your requests
 
 Every one of these is a choice; nothing changes until you pick it.
