@@ -131,7 +131,9 @@ class PrismAccount(private val c: AppContainer) {
             if (!c.prismLibrary.isSaved(a.id)) c.prismLibrary.saveAlbum(SavedAlbum(a.id, a.title, a.subtitle, a.thumbnail, a.playlistId, now))
         }
         val starred = c.artistPrefs.favorites.value.map { it.id }.toSet()
-        val artists = c.library.artists.value.filterIsInstance<ArtistItem>()
+        // Only the artists the account follows (#182): the library's artist list also holds the artist of every
+        // library song, which starred ~1,000 artists for one listener.
+        val artists = runCatching { c.ytm.librarySubscriptions() }.getOrDefault(emptyList())
         artists.filter { it.id !in starred }.forEach { a -> c.artistPrefs.setFavorite(FavoriteArtist(a.id, a.title, a.thumbnail), true) }
         _profile.value?.let { write(it.copy(brought = brought, broughtAt = now)) }
         Brought(copied, albums.size, artists.size, failed)

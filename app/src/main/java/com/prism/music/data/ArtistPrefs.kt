@@ -36,6 +36,31 @@ class ArtistPrefs(context: Context) {
         prefs.edit().putString("favorites", InnerTube.json.encodeToString(listSerializer, next)).apply()
     }
 
+    /** Takes [ids] off the starred list in one go. */
+    fun unstar(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        val next = favorites.value.filterNot { it.id in ids }
+        favorites.value = next
+        prefs.edit().putString("favorites", InnerTube.json.encodeToString(listSerializer, next)).apply()
+    }
+
+    /**
+     * GitHub #182 (1.7.7.1): bringing the YouTube Music library over starred every artist of every library song (~1,000
+     * for one listener), not only the ones the account follows. Once, the stars that came in such a batch are taken off
+     * unless [followed] (the account's subscriptions; null when they can't be had, e.g. signed out) has them; stars
+     * given by hand stay. False when it has to wait (the subscriptions couldn't be asked); true once done.
+     */
+    val starsRepaired: Boolean get() = prefs.getBoolean(REPAIRED, false)
+
+    fun repairBroughtStars(followed: Set<String>?, signedIn: Boolean): Boolean {
+        if (prefs.getBoolean(REPAIRED, false)) return true
+        if (signedIn && followed == null) return false
+        val batch = broughtInBatch(favorites.value)
+        unstar(batch.map { it.id }.filterTo(HashSet()) { followed == null || it !in followed })
+        prefs.edit().putBoolean(REPAIRED, true).apply()
+        return true
+    }
+
     /** Null means Prism picks (by genre and audience). */
     fun signature(id: String): String? = signatures.value[id]
 
@@ -54,8 +79,31 @@ class ArtistPrefs(context: Context) {
         prefs.edit().apply { if (color == null) remove(COL + id) else putInt(COL + id, color) }.apply()
     }
 
-    private companion object {
-        const val SIG = "sig:"
-        const val COL = "col:"
+    companion object {
+        private const val SIG = "sig:"
+        private const val COL = "col:"
+        private const val REPAIRED = "stars_repaired_182"
+
+        /**
+         * Stars that arrived as a batch: [MIN_BATCH] or more, each within [BATCH_GAP_MS] of the one before (bringing the
+         * library over stars them milliseconds apart; a listener starring by hand never does ten in a row that fast).
+         */
+        internal fun broughtInBatch(list: List<FavoriteArtist>): List<FavoriteArtist> {
+            val sorted = list.filter { it.at > 0 }.sortedBy { it.at }
+            val out = ArrayList<FavoriteArtist>()
+            var run = ArrayList<FavoriteArtist>()
+            for (a in sorted) {
+                if (run.isNotEmpty() && a.at - run.last().at > BATCH_GAP_MS) {
+                    if (run.size >= MIN_BATCH) out += run
+                    run = ArrayList()
+                }
+                run += a
+            }
+            if (run.size >= MIN_BATCH) out += run
+            return out
+        }
+
+        private const val MIN_BATCH = 10
+        private const val BATCH_GAP_MS = 5_000L
     }
 }

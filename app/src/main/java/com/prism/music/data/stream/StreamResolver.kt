@@ -376,10 +376,21 @@ class StreamResolver(
      * direct link, so it failed twice and was skipped); it goes through NewPipe, as before the direct lookup.
      */
     fun invalidate(videoId: String, refused: Boolean = false) {
-        cache.remove(videoId)
+        val was = cache.remove(videoId)
+        // The account's own link was the one turned away (its web client's links stop after the first megabyte without
+        // a PO token, GitHub #188 #192): asking as the account again gets the same, so the other ways are tried first
+        // from now on. Before, such a song stayed "account only" and every try failed ~1 minute in.
+        if (refused && was?.via?.startsWith("account") == true) {
+            if (accountRefused.add(videoId)) {
+                needsAccount -= videoId
+                Log.i("PrismStream", "$videoId: the account's link was refused (${was.via}); trying the other ways first")
+                runCatching { com.prism.music.playback.AudioDiagnostics.log("stream", "$videoId: the account's link was refused (${was.via}); trying the other ways first") }
+            }
+            return
+        }
         // Turned away a second time (the direct link and then NewPipe's): a song only the account may play, such as
         // music the listener uploaded themselves (GitHub #101, "response code: 403"). Asked for as the account from then on.
-        if (refused && !directRefused.add(videoId) && settings.current.isLoggedIn) {
+        if (refused && !directRefused.add(videoId) && settings.current.isLoggedIn && videoId !in accountRefused) {
             needsAccount += videoId
             Log.i("PrismStream", "$videoId refused twice: asking as the signed-in account from now on")
         }
@@ -392,6 +403,12 @@ class StreamResolver(
 
     /** Songs whose direct ([directFormats]) links were turned away: looked up through NewPipe from then on. */
     private val directRefused = ConcurrentHashMap.newKeySet<String>()
+
+    /** Songs whose account link was turned away: the anonymous ways come first for them ([invalidate]). */
+    private val accountRefused = ConcurrentHashMap.newKeySet<String>()
+
+    /** Whether [videoId]'s account link was turned away this session ([invalidate]); playback falls back sooner then. */
+    fun accountWasRefused(videoId: String): Boolean = videoId in accountRefused
 
     /** Resolves a song ahead of time (e.g. the next one in the queue) so it starts straight away. */
     fun prefetch(videoId: String) {
@@ -460,7 +477,7 @@ class StreamResolver(
     private fun load(videoId: String): Formats {
         val signedIn = settings.current.isLoggedIn
         if (signedIn && videoId in needsAccount) return signedInFormats(videoId)
-        premiumFormats(videoId)?.let { return it }
+        if (videoId !in accountRefused) premiumFormats(videoId)?.let { return it }
         // While YouTube is blocking NewPipe here, signed-in playback goes straight to the account's own clients
         // (each song would otherwise wait for NewPipe to be refused first).
         if (signedIn && System.currentTimeMillis() < newPipeBlockedUntil) {
@@ -561,7 +578,7 @@ class StreamResolver(
         )
     }
 
-    /** The player response as the signed-in user: the TV client first (no PO token needed), then the web app. */
+    /** The player response as the signed-in user: the TV clients first (no PO token needed), then the web app. */
     private fun signedInFormats(videoId: String): Formats {
         val player = try {
             solver.currentPlayer()
@@ -577,18 +594,46 @@ class StreamResolver(
                 innerTube.signedInPlayer(client, videoId, player?.second)
             } catch (e: Exception) {
                 reason = reason ?: e.message
+                noteClient(client, "request failed: ${e.message}")
                 continue
             }
-            if (res.str("playabilityStatus", "status") != "OK") {
+            val status = res.str("playabilityStatus", "status")
+            if (status != "OK") {
                 reason = res.str("playabilityStatus", "reason") ?: reason
+                noteClient(client, "$status (${res.str("playabilityStatus", "reason")})")
                 continue
             }
             val f = parsePlayer(res, player?.first, via = "account (${client.name})")
             if (f.live && f.hlsUrl == null) { liveWithoutHls = liveWithoutHls ?: f; continue }
             if (f.audio.isNotEmpty() || (f.live && f.hlsUrl != null)) return f
+            noteClient(client, "OK but no audio links (${linkless(res)})")
         }
         liveWithoutHls?.let { return it }
         throw StreamException(reason ?: "Couldn't load this track")
+    }
+
+    /**
+     * Why one of the account's clients gave nothing, into the diagnostics once per client and answer (GitHub #188,
+     * #192: every account song came from the web client, whose links YouTube cuts off after the first megabyte without
+     * a PO token, while the TV client, which needs none, never answered; the logs couldn't say why).
+     */
+    private fun noteClient(client: InnerTube.PlayerClient, what: String) {
+        val line = "${client.name}: ${what.take(160)}"
+        if (clientNotes.add(line)) {
+            Log.i("PrismStream", "account client $line")
+            runCatching { com.prism.music.playback.AudioDiagnostics.log("stream", "account client $line") }
+        }
+    }
+
+    private val clientNotes = ConcurrentHashMap.newKeySet<String>()
+
+    /** How an OK answer's formats come: without links at all is YouTube's newer streaming (SABR) only. */
+    private fun linkless(res: JsonObject): String {
+        val data = res.obj("streamingData")
+        val all = data?.arr("adaptiveFormats").orEmpty().mapNotNull { it as? JsonObject }
+        val bare = all.count { it.str("url") == null && it.str("signatureCipher") == null && it.str("cipher") == null }
+        val sabr = data?.str("serverAbrStreamingUrl") != null
+        return "${all.size} formats, $bare without a link${if (sabr) ", streaming-only (SABR)" else ""}"
     }
 
     /**

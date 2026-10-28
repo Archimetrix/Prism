@@ -179,8 +179,12 @@ fun LibraryScreen(bottomPadding: Dp) {
     val mine = remember(liked, dls) {
         (liked + dls.values.filter { it.state == androidx.media3.exoplayer.offline.Download.STATE_COMPLETED }.mapNotNull { it.song }).distinctBy { it.id }
     }
-    val albums = remember(remoteAlbums, mine, savedAlbums) {
-        (savedAlbums.map { it.item() } + remoteAlbums + LibraryRepository.albumsFrom(mine)).distinctBy { it.id }
+    // Signed in, Albums is the account's saved albums (and ones saved in Prism), as in YouTube Music (#191: 56 saved
+    // showed as many more, singles too, since the albums of every liked and downloaded song were added). Without an
+    // account, those songs' albums are all there is to show. Downloaded albums are on the Downloads page either way.
+    val signedIn = settings.isLoggedIn
+    val albums = remember(remoteAlbums, mine, savedAlbums, signedIn) {
+        (savedAlbums.map { it.item() } + remoteAlbums + if (signedIn) emptyList() else LibraryRepository.albumsFrom(mine)).distinctBy { it.id }
     }
     // Starred artists lead, marked as favourites.
     val artists = remember(remoteArtists, mine, thumbs, favorites) {

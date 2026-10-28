@@ -258,10 +258,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             if (previousNavColor != null) window.navigationBarColor = previousNavColor
         }
     }
-    // Lyrics on screen keep it awake (a wide player shows them unless its other pane is picked).
+    // Lyrics on screen keep it awake (a wide player shows them unless its other pane is picked), and so does a music
+    // video while it plays (GitHub #169: the screen went off mid-video).
     val lyricsInView = lyricsOpen || (wide && !queueOpen && !statsOpen)
-    DisposableEffect(lyricsInView) {
-        view.keepScreenOn = lyricsInView
+    val awake = lyricsInView || (videoMode && isPlaying)
+    DisposableEffect(awake) {
+        view.keepScreenOn = awake
         onDispose { view.keepScreenOn = false }
     }
 

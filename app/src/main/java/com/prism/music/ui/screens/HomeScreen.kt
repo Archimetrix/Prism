@@ -734,7 +734,7 @@ private fun SongSection(
 @Composable
 private fun ShelfSection(cfg: HomeSectionConfig, shelf: Shelf, open: (BrowseItem) -> Unit) {
     val nav = LocalNavigator.current
-    val more = shelf.moreBrowseId?.let { id -> { nav.go(Routes.browse(id, shelf.moreParams, shelf.title)) } }
+    val more = shelf.moreBrowseId?.let { id -> { ShelfPages.opened[id] = shelf; nav.go(Routes.browse(id, shelf.moreParams, shelf.title)) } }
     val songs = shelf.items.filterIsInstance<SongItem>().map { it.song }
     // A shelf of song rows (YouTube's own Quick picks in another language, #131) stops on each column as Prism's does.
     if (cfg.style == SectionStyle.LIST && songs.size == shelf.items.size) {

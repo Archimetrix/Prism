@@ -98,15 +98,27 @@ class VideoSync(
     }
 
     private suspend fun measure(songId: String, videoId: String): Long? = coroutineScope {
-        val seconds = withContext(analysis) {
-            videoSeconds(runCatching { streams.analysisAudio(songId).durationSec }.getOrDefault(0), runCatching { streams.analysisAudio(videoId).durationSec }.getOrDefault(0))
+        val (songSec, videoSec) = withContext(analysis) {
+            runCatching { streams.analysisAudio(songId).durationSec }.getOrDefault(0) to runCatching { streams.analysisAudio(videoId).durationSec }.getOrDefault(0)
         }
+        val seconds = videoSeconds(songSec, videoSec)
         val song = async(analysis) { fingerprintOf(songId, SONG_SECONDS) }
         val video = async(analysis) { fingerprintOf(videoId, seconds) }
         val s = song.await() ?: return@coroutineScope null
         val v = video.await() ?: return@coroutineScope null
         ensureActive()
-        withContext(analysis) { align(s, v, frameMs) }?.also { Log.i(TAG, "sync $songId -> $videoId: ${it}ms") }
+        val lag = withContext(analysis) { align(s, v, frameMs) }
+        val kept = lag?.takeIf { fits(it, songSec, videoSec) }
+        Log.i(TAG, "sync $songId -> $videoId: ${lag}ms${if (lag != null && kept == null) " (doesn't fit their lengths)" else ""}")
+        AudioDiagnostics.log(
+            "background",
+            "video sync of $songId → $videoId: " + when {
+                lag == null -> "no match"
+                kept == null -> "${lag / 1000.0} s, more than the video's ${videoSec - songSec} s difference in length: not used"
+                else -> "the video is ${lag / 1000.0} s ${if (lag >= 0) "behind" else "ahead"}"
+            },
+        )
+        kept
     }
 
     /**
@@ -224,6 +236,19 @@ class VideoSync(
         private const val DUMP = false
         /** Diagnostics hook (tests print it). */
         var log: (String) -> Unit = { Log.d(TAG, it) }
+        /**
+         * Whether a measured lag (video time minus song time) can be real for a song of [songSec] and a video of
+         * [videoSec]: an intro can't be longer than what the video adds, nor a cut start longer than what it leaves out
+         * (with [LENGTH_SLACK_MS] for fades and endings). GitHub #180: switching to the video jumped ~40 s ahead, a
+         * match on a repeated chorus. Unknown lengths aren't held against it.
+         */
+        internal fun fits(lagMs: Long, songSec: Long, videoSec: Long): Boolean {
+            if (songSec <= 0 || videoSec <= 0) return true
+            val extra = (videoSec - songSec) * 1000
+            return lagMs <= maxOf(0L, extra) + LENGTH_SLACK_MS && lagMs >= -(maxOf(0L, -extra) + LENGTH_SLACK_MS)
+        }
+
+        private const val LENGTH_SLACK_MS = 8_000L
         const val SONG_SECONDS = 70
         const val VIDEO_SECONDS = 190
         private const val MAX_VIDEO_SECONDS = 540

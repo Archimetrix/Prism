@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -45,6 +48,7 @@ import com.prism.music.ui.theme.PrismIcons
 import com.prism.music.ui.theme.PrismTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 /** What "Customize this" (1.7.3) can open settings for, and where those settings live. */
 enum class CustomizeTarget(val title: String) {
@@ -112,6 +116,34 @@ fun CustomizingPill(modifier: Modifier = Modifier) {
             Spacer(Modifier.width(10.dp))
             Text("Tap anything outlined to change it", style = MaterialTheme.typography.bodyMedium, color = scheme.inverseOnSurface)
             PrismTextButton({ c.customizing.value = false }) { Text("Done", color = scheme.inversePrimary) }
+        }
+    }
+}
+
+/**
+ * After Day and night switched Looks while the settings were the listener's own (GitHub #174: "my customizations reset
+ * after a few hours"): says they're kept as "Before <Look>", with a way straight back. Stays until answered.
+ */
+@Composable
+fun ScheduleKeptBar(modifier: Modifier = Modifier) {
+    val c = LocalContainer.current
+    val kept by c.looks.keptBySchedule.collectAsState()
+    val scope = rememberCoroutineScope()
+    AnimatedVisibility(kept != null, modifier, enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut()) {
+        val name = kept ?: return@AnimatedVisibility
+        val scheme = MaterialTheme.colorScheme
+        Column(
+            Modifier.widthIn(max = 520.dp).clip(RoundedCornerShape(20.dp)).background(scheme.inverseSurface)
+                .padding(start = 18.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+        ) {
+            Text(
+                "Day and night switched to $name. Your own settings are kept in Your Looks as \"Before $name\".",
+                style = MaterialTheme.typography.bodyMedium, color = scheme.inverseOnSurface,
+            )
+            Row(Modifier.align(Alignment.End)) {
+                PrismTextButton({ c.looks.dismissKept() }) { Text("OK", color = scheme.inversePrimary) }
+                PrismTextButton({ scope.launch { c.looks.bringBackKept() } }) { Text("Bring them back", color = scheme.inversePrimary) }
+            }
         }
     }
 }
