@@ -340,6 +340,7 @@ object PrismIcons {
     val Timer = drawn("Timer")
     val Moon = drawn("Moon")
     val Sun = drawn("Sun")
+    val Calendar = drawn("Calendar")
     val Looks = drawn("Looks")
     val Undo = drawn("Undo")
     val Stats = drawn("Stats")

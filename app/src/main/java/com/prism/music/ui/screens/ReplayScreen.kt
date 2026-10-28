@@ -78,26 +78,59 @@ import com.prism.music.ui.components.SectionHeader
 import com.prism.music.ui.theme.LocalAppSettings
 import com.prism.music.ui.theme.LocalContainer
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.foundation.layout.heightIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-/** A stretch of Replay: this month, the last 30 days, a calendar year (its Rewind), or everything. */
-internal data class Period(val kind: Kind, val year: Int = 0) {
-    enum class Kind { MONTH, DAYS30, YEAR, ALL }
+/**
+ * A stretch of Replay: today, this week, this month, the last 30 days, a calendar year (its Rewind), everything, or
+ * (1.7.8, #149) any month ([year] + [month], 0–11) or any days ([fromDay]..[toDay], days since 1970 on the phone's clock).
+ */
+internal data class Period(val kind: Kind, val year: Int = 0, val month: Int = 0, val fromDay: Long = 0, val toDay: Long = 0) {
+    enum class Kind { TODAY, WEEK, MONTH, DAYS30, YEAR, ALL, MONTH_OF, DAYS }
 
     val isYear: Boolean get() = kind == Kind.YEAR
-    val label: String get() = when (kind) { Kind.MONTH -> "This month"; Kind.DAYS30 -> "Last 30 days"; Kind.YEAR -> "$year"; Kind.ALL -> "All time" }
-    /** For saving the pick ("y2025", "MONTH"…). */
-    val key: String get() = if (isYear) "y$year" else kind.name
+    val label: String get() = when (kind) {
+        Kind.TODAY -> "Today"
+        Kind.WEEK -> "This week"
+        Kind.MONTH -> "This month"
+        Kind.DAYS30 -> "Last 30 days"
+        Kind.YEAR -> "$year"
+        Kind.ALL -> "All time"
+        Kind.MONTH_OF -> java.time.YearMonth.of(year, month + 1).let { ym ->
+            ym.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()) + " ${ym.year}"
+        }
+        Kind.DAYS -> {
+            val fmt = java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+            val a = java.time.LocalDate.ofEpochDay(fromDay)
+            val b = java.time.LocalDate.ofEpochDay(toDay)
+            if (a == b) a.format(fmt) else "${a.format(fmt)} – ${b.format(fmt)}"
+        }
+    }
+    /** For saving the pick ("y2025", "MONTH", "m2026-9", "d20380-20390"…). */
+    val key: String get() = when (kind) {
+        Kind.YEAR -> "y$year"
+        Kind.MONTH_OF -> "m$year-$month"
+        Kind.DAYS -> "d$fromDay-$toDay"
+        else -> kind.name
+    }
 
     companion object {
+        val TODAY = Period(Kind.TODAY)
+        val WEEK = Period(Kind.WEEK)
         val MONTH = Period(Kind.MONTH)
         val DAYS30 = Period(Kind.DAYS30)
         val ALL = Period(Kind.ALL)
         fun year(y: Int) = Period(Kind.YEAR, y)
+        fun monthOf(y: Int, m: Int) = Period(Kind.MONTH_OF, y, m)
+        fun days(from: Long, to: Long) = Period(Kind.DAYS, fromDay = minOf(from, to), toDay = maxOf(from, to))
         fun thisYear() = year(Calendar.getInstance().get(Calendar.YEAR))
-        fun of(key: String): Period = key.removePrefix("y").toIntOrNull()?.takeIf { key.startsWith("y") }?.let(::year)
-            ?: Kind.entries.firstOrNull { it.name == key }?.let { Period(it) } ?: thisYear()
+        fun of(key: String): Period {
+            if (key.startsWith("y")) key.drop(1).toIntOrNull()?.let { return year(it) }
+            if (key.startsWith("m")) key.drop(1).split("-").mapNotNull { it.toIntOrNull() }.takeIf { it.size == 2 }?.let { (y, m) -> return monthOf(y, m) }
+            if (key.startsWith("d")) key.drop(1).split("-").mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 }?.let { (a, b) -> return days(a, b) }
+            return Kind.entries.firstOrNull { it.name == key && it != Kind.YEAR && it != Kind.MONTH_OF && it != Kind.DAYS }?.let { Period(it) } ?: thisYear()
+        }
     }
 }
 
@@ -123,12 +156,83 @@ internal fun SongPlays.toSong() = Song(
 
 internal fun range(p: Period): Pair<Long, Long> {
     val now = System.currentTimeMillis()
+    val zone = java.time.ZoneId.systemDefault()
+    // Midnight of a day on the phone's clock (whatever daylight saving does).
+    fun startOf(d: java.time.LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
+    val today = java.time.LocalDate.now(zone)
     return when (p.kind) {
-        Period.Kind.MONTH -> Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis to now
+        Period.Kind.TODAY -> startOf(today) to now
+        // The week as the phone's region starts it (Monday or Sunday).
+        Period.Kind.WEEK -> startOf(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.temporal.WeekFields.of(java.util.Locale.getDefault()).firstDayOfWeek))) to now
+        Period.Kind.MONTH -> startOf(today.withDayOfMonth(1)) to now
         Period.Kind.DAYS30 -> now - 30L * 86_400_000 to now
         // Midnight to midnight on the phone's clock (whatever daylight saving does), up to now for this year.
         Period.Kind.YEAR -> com.prism.music.data.RewindCalendar.bounds(p.year).let { (a, b) -> a to minOf(b, now) }
         Period.Kind.ALL -> 0L to now
+        Period.Kind.MONTH_OF -> java.time.YearMonth.of(p.year, p.month + 1).let { ym -> startOf(ym.atDay(1)) to minOf(startOf(ym.plusMonths(1).atDay(1)) - 1, now) }
+        Period.Kind.DAYS -> startOf(java.time.LocalDate.ofEpochDay(p.fromDay)) to minOf(startOf(java.time.LocalDate.ofEpochDay(p.toDay + 1)) - 1, now)
+    }
+}
+
+/** The "Other dates…" chip (it opens [ReplayDatesSheet]; never a period itself). */
+private val PICK_DATES = Period(Period.Kind.DAYS, fromDay = -1, toDay = -1)
+
+/** Replay for any month you listened in, or any days (#149): a list of the months, and a calendar for days. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ReplayDatesSheet(onPick: (Period) -> Unit, onDismiss: () -> Unit) {
+    val c = LocalContainer.current
+    val months by produceState(emptyList<Period>()) {
+        value = runCatching { c.db.plays().monthly(0, System.currentTimeMillis()) }.getOrDefault(emptyList())
+            .mapNotNull { m -> m.month.split("-").mapNotNull { it.toIntOrNull() }.takeIf { it.size == 2 }?.let { (y, mo) -> Period.monthOf(y, mo - 1) } }
+            .reversed()
+    }
+    var calendar by remember { mutableStateOf(false) }
+    if (calendar) {
+        val now = System.currentTimeMillis()
+        val state = androidx.compose.material3.rememberDateRangePickerState(
+            selectableDates = object : androidx.compose.material3.SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= now
+            },
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { calendar = false },
+            confirmButton = {
+                com.prism.music.ui.components.PrismTextButton(
+                    onClick = {
+                        // The picker's days are UTC midnights: their day numbers are the calendar days picked.
+                        val a = state.selectedStartDateMillis ?: return@PrismTextButton
+                        val b = state.selectedEndDateMillis ?: a
+                        calendar = false
+                        onPick(Period.days(a / 86_400_000, b / 86_400_000))
+                    },
+                    enabled = state.selectedStartDateMillis != null,
+                ) { Text("Show") }
+            },
+            dismissButton = { com.prism.music.ui.components.PrismTextButton(onClick = { calendar = false }) { Text("Cancel") } },
+        ) {
+            androidx.compose.material3.DateRangePicker(state, Modifier.weight(1f), title = { Text("Your Replay for", Modifier.padding(start = 24.dp, top = 16.dp)) })
+        }
+        return
+    }
+    com.prism.music.ui.components.PrismSheet(onDismiss) { close ->
+        Column(Modifier.padding(bottom = 20.dp)) {
+            Text("Other dates", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+            com.prism.music.ui.components.SheetAction(PrismIcons.Calendar, "Pick days on a calendar") { calendar = true }
+            if (months.isNotEmpty()) Text(
+                "A month", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
+            )
+            LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                items(months.size) { i ->
+                    val m = months[i]
+                    Text(
+                        m.label, style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.fillMaxWidth().clickable { close { onPick(m) } }.padding(horizontal = 20.dp, vertical = 12.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -184,6 +288,8 @@ fun ReplayScreen(bottomPadding: Dp) {
         if (c.rewind.isOpen(y)) open(Period.year(y))
     }
     story?.let { ReplayStoryDialog(it) { story = null } }
+    var pickingDates by remember { mutableStateOf(false) }
+    if (pickingDates) ReplayDatesSheet(onPick = { periodKey = it.key; pickingDates = false }) { pickingDates = false }
 
     val list = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrolled by remember { androidx.compose.runtime.derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 24 } }
@@ -194,10 +300,13 @@ fun ReplayScreen(bottomPadding: Dp) {
             com.prism.music.ui.components.ScreenHeader("Replay", subtitle = "Your listening, recapped on-device")
         }
         item {
+            // Any dates (#149): today, this week, any month, or the days you pick, beside the usual ones.
+            val presets = listOf(Period.TODAY, Period.WEEK, Period.MONTH, Period.DAYS30) + years.map { Period.year(it) } + Period.ALL
+            val chips = presets + (if (period !in presets) listOf(period) else emptyList()) + PICK_DATES
             com.prism.music.ui.components.ChipRow(
-                listOf(Period.MONTH, Period.DAYS30) + years.map { Period.year(it) } + Period.ALL, { it == period }, { it.label },
+                chips, { it == period }, { if (it == PICK_DATES) "Other dates…" else it.label },
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            ) { periodKey = it.key }
+            ) { if (it == PICK_DATES) pickingDates = true else periodKey = it.key }
         }
         val d = data
         if (d == null) { item { LoadingState() }; return@LazyColumn }

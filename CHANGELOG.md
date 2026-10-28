@@ -26,6 +26,8 @@ Every one of these is a choice; nothing changes until you pick it.
   blurred copy of itself.
 - **Picture-in-picture only with its button** (#167), **Lock to portrait** (#190), **Pause when muted** (#157: the phone's
   media volume all the way down pauses, up again plays on).
+- **Replay for any dates** (#149): Today, This week and This month beside the usual ones, and "Other dates…" for any
+  month you listened in or any days on a calendar, each with its own story.
 - **Recently played as albums and playlists** (#196): Customize Prism → Home & Library → Recently played shows.
 - **Library → Songs** has search, Shuffle and Play, as the Liked songs page does (#184).
 - **Downloads take a music video's song** (#186), with "Songs, not videos" on: the audio, not the video's sound (the

@@ -106,6 +106,29 @@ class IssueFixes178Test {
         assertEquals(-1, com.prism.music.playback.QueueEdit.plan(4, listOf(3), -1) { _, _ -> 2 }.autoplayStart)
     }
 
+    /** Q11 (#149): Replay for any month and any days; a pick survives being saved and read back. */
+    @Test fun replayForAnyDates() {
+        val zone = java.time.ZoneId.systemDefault()
+        fun ms(d: java.time.LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
+        val march = com.prism.music.ui.screens.Period.monthOf(2025, 2)
+        assertEquals(march, com.prism.music.ui.screens.Period.of(march.key))
+        val (a, b) = com.prism.music.ui.screens.range(march)
+        assertEquals(ms(java.time.LocalDate.of(2025, 3, 1)), a)
+        assertEquals(ms(java.time.LocalDate.of(2025, 4, 1)) - 1, b)
+        // Picked either way round, the days are in order; the last day counts whole.
+        val first = java.time.LocalDate.of(2025, 6, 10).toEpochDay()
+        val last = java.time.LocalDate.of(2025, 6, 12).toEpochDay()
+        val days = com.prism.music.ui.screens.Period.days(last, first)
+        assertEquals(days, com.prism.music.ui.screens.Period.of(days.key))
+        val (from, to) = com.prism.music.ui.screens.range(days)
+        assertEquals(ms(java.time.LocalDate.of(2025, 6, 10)), from)
+        assertEquals(ms(java.time.LocalDate.of(2025, 6, 13)) - 1, to)
+        // The old keys still read as before.
+        assertEquals(com.prism.music.ui.screens.Period.year(2024), com.prism.music.ui.screens.Period.of("y2024"))
+        assertEquals(com.prism.music.ui.screens.Period.DAYS30, com.prism.music.ui.screens.Period.of("DAYS30"))
+        assertEquals(com.prism.music.ui.screens.Period.TODAY, com.prism.music.ui.screens.Period.of("TODAY"))
+    }
+
     @Test fun theMainEndpointIsUsedWhenItAnswers() = runBlocking {
         val google = FakeGoogle(dict = 500)
         val t = LyricsTranslator(OkHttpClient.Builder().addInterceptor(google).build()).translate(lines, "es")

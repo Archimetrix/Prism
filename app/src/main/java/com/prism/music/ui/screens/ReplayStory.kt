@@ -219,7 +219,12 @@ private suspend fun loadPeriodStory(c: AppContainer, period: Period): ReplayStor
         fun shift(t: Long, field: Int, by: Int) = Calendar.getInstance().apply { timeInMillis = t; add(field, by) }.timeInMillis
         when (period.kind) {
             Period.Kind.MONTH -> Triple(shift(from, Calendar.MONTH, -1), shift(to, Calendar.MONTH, -1), "the same time last month")
+            Period.Kind.MONTH_OF -> Triple(shift(from, Calendar.MONTH, -1), from - 1, "the month before")
             Period.Kind.DAYS30 -> Triple(from - 30L * 86_400_000, from - 1, "the 30 days before")
+            Period.Kind.TODAY -> Triple(from - 86_400_000, to - 86_400_000, "this time yesterday")
+            Period.Kind.WEEK -> Triple(from - 7 * 86_400_000L, to - 7 * 86_400_000L, "the same time last week")
+            // Any days: as many days just before them.
+            Period.Kind.DAYS -> (to - from).let { span -> Triple(from - span - 1, from - 1, "the ${span / 86_400_000 + 1} days before") }
             Period.Kind.YEAR, Period.Kind.ALL -> Triple(0L, -1L, null)
         }
     }
@@ -251,8 +256,8 @@ private suspend fun loadPeriodStory(c: AppContainer, period: Period): ReplayStor
         title = when (period.kind) {
             Period.Kind.YEAR -> "${period.year}"
             Period.Kind.MONTH -> Calendar.getInstance().getDisplayName(Calendar.MONTH, Calendar.LONG, java.util.Locale.getDefault()) ?: "This month"
-            Period.Kind.DAYS30 -> "Last 30 days"
-            Period.Kind.ALL -> "All time"
+            Period.Kind.MONTH_OF -> java.time.Month.of(period.month + 1).getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
+            else -> period.label
         },
         totalMs = totalMs, previousMs = previousMs, previousLabel = prevLabel,
         plays = plays, activeDays = activeDays, songCount = songCount, artistCount = artistCount,
@@ -606,8 +611,11 @@ private fun Intro(s: ReplayStory, modifier: Modifier) {
         Text(
             when (s.period.kind) {
                 Period.Kind.YEAR -> "Your year in music."
-                Period.Kind.MONTH -> "Your month in music."
+                Period.Kind.MONTH, Period.Kind.MONTH_OF -> "Your month in music."
                 Period.Kind.DAYS30 -> "Your last 30 days in music."
+                Period.Kind.TODAY -> "Your day in music."
+                Period.Kind.WEEK -> "Your week in music."
+                Period.Kind.DAYS -> "Those days in music."
                 Period.Kind.ALL -> "Everything you've played, in one story."
             },
             style = body.copy(fontSize = 24.sp), modifier = Modifier.reveal(800).padding(top = 8.dp),
