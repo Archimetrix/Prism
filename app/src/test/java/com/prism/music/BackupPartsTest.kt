@@ -77,6 +77,12 @@ class BackupPartsTest {
     @Test fun settingsTravelWithoutTheSignIn(): Unit = kotlinx.coroutines.runBlocking {
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
         val settings = com.prism.music.data.prefs.SettingsRepository(app, scope)
+        // The settings store is one per process: what this test writes is cleared after it, or later test classes
+        // (LookTest) would find a signed-in account.
+        try { settingsTravel(settings) } finally { settings.editNow { it.clear() } }
+    }
+
+    private suspend fun settingsTravel(settings: com.prism.music.data.prefs.SettingsRepository) {
         settings.saveAccount("SID=secret", "visitor", "sync")
         settings.editNow { it[androidx.datastore.preferences.core.booleanPreferencesKey("pure_black")] = true }
         val shared = settings.forBackup(settings = true, accounts = false)
