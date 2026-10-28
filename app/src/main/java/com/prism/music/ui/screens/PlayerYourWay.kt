@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.translate
+import com.prism.music.ui.player.drawRibbonStrands
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
@@ -361,6 +363,11 @@ fun PlayerTitleGroup() {
         ) { TitleSample(it) }
         Label("Title size")
         Chips(com.prism.music.data.prefs.PlayerTitleSize.entries, s.playerTitleSize, { it.label }) { prefs.setPlayerTitleSize(it) }
+        Label("Title weight", info = "Light is Prism's own, and follows Text → Weight. Bold makes the artist's name heavier too.")
+        ChoiceCards(
+            com.prism.music.data.prefs.PlayerTitleWeight.entries, s.type.playerTitleWeight, title = { it.label }, detail = { null },
+            onSelect = { prefs.setPlayerTitleWeight(it) },
+        ) { TitleSample(s.playerTitleAlign, it) }
         Toggle("Scrolling titles", "A long title scrolls across (off: it ends with …)", s.playerTitleScroll) { prefs.setPlayerTitleScroll(it) }
         Label("Times under the progress bar")
         ChoiceCards(
@@ -505,13 +512,17 @@ private fun VisualizerSample(style: com.prism.music.data.prefs.VisualizerStyle, 
 }
 
 @Composable
-private fun TitleSample(align: PlayerTitleAlign) {
+private fun TitleSample(align: PlayerTitleAlign, weight: com.prism.music.data.prefs.PlayerTitleWeight = LocalAppSettings.current.type.playerTitleWeight) {
     SampleScreen(Modifier.fillMaxWidth().height(56.dp)) {
         Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (align == PlayerTitleAlign.CENTER) Spacer(Modifier.width(22.dp))
             Column(Modifier.weight(1f), horizontalAlignment = if (align == PlayerTitleAlign.CENTER) Alignment.CenterHorizontally else Alignment.Start) {
-                Text("Northern Lights", color = Color.White, fontSize = 12.sp, maxLines = 1, textAlign = if (align == PlayerTitleAlign.CENTER) TextAlign.Center else TextAlign.Start)
-                Text("Prism Sample", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1)
+                Text(
+                    "Northern Lights", color = Color.White, fontSize = 12.sp, maxLines = 1, textAlign = if (align == PlayerTitleAlign.CENTER) TextAlign.Center else TextAlign.Start,
+                    // Prism's own big titles are light; at this size their own weight wouldn't show it.
+                    fontWeight = weight.title ?: androidx.compose.ui.text.font.FontWeight.Light,
+                )
+                Text("Prism Sample", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp, maxLines = 1, fontWeight = weight.artist)
             }
             Box(Modifier.size(9.dp).clip(CircleShape).background(Faint))
             Spacer(Modifier.width(4.dp))
@@ -531,6 +542,68 @@ private fun TimesSample(times: PlayerTimes) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(if (times == PlayerTimes.BOTH || times == PlayerTimes.ELAPSED) "1:12" else "", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
                 Text(if (times == PlayerTimes.BOTH || times == PlayerTimes.LEFT) "−2:31" else "", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+            }
+        }
+    }
+}
+
+/** The progress bar's styles as cards, each drawn as it looks on the player (1.7.7, with Ribbons, #151). */
+@Composable
+fun ScrubberStyleCards() {
+    val s = LocalAppSettings.current
+    val prefs = LocalContainer.current.settings
+    ChoiceCards(
+        com.prism.music.data.prefs.ScrubberStyle.entries, s.scrubberStyle, title = { it.label },
+        detail = {
+            when (it) {
+                com.prism.music.data.prefs.ScrubberStyle.HAIRLINE -> "A thin line"
+                com.prism.music.data.prefs.ScrubberStyle.BOLD -> "A thicker bar"
+                com.prism.music.data.prefs.ScrubberStyle.THUMB -> "A line and a knob"
+                com.prism.music.data.prefs.ScrubberStyle.WAVE -> "Each song's own shape"
+                com.prism.music.data.prefs.ScrubberStyle.RIBBONS -> "Strands flow along while it plays"
+            }
+        },
+        onSelect = { prefs.setScrubberStyle(it) },
+    ) { ScrubberStyleSample(it, s.scrubberColor) }
+}
+
+@Composable
+private fun ScrubberStyleSample(style: com.prism.music.data.prefs.ScrubberStyle, color: ScrubberColor) {
+    val fill = com.prism.music.ui.player.scrubberFill(color, LocalContainer.current.player.currentSong.value?.thumbnail)
+        ?: Brush.horizontalGradient(*PrismTokens.spectrumColors(true).toTypedArray())
+    val paths = remember { List(3) { androidx.compose.ui.graphics.Path() } }
+    SampleScreen(Modifier.fillMaxWidth().height(44.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = 12.dp).fillMaxWidth().height(8.dp)) {
+            val played = size.width * 0.58f
+            val h = when (style) {
+                com.prism.music.data.prefs.ScrubberStyle.HAIRLINE -> 2.5.dp; com.prism.music.data.prefs.ScrubberStyle.BOLD -> 5.dp
+                com.prism.music.data.prefs.ScrubberStyle.THUMB -> 2.dp; com.prism.music.data.prefs.ScrubberStyle.WAVE -> 0.dp
+                com.prism.music.data.prefs.ScrubberStyle.RIBBONS -> 3.5.dp
+            }.toPx()
+            val y = size.height / 2
+            if (style == com.prism.music.data.prefs.ScrubberStyle.WAVE) {
+                val n = 34
+                val step = size.width / n
+                for (i in 0 until n) {
+                    val v = 0.3f + 0.7f * kotlin.math.abs(kotlin.math.sin(i * 0.9f) * kotlin.math.cos(i * 0.37f))
+                    val bh = size.height * 1.6f * v
+                    val x = i * step + step * 0.2f
+                    val at = androidx.compose.ui.geometry.Offset(x, y - bh / 2)
+                    val sz = androidx.compose.ui.geometry.Size(step * 0.6f, bh)
+                    if (x < played) drawRoundRect(fill, at, sz, androidx.compose.ui.geometry.CornerRadius(step * 0.3f))
+                    else drawRoundRect(Faint, at, sz, androidx.compose.ui.geometry.CornerRadius(step * 0.3f))
+                }
+                return@Canvas
+            }
+            val r = androidx.compose.ui.geometry.CornerRadius(h / 2)
+            drawRoundRect(Faint, androidx.compose.ui.geometry.Offset(0f, y - h / 2), androidx.compose.ui.geometry.Size(size.width, h), r)
+            drawRoundRect(fill, androidx.compose.ui.geometry.Offset(0f, y - h / 2), androidx.compose.ui.geometry.Size(played, h), r)
+            if (style == com.prism.music.data.prefs.ScrubberStyle.RIBBONS) {
+                // The same strands as the player's, held still here.
+                translate(top = y - h / 2) { drawRibbonStrands(paths, played, 0.35f, fill, barHeight = h) }
+            }
+            if (style == com.prism.music.data.prefs.ScrubberStyle.THUMB || style == com.prism.music.data.prefs.ScrubberStyle.RIBBONS) {
+                drawCircle(Color.White, 5.dp.toPx(), androidx.compose.ui.geometry.Offset(played, y))
             }
         }
     }
@@ -585,6 +658,7 @@ fun PlayerGesturesGroup() {
         Label("Mini player")
         GestureRow("Swipe left", s.miniSwipeLeft, PlayerGesture.choices(mini = true)) { prefs.setGesture("mini_swipe_left", it) }
         GestureRow("Swipe right", s.miniSwipeRight, PlayerGesture.choices(mini = true)) { prefs.setGesture("mini_swipe_right", it) }
+        GestureRow("Swipe up", s.miniSwipeUp, PlayerGesture.choices(mini = true)) { prefs.setGesture("mini_swipe_up", it) }
         GestureRow("Pull down", s.miniSwipeDown, PlayerGesture.choices(mini = true)) { prefs.setGesture("mini_swipe_down", it) }
     }
 }

@@ -536,7 +536,7 @@ private fun TopCard(item: BrowseItem, onClick: () -> Unit, onPlay: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Artwork(
-            LocalContainer.current.covers.art(item), Modifier.size(96.dp), if (item is ArtistItem) CircleShape else ui.art, size = 544,
+            LocalContainer.current.covers.art(item), Modifier.size(96.dp), when (item) { is ArtistItem -> ui.artistArt; is SongItem -> ui.songArt; else -> ui.albumArt }, size = 544,
             placeholderIcon = if (item is ArtistItem) PrismIcons.Person else PrismIcons.Album,
         )
         Spacer(Modifier.width(16.dp))
@@ -602,7 +602,7 @@ fun ResultRow(item: BrowseItem, onLongClick: (() -> Unit)? = null, onClick: () -
     ) {
         Artwork(
             LocalContainer.current.covers.art(item), Modifier.size(56.dp),
-            if (item is ArtistItem) CircleShape else ui.smallArt, size = 226,
+            when (item) { is ArtistItem -> ui.artistArt; is SongItem -> ui.songArt; else -> ui.albumArt }, size = 226,
             placeholderIcon = when (item) {
                 is ArtistItem -> PrismIcons.Person
                 is AlbumItem -> PrismIcons.Album

@@ -2,6 +2,95 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.7
+
+### Shapes, icons and type
+- **Covers' shapes**: Customize Prism → Icons & shapes → Covers' shapes. Songs, albums and playlists, artists and the
+  player's cover each in their own shape: rounded, square, circle, squircle, flower, cookie, arch or slanted, each shown
+  as a card. Drawn by Prism itself, no extra library.
+- **Corners as a slider**, with the old Sharp, Subtle, Round and Extra as its marks (Looks that name a step still work).
+- **Buttons**: pill, rounded or square, and the Play on album and playlist pages filled (with its glow) or outlined.
+- **Icons**: outline, duotone (a light tone inside) or filled, and the tab you're on in ink, your accent or the light.
+- **Two more icon packs**: Facet (straight lines and sharp corners, every curve cut into facets) and Dots (drawn in
+  dots, like a dot-matrix display). Every one of Prism's icons comes in both, and Looks carry the pack and fill style.
+- **Six more app icons**: Dusk, Paper, Neon, Pastel, Line and Gold. Android Auto shows the one you pick.
+- **Text**: Light, Regular or Bold for all of Prism's text, tight, normal or wide letter spacing, and titles in a font of
+  their own (big titles in Editorial and the rest in Prism, for example). Each choice is a card with its example.
+- **Two fonts for reading**: Legible (Atkinson Hyperlegible, made to tell letters apart at a glance) and
+  Dyslexia-friendly (OpenDyslexic).
+
+### Widgets
+- **Each widget its own way**: when you add a Prism widget (or hold it → Settings on Android 12+, or from Customize
+  Prism → Icons & shapes → Home-screen widgets): its background as designed, in a color of yours, in the cover's color
+  or see-through, how solid, white or black text, and whether it shows the cover, like, previous and next, and the
+  progress. The preview is the widget itself. Two widgets of the same kind can look different.
+- **Widgets follow your light** (Android 12+): with a light other than Prism's own (a preset, your own or From the
+  cover), Prism's widgets take its colors for the progress and the play ring.
+
+### You asked for it
+- **The light from the cover** (#123): Customize Prism → Color → Spectrum → "From the cover". The progress bar, Play ring,
+  the playing song in lists, switches and the rest of the light take the playing cover's colors, new with each song
+  (or each album, with "New albums only"). A grey cover keeps Prism's own light. Made from the palette Prism already
+  reads from each cover, so it costs nothing extra.
+- **Rearrange your playlists' songs** (#140): open one of your playlists → ⋯ → Rearrange songs, then hold a song (or
+  drag its grip) and move it. Each move goes straight to YouTube Music, so the order is the same everywhere, and is put
+  back if YouTube refuses. Prism playlists rearrange the same way.
+- **Newest first** (#141): the sort menu of your own playlists has "Newest first" (YouTube adds new songs at the end),
+  Liked songs has "Oldest first", and anyone else's playlist can be reversed.
+- **Swipe a song out of the queue** (#149): swipe it to the left; an Undo shows for a few seconds. The × still works,
+  and now has the Undo too.
+- **Swipe the mini player up** to open the player (#149), or pick what it does in Settings → Controls & gestures.
+- **Pull the queue down to close it** (#149): by its title, or by the song at the top.
+- **Move songs in a shuffled queue**: with shuffle on, drag a song by its handle to change what plays next, as with
+  shuffle off. It moves in the shuffled order (what the queue shows), so Previous still goes back through what you heard.
+- **History as a Library tile** (#136): Edit tiles → History. (Replay's tile swaps its clock for its chart then.)
+- **Clear the Looks history** (#152): Customize Prism → Looks → History → Clear history. Your look stays as it is.
+- **Ribbons**, a new progress bar (#151, after One UI's): the bar and a knob, with thin strands flowing along the played
+  part while a song plays. Customize Prism → Player → Progress bar, where every style is now a card showing how it
+  looks. The strands hold still with Reduce motion or Performance mode.
+- **Title weight on the player** (Reddit): Customize Prism → Player → Title and times → Title weight: Light (Prism's
+  own), Regular or Bold. Bold makes the artist's name heavier too.
+- **Add a whole album or playlist to a playlist** (Reddit): hold it (or its ⋯) → Add to playlist.
+- **Share as YouTube links** (Reddit): Settings → Car & devices → Sharing and links → Links you share → YouTube. Songs go
+  out as youtu.be links, playlists and artists as youtube.com ones (albums have no page on YouTube, so they stay
+  YouTube Music's).
+- **Open YouTube Music links in Prism** (Reddit): the same group has a button to Android's "Open by default" page for
+  Prism, and says whether music.youtube.com links open here.
+
+### Fixes
+- **Album songs play as songs again** (Reddit): signed out, YouTube now lists an album's tracks as their music videos
+  where they have one, so a song could play its video's sound: a longer intro, or another song mixed in ("Death &
+  Romance" ran 8 minutes with "Fear, Sex" in it), and the lyrics out of time. Prism now reads the album's own playlist,
+  which still lists the songs, and plays those (one request per album). The video stays the song's Video button. Also,
+  on long album pages "Play" could start another album's songs.
+- **A song that won't play no longer becomes a different recording** (Reddit): when a song isn't available where you
+  are, Prism plays its music video's sound only when the video is the song's length; it now also does that when YouTube
+  keeps refusing the song's stream (it skipped instead), never for age-restricted or Premium songs.
+- **All your YouTube Music playlists in the Library** (Reddit): only the first 25 or so showed; Android Auto's Library
+  too.
+- **Crossfade with the equalizer on** (Reddit): the song fading out now plays on its own audio session with its own copy
+  of the equalizer, instead of sharing the main player's, where some phones' effects broke the blend.
+- **Widgets and other apps can skip again** (Reddit): since 1.6.1 Prism's media session didn't offer the standard
+  previous/next, so "Dynamic Island" apps and other widgets couldn't skip. They're back; only with a Pixel Watch or
+  Wear OS companion app on the phone does Prism keep the watch's own layout. Prism's widgets also hold on until a tap
+  has reached the player when Prism wasn't running.
+- **Sing's key holds through a crossfade** (Reddit): a beat-matched blend set the music back to its original key while
+  Sing still showed yours, and the song fading out played in the original key.
+- **Premium quality stays on** (Reddit): one song without Premium audio (a music video or an upload, which never have
+  it) turned Premium quality off for the next hour, so the songs after it played at normal quality. It now only pauses
+  after three songs in a row come without it.
+- **Lyric translations don't vanish** (Reddit): when Google's translation came back with lines merged or split, the
+  whole translation was dropped and nothing showed. Those lyrics are now translated a line at a time instead.
+- **Songs, not videos works again** (#138): YouTube stopped telling apps which song a music video belongs to (October
+  2026) unless you're signed in, so a Discovery Mix and other mixes came through as videos, and some videos didn't find
+  their song. Each video coming up next is now matched to its song by Prism itself, an artist's own video may run up to
+  a minute longer than its song (an intro, a closing scene), and signed out Prism no longer asks YouTube for a pairing it
+  won't give (one request less for each).
+- **Shared song links show the song straight away**: YouTube now sends a song's queue separately, so "Play in Prism"
+  showed "Loading…" until the song started.
+- **The artist page's name follows your font** (#139): the plain Standard style was drawn in Google Sans on a Pixel and
+  Android's own font elsewhere, whatever font you picked. The other signature styles keep their own typefaces.
+
 ## 1.7.6
 
 Home, Library and Search your way, and a lighter, faster Prism. The fifth customization update, and a performance one:

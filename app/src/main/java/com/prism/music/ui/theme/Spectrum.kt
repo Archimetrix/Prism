@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.max
@@ -195,6 +196,40 @@ object SpectrumPresets {
 
     fun preset(key: String): Preset? = all.firstOrNull { it.key == key }
 
+    /** "From the cover" (#123, 1.7.7): the light takes the playing cover's colors ([coverStops]). */
+    const val COVER = "COVER"
+    const val COVER_LABEL = "From the cover"
+
+    /**
+     * The playing cover's colors for [COVER], picked from the palette Prism already makes for each song (MainActivity), in
+     * hue order; empty (Prism's own light) until a cover has given two. Snapshot state: what's drawn with it follows.
+     */
+    var coverStops by mutableStateOf<List<Int>>(emptyList())
+
+    /** A preset's name, ours included ("From the cover", "Your own"). */
+    fun label(key: String): String = when (key) {
+        COVER -> COVER_LABEL
+        "CUSTOM" -> "Your own"
+        else -> preset(key)?.label ?: "Prism"
+    }
+
+    /**
+     * Up to five of a cover's swatches as a light: distinct (none within 28° of hue of another unless far apart in
+     * lightness), colorful enough to be a light, in hue order. Fewer than two: null (the cover has none to give).
+     */
+    fun fromCover(swatches: List<Int>): List<Int>? {
+        val picked = ArrayList<Triple<Float, Float, Float>>()
+        for (c in swatches) {
+            val (h, s, l) = Color(c).toHsl()
+            if (s < 0.18f || l < 0.12f || l > 0.92f) continue
+            if (picked.any { p -> kotlin.math.abs(((p.first - h + 540f) % 360f) - 180f) < 28f && kotlin.math.abs(p.third - l) < 0.25f }) continue
+            picked += Triple(h, s, l)
+            if (picked.size == 5) break
+        }
+        if (picked.size < 2) return null
+        return picked.sortedBy { it.first }.map { (h, s, l) -> Color.hsl(h, s, l).toArgb() }
+    }
+
     /** The colors [key] (or, for "CUSTOM", [stops]) stands for; Prism's when there's nothing usable. */
     fun colorsFor(key: String, stops: List<Int>): List<Color> =
         if (key == "CUSTOM" && stops.size >= 2) stops.map { Color(it) } else preset(key)?.colors ?: all.first().colors
@@ -207,8 +242,10 @@ object SpectrumPresets {
      * just enough to read as a line on dark pages, deepened on light ones (the bright yellow rule), and seven tile hues
      * sampled along the run, kept dark enough for a white icon.
      */
-    fun light(key: String, stops: List<Int>, bands: Boolean): Light = synchronized(memo) {
-        memo.getOrPut(Triple(key, stops, bands)) { build(key, stops, bands) }
+    fun light(key: String, stops: List<Int>, bands: Boolean): Light {
+        // From the cover: your own light, in the playing cover's colors (Prism's own until a cover gives some).
+        if (key == COVER) return light("CUSTOM", coverStops, bands)
+        return synchronized(memo) { memo.getOrPut(Triple(key, stops, bands)) { build(key, stops, bands) } }
     }
 
     /** The same light for the same choice (the tokens compare by identity), for the presets and a few of your own. */

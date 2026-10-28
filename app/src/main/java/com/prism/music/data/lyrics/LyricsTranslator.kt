@@ -1,6 +1,11 @@
 package com.prism.music.data.lyrics
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -36,12 +41,22 @@ class LyricsTranslator(private val http: OkHttpClient) {
         var from: String? = null
         // Google takes about 5000 characters at a time; lyrics rarely need more than one request.
         for (batch in batches(wanted.map { it.value.trim() })) {
-            val (translated, detected) = request(batch.texts, to)
+            val (joined, detected) = request(batch.texts, to)
             from = from ?: detected
-            if (translated.size != batch.texts.size) throw IOException("Translation came back with a different number of lines")
-            translated.forEachIndexed { i, t -> out[wanted[batch.start + i].index] = t.trim().takeIf { it.isNotEmpty() } }
+            // Google sometimes merges or splits lines; then the batch is asked again a line at a time (Reddit, 1.7.7),
+            // rather than the whole translation being dropped.
+            val translated = if (joined.size == batch.texts.size) joined else lineByLine(batch.texts, to)
+            translated.forEachIndexed { i, t -> out[wanted[batch.start + i].index] = t?.trim()?.takeIf { it.isNotEmpty() } }
         }
         Translation(from, to, out.toList()).also { synchronized(cache) { cache[key] = it } }
+    }
+
+    /** Each line on its own, a few at a time; a line that can't be translated stays null. */
+    private suspend fun lineByLine(texts: List<String>, to: String): List<String?> = coroutineScope {
+        val gate = Semaphore(LINE_REQUESTS)
+        texts.map { text ->
+            async { gate.withPermit { runCatching { request(listOf(text), to).first.joinToString(" ") }.getOrNull() } }
+        }.awaitAll()
     }
 
     private class Batch(val start: Int, val texts: List<String>)
@@ -75,5 +90,10 @@ class LyricsTranslator(private val http: OkHttpClient) {
             val detected = (root.getOrNull(2) as? JsonPrimitive)?.contentOrNull
             return text.trimEnd('\n').split("\n") to detected
         }
+    }
+
+    private companion object {
+        /** Requests at once when a song is translated a line at a time. */
+        const val LINE_REQUESTS = 4
     }
 }

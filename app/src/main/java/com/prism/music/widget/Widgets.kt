@@ -17,6 +17,7 @@ import android.graphics.Shader
 import android.net.Uri
 import android.os.Build
 import android.widget.RemoteViews
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
 import coil3.SingletonImageLoader
@@ -59,6 +60,7 @@ enum class WidgetStyle(val layout: Int, val provider: Class<out AppWidgetProvide
 abstract class NowPlayingWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = Widgets.refresh(context)
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: android.os.Bundle) = Widgets.refresh(context)
+    override fun onDeleted(context: Context, ids: IntArray) = WidgetOptionsStore.remove(context, ids)
 }
 
 class PrismWidget : NowPlayingWidget()
@@ -68,6 +70,9 @@ class YtMusicStyleWidget : NowPlayingWidget()
 class CoverWidget : NowPlayingWidget()
 class DiscWidget : NowPlayingWidget()
 class StripWidget : NowPlayingWidget()
+
+/** The widgets' buttons that go to the player (a like doesn't need it). */
+private val PLAYER_ACTIONS = setOf(Widgets.ACTION_PLAY, Widgets.ACTION_NEXT, Widgets.ACTION_PREVIOUS, RecognizeWidgets.ACTION_PLAY)
 
 /** The widgets' buttons. Tapping one counts as using Prism, so playback may start from here. */
 class WidgetActionReceiver : BroadcastReceiver() {
@@ -84,6 +89,15 @@ class WidgetActionReceiver : BroadcastReceiver() {
                 Widgets.update(context, song, c.player.isPlaying.value, song.id !in c.library.likedIds.value, null, null)
             }
         }
+        // With Prism not running, the player is reached a moment later (Reddit R4: widgets couldn't pause or skip): the
+        // broadcast is held until the command has been handed over, so Android doesn't stop Prism first.
+        if (intent.action !in PLAYER_ACTIONS) return
+        val pending = goAsync()
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var finished = false
+        fun finish() { if (!finished) { finished = true; pending.finish() } }
+        handler.postDelayed(::finish, 9_000)
+        c.player.afterPending { handler.post(::finish) }
     }
 }
 
@@ -108,6 +122,15 @@ object Widgets {
     fun whiteLight(context: Context): Boolean = runCatching {
         context.container.settings.current.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     }.getOrDefault(false)
+
+    /** The listener's light's first and middle colors (as drawn on dark), or null for Prism's own light. */
+    private fun lightColors(context: Context): Pair<Int, Int>? = runCatching {
+        val s = context.container.settings.current
+        val light = com.prism.music.ui.theme.SpectrumPresets.light(s.spectrumPreset, s.spectrumStops, s.spectrumBands)
+        if (light === com.prism.music.ui.theme.SpectrumPresets.PRISM_LIGHT) return null
+        val run = light.colors
+        run.first().second.toArgb() to com.prism.music.ui.theme.SpectrumPresets.sample(run.map { it.second }, 0.5f).toArgb()
+    }.getOrNull()
 
     /** [argb] as a grey of the same lightness. */
     private fun grey(argb: Int): Int = FloatArray(3).also { ColorUtils.colorToHSL(argb, it); it[1] = 0f }.let { ColorUtils.HSLToColor(it) }
@@ -156,13 +179,27 @@ object Widgets {
                 if (art?.url != url) art = url?.let { loadArt(app, it) }
                 val manager = AppWidgetManager.getInstance(app) ?: return@withLock
                 placed(app).forEach { (style, ids) ->
-                    runCatching { manager.updateAppWidget(ids, views(app, style, s, art)) }
+                    // Widgets left as designed share one update; each with settings of its own (1.7.7) gets its own.
+                    val (plain, own) = ids.partition { WidgetOptionsStore.get(app, it).isDefault }
+                    if (plain.isNotEmpty()) runCatching { manager.updateAppWidget(plain.toIntArray(), views(app, style, s, art)) }
+                    own.forEach { id -> runCatching { manager.updateAppWidget(id, views(app, style, s, art, WidgetOptionsStore.get(app, id))) } }
                 }
             }
         }
     }
 
-    private fun views(context: Context, style: WidgetStyle, s: State, art: Art?): RemoteViews {
+    /**
+     * [style]'s widget showing what's playing now, with one widget's own settings ([o]); for the settings screen's
+     * preview of it ([WidgetConfigActivity]).
+     */
+    suspend fun preview(context: Context, style: WidgetStyle, o: WidgetOptions): RemoteViews {
+        val app = context.applicationContext
+        val s = state ?: State(lastSong(app), playing = false, liked = false, 0L, 0L)
+        val a = art?.takeIf { it.url == s.song?.thumbnail } ?: s.song?.thumbnail?.let { loadArt(app, it) }
+        return views(app, style, s, a, o)
+    }
+
+    private fun views(context: Context, style: WidgetStyle, s: State, art: Art?, o: WidgetOptions = WidgetOptions()): RemoteViews {
         val v = RemoteViews(context.packageName, style.layout)
         val song = s.song
         v.setTextViewText(R.id.widget_title, song?.title ?: context.getString(R.string.widget_nothing))
@@ -186,6 +223,12 @@ object Widgets {
             v.setViewVisibility(R.id.widget_progress, if (white) android.view.View.GONE else android.view.View.VISIBLE)
             v.setViewVisibility(R.id.widget_progress_white, if (white) android.view.View.VISIBLE else android.view.View.GONE)
             v.setProgressBar(R.id.widget_progress_white, 1000, progress, false)
+        }
+        // Your light (1.7.7, held over from 1.7.2): a widget can't be handed a gradient, so on Android 12+ another light
+        // than Prism's own tints the progress with its middle color and the play ring with its first.
+        if (!white && Build.VERSION.SDK_INT >= 31) lightColors(context)?.let { (first, middle) ->
+            if (style in SPLIT_PROGRESS) v.setColorStateList(R.id.widget_progress, "setProgressTintList", android.content.res.ColorStateList.valueOf(middle))
+            if (style in RINGED) v.setColorStateList(R.id.widget_play, "setBackgroundTintList", android.content.res.ColorStateList.valueOf(first))
         }
 
         when (style) {
@@ -217,7 +260,53 @@ object Widgets {
         v.setOnClickPendingIntent(R.id.widget_open, open)
         v.setOnClickPendingIntent(R.id.widget_art, open)
         if (style == WidgetStyle.PRISM) v.setOnClickPendingIntent(R.id.widget_logo, open)
+        if (!o.isDefault) applyOptions(v, style, o, art)
         return v
+    }
+
+    /**
+     * One widget's own settings (1.7.7) over its style. Every layout has the same view ids (the art, title, artist,
+     * buttons; the progress bar in all but Apple's), so only ids each layout has are touched.
+     */
+    private fun applyOptions(v: RemoteViews, style: WidgetStyle, o: WidgetOptions, art: Art?) {
+        val gone = android.view.View.GONE
+        // The cover is the Cover and Disc widgets themselves.
+        if (!o.cover && style != WidgetStyle.COVER && style != WidgetStyle.DISC) v.setViewVisibility(R.id.widget_art, gone)
+        if (!o.like) v.setViewVisibility(R.id.widget_like, gone)
+        if (!o.skips) { v.setViewVisibility(R.id.widget_prev, gone); v.setViewVisibility(R.id.widget_next, gone) }
+        if (!o.progress && style != WidgetStyle.APPLE) {
+            v.setViewVisibility(R.id.widget_progress, gone)
+            if (style in SPLIT_PROGRESS) v.setViewVisibility(R.id.widget_progress_white, gone)
+        }
+        when (o.text) {
+            WidgetText.AUTO -> Unit
+            WidgetText.WHITE, WidgetText.BLACK -> {
+                val ink = if (o.text == WidgetText.WHITE) Color.WHITE else 0xFF111114.toInt()
+                v.setTextColor(R.id.widget_title, ink)
+                v.setTextColor(R.id.widget_artist, ColorUtils.setAlphaComponent(ink, 0xB3))
+            }
+        }
+        if (o.background == WidgetBackground.DESIGN) return
+        // The style's own color layers go (Prism's frost, Apple's and Strip's tint); the panel takes the new color.
+        if (style == WidgetStyle.PRISM) v.setViewVisibility(R.id.widget_bg, gone)
+        if (style == WidgetStyle.APPLE || style == WidgetStyle.STRIP) v.setViewVisibility(R.id.widget_tint, gone)
+        val base = when (o.background) {
+            WidgetBackground.COLOR -> o.color
+            WidgetBackground.COVER -> art?.color ?: 0xFF2A2A30.toInt()
+            else -> Color.TRANSPARENT
+        }
+        // The panel: Android's widget background view, or the Disc's round button.
+        val root = if (style == WidgetStyle.DISC) R.id.widget_open else android.R.id.background
+        val color = if (o.background == WidgetBackground.CLEAR) Color.TRANSPARENT
+            else ColorUtils.setAlphaComponent(base, (o.opacity.coerceIn(0.2f, 1f) * 255).toInt())
+        if (Build.VERSION.SDK_INT >= 31) {
+            v.setColorStateList(root, "setBackgroundTintList", android.content.res.ColorStateList.valueOf(color))
+        } else if (o.background == WidgetBackground.CLEAR) {
+            v.setInt(root, "setBackgroundResource", 0)
+        } else if (style != WidgetStyle.DISC) {
+            // Before Android 12 a view's tint can't be set from a widget: a plain panel in the color.
+            v.setInt(root, "setBackgroundColor", color)
+        }
     }
 
     private suspend fun loadArt(context: Context, url: String): Art? = runCatching {

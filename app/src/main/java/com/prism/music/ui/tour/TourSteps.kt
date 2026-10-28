@@ -41,6 +41,8 @@ object Tour {
     private const val V1_7_5 = 44
     /** Prism 1.7.6 (build 45): Home, Library and Search, your way. */
     private const val V1_7_6 = 45
+    /** Prism 1.7.7 (build 46): shapes, icons, type and widgets, and what you asked for. */
+    private const val V1_7_7 = 46
 
     /** Every step, in the order they're shown. */
     val steps: List<TourStep> = listOf(
@@ -304,6 +306,31 @@ object Tour {
             ),
             listOf(PrismIcons.Settings, PrismIcons.Speed),
             showMe = Routes.SETTINGS,
+        ),
+        TourStep(
+            V1_7_7, PrismIcons.Category, "Shapes, icons and type",
+            "Make the pieces of Prism yours.",
+            listOf(
+                "Covers as circles, squircles, flowers, arches… for songs, albums, artists and the player",
+                "Corners on a slider, and pill, rounded or square buttons",
+                "Icons in outline, duotone or filled, two new packs (Facet and Dots), and six more app icons",
+                "Bolder or lighter text, wider spacing, a font for titles, and two fonts made for reading",
+                "Each home-screen widget with its own background and buttons",
+            ),
+            listOf(PrismIcons.Category, PrismIcons.Signature),
+            showMe = Routes.settings("icons"),
+        ),
+        TourStep(
+            V1_7_7, PrismIcons.QueueMusic, "Also new",
+            "From your requests.",
+            listOf(
+                "Rearrange your playlists' songs: ⋯ → Rearrange songs",
+                "Swipe a song out of the queue, swipe the mini player up to open it",
+                "The light from the playing cover: Color → From the cover",
+                "Ribbons, a progress bar with strands flowing along it",
+                "A bold title on the player, whole albums into a playlist, and YouTube links to share",
+            ),
+            listOf(PrismIcons.SwapVertical, PrismIcons.Palette),
         ),
         TourStep(
             V1_7, PrismIcons.Update, "Stay in the loop",

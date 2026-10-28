@@ -63,6 +63,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import com.prism.music.ui.components.framesWhileShown
 import com.prism.music.ui.components.tickWhileShown
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -144,8 +145,12 @@ fun ThinSlider(
     thumbShape: com.prism.music.data.prefs.ScrubberThumb = com.prism.music.data.prefs.ScrubberThumb.DOT,
     /** The visualizer's Pulse (0–1, read while drawing, so the bar alone redraws): the line swells and glows with it. */
     pulse: (() -> Float)? = null,
+    /** Ribbons (#151): strands flowing over the played part, at this phase (seconds, read while drawing). */
+    ribbons: (() -> Float)? = null,
 ) {
     var dragging by remember { mutableStateOf(false) }
+    // The strands' paths, rebuilt in place each frame rather than made anew.
+    val strands = remember { List(RIBBON_STRANDS.size) { androidx.compose.ui.graphics.Path() } }
     val haptics = rememberHaptics()
     val marksNow by androidx.compose.runtime.rememberUpdatedState(marks)
     var last by remember { mutableFloatStateOf(-1f) }
@@ -221,6 +226,7 @@ fun ThinSlider(
                     }
                     if (brush != null) drawRoundRect(brush, size = played, cornerRadius = r)
                     else drawRoundRect(Color.White.copy(alpha = 0.92f), size = played, cornerRadius = r)
+                    ribbons?.let { drawRibbonStrands(strands, filled, it(), brush) }
                 }
             }
             // Ticks: a faint hairline that stands just past the line, there if you look, never in the way.
@@ -252,6 +258,48 @@ fun ThinSlider(
                 }
             }
         }
+    }
+}
+
+/** Each Ribbons strand: its wavelength (a share of the bar's width), speed (waves a second, signed) and strength. */
+private class RibbonStrand(val wave: Float, val speed: Float, val alpha: Float, val shift: Float)
+private val RIBBON_STRANDS = listOf(
+    RibbonStrand(0.21f, 0.32f, 0.70f, 0f),
+    RibbonStrand(0.30f, -0.22f, 0.50f, 1.7f),
+    RibbonStrand(0.43f, 0.45f, 0.36f, 3.9f),
+)
+
+/**
+ * Ribbons (#151): thin strands rising off the played part and back onto it, each its own wavelength and drift, fading in
+ * from the bar's start and out before the knob. Points every few pixels into reused paths; drawn above the bar, in the
+ * slider's own room.
+ */
+internal fun androidx.compose.ui.graphics.drawscope.DrawScope.drawRibbonStrands(
+    paths: List<androidx.compose.ui.graphics.Path>, filled: Float, phase: Float, brush: Brush?, barHeight: Float = size.height,
+) {
+    val top = 0f
+    val rise = 8.dp.toPx() + barHeight * 0.4f
+    val step = 3.dp.toPx()
+    val fadeIn = 28.dp.toPx()
+    val fadeOut = 14.dp.toPx()
+    val end = filled - fadeOut * 0.4f
+    if (end <= step) return
+    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(1.4.dp.toPx(), cap = StrokeCap.Round)
+    RIBBON_STRANDS.forEachIndexed { k, s ->
+        val path = paths[k]
+        path.reset()
+        val lambda = size.width * s.wave
+        var x = 0f
+        var first = true
+        while (x <= end) {
+            val env = (x / fadeIn).coerceIn(0f, 1f) * ((filled - x) / fadeOut).coerceIn(0f, 1f)
+            val a = 2f * Math.PI.toFloat() * (x / lambda - phase * s.speed) + s.shift
+            val y = top - rise * env * (0.5f - 0.5f * kotlin.math.cos(a))
+            if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
+            x += step
+        }
+        if (brush != null) drawPath(path, brush, alpha = s.alpha, style = stroke)
+        else drawPath(path, Color.White, alpha = s.alpha * 0.9f, style = stroke)
     }
 }
 
@@ -331,18 +379,28 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
     // Thickness (1.7.4): the style's own heights, scaled; the waveform keeps its room.
     val thick = if (waved) 1f else settings.scrubberThickness
     val knob = when (settings.scrubberThumb) {
-        com.prism.music.data.prefs.ScrubberThumb.AUTO -> if (style == ScrubberStyle.THUMB) com.prism.music.data.prefs.ScrubberThumb.DOT else com.prism.music.data.prefs.ScrubberThumb.NONE
+        com.prism.music.data.prefs.ScrubberThumb.AUTO -> if (style == ScrubberStyle.THUMB || style == ScrubberStyle.RIBBONS) com.prism.music.data.prefs.ScrubberThumb.DOT else com.prism.music.data.prefs.ScrubberThumb.NONE
         else -> settings.scrubberThumb
     }
     val pulse = if (settings.visualizer == com.prism.music.data.prefs.VisualizerStyle.PULSE) rememberVisualizerLevel() else null
+    // Ribbons drift only while the song plays and Prism is on screen; with Reduce motion (and Performance mode) they hold still.
+    val ribbonPhase = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val playing by pc.isPlaying.collectAsState()
+    val ribbonsMove = style == ScrubberStyle.RIBBONS && playing && !settings.reduceMotion
+    if (ribbonsMove) {
+        val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+        LaunchedEffect(lifecycle) {
+            lifecycle.framesWhileShown { ribbonPhase.floatValue += it }
+        }
+    }
     Column(Modifier.fillMaxWidth()) {
         // Spectrum: a thin line, the played part in the split light (or the color picked for it).
         ThinSlider(
             value = shown,
             onValueChange = { scrub = it },
             onValueChangeFinished = { scrub?.let { pc.seekTo((it * duration).toLong()) }; scrub = null },
-            idleHeight = if (waved) 22.dp else when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 9.dp; ScrubberStyle.THUMB -> 4.dp } * thick,
-            activeHeight = if (waved) 26.dp else when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 14.dp; ScrubberStyle.THUMB -> 6.dp } * thick,
+            idleHeight = if (waved) 22.dp else when (style) { ScrubberStyle.HAIRLINE -> 5.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 9.dp; ScrubberStyle.THUMB -> 4.dp; ScrubberStyle.RIBBONS -> 6.dp } * thick,
+            activeHeight = if (waved) 26.dp else when (style) { ScrubberStyle.HAIRLINE -> 10.dp; ScrubberStyle.BOLD, ScrubberStyle.WAVE -> 14.dp; ScrubberStyle.THUMB -> 6.dp; ScrubberStyle.RIBBONS -> 9.dp } * thick,
             thumb = knob != com.prism.music.data.prefs.ScrubberThumb.NONE,
             thumbShape = knob,
             spectrum = true,
@@ -350,6 +408,7 @@ fun PlayerScrubber(positionMs: Long, durationMs: Long, centerLabel: @Composable 
             fill = fill,
             wave = wave,
             pulse = pulse?.let { level -> { level.floatValue } },
+            ribbons = if (style == ScrubberStyle.RIBBONS && !waved) ({ ribbonPhase.floatValue }) else null,
         )
         Box(Modifier.fillMaxWidth().offset(y = (-9).dp).heightIn(min = 16.dp)) {
             val elapsed = settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.BOTH || settings.playerTimes == com.prism.music.data.prefs.PlayerTimes.ELAPSED

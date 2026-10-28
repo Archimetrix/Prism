@@ -277,7 +277,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
 
     fun currentIcons(): LookIcons {
         val (w, r) = IconStyle.saved(app)
-        return LookIcons(IconStyle.savedPack(app).name, w.name, r, IconStyle.savedLikeStar(app))
+        return LookIcons(IconStyle.savedPack(app).name, w.name, r, IconStyle.savedLikeStar(app), IconStyle.savedFill(app).name)
     }
 
     private fun applyIcons(i: LookIcons) {
@@ -285,6 +285,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         IconStyle.save(app, IconWeight.entries.firstOrNull { it.name == i.weight } ?: IconWeight.REGULAR, i.rounded)
         IconStyle.savePack(app, IconPack.entries.firstOrNull { it.name == i.pack } ?: IconPack.PRISM)
         IconStyle.saveLikeStar(app, i.likeStar)
+        IconStyle.saveFill(app, com.prism.music.ui.theme.IconFill.entries.firstOrNull { it.name == i.fill } ?: com.prism.music.ui.theme.IconFill.OUTLINE)
         iconsChanged()
     }
 
@@ -294,7 +295,8 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     /** Whether the saved icon style differs from the one drawn (icons are built as Prism starts). */
     fun iconsNeedRestart(): Boolean {
         val (w, r) = IconStyle.saved(app)
-        return w != IconStyle.weight || r != IconStyle.rounded || IconStyle.savedPack(app) != IconStyle.pack || IconStyle.savedLikeStar(app) != IconStyle.likeStar
+        return w != IconStyle.weight || r != IconStyle.rounded || IconStyle.savedPack(app) != IconStyle.pack || IconStyle.savedLikeStar(app) != IconStyle.likeStar ||
+            IconStyle.savedFill(app) != IconStyle.fill
     }
 
     // ---------------------------------------------------------------- Sharing
@@ -441,6 +443,9 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
 
     /** Takes back the last change. */
     fun undo() = goBack(0)
+
+    /** Forgets every step (#152); the look stays as it is now. */
+    fun clearHistory() = saveSteps(emptyList())
 
     /** Puts the look back as it was before step [index] (and everything after it). */
     fun goBack(index: Int) {

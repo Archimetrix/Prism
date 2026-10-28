@@ -32,7 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -67,7 +69,7 @@ fun PrismButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = CircleShape,
+    shape: Shape = com.prism.music.ui.theme.LocalUi.current.button,
     contentPadding: PaddingValues = ButtonPadding,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -88,7 +90,7 @@ fun PrismOutlinedButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = CircleShape,
+    shape: Shape = com.prism.music.ui.theme.LocalUi.current.button,
     contentPadding: PaddingValues = ButtonPadding,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -107,7 +109,7 @@ fun PrismFilledTonalButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = CircleShape,
+    shape: Shape = com.prism.music.ui.theme.LocalUi.current.button,
     contentPadding: PaddingValues = ButtonPadding,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -128,7 +130,7 @@ fun PrismTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    shape: Shape = CircleShape,
+    shape: Shape = com.prism.music.ui.theme.LocalUi.current.button,
     contentPadding: PaddingValues = ButtonDefaults.TextButtonContentPadding,
     content: @Composable RowScope.() -> Unit,
 ) {
@@ -266,6 +268,25 @@ fun PrismSlider(
             }
         },
     )
+}
+
+/**
+ * An icon in [tint] (1.7.7, Icons & shapes → The tab you're on): as drawn ([com.prism.music.data.prefs.TabTint.INK]), or
+ * repainted in the accent or the split light across it (its own small layer, only on the one tab).
+ */
+@Composable
+fun Modifier.tabTint(tint: com.prism.music.data.prefs.TabTint): Modifier {
+    if (tint == com.prism.music.data.prefs.TabTint.INK) return this
+    val dark = LocalIsDark.current
+    val accent = MaterialTheme.colorScheme.primary
+    return this
+        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val brush = if (tint == com.prism.music.data.prefs.TabTint.ACCENT) androidx.compose.ui.graphics.SolidColor(accent)
+                else PrismTokens.spectrum(dark, 0f, size.width)
+            drawRect(brush, blendMode = androidx.compose.ui.graphics.BlendMode.SrcIn)
+        }
 }
 
 /** A thin ring of split light round [shape]: the mark of what's picked (a chip, a background, a Sing button that's on). */

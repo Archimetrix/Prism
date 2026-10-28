@@ -76,8 +76,8 @@ private const val PHONE_DP = 360f
 @Composable
 fun LookTheme(s: AppSettings, dark: Boolean, content: @Composable (ThemeColors) -> Unit) {
     val c = rememberColors(s, dark)
-    val typography = remember(s.fontChoice, s.fontStamp) { prismTypography(AppFonts.family(s.fontChoice)) }
-    val ui = remember(s.corners, s.uiDensity, s.cardSize, s.titleSize, s.reduceMotion) { PrismUi.from(s) }
+    val typography = remember(s.fontChoice, s.fontStamp, s.type) { com.prism.music.ui.theme.appTypography(s) }
+    val ui = remember(s.corners, s.shapes, s.uiDensity, s.cardSize, s.titleSize, s.reduceMotion) { PrismUi.from(s) }
     val density = LocalDensity.current
     CompositionLocalProvider(
         LocalAppSettings provides s, LocalIsDark provides dark, LocalUi provides ui,
@@ -284,7 +284,7 @@ private fun PreviewBar(s: AppSettings, light: Brush) {
         Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.CenterStart) {
             Box(Modifier.fillMaxWidth().height(bar).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)))
             Box(Modifier.fillMaxWidth(0.4f).height(bar).clip(CircleShape).background(fill))
-            if (s.scrubberStyle == ScrubberStyle.THUMB) Row {
+            if (s.scrubberStyle == ScrubberStyle.THUMB || s.scrubberStyle == ScrubberStyle.RIBBONS) Row {
                 Spacer(Modifier.fillMaxWidth(0.38f))
                 Box(Modifier.size(14.dp).clip(CircleShape).background(Color.White))
             }

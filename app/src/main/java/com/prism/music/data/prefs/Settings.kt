@@ -89,7 +89,12 @@ enum class SectionStyle(val label: String) { CAROUSEL("Carousel"), GRID("Grid"),
  */
 enum class FontChoice(val label: String, val face: String? = null) {
     PRISM("Prism", "Outfit"), CLEAN("Clean", "Manrope"), GEOMETRIC("Geometric", "Plus Jakarta Sans"), AIRY("Airy", "Urbanist"),
-    ROUNDED("Rounded", "Nunito"), SERIF("Editorial", "Fraunces"), MONO("Mono", "Geist Mono"), SYSTEM("System"),
+    ROUNDED("Rounded", "Nunito"), SERIF("Editorial", "Fraunces"), MONO("Mono", "Geist Mono"),
+    /** Made to be told apart at a glance: low vision (1.7.7). */
+    LEGIBLE("Legible", "Atkinson Hyperlegible"),
+    /** Weighted letters that don't flip or swap: dyslexia (1.7.7). Two weights, not variable. */
+    DYSLEXIC("Dyslexia-friendly", "OpenDyslexic"),
+    SYSTEM("System"),
     /** A .ttf / .otf the listener imported (#12; `AppFonts.FontSlot`). */
     CUSTOM("Your font");
 
@@ -104,6 +109,91 @@ enum class FontChoice(val label: String, val face: String? = null) {
 
 /** How round cards, tiles and artwork are. */
 enum class Corners(val label: String, val scale: Float) { SHARP("Sharp", 0.2f), SUBTLE("Subtle", 0.6f), ROUND("Round", 1f), EXTRA("Extra", 1.5f) }
+/** A cover's shape (1.7.7): drawn by Prism ([com.prism.music.ui.theme.CoverShapes]), no library. */
+enum class CoverShape(val label: String) {
+    ROUNDED("Rounded"), SQUARE("Square"), CIRCLE("Circle"), SQUIRCLE("Squircle"), FLOWER("Flower"), COOKIE("Cookie"), ARCH("Arch"), SLANTED("Slanted"),
+}
+/** Prism's buttons (Play, Shuffle, dialogs' buttons), 1.7.7. */
+enum class ButtonShape(val label: String) { PILL("Pill"), ROUNDED("Rounded"), SQUARE("Square") }
+
+/** Lyrics, your way (1.7.5). Every default draws the lyrics as 1.7.4 did. Nested since 1.7.7 (see [ShapeLook]). */
+data class LyricsLookPrefs(
+    val style: LyricsStyle = LyricsStyle.PRISM,
+    /** Focus blur's strength (0 off … 2 strong; 1 as before). It replaces the old on/off `lyricsBlur`, which it starts from. */
+    val blurAmount: Float = 1f,
+    /** Room between lines (0.6 tight … 1.8 airy; 1 as before). */
+    val spacing: Float = 1f,
+    /** How bright the lines not being sung are (0.2 … 1; 0.55 as before). */
+    val othersAlpha: Float = 0.55f,
+    val sungColor: LyricsColor = LyricsColor.WHITE,
+    val sungCustom: Int = 0xFFFFD166.toInt(),
+    val otherColor: LyricsColor = LyricsColor.WHITE,
+    val otherCustom: Int = 0xFFB8C4FF.toInt(),
+    val weight: LyricsWeight = LyricsWeight.LIGHT,
+    /** Background vocals' size against their line (0.4 … 0.9; 0.6 as before). */
+    val backingSize: Float = 0.6f,
+    /** A soft shadow under the words, for photo and animated backgrounds. */
+    val shadow: Boolean = false,
+    val uppercase: Boolean = false,
+    val ahead: LyricsAhead = LyricsAhead.ALL,
+    val position: LyricsPosition = LyricsPosition.TOP,
+    /** Translations and romanized lines: size (0.7 … 1.4 of before), color, italics and where they go. */
+    val extraSize: Float = 1f,
+    val extraColor: LyricsColor = LyricsColor.WHITE,
+    val extraItalic: Boolean = false,
+    val extraPlace: LyricsExtraPlace = LyricsExtraPlace.BELOW,
+    val background: LyricsBackground = LyricsBackground.PLAYER,
+    val immersiveBackground: LyricsBackground = LyricsBackground.PLAYER,
+    /** [LyricsBackground.COLOR]'s colors; the second is a gradient's end (0: one color). */
+    val bgColor: Int = 0xFF1B1530.toInt(),
+    val bgColor2: Int = 0,
+    /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
+    val everywhere: Boolean = true,
+)
+
+/** How heavy all of Prism's text is, against its own weights (1.7.7). */
+enum class TypeWeight(val label: String, val shift: Int) { LIGHT("Light", -100), REGULAR("Regular", 0), BOLD("Bold", 100) }
+/** How far apart letters sit (1.7.7), in em added to each style's own. */
+enum class TypeSpacing(val label: String, val em: Float) { TIGHT("Tight", -0.015f), NORMAL("Normal", 0f), WIDE("Wide", 0.03f) }
+
+/** Customize Prism → Text (1.7.7): weight, spacing, and a font of its own for titles. Nested (see [ShapeLook]). */
+data class TypeLook(
+    val weight: TypeWeight = TypeWeight.REGULAR,
+    val spacing: TypeSpacing = TypeSpacing.NORMAL,
+    /** Page, section and hero titles in another font than the rest; null: the same font. */
+    val titleFont: FontChoice? = null,
+    /** The player's song title (and artist): how heavy (Reddit R7). */
+    val playerTitleWeight: PlayerTitleWeight = PlayerTitleWeight.LIGHT,
+)
+
+/**
+ * The player's title weight. [LIGHT] is Prism's own (its large titles are light, and Text → Weight moves them); the
+ * others set the title outright, and Bold makes the artist's name heavier too.
+ */
+enum class PlayerTitleWeight(val label: String, val title: androidx.compose.ui.text.font.FontWeight?, val artist: androidx.compose.ui.text.font.FontWeight?) {
+    LIGHT("Light", null, null),
+    REGULAR("Regular", androidx.compose.ui.text.font.FontWeight.Normal, null),
+    BOLD("Bold", androidx.compose.ui.text.font.FontWeight.Bold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+}
+
+/** Customize Prism → Icons & shapes (1.7.7). */
+data class ShapeLook(
+    /** Corners as a slider: 0 square … 2× round; null follows [AppSettings.corners] (Looks made before 1.7.7 name a step). */
+    val cornerScale: Float? = null,
+    /** Covers' shapes: songs in lists, albums and playlists, artists, and the player's cover. */
+    val songs: CoverShape = CoverShape.ROUNDED,
+    val albums: CoverShape = CoverShape.ROUNDED,
+    val artists: CoverShape = CoverShape.CIRCLE,
+    val player: CoverShape = CoverShape.ROUNDED,
+    val button: ButtonShape = ButtonShape.PILL,
+    /** Album and playlist pages' Play: outlined rather than filled. */
+    val playOutlined: Boolean = false,
+    /** The current tab's icon: in ink as before, the accent, or the light. */
+    val tabTint: TabTint = TabTint.INK,
+)
+
+/** The current tab's icon color (1.7.7). */
+enum class TabTint(val label: String) { INK("Ink"), ACCENT("Accent"), LIGHT("The light") }
 
 /** How much room rows and sections get. */
 enum class UiDensity(val label: String, val scale: Float) { COMPACT("Compact", 0.7f), COMFORTABLE("Comfortable", 1f), ROOMY("Roomy", 1.3f) }
@@ -173,7 +263,11 @@ enum class ImmersiveArt(val label: String, val zoom: Float) { FILL("Fill the scr
 /** Which online animated-art source gets first chance when more than one has a match. */
 enum class CanvasSourcePriority(val label: String) { SPOTIFY("Spotify first"), APPLE("Apple Music first") }
 /** [WAVE] (1.7.4): the song's own loudness, drawn from its scan, as the bar (a plain line until the song's been scanned). */
-enum class ScrubberStyle(val label: String) { HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb"), WAVE("Waveform") }
+enum class ScrubberStyle(val label: String) {
+    HAIRLINE("Hairline"), BOLD("Bold"), THUMB("Thumb"), WAVE("Waveform"),
+    /** A filled bar and knob with thin strands flowing over the played part (#151, after One UI's; 1.7.7). */
+    RIBBONS("Ribbons"),
+}
 
 // ---------------------------------------------------------------------------- The player, your way (1.7.4)
 
@@ -291,14 +385,17 @@ enum class PlayerGesture(val label: String) {
     /** Double tap only: the cover's left half goes back, its right half ahead (#79). */
     SEEK_SIDES("Seek by side"),
     PLAY_PAUSE("Play / pause"), LIKE("Like"), QUEUE("Up next"), LYRICS("Lyrics"), SLEEP("Sleep timer"), VIDEO("Video"),
-    SING("Sing"), MENU("Song menu"), STOP("Stop"), NONE("Nothing");
+    SING("Sing"), MENU("Song menu"), STOP("Stop"),
+    /** Mini player only (#149, 1.7.7): what a tap does, for swiping up. */
+    OPEN("Open the player"),
+    NONE("Nothing");
 
     companion object {
         /** The choices offered for a gesture ([double]: double tap, which also has [SEEK_SIDES]; [mini]: the mini player). */
         fun choices(double: Boolean = false, mini: Boolean = false): List<PlayerGesture> = entries.filter {
             when (it) {
                 SEEK_SIDES -> double
-                STOP -> mini
+                STOP, OPEN -> mini
                 LYRICS, VIDEO, SING -> !mini
                 else -> true
             }
@@ -340,8 +437,15 @@ fun parseLibraryViews(v: String): Map<String, LibraryView> = v.split('|').mapNot
 }.toMap()
 /** The tiles at the top of Library's Playlists tab (Reddit 1.7: "let me reorder or hide them"); shown in the order kept. */
 enum class LibraryTile(val label: String) {
-    LIKED("Liked songs"), DOWNLOADS("Downloads"), LOCAL("Local files"), REPLAY("Replay"), PODCASTS("Podcasts"),
-    TOGETHER("Listen together"), BLEND("Blend"), RECOGNIZED("Recognized"), NEW_PLAYLIST("New playlist"), IMPORT("Import playlists"),
+    LIKED("Liked songs"), DOWNLOADS("Downloads"), LOCAL("Local files"), REPLAY("Replay"),
+    /** Library's own History tab as a tile (#136, 1.7.7); not shown until ticked. */
+    HISTORY("History"), PODCASTS("Podcasts"),
+    TOGETHER("Listen together"), BLEND("Blend"), RECOGNIZED("Recognized"), NEW_PLAYLIST("New playlist"), IMPORT("Import playlists");
+
+    companion object {
+        /** A new install's tiles: all but those added later, so nobody's Library changes on its own. */
+        val initial = entries - HISTORY
+    }
 }
 
 @Serializable
@@ -611,6 +715,8 @@ data class AppSettings(
     val carLyricsKeepTitle: Boolean = false,
     /** Android Auto shows Home and Library as cover tiles under section headings (like Spotify's), not plain lists. */
     val autoGrid: Boolean = true,
+    /** Shared links as youtube.com / youtu.be ones instead of music.youtube.com (Reddit R9; albums stay YouTube Music's). */
+    val shareYoutubeLinks: Boolean = false,
     // Playback
     val showNerdStats: Boolean = false,
     /** Downloaded songs save their animated cover too. */
@@ -746,6 +852,13 @@ data class AppSettings(
     val lyricsFontName: String = "",
     val textScale: Float = 1f,
     val corners: Corners = Corners.ROUND,
+    /**
+     * Shapes (1.7.7), in one value: AppSettings is at the JVM's limit of a method's arguments (its copy and default
+     * constructors), so new groups of settings go in nested classes like this one.
+     */
+    val shapes: ShapeLook = ShapeLook(),
+    /** Weight, letter spacing and a title font (1.7.7). */
+    val type: TypeLook = TypeLook(),
     val uiDensity: UiDensity = UiDensity.COMFORTABLE,
     val titleSize: TitleSize = TitleSize.LARGE,
     val cardSize: CardSize = CardSize.MEDIUM,
@@ -786,38 +899,8 @@ data class AppSettings(
     val artShrinkOnPause: Boolean = true,
     val showOutputDevice: Boolean = true,
     val lyricsAlign: LyricsAlign = LyricsAlign.START,
-    // Lyrics, your way (1.7.5). Every default draws the lyrics as 1.7.4 did.
-    val lyricsStyle: LyricsStyle = LyricsStyle.PRISM,
-    /** Focus blur's strength (0 off … 2 strong; 1 as before). It replaces the old on/off [lyricsBlur], which it starts from. */
-    val lyricsBlurAmount: Float = 1f,
-    /** Room between lines (0.6 tight … 1.8 airy; 1 as before). */
-    val lyricsSpacing: Float = 1f,
-    /** How bright the lines not being sung are (0.2 … 1; 0.55 as before). */
-    val lyricsOthersAlpha: Float = 0.55f,
-    val lyricsSungColor: LyricsColor = LyricsColor.WHITE,
-    val lyricsSungCustom: Int = 0xFFFFD166.toInt(),
-    val lyricsOtherColor: LyricsColor = LyricsColor.WHITE,
-    val lyricsOtherCustom: Int = 0xFFB8C4FF.toInt(),
-    val lyricsWeight: LyricsWeight = LyricsWeight.LIGHT,
-    /** Background vocals' size against their line (0.4 … 0.9; 0.6 as before). */
-    val lyricsBackingSize: Float = 0.6f,
-    /** A soft shadow under the words, for photo and animated backgrounds. */
-    val lyricsShadow: Boolean = false,
-    val lyricsUppercase: Boolean = false,
-    val lyricsAhead: LyricsAhead = LyricsAhead.ALL,
-    val lyricsPosition: LyricsPosition = LyricsPosition.TOP,
-    /** Translations and romanized lines: size (0.7 … 1.4 of before), color, italics and where they go. */
-    val lyricsExtraSize: Float = 1f,
-    val lyricsExtraColor: LyricsColor = LyricsColor.WHITE,
-    val lyricsExtraItalic: Boolean = false,
-    val lyricsExtraPlace: LyricsExtraPlace = LyricsExtraPlace.BELOW,
-    val lyricsBackground: LyricsBackground = LyricsBackground.PLAYER,
-    val immersiveBackground: LyricsBackground = LyricsBackground.PLAYER,
-    /** [LyricsBackground.COLOR]'s colors; the second is a gradient's end (0: one color). */
-    val lyricsBgColor: Int = 0xFF1B1530.toInt(),
-    val lyricsBgColor2: Int = 0,
-    /** The current-lyric strip and immersive mode draw the lyrics as the lyrics page does (style, colors, weight…). */
-    val lyricsEverywhere: Boolean = true,
+    /** Lyrics, your way (1.7.5), in one value since 1.7.7 ([LyricsLookPrefs]); read as `lyricsStyle` etc. below. */
+    val lyricsLook: LyricsLookPrefs = LyricsLookPrefs(),
     /** The current-lyric line on the player (#121): where it sits, and whether a long line may take two lines. */
     val lyricsStripAlign: LyricsAlign = LyricsAlign.START,
     val lyricsStripTwoLines: Boolean = false,
@@ -872,6 +955,8 @@ data class AppSettings(
     val miniSwipeLeft: PlayerGesture = PlayerGesture.NEXT,
     val miniSwipeRight: PlayerGesture = PlayerGesture.PREVIOUS,
     val miniSwipeDown: PlayerGesture = PlayerGesture.STOP,
+    /** Swiping the mini player up (#149, 1.7.7): it did nothing before, so opening the player changes no habit. */
+    val miniSwipeUp: PlayerGesture = PlayerGesture.OPEN,
     // Library & Replay
     val libraryView: LibraryView = LibraryView.LIST,
     /** Library tabs shown their own way (1.7.6: "PLAYLISTS", "ALBUMS", "ARTISTS"); the rest as [libraryView]. */
@@ -882,7 +967,7 @@ data class AppSettings(
     val librarySubtitles: Boolean = true,
     val libraryStartTab: String = "PLAYLISTS",
     /** Library's tiles that show, in order (the rest are hidden). */
-    val libraryTiles: List<LibraryTile> = LibraryTile.entries,
+    val libraryTiles: List<LibraryTile> = LibraryTile.initial,
     /** Library → Playlists shows your playlists above the tiles (Liked songs, Downloads…) instead of below them. */
     val libraryPlaylistsFirst: Boolean = false,
     /** Playlist pages open with their picture edge to edge, like an artist page. */
@@ -900,6 +985,31 @@ data class AppSettings(
     val performanceOffered: Boolean = false,
 ) {
     val isLoggedIn: Boolean get() = cookie.contains("SAPISID")
+
+    // The lyrics' look, read as before (1.7.7 moved them into [lyricsLook]; see [LyricsLookPrefs]).
+    val lyricsStyle: LyricsStyle get() = lyricsLook.style
+    val lyricsBlurAmount: Float get() = lyricsLook.blurAmount
+    val lyricsSpacing: Float get() = lyricsLook.spacing
+    val lyricsOthersAlpha: Float get() = lyricsLook.othersAlpha
+    val lyricsSungColor: LyricsColor get() = lyricsLook.sungColor
+    val lyricsSungCustom: Int get() = lyricsLook.sungCustom
+    val lyricsOtherColor: LyricsColor get() = lyricsLook.otherColor
+    val lyricsOtherCustom: Int get() = lyricsLook.otherCustom
+    val lyricsWeight: LyricsWeight get() = lyricsLook.weight
+    val lyricsBackingSize: Float get() = lyricsLook.backingSize
+    val lyricsShadow: Boolean get() = lyricsLook.shadow
+    val lyricsUppercase: Boolean get() = lyricsLook.uppercase
+    val lyricsAhead: LyricsAhead get() = lyricsLook.ahead
+    val lyricsPosition: LyricsPosition get() = lyricsLook.position
+    val lyricsExtraSize: Float get() = lyricsLook.extraSize
+    val lyricsExtraColor: LyricsColor get() = lyricsLook.extraColor
+    val lyricsExtraItalic: Boolean get() = lyricsLook.extraItalic
+    val lyricsExtraPlace: LyricsExtraPlace get() = lyricsLook.extraPlace
+    val lyricsBackground: LyricsBackground get() = lyricsLook.background
+    val immersiveBackground: LyricsBackground get() = lyricsLook.immersiveBackground
+    val lyricsBgColor: Int get() = lyricsLook.bgColor
+    val lyricsBgColor2: Int get() = lyricsLook.bgColor2
+    val lyricsEverywhere: Boolean get() = lyricsLook.everywhere
 
     /**
      * What Prism draws with: these settings, or with [performanceMode] the lighter look. Blurred glass, frosted pages
@@ -920,11 +1030,13 @@ data class AppSettings(
         meshSpeed = 0f,
         playerBackground = if (playerBackground == PlayerBackground.BLUR || playerBackground == PlayerBackground.APPEARANCE) PlayerBackground.MESH else playerBackground,
         lyricsBlur = false,
-        lyricsBlurAmount = 0f,
-        lyricsShadow = false,
-        lyricsStyle = if (lyricsStyle == LyricsStyle.GLOW) LyricsStyle.PRISM else lyricsStyle,
-        lyricsBackground = if (lyricsBackground == LyricsBackground.BLUR || lyricsBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else lyricsBackground,
-        immersiveBackground = if (immersiveBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else immersiveBackground,
+        lyricsLook = lyricsLook.copy(
+            blurAmount = 0f,
+            shadow = false,
+            style = if (lyricsStyle == LyricsStyle.GLOW) LyricsStyle.PRISM else lyricsStyle,
+            background = if (lyricsBackground == LyricsBackground.BLUR || lyricsBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else lyricsBackground,
+            immersiveBackground = if (immersiveBackground == LyricsBackground.CANVAS) LyricsBackground.PLAYER else immersiveBackground,
+        ),
         homeHeader = if (homeHeader == HomeHeader.PICTURE || homeHeader == HomeHeader.NOW_PLAYING) HomeHeader.GREETING else homeHeader,
     )
 
@@ -1023,6 +1135,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val carLyricsOnPhone = booleanPreferencesKey("car_lyrics_on_phone")
         val carLyricsKeepTitle = booleanPreferencesKey("car_lyrics_keep_title")
         val autoGrid = booleanPreferencesKey("auto_grid")
+        val shareYoutubeLinks = booleanPreferencesKey("share_youtube_links")
         val showNerdStats = booleanPreferencesKey("nerd_stats")
         val showQuality = booleanPreferencesKey("show_quality")
         val squareVideoCovers = booleanPreferencesKey("square_video_covers")
@@ -1092,6 +1205,18 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val lyricsFontName = stringPreferencesKey("lyrics_font_name")
         val textScale = floatPreferencesKey("text_scale")
         val corners = stringPreferencesKey("corners")
+        val cornerScale = floatPreferencesKey("corner_scale")
+        val songShape = stringPreferencesKey("cover_shape_songs")
+        val albumShape = stringPreferencesKey("cover_shape_albums")
+        val artistShape = stringPreferencesKey("cover_shape_artists")
+        val playerShape = stringPreferencesKey("cover_shape_player")
+        val buttonShape = stringPreferencesKey("button_shape")
+        val playOutlined = booleanPreferencesKey("play_outlined")
+        val tabTint = stringPreferencesKey("tab_icon_tint")
+        val typeWeight = stringPreferencesKey("type_weight")
+        val typeSpacing = stringPreferencesKey("type_spacing")
+        val titleFont = stringPreferencesKey("title_font")
+        val playerTitleWeight = stringPreferencesKey("player_title_weight")
         val uiDensity = stringPreferencesKey("ui_density")
         val titleSize = stringPreferencesKey("title_size")
         val cardSize = stringPreferencesKey("card_size")
@@ -1187,6 +1312,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         val miniSwipeLeft = stringPreferencesKey("mini_swipe_left")
         val miniSwipeRight = stringPreferencesKey("mini_swipe_right")
         val miniSwipeDown = stringPreferencesKey("mini_swipe_down")
+        val miniSwipeUp = stringPreferencesKey("mini_swipe_up")
         val libraryView = stringPreferencesKey("library_view")
         val libraryViews = stringPreferencesKey("library_views")
         val libraryColumns = stringPreferencesKey("library_columns")
@@ -1214,6 +1340,8 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 lyricsBlur, lyricsScale, lyricsProgressLine, hideStatusBar,
                 tabNames, navBarSize, navBarFill, miniPlayerJoined, libraryViews, libraryColumns, librarySubtitles,
                 homeHeader, homeHeaderHeight,
+                cornerScale, songShape, albumShape, artistShape, playerShape, buttonShape, playOutlined,
+                typeWeight, typeSpacing, titleFont, tabTint, playerTitleWeight,
             ) + lyricsLook.map { it.first }
         }
 
@@ -1243,13 +1371,15 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 lyricsAlign to 's', lyricsBlur to 'b', lyricsProgressLine to 'b', lyricsScale to 'f',
                 libraryView to 's', libraryViews to 's', libraryColumns to 's', librarySubtitles to 'b', playlistHeroCover to 'b',
                 homeHeader to 's', homeHeaderHeight to 's', replayThemeColors to 'b', replayCard to 's', hideStatusBar to 'b',
+                cornerScale to 'f', songShape to 's', albumShape to 's', artistShape to 's', playerShape to 's', buttonShape to 's', playOutlined to 'b',
+                typeWeight to 's', typeSpacing to 's', titleFont to 's', tabTint to 's', playerTitleWeight to 's',
             ) + lyricsLook
         }
 
         /** Settings that aren't part of a Look: what you listen to and how, your account, Home's contents. */
         val notLook: Set<String> by lazy {
             setOf(
-                "performance_mode", "performance_offered",
+                "performance_mode", "performance_offered", "share_youtube_links",
                 "merge_liked_videos", "volume_control", "app_volume", "speed_dial_youtube_only", "swipe_tabs",
                 "onboarded", "cookie", "visitor_data", "data_sync_id", "auth_user", "discord_presence", "account_name", "account_email",
                 "account_avatar", "haptics", "immersive_player", "preload", "preload_cellular", "canvas_enabled", "canvas_on_cellular",
@@ -1271,7 +1401,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
                 "library_start_tab", "library_tiles", "library_playlists_first",
                 // 1.7.4: what buttons and gestures do is how you use Prism, not how it looks.
                 "session_buttons", "cover_swipe_left", "cover_swipe_right", "cover_swipe_up", "cover_double_tap", "cover_long_press",
-                "mini_swipe_left", "mini_swipe_right", "mini_swipe_down",
+                "mini_swipe_left", "mini_swipe_right", "mini_swipe_down", "mini_swipe_up",
             )
         }
     }
@@ -1402,6 +1532,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             carLyricsOnPhone = p[K.carLyricsOnPhone] ?: d.carLyricsOnPhone,
             carLyricsKeepTitle = p[K.carLyricsKeepTitle] ?: d.carLyricsKeepTitle,
             autoGrid = p[K.autoGrid] ?: d.autoGrid,
+            shareYoutubeLinks = p[K.shareYoutubeLinks] ?: d.shareYoutubeLinks,
             showNerdStats = p[K.showNerdStats] ?: d.showNerdStats,
             showQuality = p[K.showQuality] ?: d.showQuality,
             squareVideoCovers = p[K.squareVideoCovers] ?: d.squareVideoCovers,
@@ -1483,6 +1614,22 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             lyricsFontName = p[K.lyricsFontName] ?: d.lyricsFontName,
             textScale = p[K.textScale] ?: d.textScale,
             corners = p.enum(K.corners, d.corners),
+            shapes = ShapeLook(
+                cornerScale = p[K.cornerScale],
+                songs = p.enum(K.songShape, d.shapes.songs),
+                albums = p.enum(K.albumShape, d.shapes.albums),
+                artists = p.enum(K.artistShape, d.shapes.artists),
+                player = p.enum(K.playerShape, d.shapes.player),
+                button = p.enum(K.buttonShape, d.shapes.button),
+                playOutlined = p[K.playOutlined] ?: d.shapes.playOutlined,
+                tabTint = p.enum(K.tabTint, d.shapes.tabTint),
+            ),
+            type = TypeLook(
+                weight = p.enum(K.typeWeight, d.type.weight),
+                spacing = p.enum(K.typeSpacing, d.type.spacing),
+                titleFont = p[K.titleFont]?.let { n -> FontChoice.entries.firstOrNull { it.name == FontChoice.upgrade(n) } },
+                playerTitleWeight = p.enum(K.playerTitleWeight, d.type.playerTitleWeight),
+            ),
             uiDensity = p.enum(K.uiDensity, d.uiDensity),
             titleSize = p.enum(K.titleSize, d.titleSize),
             cardSize = p.enum(K.cardSize, d.cardSize),
@@ -1531,30 +1678,32 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             scrubberThumb = p.enum(K.scrubberThumb, d.scrubberThumb),
             visualizer = p.enum(K.visualizer, d.visualizer),
             visualizerColor = p.enum(K.visualizerColor, d.visualizerColor),
-            lyricsStyle = p.enum(K.lyricsStyle, d.lyricsStyle),
-            // Until it's set, the strength follows the old switch: on is 1.7's blur, off none.
-            lyricsBlurAmount = (p[K.lyricsBlurAmount] ?: if (p[K.lyricsBlur] ?: d.lyricsBlur) 1f else 0f).coerceIn(0f, 2f),
-            lyricsSpacing = (p[K.lyricsSpacing] ?: d.lyricsSpacing).coerceIn(0.6f, 1.8f),
-            lyricsOthersAlpha = (p[K.lyricsOthersAlpha] ?: d.lyricsOthersAlpha).coerceIn(0.2f, 1f),
-            lyricsSungColor = p.enum(K.lyricsSungColor, d.lyricsSungColor),
-            lyricsSungCustom = p[K.lyricsSungCustom] ?: d.lyricsSungCustom,
-            lyricsOtherColor = p.enum(K.lyricsOtherColor, d.lyricsOtherColor),
-            lyricsOtherCustom = p[K.lyricsOtherCustom] ?: d.lyricsOtherCustom,
-            lyricsWeight = p.enum(K.lyricsWeight, d.lyricsWeight),
-            lyricsBackingSize = (p[K.lyricsBackingSize] ?: d.lyricsBackingSize).coerceIn(0.4f, 0.9f),
-            lyricsShadow = p[K.lyricsShadow] ?: d.lyricsShadow,
-            lyricsUppercase = p[K.lyricsUppercase] ?: d.lyricsUppercase,
-            lyricsAhead = p.enum(K.lyricsAhead, d.lyricsAhead),
-            lyricsPosition = p.enum(K.lyricsPosition, d.lyricsPosition),
-            lyricsExtraSize = (p[K.lyricsExtraSize] ?: d.lyricsExtraSize).coerceIn(0.7f, 1.4f),
-            lyricsExtraColor = p.enum(K.lyricsExtraColor, d.lyricsExtraColor),
-            lyricsExtraItalic = p[K.lyricsExtraItalic] ?: d.lyricsExtraItalic,
-            lyricsExtraPlace = p.enum(K.lyricsExtraPlace, d.lyricsExtraPlace),
-            lyricsBackground = p.enum(K.lyricsBackground, d.lyricsBackground),
-            immersiveBackground = p.enum(K.immersiveBackground, d.immersiveBackground),
-            lyricsBgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
-            lyricsBgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
-            lyricsEverywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+            lyricsLook = LyricsLookPrefs(
+                style = p.enum(K.lyricsStyle, d.lyricsStyle),
+                // Until it's set, the strength follows the old switch: on is 1.7's blur, off none.
+                blurAmount = (p[K.lyricsBlurAmount] ?: if (p[K.lyricsBlur] ?: d.lyricsBlur) 1f else 0f).coerceIn(0f, 2f),
+                spacing = (p[K.lyricsSpacing] ?: d.lyricsSpacing).coerceIn(0.6f, 1.8f),
+                othersAlpha = (p[K.lyricsOthersAlpha] ?: d.lyricsOthersAlpha).coerceIn(0.2f, 1f),
+                sungColor = p.enum(K.lyricsSungColor, d.lyricsSungColor),
+                sungCustom = p[K.lyricsSungCustom] ?: d.lyricsSungCustom,
+                otherColor = p.enum(K.lyricsOtherColor, d.lyricsOtherColor),
+                otherCustom = p[K.lyricsOtherCustom] ?: d.lyricsOtherCustom,
+                weight = p.enum(K.lyricsWeight, d.lyricsWeight),
+                backingSize = (p[K.lyricsBackingSize] ?: d.lyricsBackingSize).coerceIn(0.4f, 0.9f),
+                shadow = p[K.lyricsShadow] ?: d.lyricsShadow,
+                uppercase = p[K.lyricsUppercase] ?: d.lyricsUppercase,
+                ahead = p.enum(K.lyricsAhead, d.lyricsAhead),
+                position = p.enum(K.lyricsPosition, d.lyricsPosition),
+                extraSize = (p[K.lyricsExtraSize] ?: d.lyricsExtraSize).coerceIn(0.7f, 1.4f),
+                extraColor = p.enum(K.lyricsExtraColor, d.lyricsExtraColor),
+                extraItalic = p[K.lyricsExtraItalic] ?: d.lyricsExtraItalic,
+                extraPlace = p.enum(K.lyricsExtraPlace, d.lyricsExtraPlace),
+                background = p.enum(K.lyricsBackground, d.lyricsBackground),
+                immersiveBackground = p.enum(K.immersiveBackground, d.immersiveBackground),
+                bgColor = p[K.lyricsBgColor] ?: d.lyricsBgColor,
+                bgColor2 = p[K.lyricsBgColor2] ?: d.lyricsBgColor2,
+                everywhere = p[K.lyricsEverywhere] ?: d.lyricsEverywhere,
+            ),
             lyricsStripAlign = p.enum(K.lyricsStripAlign, d.lyricsStripAlign),
             lyricsStripTwoLines = p[K.lyricsStripTwoLines] ?: d.lyricsStripTwoLines,
             mergeLikedVideos = p[K.mergeLikedVideos] ?: d.mergeLikedVideos,
@@ -1569,6 +1718,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
             miniSwipeLeft = p.enum(K.miniSwipeLeft, d.miniSwipeLeft),
             miniSwipeRight = p.enum(K.miniSwipeRight, d.miniSwipeRight),
             miniSwipeDown = p.enum(K.miniSwipeDown, d.miniSwipeDown),
+            miniSwipeUp = p.enum(K.miniSwipeUp, d.miniSwipeUp),
             libraryView = p.enum(K.libraryView, d.libraryView),
             libraryViews = p[K.libraryViews]?.let(::parseLibraryViews) ?: d.libraryViews,
             libraryColumns = p.enum(K.libraryColumns, d.libraryColumns),
@@ -1767,6 +1917,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setCarLyricsOnPhone(v: Boolean) = edit { it[K.carLyricsOnPhone] = v }
     fun setCarLyricsKeepTitle(v: Boolean) = edit { it[K.carLyricsKeepTitle] = v }
     fun setAutoGrid(v: Boolean) = edit { it[K.autoGrid] = v }
+    fun setShareYoutubeLinks(v: Boolean) = edit { it[K.shareYoutubeLinks] = v }
     fun setShowNerdStats(v: Boolean) = edit { it[K.showNerdStats] = v }
     fun setShowQuality(v: Boolean) = edit { it[K.showQuality] = v }
     fun setSquareVideoCovers(v: Boolean) = edit { it[K.squareVideoCovers] = v }
@@ -1840,7 +1991,21 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
     fun setLyricsFont(v: String) = edit { it[K.lyricsFont] = v }
     fun setLyricsFontFile(name: String) = edit { it[K.lyricsFontName] = name; it[K.fontStamp] = System.currentTimeMillis() }
     fun setTextScale(v: Float) = edit { it[K.textScale] = v }
-    fun setCorners(v: Corners) = edit { it[K.corners] = v.name }
+    /** A corners step: the slider goes back to following it. */
+    fun setCorners(v: Corners) = edit { it[K.corners] = v.name; it.remove(K.cornerScale) }
+    fun setCornerScale(v: Float) = edit { it[K.cornerScale] = v.coerceIn(0f, 2f) }
+    fun setCoverShape(which: String, v: CoverShape) = edit { p ->
+        val key = when (which) { "songs" -> K.songShape; "albums" -> K.albumShape; "artists" -> K.artistShape; "player" -> K.playerShape; else -> return@edit }
+        p[key] = v.name
+    }
+    fun setButtonShape(v: ButtonShape) = edit { it[K.buttonShape] = v.name }
+    fun setTabTint(v: TabTint) = edit { it[K.tabTint] = v.name }
+    fun setTypeWeight(v: TypeWeight) = edit { it[K.typeWeight] = v.name }
+    fun setTypeSpacing(v: TypeSpacing) = edit { it[K.typeSpacing] = v.name }
+    fun setPlayerTitleWeight(v: PlayerTitleWeight) = edit { it[K.playerTitleWeight] = v.name }
+    /** Null: titles in the app's font. */
+    fun setTitleFont(v: FontChoice?) = edit { if (v == null) it.remove(K.titleFont) else it[K.titleFont] = v.name }
+    fun setPlayOutlined(v: Boolean) = edit { it[K.playOutlined] = v }
     fun setUiDensity(v: UiDensity) = edit { it[K.uiDensity] = v.name }
     fun setTitleSize(v: TitleSize) = edit { it[K.titleSize] = v.name }
     fun setCardSize(v: CardSize) = edit { it[K.cardSize] = v.name }
@@ -1926,7 +2091,7 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         p[key] = v.name
     }
     private val gestureKeys = listOf(
-        K.coverSwipeLeft, K.coverSwipeRight, K.coverSwipeUp, K.coverDoubleTap, K.coverLongPress, K.miniSwipeLeft, K.miniSwipeRight, K.miniSwipeDown,
+        K.coverSwipeLeft, K.coverSwipeRight, K.coverSwipeUp, K.coverDoubleTap, K.coverLongPress, K.miniSwipeLeft, K.miniSwipeRight, K.miniSwipeDown, K.miniSwipeUp,
     ).associateBy { it.name }
     fun setArtShrinkOnPause(v: Boolean) = edit { it[K.artShrinkOnPause] = v }
     fun setShowOutputDevice(v: Boolean) = edit { it[K.showOutputDevice] = v }

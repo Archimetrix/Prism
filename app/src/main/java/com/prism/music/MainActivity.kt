@@ -1,5 +1,6 @@
 package com.prism.music
 
+import com.prism.music.ui.components.tabTint
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -340,13 +341,20 @@ private fun rememberArtworkColor(song: Song?, settings: com.prism.music.data.pre
     val key = if (settings.artworkChange == com.prism.music.data.prefs.ArtworkChange.ALBUM) song?.album?.id ?: song?.album?.title ?: song?.thumbnail else song?.thumbnail
     LaunchedEffect(key, swatch, vivid) {
         val url = song?.thumbnail ?: return@LaunchedEffect
-        color = withContext(Dispatchers.IO) {
+        // One palette for both: the accent's swatch, and the light "From the cover" (#123; also what its tile in Color shows).
+        val made = withContext(Dispatchers.IO) {
             runCatching {
                 val req = ImageRequest.Builder(context).data(hiRes(url, 160)).allowHardware(false).build()
                 val bmp = (context.imageLoader.execute(req) as? SuccessResult)?.image?.toBitmap() ?: return@runCatching null
-                com.prism.music.ui.theme.pickSwatch(Palette.from(bmp).generate(), swatch, vivid)?.let { Color(it) }
+                val p = Palette.from(bmp).generate()
+                val stops = com.prism.music.ui.theme.SpectrumPresets.fromCover(
+                    listOfNotNull(p.vibrantSwatch, p.lightVibrantSwatch, p.darkVibrantSwatch, p.mutedSwatch, p.lightMutedSwatch, p.dominantSwatch).map { it.rgb or (0xFF shl 24) },
+                )
+                com.prism.music.ui.theme.pickSwatch(p, swatch, vivid)?.let { Color(it) } to stops
             }.getOrNull()
-        } ?: color
+        } ?: return@LaunchedEffect
+        made.first?.let { color = it }
+        com.prism.music.ui.theme.SpectrumPresets.coverStops = made.second ?: emptyList()
     }
     return color
 }
@@ -837,7 +845,7 @@ private fun NavRail(tabs: List<Tab>, route: String?, settings: AppSettings, onSe
                         .padding(vertical = if (showLabel) 8.dp else 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = fg, modifier = Modifier.size(24.dp))
+                    Icon(if (selected) tab.selectedIcon else tab.icon, tab.label, tint = fg, modifier = Modifier.size(24.dp).then(if (selected) Modifier.tabTint(settings.shapes.tabTint) else Modifier))
                     if (showLabel) Text(
                         tab.label, color = fg, style = MaterialTheme.typography.labelSmall,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
@@ -978,6 +986,8 @@ private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Flo
         onClick = onClick,
     ).semantics { this.selected = selected }
     val icon = if (selected) tab.selectedIcon else tab.icon
+    // The current tab's icon in ink, the accent or the light (1.7.7).
+    val tabTint = com.prism.music.ui.theme.LocalAppSettings.current.shapes.tabTint
     val spectrumLine = Modifier.drawWithContent {
         drawContent()
         if (mark > 0f) {
@@ -997,7 +1007,7 @@ private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Flo
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Icon(icon, tab.label, tint = fg, modifier = Modifier.size(24.dp))
+            Icon(icon, tab.label, tint = fg, modifier = Modifier.size(24.dp).then(if (selected) Modifier.tabTint(tabTint) else Modifier))
             if (compact < 0.98f) Text(
                 tab.label, color = fg, style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
@@ -1010,7 +1020,7 @@ private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Flo
                 Modifier.height(40.dp).clip(CircleShape).background(indicator).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(icon, tab.label, tint = fg, modifier = Modifier.size(22.dp))
+                Icon(icon, tab.label, tint = fg, modifier = Modifier.size(22.dp).then(if (selected) Modifier.tabTint(tabTint) else Modifier))
                 AnimatedVisibility(selected && compact < 0.5f, enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
                     Row {
                         Spacer(Modifier.width(6.dp))
@@ -1021,7 +1031,7 @@ private fun TabItem(tab: Tab, selected: Boolean, labels: NavLabels, compact: Flo
         }
         NavLabels.NEVER -> Box(modifier.then(spectrumLine).then(click), contentAlignment = Alignment.Center) {
             Box(Modifier.size(52.dp, 40.dp).clip(CircleShape).background(indicator), contentAlignment = Alignment.Center) {
-                Icon(icon, tab.label, tint = fg, modifier = Modifier.size(24.dp))
+                Icon(icon, tab.label, tint = fg, modifier = Modifier.size(24.dp).then(if (selected) Modifier.tabTint(tabTint) else Modifier))
             }
         }
         // Words only (1.7.6): the tabs' names, no icons; the current one bolder.

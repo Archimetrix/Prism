@@ -214,7 +214,11 @@ private fun ColorSettings() {
                     WHITE_KEY -> prefs.setLightStyle(LightStyle.WHITE)
                     "CUSTOM" -> {
                         // Start your own from whatever is showing now.
-                        val from = if (s.spectrumStops.size >= 2) s.spectrumStops else SpectrumPresets.colorsFor(s.spectrumPreset, emptyList()).map { it.toArgb() }
+                        val from = when {
+                            s.spectrumStops.size >= 2 -> s.spectrumStops
+                            s.spectrumPreset == SpectrumPresets.COVER && SpectrumPresets.coverStops.size >= 2 -> SpectrumPresets.coverStops
+                            else -> SpectrumPresets.colorsFor(s.spectrumPreset, emptyList()).map { it.toArgb() }
+                        }
                         prefs.setSpectrumStops(from)
                         prefs.setLightStyle(LightStyle.SPECTRUM)
                     }
@@ -566,7 +570,8 @@ private fun LightPresets(s: AppSettings, dark: Boolean, onPick: (String) -> Unit
     val scheme = MaterialTheme.colorScheme
     val white = s.lightStyle == LightStyle.WHITE
     // White is a preset like the others: white light on dark pages, black on light ones (named for what it shows).
-    val keys = SpectrumPresets.all.map { it.key to it.label } + (WHITE_KEY to whiteName(dark)) + ("CUSTOM" to "Your own")
+    val keys = SpectrumPresets.all.map { it.key to it.label } + (SpectrumPresets.COVER to SpectrumPresets.COVER_LABEL) +
+        (WHITE_KEY to whiteName(dark)) + ("CUSTOM" to "Your own")
     // Three to a row, every tile the same width (a short last row keeps its tiles' size, it doesn't stretch them).
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       keys.chunked(3).forEach { row ->

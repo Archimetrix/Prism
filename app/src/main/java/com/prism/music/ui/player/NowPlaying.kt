@@ -414,7 +414,13 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // Collapsed into the header thumbnail, the sleeve keeps gentle corners whatever the setting.
     // A Full width cover meets the screen's edges, so it has square corners until it shrinks into the header.
     val artCorners = if (settings.coverSize == com.prism.music.data.prefs.CoverSize.FULL) 0.dp else settings.playerArtCorners.dp
-    val artShape = if (vinyl) CircleShape else RoundedCornerShape(lerp(artCorners, 8.dp, collapse.value))
+    // Another shape picked for the player's cover (1.7.7) keeps it all the way into the header.
+    val artShape = when {
+        vinyl -> CircleShape
+        settings.shapes.player != com.prism.music.data.prefs.CoverShape.ROUNDED && !cassette ->
+            com.prism.music.ui.theme.CoverShapes.of(settings.shapes.player, artCorners)
+        else -> RoundedCornerShape(lerp(artCorners, 8.dp, collapse.value))
+    }
     val roomyCover = settings.coverSize != com.prism.music.data.prefs.CoverSize.STANDARD
 
     // ---------------------------------------------------------------- Visualizer (1.7.4, off by default)
@@ -625,13 +631,23 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                 com.prism.music.data.prefs.PlayerGesture.SING -> onButton(com.prism.music.data.prefs.PlayerButton.SING)
                 com.prism.music.data.prefs.PlayerGesture.MENU -> showActions = true
                 com.prism.music.data.prefs.PlayerGesture.STOP -> { pc.stop(); slideClosed() }
-                com.prism.music.data.prefs.PlayerGesture.SEEK_SIDES, com.prism.music.data.prefs.PlayerGesture.NONE -> {}
+                // OPEN is the mini player's; the player is open already.
+                com.prism.music.data.prefs.PlayerGesture.SEEK_SIDES, com.prism.music.data.prefs.PlayerGesture.OPEN,
+                com.prism.music.data.prefs.PlayerGesture.NONE -> {}
             }
         }
         // Drag on the sleeve: down closes the player, up does what's set (the queue comes in, by default).
         val sleeveGesture = Modifier.pointerInput(lyricsOpen, queueOpen, statsOpen) {
-            if (lyricsOpen || queueOpen || statsOpen) return@pointerInput
+            if (lyricsOpen || statsOpen) return@pointerInput
             var total = 0f
+            // With the queue open, pulling the header down closes the queue (#149), as swiping up brought it.
+            if (queueOpen) {
+                detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragEnd = { if (total > 90f) { haptics.gestureEnd(); toggleQueue() } },
+                ) { change, amount -> change.consume(); total += amount }
+                return@pointerInput
+            }
             detectVerticalDragGestures(
                 onDragStart = { total = 0f },
                 onDragEnd = {
@@ -831,7 +847,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                                 }
                                 // A record keeps its own round shadow and clip (the tonearm reaches past its edge); a
                                 // tape draws its own shell.
-                                .then(if (vinyl || cassette) Modifier else Modifier.shadow(if (artLoaded) 10.dp else 0.dp, artShape).clip(artShape).background(Color.Black.copy(alpha = 0.18f))),
+                                .then(if (vinyl || cassette) Modifier else Modifier.shadow(if (artLoaded) 10.dp else 0.dp, com.prism.music.ui.theme.CoverShapes.shadowOf(artShape)).clip(artShape).background(Color.Black.copy(alpha = 0.18f))),
                             contentAlignment = Alignment.Center,
                         ) {
                             // Vinyl: the cover as a record's label, turning while it plays (the animated cover isn't used).
@@ -906,7 +922,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             PlayerMarquee(
                                 // The title leads, the artist under it a size smaller (#41). Spectrum: large and light
                                 // (a tenth under headlineMedium, so longer titles fit before they scroll).
-                                song.title, MaterialTheme.typography.headlineMedium.let { it.copy(fontSize = it.fontSize * 0.9f * titleScale, lineHeight = it.lineHeight * 0.9f * titleScale) }, Color.White, scrolls,
+                                song.title, MaterialTheme.typography.headlineMedium.let { it.copy(fontSize = it.fontSize * 0.9f * titleScale, lineHeight = it.lineHeight * 0.9f * titleScale, fontWeight = settings.type.playerTitleWeight.title ?: it.fontWeight) }, Color.White, scrolls,
                                 Modifier.clickable(enabled = song.album?.id != null) { song.album?.id?.let { onCollapse(); nav.go(Routes.album(it)) } },
                             )
                             // With more than one artist, the name asks which one to open (#42).
@@ -915,7 +931,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                             var pickArtist by remember(song.id) { mutableStateOf(false) }
                             Box {
                                 PlayerMarquee(
-                                    song.artistText, MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 22.sp), Color.White.copy(alpha = 0.6f), scrolls,
+                                    song.artistText, MaterialTheme.typography.bodyLarge.let { it.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = settings.type.playerTitleWeight.artist ?: it.fontWeight) }, Color.White.copy(alpha = 0.6f), scrolls,
                                     Modifier.clickable(enabled = linked.isNotEmpty()) {
                                         if (linked.size > 1) pickArtist = true else linked.firstOrNull()?.let { onCollapse(); nav.go(Routes.artist(it)) }
                                     },
@@ -969,6 +985,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         InlineQueue(
                             onRevealPlayer = { queueControlsOpen = true },
                             onHidePlayer = { queueControlsOpen = false },
+                            onClose = { haptics.gestureEnd(); toggleQueue() },
                             modifier = Modifier.fillMaxSize().padding(top = HEADER_HEIGHT + 8.dp).graphicsLayer {
                                 alpha = panelFade
                                 translationY = (1f - panelFade) * 26.dp.toPx()

@@ -57,6 +57,12 @@ import androidx.compose.runtime.produceState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -485,6 +491,55 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
     var likedPlaylistSheet by remember { mutableStateOf(false) }
     val likedPlaylistId by c.likedPlaylist.playlistId.collectAsState()
     if (likedPlaylistSheet) LikedPlaylistSheet(art ?: songs.firstOrNull()?.thumbnail) { likedPlaylistSheet = false }
+    // Rearranging an owned playlist's songs (#140): each drop goes to YouTube Music at once (one move each, in order) or
+    // straight into a Prism playlist; the page shows it moved, and puts it back if YouTube refuses.
+    var rearranging by remember(page.id) { mutableStateOf(false) }
+    val canRearrange = (type == CollectionType.PLAYLIST && live.page.owned || type == CollectionType.PRISM) && songs.size > 1
+    val moves = remember(page.id) { kotlinx.coroutines.sync.Mutex() }
+    val reorder = rememberLazyReorder(listState, songs)
+    fun startRearranging() {
+        when {
+            loadingMore -> Toast.makeText(context, "Wait a moment: the rest of the songs are still loading", Toast.LENGTH_SHORT).show()
+            // A song in it twice: which copy moved can't be told apart here.
+            type == CollectionType.PLAYLIST && songs.distinctBy { it.id }.size != songs.size ->
+                Toast.makeText(context, "This playlist has a song in it twice, so it can only be rearranged on YouTube Music", Toast.LENGTH_LONG).show()
+            else -> {
+                if (sort != SortMode.DEFAULT) pickSort(SortMode.DEFAULT)
+                if (groupByGenre) toggleGenreGroups()
+                genreFilter = null; query = ""
+                rearranging = true
+            }
+        }
+    }
+    fun reorderTo(order: List<Song>) {
+        val before = live.songs.value
+        val moved = movedSong(before, order) ?: return
+        live.songs.value = order
+        if (type == CollectionType.PRISM) { c.prismLibrary.reorder(page.id, order); return }
+        val at = order.indexOfFirst { it.id == moved.id }
+        val successor = order.getOrNull(at + 1)
+        val slot = slots[moved.id]
+        val next = successor?.let { slots[it.id] }
+        // YouTube places a song by the slot of the one after it (none: the end). Without both, the move would land
+        // somewhere else on YouTube than on the page, so it isn't made.
+        if (slot == null || successor != null && next == null) {
+            live.songs.value = before
+            Toast.makeText(context, "Couldn't move it here. Open the playlist again and retry", Toast.LENGTH_SHORT).show()
+            return
+        }
+        scope.launch {
+            moves.withLock {
+                runCatching { c.ytm.movePlaylistItem(page.id, slot, next) }.onFailure {
+                    // Only this move is undone: moves made after it went to YouTube in turn and stay.
+                    live.songs.value = live.songs.value.toMutableList().apply {
+                        val k = indexOfFirst { it.id == moved.id }
+                        if (k >= 0) { removeAt(k); add(before.indexOfFirst { it.id == moved.id }.coerceIn(0, size), moved) }
+                    }
+                    Toast.makeText(context, "Couldn't move it: ${it.friendlyMessage()}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
     var sharing by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -578,6 +633,11 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                     )
                 }
                 if (!sideBySide) item("play") { playRow() }
+                // Rearranging (#140): the songs in the playlist's own order, to hold and move; nothing else in the way.
+                if (rearranging) {
+                    rearrangeSongs(reorder, onDone = { rearranging = false }, onReorder = ::reorderTo)
+                    return@LazyColumn
+                }
                 if (showSearch || showGenres) item(key = "search") {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (showSearch) com.prism.music.ui.components.SearchField(
@@ -592,8 +652,8 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                                 )
                             }
                             DropdownMenu(sortMenu, { sortMenu = false }) {
-                                SortMode.entries.filter { it != SortMode.OLDEST || type == CollectionType.DOWNLOADS }.forEach { m ->
-                                    DropdownMenuItem({ Text(sortLabel(m, type)) }, { pickSort(m); sortMenu = false }, trailingIcon = { if (m == sort) Icon(PrismIcons.Check, null) })
+                                SortMode.entries.filter { it != SortMode.OLDEST || type in REVERSIBLE }.forEach { m ->
+                                    DropdownMenuItem({ Text(sortLabel(m, type, page.owned)) }, { pickSort(m); sortMenu = false }, trailingIcon = { if (m == sort) Icon(PrismIcons.Check, null) })
                                 }
                                 HorizontalDivider()
                                 DropdownMenuItem({ Text("Group by genre") }, { toggleGenreGroups(); sortMenu = false }, trailingIcon = { if (groupByGenre) Icon(PrismIcons.Check, null) })
@@ -710,6 +770,7 @@ private fun CollectionContent(type: CollectionType, live: LiveCollection, initia
                 )
                 if (coverKey != null) add(SheetItem(PrismIcons.Photo, "Change picture") { coverSheet = true })
                 if ((type == CollectionType.PLAYLIST && live.page.owned) || type == CollectionType.PRISM) add(SheetItem(PrismIcons.Edit, "Edit details") { editing = true })
+                if (canRearrange) add(SheetItem(PrismIcons.SwapVertical, "Rearrange songs") { startRearranging() })
                 // A sleep or kids' playlist: plays as usual, but doesn't shape recommendations.
                 if (type == CollectionType.PLAYLIST) {
                     val listId = page.playlistId ?: page.id.removePrefix("VL")
@@ -827,15 +888,24 @@ private fun PlayShufflePills(enabled: Boolean, onPlay: () -> Unit, onShuffle: ()
 @Composable
 private fun Pill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, primary: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    // Play: a solid pill in the text color, glowing in the spectrum's colors; Shuffle: a pill of glass.
-    val bg = if (primary) scheme.onSurface else frostFill(1.6f)
-    val fg = if (primary) scheme.surface else scheme.onSurface
-    val pill = RoundedCornerShape(24.dp)
+    // Play: a solid pill in the text color, glowing in the spectrum's colors (or, picked in Icons & shapes, just its
+    // outline); Shuffle: a pill of glass. Both in the buttons' shape.
+    val outlined = primary && LocalAppSettings.current.shapes.playOutlined
+    val filled = primary && !outlined
+    val bg = if (filled) scheme.onSurface else if (outlined) Color.Transparent else frostFill(1.6f)
+    val fg = if (filled) scheme.surface else scheme.onSurface
+    val pill = com.prism.music.ui.theme.LocalUi.current.button
     Row(
         modifier.height(48.dp)
-            .then(if (primary && enabled) Modifier.shadow(14.dp, pill, ambientColor = Color(0xFFFF4D5E).lit(), spotColor = Color(0xFF7C5CFF).lit()) else Modifier)
+            .then(if (filled && enabled) Modifier.shadow(14.dp, pill, ambientColor = Color(0xFFFF4D5E).lit(), spotColor = Color(0xFF7C5CFF).lit()) else Modifier)
             .clip(pill).background(bg)
-            .then(if (!primary) Modifier.border(1.dp, com.prism.music.ui.components.glassEdge(), pill) else Modifier)
+            .then(
+                when {
+                    outlined -> Modifier.border(1.5.dp, scheme.onSurface, pill)
+                    !primary -> Modifier.border(1.dp, com.prism.music.ui.components.glassEdge(), pill)
+                    else -> Modifier
+                },
+            )
             .graphicsLayer { alpha = if (enabled) 1f else 0.5f }
             .clickable(enabled = enabled, onClick = onClick),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
@@ -1207,8 +1277,162 @@ private fun CoverSheet(key: String, title: String, songs: List<Song>, onDismiss:
     }
 }
 
-private fun sortLabel(m: SortMode, type: CollectionType) =
-    if (m == SortMode.DEFAULT && type == CollectionType.DOWNLOADS) "Recently added" else m.label
+/**
+ * The one song a drop moved, [before] → [after] (a [com.prism.music.ui.components.ReorderList] drop moves one row):
+ * the lists first differ at i and last at j, and either the song at i went down to j or the one at j came up to i.
+ */
+internal fun movedSong(before: List<Song>, after: List<Song>): Song? {
+    if (before.size != after.size) return null
+    val i = before.indices.firstOrNull { before[it].id != after[it].id } ?: return null
+    val j = before.indices.last { before[it].id != after[it].id }
+    return if (after[j].id == before[i].id) before[i] else before[j]
+}
+
+/**
+ * An owned playlist's songs to hold and move (#140), straight in the page's own lazy list: only the rows on screen
+ * exist, so a 1,100-song playlist opens as fast as a short one (laying them all out at once held the screen ~2 s).
+ * Hold a row or drag its grip; it trades places with each row it's carried over, the page scrolls while it's held near
+ * the top or bottom, and the drop is one move ([onReorder]).
+ */
+private class LazyReorder(val listState: androidx.compose.foundation.lazy.LazyListState) {
+    /** How much of the list's top the page's bar covers, in px. */
+    var topCover = 0f
+    var order by mutableStateOf<List<Song>>(emptyList())
+    var dragging by mutableStateOf<String?>(null)
+    var offset by mutableStateOf(0f)
+    private var before: List<Song> = emptyList()
+
+    fun start(id: String) { before = order; dragging = id; offset = 0f }
+
+    fun drag(dy: Float) {
+        val id = dragging ?: return
+        offset += dy
+        val visible = listState.layoutInfo.visibleItemsInfo
+        val cur = visible.firstOrNull { it.key == rowKey(id) } ?: return
+        val center = cur.offset + offset + cur.size / 2f
+        val over = visible.firstOrNull { it.key != cur.key && (it.key as? String)?.startsWith(ROW) == true && center.toInt() in it.offset until it.offset + it.size }
+            ?: return
+        val from = order.indexOfFirst { it.id == id }
+        val to = order.indexOfFirst { rowKey(it.id) == over.key }
+        if (from < 0 || to < 0) return
+        order = order.toMutableList().apply { add(to, removeAt(from)) }
+        // It now lays out in the other row's place: keep it under the finger.
+        offset += cur.offset - over.offset
+    }
+
+    /** Nudges the page when the carried row is held near its top or bottom; returns how far it scrolled. */
+    suspend fun edgeScroll(): Float {
+        val id = dragging ?: return 0f
+        val info = listState.layoutInfo
+        val cur = info.visibleItemsInfo.firstOrNull { it.key == rowKey(id) } ?: return 0f
+        val top = cur.offset + offset
+        val bottom = top + cur.size
+        val zone = cur.size * 1.5f
+        // The list runs under the page's top bar and under the mini player and tab bar (its bottom padding): the zones
+        // start where the rows can be seen.
+        val seenTop = info.viewportStartOffset + topCover
+        val seenBottom = info.viewportEndOffset - info.afterContentPadding
+        val step = when {
+            top < seenTop + zone -> -(seenTop + zone - top).coerceIn(2f, 24f)
+            bottom > seenBottom - zone -> (bottom - (seenBottom - zone)).coerceIn(2f, 24f)
+            else -> 0f
+        }
+        if (step == 0f) return 0f
+        val moved = listState.scrollBy(step)
+        offset += moved
+        drag(0f)
+        return moved
+    }
+
+    fun end(): List<Song>? {
+        dragging = null; offset = 0f
+        return order.takeIf { it != before }
+    }
+
+    companion object {
+        const val ROW = "rearrange:"
+        fun rowKey(id: String) = ROW + id
+    }
+}
+
+@Composable
+private fun rememberLazyReorder(listState: androidx.compose.foundation.lazy.LazyListState, songs: List<Song>): LazyReorder {
+    val r = remember(listState) { LazyReorder(listState) }
+    r.topCover = with(androidx.compose.ui.platform.LocalDensity.current) {
+        (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 60.dp).toPx()
+    }
+    // The playlist as it is, unless a row is being carried.
+    LaunchedEffect(songs) { if (r.dragging == null) r.order = songs }
+    if (r.dragging == null && r.order.isEmpty()) r.order = songs
+    if (r.dragging != null) LaunchedEffect(r.dragging) {
+        while (true) { androidx.compose.runtime.withFrameNanos { }; r.edgeScroll() }
+    }
+    return r
+}
+
+/** The rows of [rearrangeSongs]: light (no pictures), a number, the title and artist, and the grip. */
+private fun androidx.compose.foundation.lazy.LazyListScope.rearrangeSongs(r: LazyReorder, onDone: () -> Unit, onReorder: (List<Song>) -> Unit) {
+    item("rearrange-head") {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Hold a song, or drag its grip, to move it", Modifier.weight(1f),
+                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            com.prism.music.ui.components.PrismChip(true, onDone, "Done", icon = PrismIcons.Check)
+        }
+    }
+    itemsIndexed(r.order, key = { _, s -> LazyReorder.rowKey(s.id) }) { i, s ->
+        val held = r.dragging == s.id
+        val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        fun Modifier.dragging(afterHold: Boolean) = pointerInput(s.id) {
+            val start: (androidx.compose.ui.geometry.Offset) -> Unit = {
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                r.start(s.id)
+            }
+            val end: () -> Unit = { r.end()?.let(onReorder) }
+            val move: (androidx.compose.ui.input.pointer.PointerInputChange, androidx.compose.ui.geometry.Offset) -> Unit = { change, amount -> change.consume(); r.drag(amount.y) }
+            if (afterHold) detectDragGesturesAfterLongPress(start, end, end, move)
+            else detectDragGestures(start, end, end, move)
+        }
+        Row(
+            Modifier.fillMaxWidth()
+                .then(if (held) Modifier else Modifier.animateItem())
+                .zIndex(if (held) 1f else 0f)
+                .graphicsLayer {
+                    translationY = if (held) r.offset else 0f
+                    shadowElevation = if (held) 12.dp.toPx() else 0f
+                }
+                .background(if (held) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
+                .dragging(afterHold = true)
+                .padding(start = 20.dp, end = 12.dp).height(56.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "${i + 1}", Modifier.width(36.dp), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(s.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(s.artistText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            com.prism.music.ui.components.DragGrip(Modifier.dragging(afterHold = false).padding(start = 8.dp), "Drag ${s.title}")
+        }
+    }
+}
+/** Lists whose own order is the order songs came in, so the other way round means something (#141). */
+private val REVERSIBLE = setOf(CollectionType.DOWNLOADS, CollectionType.LIKED, CollectionType.PLAYLIST, CollectionType.PRISM)
+
+/**
+ * [SortMode.OLDEST] is the list's own order reversed. Downloads and Liked songs start with the newest, so that's
+ * "Oldest first"; your own playlists get new songs at the end, so it's "Newest first" (#141); anyone else's playlist
+ * is in its maker's order, so it's just reversed.
+ */
+private fun sortLabel(m: SortMode, type: CollectionType, owned: Boolean = false) = when {
+    m == SortMode.DEFAULT && type == CollectionType.DOWNLOADS -> "Recently added"
+    m == SortMode.OLDEST && (type == CollectionType.PRISM || type == CollectionType.PLAYLIST && owned) -> "Newest first"
+    m == SortMode.OLDEST && type == CollectionType.PLAYLIST -> "Reverse order"
+    else -> m.label
+}
 
 private fun sizeText(bytes: Long): String =
     if (bytes >= 1_073_741_824L) "%.1f GB".format(bytes / 1_073_741_824.0) else "%.0f MB".format(bytes / 1_048_576.0)

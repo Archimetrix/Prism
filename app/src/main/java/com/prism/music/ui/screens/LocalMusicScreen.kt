@@ -554,7 +554,7 @@ private fun <K> SortSheet(
 private fun AlbumTile(a: LocalAlbum, onClick: () -> Unit) {
     val ui = LocalUi.current
     Column(Modifier.padding(4.dp).clip(ui.tile).clickable(onClick = onClick).padding(4.dp)) {
-        Artwork(a.art, Modifier.fillMaxWidth().aspectRatio(1f), ui.art, size = 544, placeholderIcon = PrismIcons.Album)
+        Artwork(a.art, Modifier.fillMaxWidth().aspectRatio(1f), ui.albumArt, size = 544, placeholderIcon = PrismIcons.Album)
         Spacer(Modifier.height(8.dp))
         Text(a.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
@@ -582,7 +582,7 @@ private fun ArtistPage(artist: LocalArtist, bottomPadding: Dp, onOpenAlbum: (Loc
                     Modifier.fillMaxWidth().clickable { onOpenAlbum(album) }.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Artwork(album.art, Modifier.size(44.dp), LocalUi.current.smallArt, size = 226, placeholderIcon = PrismIcons.Album)
+                    Artwork(album.art, Modifier.size(44.dp), LocalUi.current.albumArt, size = 226, placeholderIcon = PrismIcons.Album)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(album.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)

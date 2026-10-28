@@ -32,6 +32,20 @@ object ShareLinks {
     }
 
     /**
+     * [url] (one of the links above) as a YouTube one, for listeners who'd rather send those (Reddit R9): a song as a
+     * youtu.be link, a playlist or artist on youtube.com. An album has no page on YouTube, so it stays YouTube Music's.
+     */
+    fun asYouTube(url: String): String {
+        if (!url.startsWith(BASE)) return url
+        val rest = url.removePrefix(BASE)
+        return when {
+            rest.startsWith("/watch?v=") -> "https://youtu.be/" + rest.removePrefix("/watch?v=").substringBefore('&')
+            rest.startsWith("/playlist?list=") || rest.startsWith("/channel/") -> "https://www.youtube.com$rest"
+            else -> url
+        }
+    }
+
+    /**
      * The first YouTube or YouTube Music link in [text] (what other apps put in a share), as the
      * music.youtube.com address Prism opens. youtu.be and youtube.com watch links count too.
      */

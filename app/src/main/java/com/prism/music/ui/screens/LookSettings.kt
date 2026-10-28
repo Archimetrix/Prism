@@ -534,6 +534,7 @@ private fun ScheduleGroup() {
 private fun HistoryGroup() {
     val c = LocalContainer.current
     val steps by c.looks.steps.collectAsState()
+    var clearing by remember { mutableStateOf(false) }
     Group("History") {
         if (steps.isEmpty()) Note("Your last ${LookStore.MAX_STEPS} changes to the look show here, to go back through.")
         steps.forEachIndexed { i, step ->
@@ -543,5 +544,14 @@ private fun HistoryGroup() {
                 icon = PrismIcons.Undo, onClick = { c.looks.goBack(i) },
             )
         }
+        // #152: the list can go; the look itself stays as it is.
+        if (steps.isNotEmpty()) Item("Clear history", "Your look stays as it is now", icon = PrismIcons.Delete, onClick = { clearing = true })
     }
+    if (clearing) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { clearing = false },
+        title = { Text("Clear the look's history?") },
+        text = { Text("You won't be able to go back to these changes. Your look stays as it is now.") },
+        confirmButton = { com.prism.music.ui.components.PrismTextButton({ c.looks.clearHistory(); clearing = false }) { Text("Clear") } },
+        dismissButton = { com.prism.music.ui.components.PrismTextButton({ clearing = false }) { Text("Cancel") } },
+    )
 }

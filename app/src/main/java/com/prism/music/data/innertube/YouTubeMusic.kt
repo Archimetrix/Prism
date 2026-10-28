@@ -42,7 +42,12 @@ enum class SearchFilter(val label: String, val params: String?) {
 }
 
 /** High-level YouTube Music operations built on [InnerTube]. */
-class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -> Boolean = { false }) {
+class YouTubeMusic(
+    private val api: InnerTube,
+    private val songsEverywhere: () -> Boolean = { false },
+    /** Songs paired with their music videos while reading a page (song id -> video id), for the player's Video button. */
+    private val onPairs: (Map<String, String>) -> Unit = {},
+) {
     companion object {
         /** An artist page "id" that's looked up by name ([artistIdByName]). */
         const val ARTIST_BY_NAME = "name:"
@@ -52,6 +57,14 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         private val SONG_FOR_VIDEO_BRACKETS = Regex("\\(.*?\\)|\\[.*?]")
         /** How far a video's length may be from its song's (an intro or outro on the video). */
         internal const val SONG_FOR_VIDEO_SLACK_SEC = 8
+        /** How much longer than its song an artist's own music video may run (intros and endings), 1.7.7. */
+        internal const val LONGER_VIDEO_SEC = 60
+
+        /** An album page's track title and its playlist's are the same title (case, punctuation and spacing aside). */
+        internal fun sameTrackTitle(a: String, b: String): Boolean {
+            fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
+            return norm(a).isNotEmpty() && norm(a) == norm(b)
+        }
     }
 
     private suspend fun browse(browseId: String, params: String? = null): JsonObject {
@@ -234,19 +247,30 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         val artistRuns = header.obj("straplineTextOne").runs()
         val artists = Parser.artistsFromRuns(artistRuns)
         val albumRef = com.prism.music.data.model.AlbumRef(title, browseId)
-        val songs = songsFrom(res).map { s ->
-            s.copy(
-                // An album's tracks are its songs. Signed out, YouTube now lists the label's "Official Audio" /
+        // The album's own playlist (OLAK5uy_…). Its canonical address first: on a long page the first play button found
+        // can be another album's ("Imaginal Disk" played someone else's songs from it).
+        val playlistId = res.findFirst("microformatDataRenderer").str("urlCanonical")?.substringAfter("list=", "")?.takeIf { it.isNotBlank() }
+            ?: header.findFirst("watchPlaylistEndpoint").str("playlistId")
+            ?: res.findFirst("watchPlaylistEndpoint").str("playlistId")
+        val listed = songsFrom(res)
+        // Signed out, YouTube now lists an album's tracks as their music videos where they have one (Reddit R1, 2026-10:
+        // "Death & Romance" played its 8-minute video with another song in it, at the album's 5:15). The album's own
+        // playlist still lists the songs, in the same order: one request puts them back.
+        val songsOf = if (listed.any { it.isVideo } && playlistId != null) albumSongs(listed, playlistId) else emptyMap()
+        if (songsOf.isNotEmpty()) onPairs(songsOf.values.associate { (song, video) -> song.id to video })
+        val songs = listed.mapIndexed { i, s ->
+            val song = songsOf[i]?.first
+            (song ?: s).copy(
+                // An album's tracks are its songs. Signed out, YouTube also lists the label's "Official Audio" /
                 // "Lyric Video" uploads here, typed as music videos, and they opened in video mode. With "Songs, not
                 // videos" everywhere they stay videos, so they're swapped for the song itself (#61).
-                isVideo = s.isVideo && songsEverywhere(),
-                artists = s.artists.ifEmpty { artists },
+                isVideo = song == null && s.isVideo && songsEverywhere(),
+                artists = (song ?: s).artists.ifEmpty { artists },
                 album = s.album ?: albumRef,
                 thumbnail = s.thumbnail ?: thumb,
+                explicit = s.explicit || song?.explicit == true,
             )
         }
-        val playlistId = res.findFirst("watchPlaylistEndpoint").str("playlistId")
-            ?: res.findFirst("microformatDataRenderer").str("urlCanonical")?.substringAfter("list=", "")?.takeIf { it.isNotBlank() }
         // "Other versions" sits beside the track list (deluxe, clean, live editions).
         val others = Parser.shelves(res).firstOrNull { it.title.equals("Other versions", true) }?.items.orEmpty()
             .filter { it.id != browseId }
@@ -265,12 +289,35 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
             trackPlays = res.findAll("musicResponsiveListItemRenderer").mapNotNull { r ->
                 val id = r.str("playlistItemData", "videoId") ?: return@mapNotNull null
                 Parser.playCount(r)?.let { id to it }
-            }.toMap(),
+            }.toMap().let { plays ->
+                // A track played as its song keeps its play count under the song's id.
+                val songFor = songsOf.values.associate { (song, video) -> video to song.id }
+                if (songFor.isEmpty()) plays else plays.mapKeys { (id, _) -> songFor[id] ?: id }
+            },
             artistThumbnail = header.obj("straplineThumbnail").bestThumbnail(),
             savedToLibrary = libraryToggle(header),
             otherVersions = others,
             explicit = header.arr("subtitleBadge")?.any { it.str("musicInlineBadgeRenderer", "icon", "iconType") == "MUSIC_EXPLICIT_BADGE" } == true,
         )
+    }
+
+    /**
+     * For an album page that lists music videos ([listed]), the songs its own playlist lists in their place, by track
+     * position, each with the video it replaces. Only where both lists agree: the same number of tracks and, at each
+     * place, the same title. Empty when the playlist can't be read or doesn't line up (the page then stays as listed).
+     */
+    private suspend fun albumSongs(listed: List<Song>, playlistId: String): Map<Int, Pair<Song, String>> {
+        val own = runCatching { playlist(playlistId).songs }.getOrNull() ?: return emptyMap()
+        if (own.size != listed.size) {
+            log("album $playlistId: its playlist has ${own.size} tracks, the page ${listed.size}; videos left as listed")
+            return emptyMap()
+        }
+        return listed.indices.mapNotNull { i ->
+            val page = listed[i]
+            val song = own[i]
+            if (!page.isVideo || song.isVideo || song.id == page.id || !sameTrackTitle(page.title, song.title)) null
+            else i to (song to page.id)
+        }.toMap().also { if (it.isNotEmpty()) log("album $playlistId: ${it.size} tracks listed as videos played as their songs") }
     }
 
     /** The header's bookmark ("Save to library") state; only meaningful when signed in. */
@@ -406,20 +453,30 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         playlistId: String? = null,
         params: String? = null,
         continuation: String? = null,
+        /** False when only the page around the song is wanted (its lyrics tab): the queue isn't fetched. */
+        queue: Boolean = true,
     ): NextResult {
-        val res = api.post("next", buildJsonObject {
-            videoId?.let { put("videoId", it) }
-            playlistId?.let { put("playlistId", it) }
-            params?.let { put("params", it) }
-            continuation?.let { put("continuation", it) }
+        fun body(token: String?) = buildJsonObject {
+            if (token == null) {
+                videoId?.let { put("videoId", it) }
+                playlistId?.let { put("playlistId", it) }
+                params?.let { put("params", it) }
+            }
+            (token ?: continuation)?.let { put("continuation", it) }
             put("isAudioOnly", true)
             put("enablePersistentPlaylistPanel", true)
             put("tunerSettingValue", "AUTOMIX_SETTING_NORMAL")
-        })
+        }
+        val res = api.post("next", body(null))
+        // Since late 2026 a single song's page comes without its queue, only a token to load it with (radios still
+        // carry theirs): asked for once more when the songs are wanted.
+        val reload = if (!queue || res.findFirst("playlistPanelRenderer") != null || res.findFirst("playlistPanelContinuation") != null) null
+            else res.findFirst("reloadContinuationData").str("continuation")
+        val panel = reload?.let { t -> runCatching { api.post("next", body(t)) }.getOrNull() } ?: res
         val counterparts = mutableMapOf<String, String>()
         val counterpartSongs = mutableMapOf<String, Song>()
         val songs = mutableListOf<Song>()
-        val panelItems = (res.findFirst("playlistPanelRenderer") ?: res.findFirst("playlistPanelContinuation"))
+        val panelItems = (panel.findFirst("playlistPanelRenderer") ?: panel.findFirst("playlistPanelContinuation"))
             .arr("contents") ?: emptyList()
         for (item in panelItems) {
             item.obj("playlistPanelVideoRenderer")?.let { Parser.panelVideo(it)?.let(songs::add) }
@@ -437,10 +494,16 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         val lyricsId = tabs.firstNotNullOfOrNull { t ->
             t.str("tabRenderer", "endpoint", "browseEndpoint", "browseId")?.takeIf { it.startsWith("MPLY") }
         }
-        val cont = res.findFirst("playlistPanelRenderer")?.let { Parser.continuation(it.arr("continuations")) }
-            ?: Parser.continuation(res.obj("continuationContents"))
+        val cont = panel.findFirst("playlistPanelRenderer")?.let { Parser.continuation(it.arr("continuations")) }
+            ?: Parser.continuation(panel.obj("continuationContents"))
         return NextResult(songs, cont, lyricsId, counterparts, counterpartSongs)
     }
+
+    /**
+     * YouTube's own song ↔ video pairing for one item, if it still gives one. Signed out it stopped (2026-10-25: no
+     * counterparts in `next`, not even in the queue it loads after), so then nothing's asked and Prism matches by search.
+     */
+    private suspend fun pairing(id: String): NextResult? = if (!api.signedIn) null else runCatching { next(id) }.getOrNull()
 
     /**
      * The song a music video or live performance belongs to. Official videos are paired with
@@ -448,9 +511,10 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
      * by a song search on the cleaned-up title and artist, with the duration as a tie-breaker.
      */
     suspend fun songForVideo(video: Song): Song? {
-        val r = next(video.id)
-        r.counterpartSongs[video.id]?.takeIf { !it.isVideo }?.let { return it }
-        r.songs.firstOrNull { !it.isVideo && r.counterparts[it.id] == video.id }?.let { return it }
+        pairing(video.id)?.let { r ->
+            r.counterpartSongs[video.id]?.takeIf { !it.isVideo }?.let { return it }
+            r.songs.firstOrNull { !it.isVideo && r.counterparts[it.id] == video.id }?.let { return it }
+        }
         // Without YouTube's own pairing it must be the same recording (GitHub #113: a live album's track,
         // "Nos siguen pegando abajo (Pecado mortal)", played as the studio song from another album). So only the video's
         // own words go ("Official Video", "(Lyric Video)", "HD"); anything else in brackets, and live or session takes,
@@ -467,12 +531,21 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
         val title = norm(rawTitle)
         if (title.isBlank()) return null
         val query = "${rawTitle.replace(Regex("\\(.*?\\)|\\[.*?]"), " ").trim()} ${video.primaryArtist}".trim()
+        // An artist's own music video often runs longer than the song (an intro, a scene after it: "bad guy", 206 s for a
+        // 194 s song), so it may be up to a minute longer, never much shorter. A live or acoustic take is told apart by
+        // its title, so the lengths only matter beyond that.
+        val ownTake = !MusicVideoMatch.otherTake(video.title)
+        fun lengthFits(s: Song): Boolean {
+            if (video.durationSec <= 0 || s.durationSec <= 0) return true
+            val longer = video.durationSec - s.durationSec
+            return if (ownTake) longer in -SONG_FOR_VIDEO_SLACK_SEC..LONGER_VIDEO_SEC else kotlin.math.abs(longer) <= SONG_FOR_VIDEO_SLACK_SEC
+        }
         // Only an exact title by the same artist counts; a near miss would put the wrong song's lyrics on the video.
         return search(query, SearchFilter.SONGS).items.filterIsInstance<SongItem>().map { it.song }
             .filter { s ->
                 !s.isVideo && norm(s.title) == title &&
                     (artist.isBlank() || s.artists.any { a -> norm(a.name).let { it.isNotBlank() && (it.contains(artist) || artist.contains(it)) } }) &&
-                    (video.durationSec <= 0 || s.durationSec <= 0 || kotlin.math.abs(s.durationSec - video.durationSec) <= SONG_FOR_VIDEO_SLACK_SEC)
+                    lengthFits(s)
             }
             .minByOrNull { s -> if (video.durationSec > 0 && s.durationSec > 0) kotlin.math.abs(s.durationSec - video.durationSec) else 0 }
     }
@@ -482,7 +555,7 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
      * the watch queue when YouTube provides it, otherwise a filtered video search.
      */
     suspend fun findMusicVideo(song: Song): String? {
-        next(song.id).counterparts[song.id]?.let { log("video for ${song.id} \"${song.title}\": YouTube's own pairing $it"); return it }
+        pairing(song.id)?.counterparts?.get(song.id)?.let { log("video for ${song.id} \"${song.title}\": YouTube's own pairing $it"); return it }
         if (song.artists.isEmpty() || song.title.isBlank()) {
             log("video for ${song.id} \"${song.title}\": no artist or title to search with")
             return null
@@ -611,10 +684,8 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
 
     suspend fun likedSongs(limit: Int = 5000): List<Song> = playlistAll("LM", limit).songs
 
-    suspend fun libraryPlaylists(): List<BrowseItem> =
-        browse("FEmusic_liked_playlists").let { res ->
-            res.findAll("musicTwoRowItemRenderer").mapNotNull { Parser.twoRow(it) }
-        }
+    /** Every playlist in the library, following its continuations (YouTube sends the first ~25, Reddit R5). */
+    suspend fun libraryPlaylists(): List<BrowseItem> = libraryItems("FEmusic_liked_playlists")
 
     /** A library page plus its continuations (they come 25 at a time). */
     private suspend fun libraryItems(browseId: String, maxPages: Int = 20): List<BrowseItem> {
@@ -851,6 +922,23 @@ class YouTubeMusic(private val api: InnerTube, private val songsEverywhere: () -
                     put("action", "ACTION_REMOVE_VIDEO")
                     put("removedVideoId", videoId)
                     put("setVideoId", setVideoId)
+                }
+            }
+        })
+    }
+
+    /**
+     * Moves one song in an owned playlist (#140): the song in slot [setVideoId] goes just before the one in [beforeSetVideoId],
+     * or to the end when that's null. Slots stay the same, so the page's `setVideoIds` still hold after a move.
+     */
+    suspend fun movePlaylistItem(playlistId: String, setVideoId: String, beforeSetVideoId: String?) {
+        api.post("browse/edit_playlist", buildJsonObject {
+            put("playlistId", playlistId.removePrefix("VL"))
+            putJsonArray("actions") {
+                addJsonObject {
+                    put("action", "ACTION_MOVE_VIDEO_BEFORE")
+                    put("setVideoId", setVideoId)
+                    beforeSetVideoId?.let { put("movedSetVideoIdSuccessor", it) }
                 }
             }
         })

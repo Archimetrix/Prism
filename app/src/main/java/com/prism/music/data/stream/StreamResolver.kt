@@ -430,28 +430,29 @@ class StreamResolver(
     @Volatile
     private var newPipeBlockedUntil = 0L
 
-    /** Until when [premiumFormats] isn't tried: the account's answers had no Premium formats (not a Premium account). */
-    @Volatile
-    private var premiumMissingUntil = 0L
+    /** When [premiumFormats] is worth asking: paused after several songs in a row came without Premium formats. */
+    private val premiumBackoff = PremiumBackoff()
 
     /**
      * Settings → Playback & sound → "Premium quality" (Reddit 1.7): asked as the signed-in account, which YouTube answers
      * with its 256 kbps formats (AAC itag 141, Opus 774) for Music Premium. Kept only when it has them; otherwise the
-     * usual quick path plays and, for an hour, the account isn't asked first again (so songs don't start slower for
-     * nothing). Not on metered networks with Data saver on.
+     * usual quick path plays. Only after several answers in a row without them (not a Premium account) is the account
+     * not asked first for an hour, so songs don't start slower for nothing; one video or upload, which never has them,
+     * no longer turns it off for the songs after it (Reddit, 1.7.7). Not on metered networks with Data saver on.
      */
     private fun premiumFormats(videoId: String): Formats? {
         val s = settings.current
-        if (!s.premiumStream || !s.isLoggedIn || System.currentTimeMillis() < premiumMissingUntil) return null
+        if (!s.premiumStream || !s.isLoggedIn || !premiumBackoff.asking()) return null
         if (s.dataSaver && isMetered()) return null
         val f = runCatching { signedInFormats(videoId) }.getOrNull() ?: return null
         if (f.live) return f
         val premium = f.audio.filter { it.itag in PREMIUM_ITAGS }
         if (premium.isEmpty()) {
-            if (f.audio.isNotEmpty()) premiumMissingUntil = System.currentTimeMillis() + 60 * 60_000L
+            if (f.audio.isNotEmpty() && premiumBackoff.missed()) Log.i("PrismStream", "No Premium formats ${PremiumBackoff.MISSES_TO_PAUSE} times in a row: not asking for an hour")
             Log.i("PrismStream", "$videoId: no Premium formats for this account (${f.audio.map { it.itag }})")
             return null
         }
+        premiumBackoff.found()
         Log.i("PrismStream", "$videoId resolved as the account (Premium formats ${premium.map { it.itag }})")
         return f
     }
@@ -590,6 +591,32 @@ class StreamResolver(
         throw StreamException(reason ?: "Couldn't load this track")
     }
 
+    /**
+     * Premium quality's pause: answers without Premium formats are counted in a row, and only [MISSES_TO_PAUSE] of them
+     * (not a Premium account, most likely) pause asking for [PAUSE_MS]. A Premium answer starts the count again.
+     */
+    internal class PremiumBackoff(private val now: () -> Long = System::currentTimeMillis) {
+        private var misses = 0
+        private var pausedUntil = 0L
+
+        @Synchronized fun asking(): Boolean = now() >= pausedUntil
+
+        /** One answer without Premium formats; true when it starts a pause. */
+        @Synchronized fun missed(): Boolean {
+            if (++misses < MISSES_TO_PAUSE) return false
+            misses = 0
+            pausedUntil = now() + PAUSE_MS
+            return true
+        }
+
+        @Synchronized fun found() { misses = 0 }
+
+        companion object {
+            const val MISSES_TO_PAUSE = 3
+            const val PAUSE_MS = 60 * 60_000L
+        }
+    }
+
     private companion object {
         /** YouTube Music Premium's 256 kbps audio: AAC (141) and Opus (774). */
         val PREMIUM_ITAGS = setOf(141, 774)
@@ -647,6 +674,9 @@ class StreamResolver(
             via = via,
         )
     }
+
+    /** [videoId]'s length in seconds as YouTube gives it (resolving it if it hasn't been), 0 when unknown. Blocking. */
+    fun durationSec(videoId: String): Long = formats(videoId).durationSec
 
     /** Whether [videoId] is a live stream (resolving it if it hasn't been). Blocking. */
     fun isLive(videoId: String): Boolean = formats(videoId).live

@@ -51,7 +51,8 @@ class WeightSweepTest {
     fun heavierWordsKeepTheirLightWidth() {
         val words = listOf("Waterfalls", "I", "said", "mind", "Somebody", "you", "WOW", "Lights")
         val fonts = com.prism.music.data.prefs.FontChoice.entries.mapNotNull { c -> AppFonts.axis(c)?.let { c to it } }
-        assertTrue("expected the seven bundled fonts, got ${fonts.map { it.first }}", fonts.size == 7)
+        // Every bundled variable font (1.7.7 added Legible); OpenDyslexic comes in two weights, so it has no axis to sweep.
+        assertTrue("expected the eight bundled variable fonts, got ${fonts.map { it.first }}", fonts.size == 8)
         for ((choice, axis) in fonts) {
             val st = style.copy(fontFamily = axis)
             // Some words come out the same width either way; most widen (else the weight axis isn't being applied).

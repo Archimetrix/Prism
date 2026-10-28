@@ -5,6 +5,8 @@ import com.prism.music.ui.theme.PrismIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -54,7 +57,7 @@ import kotlin.math.roundToInt
 
 /** The queue, inside the player: now playing, what's next, then autoplay. */
 @Composable
-fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: Modifier = Modifier) {
+fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: Modifier = Modifier, onClose: (() -> Unit)? = null) {
     val c = LocalContainer.current
     val pc = c.player
     val queue by pc.queue.collectAsState()
@@ -82,6 +85,11 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
     val autoplay = order.filter { it.index >= autoplayFrom && it.song.id !in userQueued }
 
     val controlsOnScroll = remember { ControlsOnScroll(onHide = onHidePlayer, onReveal = onRevealPlayer) }
+
+    // A song taken out (swiped away or its ×, #149) can be put back for a few seconds.
+    var undo by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    LaunchedEffect(undo) { if (undo != null) { kotlinx.coroutines.delay(8_000); undo = null } }
+    val remove: (QueueEntry) -> Unit = { entry -> pc.removeForUndo(entry.index)?.let { undo = entry.song.title to it } }
 
     // DJ mode: its switch, energy curve and how far the scans have got; each song's key and tempo as badges.
     val dj by c.dj.on.collectAsState()
@@ -119,7 +127,15 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
     }
 
     Column(modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Pulled down by its title row, the queue closes (#149); the list itself keeps scrolling as before.
+        val pullToClose = if (onClose == null) Modifier else Modifier.pointerInput(Unit) {
+            var total = 0f
+            detectVerticalDragGestures(
+                onDragStart = { total = 0f },
+                onDragEnd = { if (total > 90f) onClose() },
+            ) { change, amount -> change.consume(); total += amount }
+        }
+        Row(pullToClose, verticalAlignment = Alignment.CenterVertically) {
             Text("Queue", style = MaterialTheme.typography.titleLarge, color = Color.White, modifier = Modifier.weight(1f))
             if (order.size > 1) {
                 QueueChip("DJ", selected = dj) { pc.setDjMode(!dj) }
@@ -151,13 +167,26 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
                 }
             }
         }
+        undo?.let { (title, putBack) ->
+            Row(
+                Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.12f))
+                    .padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Removed “$title”", style = MaterialTheme.typography.bodyMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(
+                    "Undo", style = MaterialTheme.typography.labelLarge, color = Color.White,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { putBack(); undo = null }.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
         Spacer(Modifier.height(4.dp))
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().nestedScroll(controlsOnScroll), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (played.isNotEmpty()) {
                 item(key = "h-played") { Heading("Played", Modifier.padding(top = 12.dp, bottom = 6.dp)) }
                 items(played, key = { "played-" + it.uid }) { entry ->
                     QueueRow(
-                        entry.song, isCurrent = false, onClick = { pc.skipTo(entry.index) }, onRemove = { pc.removeAt(entry.index) },
+                        entry.song, isCurrent = false, onClick = { pc.skipTo(entry.index) }, onRemove = { remove(entry) },
                         modifier = Modifier.alpha(0.6f),
                     )
                 }
@@ -168,15 +197,15 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
             }
             if (queued.isNotEmpty()) {
                 item(key = "h-queued") { Heading("Next in queue", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(queued, reorder = !shuffled, badge = badge) { from, to -> pc.move(from, to) }
+                queueSection(queued, shuffled, badge = badge, onRemove = remove)
             }
             if (upcoming.isNotEmpty()) {
                 item(key = "h-next") { Heading("Next from: ${source.title.ifBlank { now?.song?.album?.title ?: "Queue" }}", Modifier.padding(top = 16.dp, bottom = 6.dp)) }
-                queueSection(upcoming, reorder = !shuffled, badge = badge) { from, to -> pc.move(from, to) }
+                queueSection(upcoming, shuffled, badge = badge, onRemove = remove)
             }
             if (settings.autoplay || autoplay.isNotEmpty()) {
                 item(key = "h-auto") { AutoplayHeading(autoplay.isNotEmpty()) }
-                queueSection(autoplay, reorder = !shuffled, badge = badge) { from, to -> pc.move(from, to) }
+                queueSection(autoplay, shuffled, badge = badge, onRemove = remove)
             }
         }
     }
@@ -185,21 +214,46 @@ fun InlineQueue(onRevealPlayer: () -> Unit, onHidePlayer: () -> Unit, modifier: 
 /** How many played songs the queue lists above Now Playing (the latest ones). */
 private const val MAX_PLAYED = 100
 
-/** [reorder] is off while shuffled: dragging moves songs in the list, not in the shuffled order. */
-private fun LazyListScope.queueSection(rows: List<QueueEntry>, reorder: Boolean = true, badge: (Song) -> String? = { null }, onMove: (Int, Int) -> Unit) {
+/**
+ * A section of the queue whose songs can be dragged: in the list itself, or while [shuffled] (the queue then shows the
+ * shuffled play order) in the play order, beside the song shown next to it in this section.
+ */
+private fun LazyListScope.queueSection(
+    rows: List<QueueEntry>,
+    shuffled: Boolean,
+    badge: (Song) -> String? = { null },
+    onRemove: (QueueEntry) -> Unit,
+) {
     items(rows, key = { it.uid }) { entry ->
         val pc = LocalContainer.current.player
         val rowPx = with(LocalDensity.current) { 56.dp.toPx() }
         var drag by remember { mutableFloatStateOf(0f) }
         var position by remember(entry.index) { mutableStateOf(entry.index) }
+        // Read at each step of a drag, not as they were when it started (the rows move under the finger).
+        val section by androidx.compose.runtime.rememberUpdatedState(rows)
+        val current by androidx.compose.runtime.rememberUpdatedState(entry)
+        val shuffleOn by androidx.compose.runtime.rememberUpdatedState(shuffled)
+        /** Moves the song one place down ([down]) or up; false at the section's end. */
+        fun step(down: Boolean): Boolean {
+            if (!shuffleOn) {
+                if (!down && position == 0) return false
+                val to = if (down) position + 1 else position - 1
+                pc.move(position, to); position = to
+                return true
+            }
+            val at = section.indexOfFirst { it.uid == current.uid }
+            val beside = section.getOrNull(if (down) at + 1 else at - 1) ?: return false
+            pc.moveInPlayOrder(current.index, beside.index, after = down)
+            return true
+        }
         QueueRow(
             entry.song,
             isCurrent = false,
             onClick = { pc.skipTo(entry.index) },
-            onRemove = { pc.removeAt(entry.index) },
+            onRemove = { onRemove(entry) },
             badge = badge(entry.song),
             modifier = Modifier.offset { IntOffset(0, drag.roundToInt()) },
-            dragHandle = if (!reorder) Modifier else Modifier.pointerInput(entry.uid) {
+            dragHandle = Modifier.pointerInput(entry.uid) {
                 detectDragGestures(
                     onDragEnd = { drag = 0f },
                     onDragCancel = { drag = 0f },
@@ -207,8 +261,8 @@ private fun LazyListScope.queueSection(rows: List<QueueEntry>, reorder: Boolean 
                     change.consume()
                     drag += amount.y
                     // Trade places with a neighbour each time the row crosses one.
-                    if (drag > rowPx * 0.6f) { onMove(position, position + 1); position += 1; drag -= rowPx }
-                    else if (drag < -rowPx * 0.6f && position > 0) { onMove(position, position - 1); position -= 1; drag += rowPx }
+                    if (drag > rowPx * 0.6f) { if (step(down = true)) drag -= rowPx else drag = rowPx * 0.6f }
+                    else if (drag < -rowPx * 0.6f) { if (step(down = false)) drag += rowPx else drag = -rowPx * 0.6f }
                 }
             },
         )
@@ -262,8 +316,41 @@ private fun QueueRow(
     dragHandle: Modifier? = null,
     badge: String? = null,
 ) {
+    // Swiped left past a third of the row, it slides out and goes (#149); short of that it springs back. Moved in the
+    // drawing layer, so a swipe doesn't lay the row out again each frame.
+    val slide = remember { androidx.compose.animation.core.Animatable(0f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val haptics = com.prism.music.ui.theme.rememberHaptics()
+    // The swipe outlives a recomposition (it's keyed on the song), so it calls the latest onRemove: the row's place
+    // in the queue changes when a song above it goes, and an old one would take out its neighbour.
+    val removeNow by androidx.compose.runtime.rememberUpdatedState(onRemove)
+    val swipe = if (onRemove == null) Modifier else Modifier.pointerInput(song.id) {
+        val goAt = size.width / 3f
+        detectHorizontalDragGestures(
+            onDragEnd = {
+                scope.launch {
+                    if (slide.value <= -goAt) {
+                        haptics.gestureEnd()
+                        slide.animateTo(-size.width.toFloat(), androidx.compose.animation.core.tween(160))
+                        removeNow?.invoke()
+                    } else slide.animateTo(0f)
+                }
+            },
+            onDragCancel = { scope.launch { slide.animateTo(0f) } },
+        ) { change, d ->
+            change.consume()
+            val after = (slide.value + d).coerceAtMost(0f)
+            if ((slide.value > -goAt) != (after > -goAt)) haptics.threshold()
+            scope.launch { slide.snapTo(after) }
+        }
+    }
     Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+        modifier.fillMaxWidth().then(swipe)
+            .graphicsLayer {
+                translationX = slide.value
+                alpha = 1f - (-slide.value / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.7f)
+            }
+            .clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (dragHandle != null) {

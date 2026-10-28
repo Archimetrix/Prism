@@ -268,21 +268,29 @@ private val base = Typography()
  * so thin strokes never blur at row size or drop below contrast. Sizes are sp, so the phone's and Prism's own text size
  * still apply. [family] is the typeface picked in Look & feel (Outfit by default).
  */
-fun prismTypography(family: FontFamily = FontFamily.Default): Typography {
-    fun style(size: Float, line: Float, weight: Int, tracking: Float = 0f) =
-        TextStyle(fontFamily = family, fontSize = size.sp, lineHeight = line.sp, fontWeight = FontWeight(weight), letterSpacing = tracking.em)
+fun prismTypography(
+    family: FontFamily = FontFamily.Default,
+    /** Big titles' font (1.7.7, Text → Titles); [family] when not picked. */
+    titleFamily: FontFamily = family,
+    /** Added to every style's weight (1.7.7, Text → Weight): −100 lighter, +100 bolder. */
+    weightShift: Int = 0,
+    /** Added to every style's letter spacing, in em (1.7.7, Text → Letter spacing). */
+    tracking: Float = 0f,
+): Typography {
+    fun style(size: Float, line: Float, weight: Int, trk: Float = 0f, f: FontFamily = family) =
+        TextStyle(fontFamily = f, fontSize = size.sp, lineHeight = line.sp, fontWeight = FontWeight((weight + weightShift).coerceIn(100, 900)), letterSpacing = (trk + tracking).em)
     return base.copy(
         // Replay's big numbers, the welcome screen.
-        displayLarge = style(56f, 60f, 200, -0.03f),
-        displayMedium = style(44f, 50f, 200, -0.025f),
-        displaySmall = style(36f, 42f, 200, -0.02f),
+        displayLarge = style(56f, 60f, 200, -0.03f, titleFamily),
+        displayMedium = style(44f, 50f, 200, -0.025f, titleFamily),
+        displaySmall = style(36f, 42f, 200, -0.02f, titleFamily),
         // Page titles (Home's greeting, Library, Settings…).
-        headlineLarge = style(36f, 42f, 200, -0.02f),
+        headlineLarge = style(36f, 42f, 200, -0.02f, titleFamily),
         // Hero titles: album, playlist, artist.
-        headlineMedium = style(28f, 34f, 300, -0.015f),
-        headlineSmall = style(24f, 30f, 300, -0.01f),
+        headlineMedium = style(28f, 34f, 300, -0.015f, titleFamily),
+        headlineSmall = style(24f, 30f, 300, -0.01f, titleFamily),
         // Section headings.
-        titleLarge = style(22f, 28f, 300, -0.01f),
+        titleLarge = style(22f, 28f, 300, -0.01f, titleFamily),
         // Row titles.
         titleMedium = style(16f, 22f, 500, -0.003f),
         titleSmall = style(14f, 20f, 500),
@@ -298,6 +306,15 @@ fun prismTypography(family: FontFamily = FontFamily.Default): Typography {
 }
 
 val PrismTypography = prismTypography()
+
+/** The app's type for [s]: its font, titles in their own font if one's picked, the weight and spacing (1.7.7). */
+fun appTypography(s: AppSettings): Typography {
+    val family = AppFonts.family(s.fontChoice)
+    return prismTypography(
+        family, s.type.titleFont?.let { AppFonts.family(it) } ?: family,
+        weightShift = s.type.weight.shift, tracking = s.type.spacing.em,
+    )
+}
 
 val MonoStyle = TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp, lineHeight = 15.sp)
 
@@ -409,7 +426,9 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     val white = settings.lightStyle == com.prism.music.data.prefs.LightStyle.WHITE
     if (PrismTokens.white != white) PrismTokens.white = white
     // Your light (1.7.2): the split light's own colors, worked out once per change.
-    val light = remember(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands) {
+    // From the cover (#123): a new light with each cover (no fade: the whole app would redraw every frame of one).
+    val coverStops = if (settings.spectrumPreset == SpectrumPresets.COVER) SpectrumPresets.coverStops else null
+    val light = remember(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands, coverStops) {
         SpectrumPresets.light(settings.spectrumPreset, settings.spectrumStops, settings.spectrumBands)
     }
     if (PrismTokens.light !== light) PrismTokens.light = light
@@ -423,8 +442,9 @@ fun PrismTheme(settings: AppSettings, artworkColor: Color?, content: @Composable
     val whiteAccent = colors.whiteAccent
     if (PrismTokens.whiteAccent?.now != whiteAccent?.now || (PrismTokens.whiteAccent == null) != (whiteAccent == null)) PrismTokens.whiteAccent = whiteAccent
 
-    val ui = remember(settings.corners, settings.uiDensity, settings.cardSize, settings.titleSize, settings.reduceMotion) { PrismUi.from(settings) }
-    val typography = remember(settings.fontChoice, settings.fontStamp) { prismTypography(AppFonts.family(settings.fontChoice)) }
+    // Shapes (1.7.7) are part of it: a cover shape, the corner slider or the buttons' shape applies at once.
+    val ui = remember(settings.corners, settings.shapes, settings.uiDensity, settings.cardSize, settings.titleSize, settings.reduceMotion) { PrismUi.from(settings) }
+    val typography = remember(settings.fontChoice, settings.fontStamp, settings.type) { appTypography(settings) }
     // Settings → Appearance → Text → "Lyrics font" (#12): null keeps each lyric style's own face.
     val lyricsFont = remember(settings.lyricsFont, settings.fontStamp) {
         when (settings.lyricsFont) {

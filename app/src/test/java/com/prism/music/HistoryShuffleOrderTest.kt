@@ -15,6 +15,19 @@ class HistoryShuffleOrderTest {
     private var current = 0
     private val start = HistoryShuffleOrder(intArrayOf(2, 0, 4, 1, 3)) { current }
 
+    /** Shuffled, a song dragged in the queue moves in the play order; what's been heard stays where it is. */
+    @Test
+    fun aDraggedSongMovesInThePlayOrder() {
+        // Playing 0 (2 heard): coming up 4, 1, 3. Drag 3 up above 4, then 4 down below 1.
+        val up = start.placed(3, beside = 4, after = false)
+        assertEquals(listOf(2, 0, 3, 4, 1), up.list())
+        assertEquals(listOf(2, 0, 3, 1, 4), up.placed(4, beside = 1, after = true).list())
+        // Previous from the playing song is still the one heard before it.
+        assertEquals(2, up.getPreviousIndex(0))
+        // Nothing to move beside: unchanged.
+        assertEquals(start.list(), start.placed(3, beside = 9, after = true).list())
+    }
+
     @Test
     fun songsAddedAtTheEndGoAfterEverything() {
         val added = start.cloneAndInsert(5, 2)

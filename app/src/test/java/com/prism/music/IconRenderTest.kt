@@ -108,6 +108,38 @@ class IconRenderTest {
     }
 
     /**
+     * Every drawing in the generated packs (1.7.7) beside Prism's own: Prism · Facet · Dots at 24 dp (×3), light on dark,
+     * with its name, onto icon-previews/packs.png, to look over after changing a drawing or the generator.
+     */
+    @Test
+    fun generatedPacks() {
+        val names = com.prism.music.ui.theme.PrismIconData.names.toList()
+        val packs = listOf(com.prism.music.ui.theme.IconPack.PRISM, com.prism.music.ui.theme.IconPack.FACET, com.prism.music.ui.theme.IconPack.DOTS)
+        val measurer = androidx.compose.ui.text.TextMeasurer(
+            androidx.compose.ui.text.font.createFontFamilyResolver(org.robolectric.RuntimeEnvironment.getApplication()), Density(1f), LayoutDirection.Ltr,
+        )
+        val label = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.TextUnit(15f, androidx.compose.ui.unit.TextUnitType.Sp))
+        val cellW = 300; val cellH = 118; val cols = 6
+        val rows = (names.size + cols - 1) / cols
+        val bmp = Bitmap.createBitmap(cols * cellW, rows * cellH + 40, Bitmap.Config.ARGB_8888)
+        CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, Canvas(bmp.asImageBitmap()), Size(bmp.width.toFloat(), bmp.height.toFloat())) {
+            drawRect(Color(0xFF060609))
+            drawText(measurer.measure("Prism · Facet · Dots at 24 dp (×3)", label), Color(0x99EEEEF5), Offset(16f, 10f))
+            names.forEachIndexed { i, name ->
+                val x = (i % cols) * cellW + 16f
+                val y = (i / cols) * cellH + 40f
+                drawText(measurer.measure(name, label), Color(0x99EEEEF5), Offset(x, y))
+                packs.forEachIndexed { k, p ->
+                    val v = PrismIcons.preview(name, com.prism.music.ui.theme.IconFill.OUTLINE, p)
+                    translate(x + k * 90f, y + 26f) { scale(3f, Offset.Zero) { drawIcon(v, Color(0xFFEEEEF5)) } }
+                }
+            }
+        }
+        val dir = File("build/icon-previews").apply { mkdirs() }
+        File(dir, "packs.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    /**
      * A few icons in each Settings → Appearance → Icons style (#19), as `PrismIcons.line` draws them: Thin / Regular /
      * Bold, rounded and square, onto icon-previews/icon-styles.png.
      */

@@ -118,6 +118,9 @@ object MusicVideoMatch {
         Regex("(?<![\\p{L}])\\d+\\s?hz(?![\\p{L}])"),
     )
 
+    /** Whether [title] says it's another take (live, acoustic, a cover, a session) rather than the record. */
+    fun otherTake(title: String): Boolean = title.lowercase().let { t -> OTHER_TAKE.any { it.containsMatchIn(t) } }
+
     /** Another take on the song: fine when the song is that take itself. */
     private val OTHER_TAKE = words("cover", "acoustic", "acústic", "unplugged", "live", "en vivo", "ao vivo", "concert", "session")
 

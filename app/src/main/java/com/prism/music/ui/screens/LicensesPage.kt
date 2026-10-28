@@ -59,6 +59,8 @@ private val libraries = listOf(
     Library("Fraunces (the Editorial font)", "The Fraunces Project Authors", "SIL Open Font License 1.1", "fraunces", "https://github.com/undercasetype/Fraunces"),
     Library("Time zone places (zone1970.tab, backward: day and night Looks)", "The tz database contributors", "Public domain", "tzdata", "https://www.iana.org/time-zones"),
     Library("Geist Mono (the Mono font)", "The Geist Project Authors", "SIL Open Font License 1.1", "geist_mono", "https://github.com/vercel/geist-font"),
+    Library("Atkinson Hyperlegible Next (the Legible font)", "The Atkinson Hyperlegible Next Project Authors", "SIL Open Font License 1.1", "atkinson_hyperlegible_next", "https://github.com/googlefonts/atkinson-hyperlegible-next"),
+    Library("OpenDyslexic (the Dyslexia-friendly font)", "Abbie Gonzalez", "SIL Open Font License 1.1", "opendyslexic", "https://github.com/antijingoist/opendyslexic"),
 )
 
 /** Settings → About → Open-source licenses: Prism's own license, then everything it ships with. */

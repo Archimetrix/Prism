@@ -95,13 +95,15 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     val frost = rememberFrost(target.art)
     val palette = rememberArtPalette(target.art)
+    // The link as sent: YouTube Music's, or YouTube's when the listener picked that (Reddit R9).
+    val link = target.url?.let { if (com.prism.music.ui.theme.LocalAppSettings.current.shareYoutubeLinks) com.prism.music.data.ShareLinks.asYouTube(it) else it }
     val message = listOf(target.title, target.subtitle).filter { it.isNotBlank() }.joinToString(" · ")
 
     fun shareImage(chooserTitle: String) {
         if (busy) return
         busy = true
         scope.launch {
-            val text = target.url?.let { "$message\n$it" } ?: message
+            val text = link?.let { "$message\n$it" } ?: message
             if (!shareLayer(context, card, "prism-share.png", text, chooserTitle)) {
                 Toast.makeText(context, "Couldn't make the picture to share", Toast.LENGTH_SHORT).show()
             }
@@ -138,11 +140,11 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 if (target.url != null) {
                     ShareAction(PrismIcons.Copy, "Copy link") {
-                        copy(context, target.url)
+                        copy(context, link!!)
                         close {}
                     }
                     ShareAction(PrismIcons.Link, "Send link") {
-                        close { sendText(context, "$message\n${target.url}", "Share ${target.kind.lowercase()}") }
+                        close { sendText(context, "$message\n$link", "Share ${target.kind.lowercase()}") }
                     }
                 } else if (target.songs.isNotEmpty()) {
                     ShareAction(PrismIcons.Queue, "Track list") {
@@ -151,7 +153,7 @@ fun ShareSheet(target: ShareTarget, onDismiss: () -> Unit) {
                 }
                 ShareAction(PrismIcons.Photo, if (busy) "Preparing…" else "Share image") { shareImage("Share ${target.kind.lowercase()}") }
                 ShareAction(PrismIcons.More, "More") {
-                    close { sendText(context, target.url?.let { "$message\n$it" } ?: trackList(target), "Share ${target.kind.lowercase()}") }
+                    close { sendText(context, link?.let { "$message\n$it" } ?: trackList(target), "Share ${target.kind.lowercase()}") }
                 }
             }
             if (target.url == null) Text(
@@ -231,7 +233,7 @@ private fun ShareCard(target: ShareTarget, frost: FrostImage?, palette: ArtPalet
             )
             Spacer(Modifier.weight(1f))
             Text(
-                if (target.url != null) "Listen on YouTube Music" else com.prism.music.data.model.songCount(target.songs.size), color = Color.White.copy(alpha = 0.7f),
+                if (target.url != null) (if (com.prism.music.ui.theme.LocalAppSettings.current.shareYoutubeLinks && com.prism.music.data.ShareLinks.asYouTube(target.url) != target.url) "Listen on YouTube" else "Listen on YouTube Music") else com.prism.music.data.model.songCount(target.songs.size), color = Color.White.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
             )
             Spacer(Modifier.height(2.dp))

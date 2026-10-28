@@ -672,7 +672,7 @@ class LyricsRepository(
     }
 
     private suspend fun fetchYtMusic(song: Song): String? {
-        val next = ytm.next(song.id)
+        val next = ytm.next(song.id, queue = false)
         val id = next.lyricsBrowseId ?: return null
         // Time-synced when YouTube Music has them (its app's "live lyrics"; many songs other sources lack, Arabic ones
         // among them), else its plain text.

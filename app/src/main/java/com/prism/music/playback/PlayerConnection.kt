@@ -505,6 +505,9 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
 
     fun next() = withPlayer { it.seekToNext() }
     fun previous() = withPlayer { it.seekToPrevious() }
+
+    /** Calls [done] once the player is reached (after commands asked for before it, such as a widget's), at once if it is. */
+    fun afterPending(done: () -> Unit) = withPlayer { done() }
     fun seekTo(ms: Long) = withPlayer { it.seekTo(ms) }
     /** Moves the playhead by [ms] (negative goes back), kept inside the song. */
     fun seekBy(ms: Long) = withPlayer { p ->
@@ -523,7 +526,51 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         val auto = c.queue.autoplayStart.value
         if (auto > index) c.queue.autoplayStart.value = auto - 1
     }
+
+    /**
+     * Takes the song at [index] out (a swipe in the queue, #149) and returns how to put it back where it was, or null
+     * when there's nothing there. The item itself goes back, so it keeps everything it was queued with.
+     */
+    fun removeForUndo(index: Int): (() -> Unit)? {
+        val p = player ?: return null
+        if (index !in 0 until p.mediaItemCount) return null
+        val item = p.getMediaItemAt(index)
+        val wasAuto = c.queue.autoplayStart.value.let { it in 0..index }
+        removeAt(index)
+        return {
+            withPlayer { q ->
+                val at = index.coerceAtMost(q.mediaItemCount)
+                q.addMediaItem(at, item)
+                val auto = c.queue.autoplayStart.value
+                // Back among the songs it was with: before autoplay's suggestions, or one of them.
+                if (auto >= 0 && (auto > at || auto == at && !wasAuto)) c.queue.autoplayStart.value = auto + 1
+            }
+        }
+    }
     fun move(from: Int, to: Int) = withPlayer { it.moveMediaItem(from, to) }
+
+    /**
+     * Shuffled, a song dragged in the queue: the queue shows the play order then, so the song moves there, to just after
+     * (or before) [beside], and the songs themselves stay where they are in the list behind it.
+     */
+    fun moveInPlayOrder(index: Int, beside: Int, after: Boolean) = withPlayer { p ->
+        if (!p.shuffleModeEnabled) return@withPlayer
+        val order = p.shuffleOrder as? HistoryShuffleOrder ?: HistoryShuffleOrder(playOrder(p).toIntArray()) { p.currentMediaItemIndex }
+        p.setShuffleOrder(order.placed(index, beside, after))
+    }
+
+    /** The queue's indices in the order they'll play (shuffled or not). */
+    private fun playOrder(p: ExoPlayer): List<Int> {
+        val t = p.currentTimeline
+        if (t.isEmpty) return emptyList()
+        val out = mutableListOf<Int>()
+        var i = t.getFirstWindowIndex(p.shuffleModeEnabled)
+        while (i != C.INDEX_UNSET && out.size < t.windowCount) {
+            out += i
+            i = t.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, p.shuffleModeEnabled)
+        }
+        return out
+    }
     /** Shuffle's button: off → shuffle → Smart Shuffle (where the queue allows it) → off. */
     fun toggleShuffle() = withPlayer {
         when {

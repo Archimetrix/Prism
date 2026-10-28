@@ -1,3 +1,4 @@
+import java.awt.geom.Path2D
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.Properties
@@ -24,8 +25,8 @@ android {
         applicationId = "com.prism.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 45
-        versionName = "1.7.6"
+        versionCode = 46
+        versionName = "1.7.7"
         vectorDrawables { useSupportLibrary = true }
         // The name under the launcher icon; a side-by-side build (below) is called "Prism Dev" so it can't be mistaken for Prism.
         manifestPlaceholders["appLabel"] = "@string/app_name"
@@ -219,6 +220,172 @@ configurations.matching { it.name.endsWith("UnitTestRuntimeClasspath") }.configu
 }
 
 /**
+ * The geometry behind the generated icon packs (1.7.7): an icon's path data as polylines, either finely (for the Dots
+ * pack's rasterizing) or with every curve cut where it has turned 45° (the Facet pack: circles become octagons).
+ */
+object IconGeometry {
+    class P(val x: Double, val y: Double)
+    class Poly(val pts: MutableList<P>, var closed: Boolean)
+
+    private val TOKENS = Regex("[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?")
+
+    fun polylines(d: String, facet: Boolean): List<Poly> {
+        val toks = TOKENS.findAll(d).map { it.value }.toList()
+        var i = 0
+        var cmd = 'M'
+        var cx = 0.0; var cy = 0.0; var sx = 0.0; var sy = 0.0
+        var lcx = 0.0; var lcy = 0.0; var last = ' '
+        val out = mutableListOf<Poly>()
+        var cur: Poly? = null
+        fun num() = toks[i++].toDouble()
+        while (i < toks.size) {
+            val t = toks[i]
+            if (t[0].isLetter()) {
+                cmd = t[0]; i++
+                if (cmd == 'Z' || cmd == 'z') { cur?.closed = true; cx = sx; cy = sy; last = ' '; continue }
+            }
+            val rel = cmd.isLowerCase()
+            val ox = if (rel) cx else 0.0
+            val oy = if (rel) cy else 0.0
+            when (cmd.uppercaseChar()) {
+                'M' -> {
+                    val x = num() + ox; val y = num() + oy
+                    cur = Poly(mutableListOf(P(x, y)), false); out += cur
+                    cx = x; cy = y; sx = x; sy = y; last = ' '
+                    cmd = if (rel) 'l' else 'L'
+                }
+                'L' -> { val x = num() + ox; val y = num() + oy; cur!!.pts += P(x, y); cx = x; cy = y; last = ' ' }
+                'H' -> { val x = num() + ox; cur!!.pts += P(x, cy); cx = x; last = ' ' }
+                'V' -> { val y = num() + oy; cur!!.pts += P(cx, y); cy = y; last = ' ' }
+                'C', 'S' -> {
+                    val (x1, y1) = if (cmd.uppercaseChar() == 'C') (num() + ox) to (num() + oy)
+                        else if (last == 'C') (2 * cx - lcx) to (2 * cy - lcy) else cx to cy
+                    val x2 = num() + ox; val y2 = num() + oy; val x = num() + ox; val y = num() + oy
+                    cubic(cur!!, cx, cy, x1, y1, x2, y2, x, y, facet)
+                    lcx = x2; lcy = y2; cx = x; cy = y; last = 'C'
+                }
+                'Q', 'T' -> {
+                    val (qx, qy) = if (cmd.uppercaseChar() == 'Q') (num() + ox) to (num() + oy)
+                        else if (last == 'Q') (2 * cx - lcx) to (2 * cy - lcy) else cx to cy
+                    val x = num() + ox; val y = num() + oy
+                    cubic(cur!!, cx, cy, cx + 2.0 / 3 * (qx - cx), cy + 2.0 / 3 * (qy - cy), x + 2.0 / 3 * (qx - x), y + 2.0 / 3 * (qy - y), x, y, facet)
+                    lcx = qx; lcy = qy; cx = x; cy = y; last = 'Q'
+                }
+                'A' -> {
+                    val rx = num(); val ry = num(); val rot = num(); val large = num() != 0.0; val sweep = num() != 0.0
+                    val x = num() + ox; val y = num() + oy
+                    arc(cur!!, cx, cy, rx, ry, rot, large, sweep, x, y, facet)
+                    cx = x; cy = y; last = ' '
+                }
+                else -> error("path command $cmd")
+            }
+        }
+        return out
+    }
+
+    private fun cubic(p: Poly, x0: Double, y0: Double, x1: Double, y1: Double, x2: Double, y2: Double, x3: Double, y3: Double, facet: Boolean) {
+        val n = if (!facet) 16 else {
+            // Where the curve heads at its two ends; a cut every 45° it turns between them.
+            var ax = x1 - x0; var ay = y1 - y0
+            if (Math.hypot(ax, ay) < 1e-6) { ax = x2 - x0; ay = y2 - y0 }
+            var bx = x3 - x2; var by = y3 - y2
+            if (Math.hypot(bx, by) < 1e-6) { bx = x3 - x1; by = y3 - y1 }
+            val cos = ((ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by)).coerceAtLeast(1e-9)).coerceIn(-1.0, 1.0)
+            Math.round(Math.acos(cos) / (Math.PI / 4)).toInt().coerceAtLeast(1)
+        }
+        for (k in 1..n) {
+            val t = k.toDouble() / n; val u = 1 - t
+            p.pts += P(u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3, u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3)
+        }
+    }
+
+    /** An SVG arc (endpoint form) to points, by its centre form (SVG 1.1, F.6.5). */
+    private fun arc(p: Poly, x1: Double, y1: Double, rx0: Double, ry0: Double, rotDeg: Double, large: Boolean, sweep: Boolean, x2: Double, y2: Double, facet: Boolean) {
+        if (rx0 == 0.0 || ry0 == 0.0) { p.pts += P(x2, y2); return }
+        val phi = Math.toRadians(rotDeg); val cphi = Math.cos(phi); val sphi = Math.sin(phi)
+        val dx = (x1 - x2) / 2; val dy = (y1 - y2) / 2
+        val x1p = cphi * dx + sphi * dy; val y1p = -sphi * dx + cphi * dy
+        var rx = Math.abs(rx0); var ry = Math.abs(ry0)
+        val lambda = x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry)
+        if (lambda > 1) { rx *= Math.sqrt(lambda); ry *= Math.sqrt(lambda) }
+        val num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p
+        val den = rx * rx * y1p * y1p + ry * ry * x1p * x1p
+        var coef = Math.sqrt((num / den).coerceAtLeast(0.0))
+        if (large == sweep) coef = -coef
+        val cxp = coef * rx * y1p / ry; val cyp = -coef * ry * x1p / rx
+        val ccx = cphi * cxp - sphi * cyp + (x1 + x2) / 2; val ccy = sphi * cxp + cphi * cyp + (y1 + y2) / 2
+        fun ang(ux: Double, uy: Double, vx: Double, vy: Double): Double {
+            val a = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+            return a
+        }
+        val th1 = ang(1.0, 0.0, (x1p - cxp) / rx, (y1p - cyp) / ry)
+        var dth = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry)
+        if (!sweep && dth > 0) dth -= 2 * Math.PI else if (sweep && dth < 0) dth += 2 * Math.PI
+        val n = if (facet) Math.ceil(Math.abs(dth) / (Math.PI / 4) - 1e-6).toInt().coerceAtLeast(1)
+            else Math.ceil(Math.abs(dth) / (Math.PI / 18)).toInt().coerceAtLeast(4)
+        for (k in 1..n) {
+            val th = th1 + dth * k / n
+            val ex = rx * Math.cos(th); val ey = ry * Math.sin(th)
+            p.pts += P(cphi * ex - sphi * ey + ccx, sphi * ex + cphi * ey + ccy)
+        }
+    }
+
+    fun pathData(polys: List<Poly>, num: (Double) -> String): String = polys.joinToString(" ") { poly ->
+        "M ${num(poly.pts[0].x)} ${num(poly.pts[0].y)} " + poly.pts.drop(1).joinToString(" ") { "L ${num(it.x)} ${num(it.y)}" } + if (poly.closed) " Z" else ""
+    }
+
+    /** The Dots pack: dots this far apart along each line (grid units, 24 a side), and on this grid inside solid shapes. */
+    const val DOT_SPACING = 2.0
+
+    /**
+     * An icon in dots (the Dots pack): beads spaced evenly along each line of the drawing (both ends of an open line
+     * included), and solid shapes ([fillTwin]: also the shapes a selected twin fills) filled with dots on a grid. Dots
+     * closer than half a spacing are merged. As hex, four digits a dot: x and y in quarter units (0–96).
+     */
+    fun dots(parts: List<Triple<List<Poly>, Int, Double>>, fillTwin: Boolean): String {
+        val sp = DOT_SPACING
+        val out = mutableListOf<P>()
+        fun add(p: P) { if (out.none { Math.hypot(it.x - p.x, it.y - p.y) < sp * 0.55 }) out += p }
+        for ((polys, kind, _) in parts) {
+            val solid = kind == 1 || (fillTwin && kind == 2)
+            for (poly in polys) {
+                val pts = if (poly.closed) poly.pts + poly.pts[0] else poly.pts
+                val segs = pts.zipWithNext()
+                val len = segs.sumOf { (a, b) -> Math.hypot(b.x - a.x, b.y - a.y) }
+                if (len < 1e-6) { add(pts[0]); continue }
+                val n = Math.max(1, Math.round(len / sp).toInt())
+                // Evenly along the line: a closed one all round, an open one end to end.
+                val count = if (poly.closed) n else n + 1
+                for (k in 0 until count) {
+                    var at = len * k / n
+                    for ((a, b) in segs) {
+                        val l = Math.hypot(b.x - a.x, b.y - a.y)
+                        if (at <= l || b === segs.last().second) { val f = if (l < 1e-9) 0.0 else (at / l).coerceIn(0.0, 1.0); add(P(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)); break }
+                        at -= l
+                    }
+                }
+            }
+            if (solid) {
+                val path = Path2D.Double()
+                for (poly in polys) {
+                    path.moveTo(poly.pts[0].x, poly.pts[0].y)
+                    poly.pts.drop(1).forEach { path.lineTo(it.x, it.y) }
+                    path.closePath()
+                }
+                var y = sp / 2
+                while (y < 24) { var x = sp / 2; while (x < 24) { if (path.contains(x, y)) add(P(x, y)); x += sp }; y += sp }
+            }
+        }
+        val sb = StringBuilder()
+        for (p in out) {
+            val qx = Math.round(p.x * 4).toInt().coerceIn(0, 255); val qy = Math.round(p.y * 4).toInt().coerceIn(0, 255)
+            sb.append(String.format("%02x%02x", qx, qy))
+        }
+        return sb.toString()
+    }
+}
+
+/**
  * Prism's icons are drawn as SVG files in design/icons (see its README). This turns them into
  * `PrismIconData` (generated Kotlin: each icon's path data and how it's drawn), which `PrismIcons` builds from, so the
  * app can't drift from the drawings. It reads the small part of SVG the drawings use: path, circle and rect (with rx),
@@ -304,8 +471,12 @@ abstract class GeneratePrismIcons : DefaultTask() {
         out.append("internal object PrismIconData {\n")
         out.append("    /** [kind]: 0 a line, 1 filled, 2 a line the selected twin fills. [width] in grid units (24 a side). */\n")
         out.append("    class Part(val d: String, val kind: Int, val width: Float)\n")
-        out.append("    /** [twin]: 0 none, 1 tinted fill, 2 solid fill. */\n")
-        out.append("    class Spec(val mirror: Boolean, val twin: Int, val parts: Array<Part>)\n\n")
+        out.append("    /**\n")
+        out.append("     * [twin]: 0 none, 1 tinted fill, 2 solid fill. [facet]: the Facet pack's drawing (curves cut every 45°).\n")
+        out.append("     * [dots] / [dotsFilled]: the Dots pack's dots as hex, four digits each: x, y in quarter units (filled: the selected twin).\n")
+        out.append("     */\n")
+        out.append("    class Spec(val mirror: Boolean, val twin: Int, val parts: Array<Part>, val facet: Array<Part>, val dots: String, val dotsFilled: String)\n\n")
+        out.append("    const val DOT_SPACING = ${IconGeometry.DOT_SPACING}f\n\n")
         out.append("    val names = arrayOf(${files.joinToString(", ") { "\"${it.nameWithoutExtension}\"" }})\n\n")
         out.append("    fun spec(name: String): Spec = when (name) {\n")
         for (f in files) {
@@ -350,9 +521,16 @@ abstract class GeneratePrismIcons : DefaultTask() {
             generated[name] = Triple(mirror, twin, genParts)
             require(parts.isNotEmpty()) { "${f.name} draws nothing" }
             require(twin == 0 || "2, " in parts.joinToString()) { "${f.name}: data-filled needs a class=\"o\" shape to fill" }
+            // The two generated packs (1.7.7) from the same drawing.
+            val facet = genParts.map { gp -> "Part(\"${IconGeometry.pathData(IconGeometry.polylines(gp.d, true), ::num)}\", ${gp.kind}, ${num(gp.width)}f)" }
+            val fine = genParts.map { Triple(IconGeometry.polylines(it.d, false), it.kind, it.width) }
+            val dots = IconGeometry.dots(fine, fillTwin = false)
+            val dotsFilled = if (twin != 0) IconGeometry.dots(fine, fillTwin = true) else dots
             out.append("        \"$name\" -> Spec($mirror, $twin, arrayOf(\n")
             parts.forEach { out.append("            $it,\n") }
-            out.append("        ))\n")
+            out.append("        ), arrayOf(\n")
+            facet.forEach { out.append("            $it,\n") }
+            out.append("        ), \"$dots\", \"$dotsFilled\")\n")
         }
         out.append("        else -> error(\"No drawing for icon \$name in design/icons\")\n    }\n}\n")
         val dir = outputDir.get().asFile.resolve("com/prism/music/ui/theme").apply { mkdirs() }
