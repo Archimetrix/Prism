@@ -51,7 +51,7 @@ fun LyricsToFilesHost() {
     LaunchedEffect(Unit) {
         c.lyricsToFiles.requests.collect { songs ->
             val targets = c.lyricsToFiles.targets(songs)
-            if (targets.isEmpty()) { toast("No FLAC or MP3 files to save lyrics into"); return@collect }
+            if (targets.isEmpty()) { toast("No FLAC, MP3 or M4A files to save lyrics into"); return@collect }
             if (targets.size > 1) toast("Getting lyrics for ${targets.size} files…")
             val items = c.lyricsToFiles.prepare(targets).take(MAX_FILES)
             if (items.isEmpty()) { toast(if (targets.size == 1) "No lyrics found for this song" else "No lyrics found for these songs"); return@collect }

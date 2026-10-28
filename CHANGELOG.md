@@ -32,6 +32,9 @@ Every one of these is a choice; nothing changes until you pick it.
   Downloaded songs, each one ticked or not, so you can share your settings without your listening or your sign-in.
   Restoring replaces only what the file holds and says what that is first. (Backups from earlier versions restore as
   before; Prism before 1.7.8 asks to be updated before restoring a new one.)
+- **Lyrics into M4A files** (Reddit): "Save lyrics into your files" now also writes AAC and ALAC files (.m4a), beside
+  FLAC and MP3, keeping everything else in them; the audio is checked to be exactly the same before the file is
+  changed.
 - **Recently played as albums and playlists** (#196): Customize Prism → Home & Library → Recently played shows.
 - **Library → Songs** has search, Shuffle and Play, as the Liked songs page does (#184).
 - **Downloads take a music video's song** (#186), with "Songs, not videos" on: the audio, not the video's sound (the

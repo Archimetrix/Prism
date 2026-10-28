@@ -2005,7 +2005,7 @@ private fun LyricsSettings() {
             val c = LocalContainer.current
             Item(
                 "Save lyrics into your music files", "So other players show them too",
-                info = "Synced lyrics go into your FLAC and MP3 files' tags (as LRC): Local files, and the lossless files played for songs. Lyrics already saved are used, others are looked up. Android asks once before any file is changed. For one song, use its ⋯ menu.",
+                info = "Synced lyrics go into your FLAC, MP3 and M4A (AAC, ALAC) files' tags (as LRC): Local files, and the lossless files played for songs. Lyrics already saved are used, others are looked up. Android asks once before any file is changed. For one song, use its ⋯ menu.",
                 onClick = { c.lyricsToFiles.request(null) },
             )
         }
