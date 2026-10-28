@@ -728,6 +728,22 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             return
         }
         val attempts = retries[id] ?: 0
+        // A download whose file can't be read (#183: "Skipping atom with length > 2147483647", stitched from two formats
+        // by a download that resumed in another one): it's fetched again, and the song streams meanwhile.
+        val unreadable = generateSequence(error as Throwable) { it.cause }.any { it is androidx.media3.common.ParserException }
+        if (unreadable && retries["file:$id"] == null && c.downloads.redownload(id)) {
+            retries["file:$id"] = 1
+            AudioDiagnostics.log("song", "$id: its download can't be read (${(error.cause ?: error).message?.take(80)}); downloading it again and streaming it now")
+            val pos = player.currentPosition
+            scope.launch {
+                // The download's removal lands on the download manager's thread first, so the player reads from the network.
+                delay(600)
+                player.prepare()
+                player.seekTo(pos)
+                player.play()
+            }
+            return
+        }
         if (attempts < 2 && (httpCode == 403 || httpCode == 410 || error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
         ) {

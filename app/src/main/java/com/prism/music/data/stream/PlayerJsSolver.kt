@@ -107,7 +107,7 @@ class PlayerJsSolver(private val context: Context, private val http: OkHttpClien
         loadedId = null
         val lib = context.assets.open("ejs/yt.solver.lib.min.js").use { it.readBytes().decodeToString() }
         val core = context.assets.open("ejs/yt.solver.core.min.js").use { it.readBytes().decodeToString() }
-        evaluate(iso, "$lib\nvar meriyah = lib.meriyah, astring = lib.astring;\n$core\n$GLUE", LOAD_TIMEOUT_S)
+        evaluate(iso, "$LOCALE_GUARD\n$lib\nvar meriyah = lib.meriyah, astring = lib.astring;\n$core\n$GLUE", LOAD_TIMEOUT_S)
         return iso
     }
 
@@ -153,19 +153,68 @@ class PlayerJsSolver(private val context: Context, private val http: OkHttpClien
         sandbox = null
     }
 
-    private companion object {
-        val PLAYER_ID = Regex("""player\\?/([0-9a-fA-F]{8})\\?/""")
-        val STS = Regex("""(?:signatureTimestamp|sts)\s*:\s*(\d{5})""")
-        const val RECHECK_MS = 60 * 60_000L
-        const val CONNECT_TIMEOUT_S = 20L
-        const val LOAD_TIMEOUT_S = 60L
-        const val SOLVE_TIMEOUT_S = 15L
+    companion object {
+        private val PLAYER_ID = Regex("""player\\?/([0-9a-fA-F]{8})\\?/""")
+        private val STS = Regex("""(?:signatureTimestamp|sts)\s*:\s*(\d{5})""")
+        private const val RECHECK_MS = 60 * 60_000L
+        private const val CONNECT_TIMEOUT_S = 20L
+        private const val LOAD_TIMEOUT_S = 60L
+        private const val SOLVE_TIMEOUT_S = 15L
+
+        /**
+         * The sandbox's V8 can come without locale data, and then every locale call throws "Internal error. Icu
+         * error." YouTube's player 6b2fce74 calls `Number.toLocaleString` while it loads, so no ciphered link could
+         * be solved: Premium quality and every song only the account may play failed (GitHub #179). Each locale call
+         * falls back to its plain form when the real one throws; with locale data present nothing changes.
+         */
+        internal val LOCALE_GUARD = """
+            (function () {
+              function guard(proto, name, plain) {
+                var real = proto && proto[name];
+                if (typeof real !== "function") return;
+                proto[name] = function () {
+                  try { return real.apply(this, arguments); } catch (e) { return plain.apply(this, arguments); }
+                };
+              }
+              guard(Number.prototype, "toLocaleString", function () { return String(Number(this)); });
+              guard(typeof BigInt === "function" ? BigInt.prototype : null, "toLocaleString", function () { return String(this); });
+              guard(Array.prototype, "toLocaleString", function () { return this.join(","); });
+              guard(String.prototype, "toLocaleUpperCase", function () { return String(this).toUpperCase(); });
+              guard(String.prototype, "toLocaleLowerCase", function () { return String(this).toLowerCase(); });
+              guard(String.prototype, "localeCompare", function (other) {
+                var a = String(this), b = String(other);
+                return a < b ? -1 : a > b ? 1 : 0;
+              });
+              guard(String.prototype, "normalize", function () { return String(this); });
+              guard(Date.prototype, "toLocaleString", function () { return this.toISOString(); });
+              guard(Date.prototype, "toLocaleDateString", function () { return this.toISOString().slice(0, 10); });
+              guard(Date.prototype, "toLocaleTimeString", function () { return this.toISOString().slice(11, 19); });
+              if (typeof Intl === "object" && Intl) {
+                ["NumberFormat", "DateTimeFormat", "Collator", "PluralRules", "RelativeTimeFormat", "ListFormat", "Segmenter"].forEach(function (k) {
+                  var Real = Intl[k];
+                  if (typeof Real !== "function") return;
+                  try { new Real(); return; } catch (e) {}
+                  Intl[k] = function () {
+                    return {
+                      format: function (v) { return String(v); },
+                      formatToParts: function (v) { return [{ type: "literal", value: String(v) }]; },
+                      compare: function (a, b) { a = String(a); b = String(b); return a < b ? -1 : a > b ? 1 : 0; },
+                      select: function () { return "other"; },
+                      segment: function (s) { return [{ segment: String(s), index: 0, input: String(s) }]; },
+                      resolvedOptions: function () { return { locale: "en-US" }; },
+                    };
+                  };
+                  Intl[k].supportedLocalesOf = function () { return ["en-US"]; };
+                });
+              }
+            })();
+        """.trimIndent()
 
         /**
          * prismLoad preprocesses a player with EJS and keeps its solvers (what EJS's getFromPrepared does
          * with a preprocessed player), so each solve is just two calls. Results are always strings.
          */
-        val GLUE = """
+        private val GLUE = """
             var prismSolvers = null;
             function prismLoad(code) {
               try {

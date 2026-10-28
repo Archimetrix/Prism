@@ -2,6 +2,36 @@
 
 What changed in each release. Older releases are described on the [Releases page](https://github.com/Yigder/Prism/releases).
 
+## 1.7.7.1 (unreleased)
+
+Fixes only.
+
+- **Songs that stopped about a minute in** (#188, #192, #153): songs Prism asks for as your account (age-restricted,
+  some explicit songs, your uploads) came through YouTube Music's web player, whose links YouTube cuts off after the
+  first megabyte. YouTube's TV app, which Prism asks first and which has no such limit, had stopped giving links;
+  Prism now asks as its older TV app, which still does (Premium's 256 kbps included). If a link is refused anyway,
+  the song is asked for the other ways first, and a song can no longer get stuck asking as the account. The
+  playback diagnostics now say why each of the account's ways gave nothing.
+- **Premium quality failing to play** (#179): YouTube's newest player code asks for number formatting that Prism's
+  stream solver had no data for, so no Premium (or other account-only) link could be read. It works without it now.
+- **Day and night Looks** (#174): when the schedule switches Looks while you'd changed settings yourself, Prism now says
+  where your settings went ("Before Midnight" in Your Looks) and can bring them back with one tap.
+- **Every artist a favorite** (#182): bringing your YouTube Music library over starred the artist of every song in your
+  library, not only the artists you follow. It stars only those now, and the extra stars come off once (stars you
+  gave yourself stay).
+- **Library → Albums matches YouTube Music** (#191): signed in, it lists your saved albums, not also the albums of every
+  liked and downloaded song. Downloaded albums are still on the Downloads page.
+- **Downloads that wouldn't play** (#183, #185): a download that stopped part-way and resumed in another format made a
+  file nothing could read. It now starts over when that happens, and a broken download is fetched again (streaming
+  meanwhile). Downloads YouTube refuses no longer try again by themselves all day long: every 6 hours, or when you
+  tap Try again.
+- **Switching to the video jumped ahead** (#180): a video's offset that doesn't fit the video's and song's lengths (a
+  match on a repeated chorus) isn't used any more.
+- **A shared Look, link or Blend showed again** every time Prism restarted.
+- **New releases** (#171): when YouTube won't open a Home shelf's own page, its songs and albums from Home show instead
+  of an error.
+- **The screen stays on during a music video** (#169).
+
 ## 1.7.7
 
 ### Shapes, icons and type

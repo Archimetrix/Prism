@@ -25,8 +25,8 @@ android {
         applicationId = "com.prism.music"
         minSdk = 26
         targetSdk = 36
-        versionCode = 46
-        versionName = "1.7.7"
+        versionCode = 47
+        versionName = "1.7.7.1"
         vectorDrawables { useSupportLibrary = true }
         // The name under the launcher icon; a side-by-side build (below) is called "Prism Dev" so it can't be mistaken for Prism.
         manifestPlaceholders["appLabel"] = "@string/app_name"
@@ -205,6 +205,8 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze-glass:2.0.1")
 
     testImplementation("junit:junit:4.13.2")
+    // NewPipe's own JavaScript engine (shipped with it already), for testing the stream solver's scripts.
+    testImplementation("org.mozilla:rhino:1.8.1")
     // Draws composables on the PC (DesignGalleryTest: the redesign's components, light and dark), Apache-2.0, test-only;
     // the manifest piece is debug-only (it registers the empty activity tests draw in).
     testImplementation(composeBom)

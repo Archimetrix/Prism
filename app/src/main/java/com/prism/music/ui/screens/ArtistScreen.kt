@@ -783,7 +783,15 @@ fun BrowseScreen(id: String, params: String?, title: String, bottomPadding: Dp) 
     val nav = LocalNavigator.current
     // Genre and mood pages, minus regional shelves and playlists (Prism keeps to mostly English-language music).
     val load = rememberLoad("browse:$id:$params") {
-        c.ytm.browseShelves(id, params).filter { !com.prism.music.data.meta.Genres.isRegional(it.title) }.map { sh ->
+        // A Home shelf's own page can be refused for the account and signed out alike (GitHub #171: New releases →
+        // "Requested entity was not found"); the shelf it was opened from still has its items, so those show.
+        val shelves = try {
+            c.ytm.browseShelves(id, params)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            ShelfPages.opened[id]?.let { listOf(it) } ?: throw e
+        }
+        shelves.filter { !com.prism.music.data.meta.Genres.isRegional(it.title) }.map { sh ->
             sh.copy(items = sh.items.filter { i ->
                 (i !is com.prism.music.data.model.MoodItem && i !is com.prism.music.data.model.PlaylistItem) || !com.prism.music.data.meta.Genres.isRegional(i.title)
             })
@@ -809,6 +817,11 @@ fun BrowseScreen(id: String, params: String?, title: String, bottomPadding: Dp) 
             }
         }
     }
+}
+
+/** The shelves whose "See all" pages were opened this session, by page id: what [BrowseScreen] shows if the page fails. */
+object ShelfPages {
+    val opened = java.util.concurrent.ConcurrentHashMap<String, Shelf>()
 }
 
 private enum class ReleaseSort(val label: String) { NEWEST("Newest"), OLDEST("Oldest"), TITLE("A–Z") }

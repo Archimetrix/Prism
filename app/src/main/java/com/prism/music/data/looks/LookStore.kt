@@ -81,6 +81,28 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
     /** A Look shared into Prism (a code from a message or a QR code, or a file), shown with Apply and Save first. */
     val pending = MutableStateFlow<Look?>(null)
 
+    /**
+     * The Look Day and night last switched to while the settings were the listener's own (kept as "Before <Look>"):
+     * Prism says so once ([LookUndoBar]'s neighbour in MainActivity), then clears it. Null when there's nothing to say.
+     */
+    val keptBySchedule = MutableStateFlow(prefs.getString(KEPT, null))
+
+    private fun noteKept(name: String) {
+        keptBySchedule.value = name
+        prefs.edit().putString(KEPT, name).apply()
+    }
+
+    fun dismissKept() {
+        keptBySchedule.value = null
+        prefs.edit().remove(KEPT).apply()
+    }
+
+    /** The listener's own settings that Day and night put aside ("Before <Look>") go back on. */
+    suspend fun bringBackKept() {
+        dismissKept()
+        find(BEFORE_ID)?.let { apply(it, "Your own settings back") }
+    }
+
     private val iconsVersion = MutableStateFlow(0)
 
     /** The Look the app is in, when its settings and icons are exactly one's. */
@@ -253,9 +275,14 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
      * as "Before <Look>" in Your Looks ([BEFORE_ID], one, replaced each time), so they're a tap away however many changes
      * later: History only goes back ten.
      */
-    suspend fun apply(look: Look, label: String = "Look → ${look.name}") = withContext(Dispatchers.IO) {
+    suspend fun apply(look: Look, label: String = "Look → ${look.name}", scheduled: Boolean = false) = withContext(Dispatchers.IO) {
         if (look.id != BEFORE_ID && lookNow(settings.current) == null) runCatching {
-            saveCurrent("Before ${look.name}", BEFORE_ID, "Your own settings from before you picked ${look.name}", repoint = false)
+            val note = if (scheduled) "Your own settings from before Day and night switched to ${look.name}"
+            else "Your own settings from before you picked ${look.name}"
+            saveCurrent("Before ${look.name}", BEFORE_ID, note, repoint = false)
+            // GitHub #174: the schedule's turn put customizations out of sight, and it looked as if Prism had reset
+            // them. They're kept (as above); the next time Prism is open, it says so and where.
+            if (scheduled) noteKept(look.name)
         }
         val values = resolved(look)
         var fontChanged = false
@@ -486,7 +513,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
                 val id = if (last.to == SunClock.Part.DAY) s.day else s.night
                 val key = "${last.to}@${last.at.epochSecond / 60}|$id"
                 if (key != prefs.getString(LAST_TURN, null)) {
-                    find(id)?.let { apply(it, "${it.name} for the ${if (last.to == SunClock.Part.DAY) "day" else "night"}") }
+                    find(id)?.let { apply(it, "${it.name} for the ${if (last.to == SunClock.Part.DAY) "day" else "night"}", scheduled = true) }
                     prefs.edit().putString(LAST_TURN, key).apply()
                 }
                 // Looked at again by the turn, and at least every 15 minutes (the clock or time zone may change).
@@ -519,6 +546,7 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         private const val BASIS = "basis"
         private const val SCHEDULE = "schedule.json"
         private const val LAST_TURN = "schedule_last"
+        private const val KEPT = "schedule_kept"
         private const val MERGE_MS = 4_000L
     }
 }

@@ -43,7 +43,9 @@ class InnerTube(
         private val JSON_TYPE = "application/json".toMediaType()
         val json = Json { ignoreUnknownKeys = true; isLenient = true }
         /** The TV client's version (YouTube on smart TVs); bump it if TV playback starts being refused. */
-        const val TV_CLIENT_VERSION = "7.20250923.13.00"
+        const val TV_CLIENT_VERSION = "7.20260707.07.00"
+        /** The older TV app's version ([PlayerClient.TV_OLD]). */
+        const val TV_OLD_CLIENT_VERSION = "5.20260707"
         /** The YouTube Music Android app version [androidMusicPost] asks as (for synced lyrics). */
         const val ANDROID_MUSIC_VERSION = "7.27.52"
         /** youtube.com's web client, for [webPost] (live stream search). */
@@ -330,10 +332,29 @@ class InnerTube(
      * Tried and dropped as anonymous fallbacks (2026-10): ANDROID_VR answers, but googlevideo refuses its streams past
      * the first megabyte; TV without cookies answers "The page needs to be reloaded".
      */
-    enum class PlayerClient(val clientName: String, val nameId: Int, val userAgent: String, val origin: String) {
-        /** YouTube on TVs: takes the signed-in cookies, plays age-restricted and Premium-only songs, needs no PO token. */
-        TV("TVHTML5", 7, "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version", "https://www.youtube.com"),
-        /** The YouTube Music web app itself. */
+    enum class PlayerClient(
+        val clientName: String, val nameId: Int, val userAgent: String, val origin: String,
+        /** Its own client version; null = the web app's current one. */
+        val version: String? = null,
+    ) {
+        /**
+         * The older TV app (yt-dlp's "tv_downgraded"): takes the signed-in cookies, plays age-restricted and
+         * Premium-only songs with plain (ciphered) links and needs no PO token. On the owner's phone (2026-10-27,
+         * Premium account) it answered every song with links, Premium's 256 kbps among them, and an explicit song
+         * that had stopped at 58 s played on past 1:38.
+         */
+        TV_OLD("TVHTML5", 7, "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version", "https://www.youtube.com", TV_OLD_CLIENT_VERSION),
+        /**
+         * YouTube on TVs now, as yt-dlp sends it (2026-07). It answers OK, but (2026-10) only with YouTube's newer
+         * streaming (SABR), no links: that's why 1.7.7's account songs fell through to the web app, whose links stop
+         * after a megabyte (GitHub #188, #192). Kept in case it gives links again.
+         */
+        TV(
+            "TVHTML5", 7,
+            "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_Unknown_0/Unknown (Unknown, Unknown)",
+            "https://www.youtube.com", TV_CLIENT_VERSION,
+        ),
+        /** The YouTube Music web app itself: needs a PO token past the first megabyte, except for Premium accounts. */
         WEB_REMIX("WEB_REMIX", 67, InnerTube.USER_AGENT, InnerTube.ORIGIN),
     }
 
@@ -344,7 +365,7 @@ class InnerTube(
      */
     fun signedInPlayer(client: PlayerClient, videoId: String, signatureTimestamp: Int?): JsonObject {
         val s = current
-        val version = if (client == PlayerClient.TV) TV_CLIENT_VERSION else clientVersion
+        val version = client.version ?: clientVersion
         val payload = buildJsonObject {
             putJsonObject("context") {
                 putJsonObject("client") {

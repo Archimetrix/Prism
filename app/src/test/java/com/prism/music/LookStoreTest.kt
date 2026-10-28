@@ -96,4 +96,31 @@ class LookStoreTest {
         looks.delete(mine.id)
         looks.delete(LookStore.BEFORE_ID)
     }
+
+    /** #174: Day and night switching away from your own settings keeps them, says so once, and can bring them back. */
+    @Test
+    fun theScheduleSaysWhereYourSettingsWent(): Unit = runBlocking {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val settings = SettingsRepository(app, scope)
+        settings.applyLook(emptyMap())
+        withTimeout(5_000) { settings.lookValues.first { it.isEmpty() } }
+        val looks = LookStore(app, settings, scope)
+        looks.dismissKept()
+
+        settings.setCorners(Corners.EXTRA)
+        withTimeout(5_000) { settings.lookValues.first { it["corners"] == "s:EXTRA" } }
+        val midnight = BuiltInLooks.of("midnight")!!
+        looks.apply(midnight, "Midnight for the night", scheduled = true)
+        assertEquals("Midnight", looks.keptBySchedule.value)
+        val before = looks.mine.value.single { it.id == LookStore.BEFORE_ID }
+        assertEquals("Before Midnight", before.name)
+        assertEquals(true, before.note.contains("Day and night"))
+
+        // A switch you make yourself says nothing; the notice brings your settings back.
+        looks.bringBackKept()
+        assertEquals(null, looks.keptBySchedule.value)
+        withTimeout(5_000) { settings.lookValues.first { it["corners"] == "s:EXTRA" } }
+        looks.delete(LookStore.BEFORE_ID)
+    }
 }

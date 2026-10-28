@@ -175,7 +175,12 @@ open class MainActivity : ComponentActivity() {
         // Lossless files added while Prism is closed are picked up by LosslessSyncWorker, scheduled by LosslessSync
         // while the lossless add-on is on.
         if (c.settings.current.isLoggedIn) c.library.syncInBackground()
-        deepLink.value = linkIn(intent)
+        // A link, Look or Blend shared to Prism is handled once. Android hands the activity the intent it was first
+        // started with again when it comes back after being closed (state restored, opened from Recents, after an
+        // update), which showed a shared Look's dialog again on every restart (found in 1.7.7's release check).
+        val fresh = savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0
+        deepLink.value = if (fresh) linkIn(intent) else null
+        if (intent.action != Intent.ACTION_MAIN) setIntent(Intent(this, javaClass).setAction(Intent.ACTION_MAIN))
         setContent {
             CompositionLocalProvider(
                 LocalContainer provides c,
@@ -756,6 +761,9 @@ private fun PrismRoot(deepLink: MutableStateFlow<Uri?>) {
                 com.prism.music.ui.components.LookUndoBar(
                     Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp)
                         .padding(bottom = if (playerOpen && song != null) navInset + 120.dp else bottomPadding + 8.dp),
+                )
+                if (!(playerOpen && song != null)) com.prism.music.ui.components.ScheduleKeptBar(
+                    Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp).padding(bottom = bottomPadding + 8.dp),
                 )
                 com.prism.music.ui.components.CustomizingPill(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
                 customizing?.let { (target, key) ->

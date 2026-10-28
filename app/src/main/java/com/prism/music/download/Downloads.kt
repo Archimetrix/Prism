@@ -53,6 +53,8 @@ private data class VideoPart(val song: Song, val videoId: String)
 /** Request ids of a video download's parts (kept apart from song downloads, so they don't list as songs). */
 private const val VIDEO_PICTURE = "vpic:"
 private const val VIDEO_AUDIO = "vaud:"
+/** How often a download YouTube refused (403) tries again by itself ([DownloadRepository.retryFailed]). */
+private const val AUTO_RETRY_GAP_MS = 6 * 60 * 60_000L
 private fun isVideoPart(id: String) = id.startsWith(VIDEO_PICTURE) || id.startsWith(VIDEO_AUDIO)
 private fun partSongId(id: String) = id.substringAfter(':')
 
@@ -67,6 +69,9 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         Executors.newFixedThreadPool(4),
     ).apply {
         maxParallelDownloads = 4
+        // Media3 tries a failing download 5 times by itself, each with a fresh link; 3 is plenty (#185's log: the same
+        // refused songs fetched and refused all day long).
+        minRetryCount = 3
         requirements = Requirements(if (c.settings.current.downloadWifiOnly) Requirements.NETWORK_UNMETERED else Requirements.NETWORK)
     }
 
@@ -237,6 +242,7 @@ class DownloadRepository(private val context: Context, private val c: AppContain
                 publish()
                 applyRequirements()
                 noteFailure(download.request.id, null)
+                c.forgetDownloadFormat(download.request.id)
                 c.canvasStore.forgetDownloads(listOf(download.request.id))
             }
         })
@@ -315,7 +321,7 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         c.scope.launch {
             while (!appOnScreen()) kotlinx.coroutines.delay(5_000)
             c.quietNetwork()
-            if (appOnScreen()) retryFailed() else retryFailedWhenQuiet()
+            if (appOnScreen()) retryFailed(auto = true) else retryFailedWhenQuiet()
         }
     }
 
@@ -325,14 +331,28 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         return info.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
-    /** Starts failed downloads again: all of them, or only those in [only] (song ids). */
-    fun retryFailed(only: Set<String>? = null) {
+    /**
+     * When each refused download was last tried again by itself. YouTube refusing a link (403) isn't fixed by trying
+     * again a minute later: gog-com's log (#185, #188) had 25 such songs re-asked ~170 times each in a day, every launch
+     * and reconnect, using data and holding up playback. They go again by themselves at most every [AUTO_RETRY_GAP_MS];
+     * "Try again" always works.
+     */
+    private val autoRetried = context.getSharedPreferences("download_auto_retry", Context.MODE_PRIVATE)
+
+    /** Starts failed downloads again: all of them, or only those in [only] (song ids). [auto]: not asked for by the listener. */
+    fun retryFailed(only: Set<String>? = null, auto: Boolean = false) {
         if (!c.network.isOnline()) return
+        val now = System.currentTimeMillis()
         val failed = runCatching {
             buildList {
                 manager.downloadIndex.getDownloads(Download.STATE_FAILED).use { cursor -> while (cursor.moveToNext()) add(cursor.download) }
             }
-        }.getOrDefault(emptyList()).filter { only == null || it.request.id in only }
+        }.getOrDefault(emptyList()).filter { only == null || it.request.id in only }.filter { d ->
+            val id = d.request.id
+            if (!auto || _failures.value[id]?.contains("(403)") != true) return@filter true
+            val last = autoRetried.getLong(id, 0L)
+            (now - last >= AUTO_RETRY_GAP_MS || last > now).also { go -> if (go) autoRetried.edit().putLong(id, now).apply() }
+        }
         if (failed.isEmpty()) return
         mainHandler.post {
             for (d in failed) {
@@ -340,6 +360,21 @@ class DownloadRepository(private val context: Context, private val c: AppContain
                 runCatching { DownloadService.sendAddDownload(context, PrismDownloadService::class.java, d.request, false) }
             }
         }
+    }
+
+    /**
+     * A finished download the player couldn't read (its file is broken: #183, two formats stitched together by a
+     * download that resumed in another one): it's thrown away and fetched again, whole. True when it was a download.
+     */
+    fun redownload(id: String): Boolean {
+        val d = runCatching { manager.downloadIndex.getDownload(id) }.getOrNull() ?: return false
+        if (d.state != Download.STATE_COMPLETED) return false
+        mainHandler.post {
+            manager.removeDownload(id)
+            c.forgetDownloadFormat(id)
+            add(d.request)
+        }
+        return true
     }
 
     /** The YouTube id a download's bytes come from (a video part's is its video's). */
