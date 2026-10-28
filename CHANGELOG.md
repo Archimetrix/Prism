@@ -25,6 +25,10 @@ Every one of these is a choice; nothing changes until you pick it.
 - **Downloads take a music video's song** (#186), with "Songs, not videos" on: the audio, not the video's sound (the
   video's sound when it has no song).
 - **Hide the cast mark** after your phone's name under the player (#149).
+- **Downloads notification** (#149): says how many songs are coming down, which one now and how far, and has a Cancel
+  button (finished downloads stay).
+- **Download again in Premium quality** (#149, #148): with Premium quality on, Downloads' ⋯ offers to fetch again the
+  songs that came down below 256 kbps.
 
 ### Fixes
 
@@ -48,6 +52,8 @@ Every one of these is a choice; nothing changes until you pick it.
 - **Local files' title at the top again** (#156): as a tab, the page's title sits beside Shuffle and Play, as in 1.6.9.
 - **FLAC files missing from Local files** (Reddit): files Android had no length for, or hadn't marked as music, are
   listed now (their length is read from the file once).
+- **Switching to a Look in another font no longer freezes the screen for a second**: its font is made beforehand, off
+  the screen's thread.
 - **App icon picker** (#194): the icons fill the page in an even grid (with larger text there was an empty column at
   the side) and names like "Spectrum" are no longer cut short.
 

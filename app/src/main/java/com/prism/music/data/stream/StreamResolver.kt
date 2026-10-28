@@ -662,10 +662,10 @@ class StreamResolver(
         }
     }
 
-    private companion object {
+    companion object {
         /** YouTube Music Premium's 256 kbps audio: AAC (141) and Opus (774). */
         val PREMIUM_ITAGS = setOf(141, 774)
-        const val BLOCK_BACKOFF_MS = 30 * 60_000L
+        private const val BLOCK_BACKOFF_MS = 30 * 60_000L
         const val BLOCKED = "YouTube is limiting playback on this network right now. Try again in a while, switch networks " +
             "(or turn off a VPN), or sign in."
 

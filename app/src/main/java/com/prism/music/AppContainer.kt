@@ -555,6 +555,9 @@ class AppContainer(val app: Application) {
     /** A download was removed (or is being fetched again): its format no longer binds the next one. */
     fun forgetDownloadFormat(id: String) = downloadFormats.edit().remove(id).apply()
 
+    /** The format (itag) a download came down in, when it's known (recorded since 1.7.7.1). */
+    fun downloadedItag(id: String): Int? = downloadFormats.getInt(id, 0).takeIf { it != 0 }
+
     /** Songs whose first seconds [warmUp] saved into the song cache, and the stream (itag) they came from. */
     private val prebuffered = ConcurrentHashMap<String, Int>()
 

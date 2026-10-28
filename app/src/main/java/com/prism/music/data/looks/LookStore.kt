@@ -1,6 +1,7 @@
 package com.prism.music.data.looks
 
 import android.content.Context
+import com.prism.music.data.prefs.FontChoice
 import com.prism.music.data.prefs.LookValue
 import com.prism.music.data.prefs.SettingsRepository
 import com.prism.music.ui.theme.AppFonts
@@ -298,6 +299,11 @@ class LookStore(private val app: Context, private val settings: SettingsReposito
         val yours = _mine.value.any { it.id == look.id }
         if (BuiltInLooks.of(look.id) == null && !yours) _other.value = look.copy(id = look.id.ifBlank { "shared" })
         setBasis(if (yours) look.id else null)
+        // Its fonts made here first, off the main thread (G37: a Look in another font froze the screen ~1 s while its
+        // weights were built for the first frame drawn in it).
+        listOf(Look.FONT_CHOICE, "title_font", "lyrics_font").mapNotNull { k -> LookValue.text(values[k])?.let(FontChoice::upgrade) }
+            .mapNotNull { n -> FontChoice.entries.firstOrNull { it.name == n } }
+            .takeIf { it.isNotEmpty() }?.let { runCatching { AppFonts.warm(app, it) } }
         settings.applyLook(values, fontChanged)
         applyIcons(look.icons)
     }

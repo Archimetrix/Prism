@@ -1590,8 +1590,22 @@ private fun downloadsSheetItems(ask: (String, () -> Unit) -> Unit): List<SheetIt
     }
     val smart = all.filter { it.value.state == Download.STATE_COMPLETED && it.key in smartIds }.keys
     val videos by c.downloads.videos.collectAsState()
+    // With Premium quality on: downloads below it (from before it was on, or before 1.7.7.1 made it work) can come down
+    // again in 256 kbps (#149).
+    val settings = com.prism.music.ui.theme.LocalAppSettings.current
+    var below by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(all.size, settings.premiumStream, settings.isLoggedIn) {
+        below = if (!settings.premiumStream || !settings.isLoggedIn) emptyList()
+        else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { c.downloads.belowPremium() }
+    }
     return buildList {
         add(SheetItem(PrismIcons.Lyrics, "Get missing lyrics") { c.downloads.backfillLyrics(force = true) })
+        if (below.isNotEmpty()) add(SheetItem(PrismIcons.Download, "Download again in Premium quality (${below.size})") {
+            ask(
+                "Download ${com.prism.music.data.model.songCount(below.size)} again in Premium quality (256 kbps)? Each one is " +
+                    "fetched whole again; until it's back, it plays from the internet rather than from the phone."
+            ) { c.downloads.downloadAgain(below) }
+        })
         if (smart.isNotEmpty()) add(SheetItem(PrismIcons.Delete, "Delete smart downloads (${smart.size})", danger = true) {
             ask("Delete the ${com.prism.music.data.model.songCount(smart.size)} smart downloads added? They may come back later if smart downloads stays on.") { c.downloads.removeMany(smart) }
         })

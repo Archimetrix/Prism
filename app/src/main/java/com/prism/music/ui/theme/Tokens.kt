@@ -160,6 +160,21 @@ object AppFonts {
         else -> bundledFamily(choice, weights) ?: FontFamily.Default
     }
 
+    /**
+     * Makes [choices]' typefaces now, at every weight the UI uses (and their weight axis for the lyrics' sweep), so the
+     * first frame drawn in them finds them made (G37: a Look in another font froze the screen ~1 s while they were
+     * built there). Compose's font resolvers share one cache, so a resolver made here fills it for the screen's. Call
+     * off the main thread.
+     */
+    fun warm(context: android.content.Context, choices: Collection<FontChoice>) {
+        val resolver = androidx.compose.ui.text.font.createFontFamilyResolver(context)
+        for (choice in choices.distinct()) {
+            val f = family(choice)
+            for (w in weights) runCatching { resolver.resolve(f, FontWeight(w), FontStyle.Normal) }
+            axis(choice)?.let { a -> for (w in 200..700 step 20) runCatching { resolver.resolve(a, FontWeight(w), FontStyle.Normal) } }
+        }
+    }
+
     /** Whether [choice] can be used: the bundled typefaces always; Your font once one is imported. */
     fun available(choice: FontChoice): Boolean = when (choice) {
         FontChoice.CUSTOM -> customFile(FontSlot.APP) != null

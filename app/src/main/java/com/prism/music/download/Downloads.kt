@@ -2,6 +2,7 @@ package com.prism.music.download
 
 import android.app.Notification
 import android.content.Context
+import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
@@ -377,6 +378,28 @@ class DownloadRepository(private val context: Context, private val c: AppContain
         return true
     }
 
+    /**
+     * Finished song downloads below Premium's 256 kbps (#149): by the format they came in, or, for ones from before
+     * Prism kept that (1.7.7.1), by their size against the song's length. Lossless files and videos aren't counted.
+     */
+    fun belowPremium(): List<String> = _downloads.value.filter { (id, d) ->
+        d.state == Download.STATE_COMPLETED && !d.lossless && !isVideoPart(id) && !id.startsWith(Song.LOCAL_PREFIX)
+    }.keys.filter { id ->
+        c.downloadedItag(id)?.let { it !in PREMIUM_ITAGS } ?: run {
+            val dl = runCatching { manager.downloadIndex.getDownload(id) }.getOrNull() ?: return@run false
+            val sec = runCatching { InnerTube.json.decodeFromString(Song.serializer(), String(dl.request.data)).durationSec }.getOrDefault(0)
+            sec > 30 && dl.bytesDownloaded * 8 / 1000 / sec < PREMIUM_KBPS
+        }
+    }
+
+    /** Fetches [ids] again, whole (in Premium quality when it's on and the account has it). */
+    fun downloadAgain(ids: Collection<String>) = ids.forEach { redownload(it) }
+
+    /** The notification's Cancel (R14): every download that hasn't finished is taken out; finished ones stay. */
+    fun cancelUnfinished() = mainHandler.post {
+        manager.currentDownloads.filter { it.state != Download.STATE_COMPLETED }.forEach { manager.removeDownload(it.request.id) }
+    }
+
     /** The YouTube id a download's bytes come from (a video part's is its video's). */
     private fun streamOf(d: Download): String? = if (isVideoPart(d.request.id)) d.part()?.videoId else d.request.id
 
@@ -625,10 +648,57 @@ class PrismDownloadService : DownloadService(
 
     override fun getScheduler(): Scheduler? = null
 
-    override fun getForegroundNotification(downloads: MutableList<Download>, notMetRequirements: Int): Notification =
-        DownloadNotificationHelper(this, DOWNLOAD_CHANNEL)
-            .buildProgressNotification(this, R.drawable.ic_notification, null, null, downloads, notMetRequirements)
+    /**
+     * How many songs are coming down, the one now and how far they've got, with Cancel (#149, R14: Media3's own said
+     * neither how many nor offered a way to stop them). Cancel takes out only what hasn't finished.
+     */
+    override fun getForegroundNotification(downloads: MutableList<Download>, notMetRequirements: Int): Notification {
+        // The songs: a music video's picture and sound come down as parts of their song.
+        val active = downloads.filter {
+            (it.state == Download.STATE_DOWNLOADING || it.state == Download.STATE_QUEUED || it.state == Download.STATE_RESTARTING) &&
+                !it.request.id.startsWith("vpic:") && !it.request.id.startsWith("vaud:")
+        }
+        val now = active.firstOrNull { it.state == Download.STATE_DOWNLOADING } ?: active.firstOrNull()
+        val title = now?.let { d -> runCatching { InnerTube.json.decodeFromString(Song.serializer(), String(d.request.data)).title }.getOrNull() }
+        val known = active.map { it.percentDownloaded }.filter { it >= 0f }
+        val percent = if (known.isEmpty()) -1 else known.average().roundToInt()
+        val waiting = when {
+            notMetRequirements == 0 -> null
+            notMetRequirements and androidx.media3.exoplayer.scheduler.Requirements.NETWORK_UNMETERED != 0 -> "Waiting for Wi-Fi"
+            else -> "Waiting for a connection"
+        }
+        val cancel = android.app.PendingIntent.getBroadcast(
+            this, 0, Intent(this, CancelDownloadsReceiver::class.java),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val open = packageManager.getLaunchIntentForPackage(packageName)?.let {
+            android.app.PendingIntent.getActivity(this, 0, it, android.app.PendingIntent.FLAG_IMMUTABLE)
+        }
+        return androidx.core.app.NotificationCompat.Builder(this, DOWNLOAD_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(if (active.size <= 1) "Downloading a song" else "Downloading ${active.size} songs")
+            .setContentText(waiting ?: title ?: "Getting ready…")
+            .setProgress(100, percent.coerceAtLeast(0), percent < 0 && waiting == null)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .setSilent(true)
+            .apply { if (open != null) setContentIntent(open) }
+            .addAction(0, "Cancel", cancel)
+            .build()
+    }
 }
+
+/** The downloads notification's Cancel: every download that hasn't finished goes; finished ones stay. */
+class CancelDownloadsReceiver : android.content.BroadcastReceiver() {
+    override fun onReceive(context: android.content.Context, intent: Intent) {
+        context.container.downloads.cancelUnfinished()
+    }
+}
+
+private val PREMIUM_ITAGS = com.prism.music.data.stream.StreamResolver.PREMIUM_ITAGS
+/** Below this a download isn't Premium's 256 kbps (normal quality is 128–160). */
+private const val PREMIUM_KBPS = 200
 
 /** The stop reason [DownloadRepository] uses for a moment to restart a stalled download. */
 private const val STALL_STOP = 7

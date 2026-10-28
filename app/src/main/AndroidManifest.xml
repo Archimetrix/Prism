@@ -406,6 +406,11 @@
             android:name=".widget.WidgetActionReceiver"
             android:exported="false" />
 
+        <!-- The downloads notification's Cancel (1.7.8). -->
+        <receiver
+            android:name=".download.CancelDownloadsReceiver"
+            android:exported="false" />
+
         <!-- Results from Android's installer while Prism updates itself. -->
         <receiver
             android:name=".data.UpdateInstallReceiver"
