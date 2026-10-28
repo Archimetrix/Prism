@@ -100,6 +100,15 @@ Every one of these is a choice; nothing changes until you pick it.
 
 ### Fixes
 
+- **A song that stopped playing with "Element 134 must be in a TrackEntry"** (Reddit): part of it was saved from an
+  earlier play in another format (another quality, Premium, or another of YouTube's answers), and today's stream was
+  joined onto it. Prism now remembers each saved song's format and drops what was saved when it changes; a song that
+  still can't be read has its saved part cleared and plays afresh.
+- **Closing Prism from its notification** (Reddit): swiping the paused song's notification away (or Hide on the media
+  card) now closes Prism properly. The notification doesn't come back until something plays, and Prism no longer stays
+  in Android's list of active apps.
+- **A "Prism" Quick Settings tile** (Reddit): play or pause from the Quick Settings panel, with the song's name under
+  it; with nothing lined up it opens Prism, and holding it opens Prism too.
 - **Premium quality on phones where it still failed** (#179): on some phones the small sandbox Prism unlocks YouTube's
   links in ran out of memory reading YouTube's newest player, so every Premium song (and its download) failed and fell
   back to its music video's sound. It now gets the memory it needs, and if a Premium link still can't be unlocked, the

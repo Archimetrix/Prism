@@ -213,6 +213,8 @@ class Backup(private val c: AppContainer) {
             put("lastfm", BackupPart.ACCOUNTS)
             // The Discord sign-in is a key to the whole Discord account; Prism Connect's pairings belong to this phone.
             listOf("discord", "connect_remote", "connect_handoff").forEach { put(it, null) }
+            // The song cache's formats describe this phone's cache, which a backup doesn't carry.
+            put("cache_formats", null)
         }
 
         /** Folders (and files) right under files/ by part; anything else counts as Settings. */

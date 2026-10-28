@@ -539,7 +539,7 @@ class AppContainer(val app: Application) {
         // The song's start was saved ahead from another format (the network changed since, so another quality
         // was picked): bytes of two formats can't be stitched together, so that start goes.
         prebuffered.remove(id)?.let { itag -> if (itag != s.itag) runCatching { playerCache.removeResource(id) } }
-        if (!useCaches) downloadFormat(id, s.itag, spec.position)
+        if (useCaches) cacheFormat(id, s.itag) else downloadFormat(id, s.itag, spec.position)
         streamDetails[song] = (if (useCaches) "Streaming" else "Downloading") to s
         if (useCaches) onStreamResolved?.invoke(song)
         return spec.buildUpon().setUri(s.audioUrl).setKey(id).build()
@@ -563,6 +563,30 @@ class AppContainer(val app: Application) {
             throw IOException("The song's format changed part-way; starting the download over")
         }
         if (before != itag) downloadFormats.edit().putInt(id, itag).apply()
+    }
+
+    /** The format (itag) each song's cached part came in (1.7.8), so a later part never comes from another one. */
+    private val cacheFormats = app.getSharedPreferences("cache_formats", android.content.Context.MODE_PRIVATE)
+
+    /**
+     * The song cache's side of [downloadFormat] (Reddit, 1.7.7: "Element 134 must be in a TrackEntry" on one song every
+     * time): what's cached of [id] from another format goes before today's stream adds to it. Before 1.7.8 nothing was
+     * recorded; such a song is caught when it can't be read ([forgetCachedAudio] from the player).
+     */
+    private fun cacheFormat(id: String, itag: Int) {
+        val before = cacheFormats.getInt(id, 0)
+        if (before == itag) return
+        if (before != 0 && playerCache.getCachedBytes(id, 0, Long.MAX_VALUE) > 0) {
+            runCatching { playerCache.removeResource(id) }
+            com.prism.music.playback.AudioDiagnostics.log("stream", "$id came as format $itag, not $before as cached: its cached part goes")
+        }
+        cacheFormats.edit().putInt(id, itag).apply()
+    }
+
+    /** [id]'s cached part can't be read: it goes, with its format. Blocking (the cache's own lock). */
+    fun forgetCachedAudio(id: String) {
+        runCatching { playerCache.removeResource(id) }
+        cacheFormats.edit().remove(id).apply()
     }
 
     /** A download was removed (or is being fetched again): its format no longer binds the next one. */

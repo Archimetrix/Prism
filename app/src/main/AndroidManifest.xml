@@ -66,6 +66,10 @@
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:windowSoftInputMode="adjustResize">
+            <!-- Holding the "Prism" Quick Settings tile opens Prism. -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -441,6 +445,17 @@
             </intent-filter>
         </service>
 
+        <!-- Quick Settings: "Prism" plays or pauses what's lined up (1.7.8). -->
+        <service
+            android:name=".playback.PlayTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_w_play"
+            android:label="@string/tile_play"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <!-- Quick Settings: "Recognize song" opens Prism already listening. -->
         <service
             android:name=".data.recognize.RecognizeTileService"

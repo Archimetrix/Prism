@@ -225,7 +225,11 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         })
         // Keep the media notification (and the system media controls) up for a
         // paused or restored queue, not only while audio is actively playing.
-        setShowNotificationForIdlePlayer(MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS)
+        // Not after the listener swiped it away, until something plays again ([closedFromNotification]).
+        setShowNotificationForIdlePlayer(
+            if (notificationClosed()) MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER
+            else MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
+        )
         // Android refuses a foreground service started from the background unless the start is exempt (a media button,
         // the system's own media controls); a play from another app then can't make sound. Logged for #187.
         setListener(object : MediaSessionService.Listener {
@@ -599,6 +603,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         maybeAutoplay()
         prefetchNext()
         updateButtons()
+        PlayTileService.update(this)
         carLyrics.refresh()
         scheduleSave()
     }
@@ -708,7 +713,37 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
     /** The song that just came up and when, until it's heard: how long starting a song takes (logcat tag PrismStream). */
     private var startedLoading: Pair<String, Long>? = null
 
+    /** Whether the listener swiped the notification away and nothing has played since. */
+    private fun notificationClosed() = getSharedPreferences("playback_service", MODE_PRIVATE).getBoolean("notification_closed", false)
+
+    private fun setNotificationClosed(closed: Boolean) {
+        if (notificationClosed() == closed) return
+        getSharedPreferences("playback_service", MODE_PRIVATE).edit().putBoolean("notification_closed", closed).apply()
+        setShowNotificationForIdlePlayer(
+            if (closed) MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER
+            else MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
+        )
+    }
+
+    /**
+     * The paused song's notification was swiped away: that's the listener closing Prism. Where they were is saved, the
+     * notification stays away until something plays, and the service stops (it had stayed in the foreground, listed in
+     * Android's "background activity" until stopped there).
+     */
+    private fun closedFromNotification() {
+        if (player.isPlaying) return
+        android.util.Log.i("PrismControl", "the notification was swiped away: stopping until something plays")
+        AudioDiagnostics.log("control", "the notification was swiped away: Prism stops until something plays")
+        setNotificationClosed(true)
+        flushPlayTime()
+        saveEpisodePosition()
+        saveQueue()
+        pauseAllPlayersAndStopSelf()
+    }
+
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying) setNotificationClosed(false)
+        PlayTileService.update(this)
         val now = SystemClock.elapsedRealtime()
         if (isPlaying) startedLoading?.let { (id, at) ->
             if (id == player.currentMediaItem?.mediaId) android.util.Log.i("PrismStream", "$id playing ${now - at} ms after it came up (${c.streamDetails[id]?.first ?: "?"})")
@@ -846,6 +881,22 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             scope.launch {
                 // The download's removal lands on the download manager's thread first, so the player reads from the network.
                 delay(600)
+                player.prepare()
+                player.seekTo(pos)
+                player.play()
+            }
+            return
+        }
+        // A streamed song whose bytes can't be read (Reddit, 1.7.7: "Element 134 must be in a TrackEntry", one song every
+        // time): its cached part came from another format than today's stream, and the two were joined. Its cached bytes
+        // go and it's asked for afresh, once.
+        if (unreadable && retries["cache:$id"] == null && !id.startsWith(Song.LOCAL_PREFIX)) {
+            retries["cache:$id"] = 1
+            AudioDiagnostics.log("song", "$id: its cached part can't be read (${(error.cause ?: error).message?.take(80)}); playing it afresh")
+            val pos = player.currentPosition
+            scope.launch {
+                withContext(Dispatchers.IO) { c.forgetCachedAudio(id) }
+                c.streams.invalidate(id)
                 player.prepare()
                 player.seekTo(pos)
                 player.play()
@@ -1891,6 +1942,13 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
             if (key?.action == android.view.KeyEvent.ACTION_DOWN) {
                 AudioDiagnostics.log("control", "media button ${android.view.KeyEvent.keyCodeToString(key.keyCode)} from ${controllerInfo.packageName}")
             }
+            // The notification swiped away (Media3 sends it as a media button with this extra): the listener is closing
+            // Prism (Reddit, 1.7.7: it came back once, then sat in "background activity" until stopped by hand).
+            if (intent.getBooleanExtra(NOTIFICATION_DISMISSED, false)) {
+                val handled = super.onMediaButtonEvent(session, controllerInfo, intent)
+                scope.launch { closedFromNotification() }
+                return handled
+            }
             return super.onMediaButtonEvent(session, controllerInfo, intent)
         }
 
@@ -2285,6 +2343,8 @@ internal fun wontPlayHere(error: Throwable, refused: Boolean = false): Boolean {
 }
 
 private const val TARGET_LUFS = -14f
+/** The extra Media3 puts on the media button it sends when its notification is swiped away. */
+private const val NOTIFICATION_DISMISSED = "androidx.media3.session.NOTIFICATION_DISMISSED_EVENT_KEY"
 /** "Fade on pause and play" (A5): 8 steps of 30 ms. */
 private const val PAUSE_FADE_STEPS = 8
 private const val PAUSE_FADE_STEP_MS = 30L
