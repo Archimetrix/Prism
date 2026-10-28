@@ -1086,6 +1086,19 @@ private fun handleDeepLink(uri: Uri, nav: Navigator, c: AppContainer) {
     val list = uri.getQueryParameter("list")
     val path = uri.pathSegments
     when {
+        // Back from Last.fm's page in the browser, with the token it gave for this listener (#133).
+        uri.scheme == "prism" && uri.host == "lastfm" -> {
+            nav.go(Routes.settings(com.prism.music.ui.screens.SettingsSection.LIBRARY.key))
+            uri.getQueryParameter("token")?.takeIf { it.isNotBlank() }?.let { token ->
+                c.scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                    val ok = c.lastFm.finishSignIn(token)
+                    android.widget.Toast.makeText(
+                        c.app, if (ok) "Connected to Last.fm as ${c.lastFm.user.value}" else "Last.fm didn't connect. Try again from Settings.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
         // A widget's cover or title: the player.
         uri.scheme == "prism" && uri.host == "player" -> nav.openPlayer()
         // Release Radar's notification.

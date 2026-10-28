@@ -209,6 +209,8 @@ class Backup(private val c: AppContainer) {
                 "canvas_saved", "download_lyrics", "download_failures", "download_auto_retry", "download_formats", "smart_downloads",
                 "lossless_links", "lossless_misses", "lossless_hidden", "lossless_alac",
             ).forEach { put(it, BackupPart.DOWNLOADS) }
+            // The Last.fm connection (and its waiting scrobbles) is the listener's account.
+            put("lastfm", BackupPart.ACCOUNTS)
             // The Discord sign-in is a key to the whole Discord account; Prism Connect's pairings belong to this phone.
             listOf("discord", "connect_remote", "connect_handoff").forEach { put(it, null) }
         }

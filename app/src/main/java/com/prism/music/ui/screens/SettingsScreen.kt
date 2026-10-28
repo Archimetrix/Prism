@@ -2266,6 +2266,40 @@ private fun HomeLibraryLook() {
 }
 
 /** Settings → Recommendations & Replay (1.7.6): what Prism suggests and from where, and your listening recap. */
+/** Last.fm scrobbling (#133, #160): connect your account in the browser, then what's sent. */
+@Composable
+private fun LastFmGroup() {
+    val c = LocalContainer.current
+    val context = LocalContext.current
+    val lastFm = c.lastFm
+    val user by lastFm.user.collectAsState()
+    val o by lastFm.options.collectAsState()
+    val waiting by lastFm.waiting.collectAsState()
+    Group(
+        "Last.fm",
+        info = "Sends what you listen to (scrobbles) to your own Last.fm account: a song counts once you've heard half of it or four " +
+            "minutes. You connect on Last.fm's own page, so Prism never sees your password. Podcast episodes aren't sent.",
+    ) {
+        if (!lastFm.available) {
+            Note("This copy of Prism was built without Last.fm.")
+            return@Group
+        }
+        if (user == null) {
+            Item("Connect Last.fm", "Opens Last.fm to let Prism scrobble", onClick = {
+                runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(lastFm.authUrl()))) }
+            }) { Chevron() }
+            return@Group
+        }
+        Toggle("Scrobble", "Connected as $user" + if (waiting > 0) " · $waiting waiting to send" else "", o.scrobble) { lastFm.setOptions(o.copy(scrobble = it)) }
+        Toggle(
+            "First artist only", "\"A, B & C\" goes to Last.fm as A", o.firstArtistOnly,
+            info = "Last.fm matches one artist per song; a song with guests often doesn't match until it's sent as its main artist alone.",
+        ) { lastFm.setOptions(o.copy(firstArtistOnly = it)) }
+        Toggle("Love when I like a song", "Liking here loves it on Last.fm", o.loveOnLike) { lastFm.setOptions(o.copy(loveOnLike = it)) }
+        Item("Disconnect", "Stops scrobbling and forgets the connection", onClick = { lastFm.signOut() })
+    }
+}
+
 @Composable
 private fun RecommendationsPage() {
     val c = LocalContainer.current
@@ -2289,6 +2323,7 @@ private fun RecommendationsPage() {
                 info = "When you've liked a song and its music video, Liked songs, Library and the car show just the song. The video stays liked: unlike the song and it shows again. Nothing changes on YouTube Music.",
             ) { prefs.setMergeLikedVideos(it) }
         }
+        LastFmGroup()
         Group("Replay") {
             Toggle("Show time in hours", if (s.replayHours) "Like \"20h 4m\"" else "Like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
             Toggle("Use theme colors", "Your accent instead of Prism's gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }

@@ -86,6 +86,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/zip" />
             </intent-filter>
+            <!-- Last.fm's sign-in page sends the browser back here with a token (1.7.8). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="prism" android:host="lastfm" />
+            </intent-filter>
         </activity>
 
         <!-- App icons (Settings → Appearance → App icon, #20): exactly one of these launcher entries is enabled

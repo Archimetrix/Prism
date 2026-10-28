@@ -535,6 +535,7 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         }
         trackedSong = song
         trackedSource = sourceOf(mediaItem)
+        c.lastFm.started(song)
         trackedExcluded = c.exclusions.outOfTaste(song, c.queue.source.value.originId)
         // Podcast episodes pick up where they were left, and play at the speed picked for episodes.
         if (song.isEpisode) {
@@ -1327,6 +1328,8 @@ open class PlaybackService : MediaLibraryService(), Player.Listener {
         val excluded = trackedExcluded
         val ms = accumulatedMs
         accumulatedMs = 0
+        // Last.fm counts every stretch heard (#133); it scrobbles once the play is long enough.
+        if (song != null && ms > 0) c.lastFm.heard(song, ms)
         // Replay, smart downloads and search taste are about music: episodes aren't counted.
         if (song != null && ms >= 10_000 && !song.isEpisode) {
             scope.launch(Dispatchers.IO) {

@@ -172,6 +172,8 @@ class LibraryRepository(private val c: AppContainer) {
         c.scope.launch(Dispatchers.IO) {
             val existing = songs.get(song.id)
             songs.upsert(song.toEntity(existing).copy(liked = liked, likedAt = if (liked) System.currentTimeMillis() else 0))
+            // "Love on Last.fm when I like a song" (#133), local files included.
+            c.lastFm.liked(song, liked)
             // A file on the phone is liked in Prism only: there's nothing to download or tell YouTube.
             if (song.isLocal) return@launch
             if (liked && c.settings.current.downloadLikes) c.downloads.download(song)

@@ -115,6 +115,11 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
             container.quietNetwork()
             runCatching { container.rewind.freezeLastYear() }
         }
+        // Scrobbles made offline go to Last.fm once the phone is back online (#133).
+        container.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            if (!container.lastFm.available) return@launch
+            container.network.online.collect { online -> if (online && container.lastFm.user.value != null) runCatching { container.lastFm.flush() } }
+        }
         // A restored backup's settings (since 1.7.8 kept as values beside the store) go in at once, before Home shows.
         container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { container.backup.applyRestoredSettings() } }
         // Downloads a restore left waiting carry on once the first screen is up (the download manager stays on the
@@ -248,6 +253,8 @@ class AppContainer(val app: Application) {
     val homeCache = com.prism.music.data.HomeCache(app.filesDir)
     /** Albums and playlists played lately (Home's Recently played, #196). */
     val recentCollections by lazy { com.prism.music.data.RecentCollections(app) }
+    /** Last.fm scrobbling, when the listener connects their account (#133). */
+    val lastFm by lazy { com.prism.music.data.lastfm.LastFm(app, http, scope) }
     val lyrics = LyricsRepository(http, db.lyrics(), ytm) { settings.current }.apply {
         choices = app.getSharedPreferences("lyrics_choice", android.content.Context.MODE_PRIVATE)
         searchNames = app.getSharedPreferences("lyrics_search_as", android.content.Context.MODE_PRIVATE)

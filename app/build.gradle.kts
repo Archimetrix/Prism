@@ -37,6 +37,8 @@ android {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
         }
         buildConfigField("String", "LASTFM_API_KEY", "\"${localProps.getProperty("lastfm.apiKey", "")}\"")
+        // Scrobbling (1.7.8) signs its requests with the API account's shared secret; without one it isn't offered.
+        buildConfigField("String", "LASTFM_SECRET", "\"${localProps.getProperty("lastfm.secret", "")}\"")
     }
 
     // Releases are signed with the key in keystore.properties (gitignored, with the .jks beside it).
