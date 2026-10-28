@@ -221,7 +221,12 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     // Settings → Player → Layout (1.7.4); a wide player (tablet, landscape) keeps its own.
     val wideNow = com.prism.music.ui.theme.LocalWindowLayout.current.let { it.twoPanePlayer || it.shortLandscape || it.tabletop }
     val layout = if (wideNow) com.prism.music.data.prefs.PlayerLayout.STANDARD else settings.playerLayout
-    val lyricsState = rememberLyricsState(song, opened = lyricsOpen || settings.immersivePlayer || showProviders || layout == com.prism.music.data.prefs.PlayerLayout.LYRICS)
+    val cachedSpotifyCanvas = settings.canvasEnabled && settings.canvasSpotifyEnabled && settings.canvasSpotifyLyrics &&
+        c.canvas.cached(song, settings.canvasSourcePriority, settings.canvasSpotifyEnabled, settings.canvasAppleEnabled)?.source == "spotify"
+    val lyricsState = rememberLyricsState(
+        song,
+        opened = lyricsOpen || settings.immersivePlayer || showProviders || layout == com.prism.music.data.prefs.PlayerLayout.LYRICS || cachedSpotifyCanvas,
+    )
     // With the lyrics in, the best part can start where a line does (or come from the chorus, without a heat curve).
     LaunchedEffect(song.id, lyricsState.lyrics) { if (lyricsState.lyrics?.synced == true) c.bestParts.refine(song) }
     // The playhead is read only where it's shown (the scrubber), so the player isn't recomposed as the song plays.
@@ -388,6 +393,7 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
     val canvasBehind = (spotifyCanvas || (appleArtwork && settings.canvasFillsBackground)) && !videoMode && !wide
     val heroMode = settings.fullBleedArtwork && !canvasBehind && !videoMode && !wide && !vinyl && !cassette
     val canvasBackgroundMode = canvasBehind && spotifyCanvas
+    val showCanvasLyrics = canvasBackgroundMode && settings.canvasSpotifyLyrics && !lyricsOpen
     var canvasControlsVisible by remember(song.id) { mutableStateOf(true) }
     LaunchedEffect(song.id, canvasBackgroundMode, canvasCover > 0.9f, covered, canvasControlsVisible) {
         if (!canvasBackgroundMode || covered) {
@@ -1014,8 +1020,14 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
                         } else {
                             // The parts in the listener's order (Settings → Player → Arrange, 1.7.4); what's switched off
                             // elsewhere stays off.
-                            val parts = settings.playerDeck.filter { it != com.prism.music.data.prefs.DeckPart.STRIP || (!lyricsOpen && settings.lyricsOnPlayer) }
+                            val parts = settings.playerDeck.filter {
+                                it != com.prism.music.data.prefs.DeckPart.STRIP ||
+                                    (!lyricsOpen && !canvasBackgroundMode && settings.lyricsOnPlayer)
+                            }
                             parts.forEachIndexed { i, part ->
+                                if (part == com.prism.music.data.prefs.DeckPart.SCRUBBER && showCanvasLyrics && lyricsState.lyrics?.synced == true) {
+                                    CurrentLyricStrip(lyricsState, isPlaying && !covered, openLyrics, maxLines = 1)
+                                }
                                 when (part) {
                                     com.prism.music.data.prefs.DeckPart.STRIP -> CurrentLyricStrip(lyricsState, isPlaying && !covered, openLyrics)
                                     com.prism.music.data.prefs.DeckPart.SCRUBBER -> PlayheadScrubber(position, pc.duration) {
@@ -1071,6 +1083,9 @@ fun NowPlayingScreen(onCollapse: () -> Unit) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
+                if (showCanvasLyrics && lyricsState.lyrics?.synced == true) {
+                    CurrentLyricStrip(lyricsState, isPlaying && !covered) { canvasControlsVisible = true }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(song.title, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

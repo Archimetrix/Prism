@@ -1525,7 +1525,12 @@ private fun PlayerSettings() {
                 Toggle("Use Spotify Canvas", "Look up matching Spotify Canvas videos", s.canvasSpotifyEnabled) {
                     prefs.setCanvasSpotifyEnabled(it)
                 }
-                if (s.canvasSpotifyEnabled) SpotifyCanvasSettings()
+                if (s.canvasSpotifyEnabled) {
+                    Toggle("Show lyrics over Canvas", "Show the current synced lyric in the player", s.canvasSpotifyLyrics) {
+                        prefs.setCanvasSpotifyLyrics(it)
+                    }
+                    SpotifyCanvasSettings()
+                }
                 Label("Apple Music artwork")
                 Toggle("Use Apple Music artwork", "Show matching animated Apple Music artwork in the square cover", s.canvasAppleEnabled) {
                     prefs.setCanvasAppleEnabled(it)
