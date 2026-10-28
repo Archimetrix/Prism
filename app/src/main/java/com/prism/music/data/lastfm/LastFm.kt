@@ -173,9 +173,14 @@ class LastFm(private val context: Context, private val http: OkHttpClient, priva
                     if (s.duration > 0) put("duration[$i]", s.duration.toString())
                 }
             }
-            val ok = runCatching { call(params, signed = true) }
-                .onFailure { AudioDiagnostics.log("lastfm", "scrobbles kept for later: $it") }.isSuccess
-            if (!ok) return@withLock
+            val failure = runCatching { call(params, signed = true) }.exceptionOrNull()
+            if (failure != null) {
+                // Offline, or Last.fm busy for a while: kept for later. Turned down for good (its data, not the moment):
+                // dropped, or it would hold up every scrobble after it.
+                val forGood = failure is LastFmError && failure.code !in TRY_AGAIN && failure.code != ERROR_INVALID_SESSION
+                AudioDiagnostics.log("lastfm", if (forGood) "${batch.size} scrobbles refused, dropped: $failure" else "scrobbles kept for later: $failure")
+                if (!forGood) return@withLock
+            }
             synchronized(queueLock) { saveQueue(queue().drop(batch.size)) }
         }
     }
@@ -216,6 +221,11 @@ class LastFm(private val context: Context, private val http: OkHttpClient, priva
         private const val MIN_SONG_SEC = 30
         private const val MAX_NEEDED_MS = 4 * 60_000L
         private const val ERROR_INVALID_SESSION = 9
+        /**
+         * Last.fm's errors that pass or aren't the scrobbles' fault, so they're kept: operation failed (8), service offline
+         * (11), temporarily unavailable (16), rate limit (29), and Prism's own key refused (10, 13, 26).
+         */
+        private val TRY_AGAIN = setOf(8, 10, 11, 13, 16, 26, 29)
 
         /** Last.fm's api_sig: every parameter (not format or callback) sorted by name, name and value joined, the secret after, MD5. */
         internal fun signature(params: Map<String, String>, secret: String): String {

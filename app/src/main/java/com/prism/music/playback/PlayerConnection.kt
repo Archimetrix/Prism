@@ -740,6 +740,7 @@ class PlayerConnection(private val context: Context, private val c: AppContainer
         if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && _sleepEndOfSong.value) setSleepEndOfSong(false)
     }
 
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun setSleepTimer(minutes: Int) {
         if (_sleepEndOfSong.value) setSleepEndOfSong(false)
         _sleepAt.value = if (minutes <= 0) 0 else System.currentTimeMillis() + minutes * 60_000L

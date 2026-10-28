@@ -225,6 +225,8 @@ class Backup(private val c: AppContainer) {
             listOf("downloads", "canvas_saved").forEach { put(it, BackupPart.DOWNLOADS) }
             // Downloaded data files (models/) can always be downloaded again; stems are made again; staging is a restore's.
             listOf(STAGING, "models", "stems", REDOWNLOAD, RESTORED_SETTINGS).forEach { put(it, null) }
+            // Lyric translations (1.7.8) are a cache of Google's answers, asked for again when missing.
+            put("translations", null)
         }
 
         internal fun prefsPart(name: String): BackupPart? = if (name in PREFS_PARTS) PREFS_PARTS[name] else BackupPart.SETTINGS
