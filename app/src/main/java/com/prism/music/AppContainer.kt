@@ -115,6 +115,8 @@ class PrismApp : Application(), coil3.SingletonImageLoader.Factory {
             container.quietNetwork()
             runCatching { container.rewind.freezeLastYear() }
         }
+        // A restored backup's settings (since 1.7.8 kept as values beside the store) go in at once, before Home shows.
+        container.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { container.backup.applyRestoredSettings() } }
         // Downloads a restore left waiting carry on once the first screen is up (the download manager stays on the
         // main thread, where it was made).
         container.scope.launch(kotlinx.coroutines.Dispatchers.Main) {

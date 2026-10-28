@@ -10,10 +10,21 @@ import com.prism.music.data.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+
+/** The parts a backup can hold (1.7.8, #149: settings can be shared without your listening or your sign-in). */
+enum class BackupPart(val label: String, val detail: String) {
+    SETTINGS("Settings & Looks", "Everything you've set, your Looks, fonts and backgrounds"),
+    LIBRARY("Library", "Prism playlists, folders and pins, starred artists, your covers, Blends, which songs are downloaded"),
+    HISTORY("Listening history & Replay", "What you've played, likes, Replay and Rewind, saved lyrics, recent searches"),
+    ACCOUNTS("Accounts", "Your YouTube Music sign-in and your Prism Account"),
+    DOWNLOADS("Downloaded songs", "The audio itself (otherwise they're fetched again after restoring)"),
+}
 
 /** What's written first in every backup. */
 @Serializable
@@ -26,6 +37,8 @@ private data class BackupManifest(
     val withDownloads: Boolean = false,
     /** Downloaded songs, so they can be fetched again when the audio itself isn't in the backup. */
     val downloads: List<Song> = emptyList(),
+    /** The parts it holds ([BackupPart] names); null in backups made before 1.7.8, which hold everything. */
+    val parts: List<String>? = null,
 )
 
 /**
@@ -33,26 +46,36 @@ private data class BackupManifest(
  * and sign-in, saved preferences, custom covers and backgrounds; optionally the downloaded audio),
  * and restores one. A restore is staged and put in place on the next launch, before anything has
  * opened those files, then Prism restarts. Nothing leaves the phone except to where the listener saves it.
+ * Since 1.7.8 the listener picks the [BackupPart]s; a restore replaces only those and leaves the rest.
  */
 class Backup(private val c: AppContainer) {
     private val ctx: Context get() = c.app
     private val data: File get() = ctx.filesDir.parentFile!!
 
-    /** Writes a backup to [uri]. */
-    suspend fun export(uri: Uri, withDownloads: Boolean) = withContext(Dispatchers.IO) {
+    /** Writes a backup of [parts] to [uri]. */
+    suspend fun export(uri: Uri, parts: Set<BackupPart>) = withContext(Dispatchers.IO) {
         // Fold Room's write-ahead log into the main file so the copy is complete.
         runCatching { c.db.query(androidx.sqlite.db.SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)")).close() }
+        val withDownloads = BackupPart.DOWNLOADS in parts
         val manifest = BackupManifest(
-            app = ctx.packageName, versionCode = BuildConfig.VERSION_CODE, versionName = BuildConfig.VERSION_NAME,
+            format = FORMAT, app = ctx.packageName, versionCode = BuildConfig.VERSION_CODE, versionName = BuildConfig.VERSION_NAME,
             createdAt = System.currentTimeMillis(), withDownloads = withDownloads,
-            downloads = c.downloads.completedSongs(),
+            downloads = if (BackupPart.LIBRARY in parts || withDownloads) c.downloads.completedSongs() else emptyList(),
+            parts = parts.map { it.name },
         )
+        val settings = c.settings.forBackup(settings = BackupPart.SETTINGS in parts, accounts = BackupPart.ACCOUNTS in parts)
         val out = ctx.contentResolver.openOutputStream(uri, "wt") ?: error("Couldn't open that file")
         ZipOutputStream(out.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry(MANIFEST))
             zip.write(InnerTube.json.encodeToString(BackupManifest.serializer(), manifest).toByteArray())
             zip.closeEntry()
-            filesToBackUp(withDownloads).forEach { f ->
+            // Settings as values, not the store's own file: it also holds the sign-in, which only "Accounts" brings.
+            if (settings.isNotEmpty()) {
+                zip.putNextEntry(ZipEntry(SETTINGS_ENTRY))
+                zip.write(InnerTube.json.encodeToString(SETTINGS_MAP, settings).toByteArray())
+                zip.closeEntry()
+            }
+            filesToBackUp(parts).forEach { f ->
                 zip.putNextEntry(ZipEntry(f.relativeTo(data).invariantSeparatorsPath))
                 f.inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
@@ -60,29 +83,36 @@ class Backup(private val c: AppContainer) {
         }
     }
 
-    /** About how big a backup would be, in bytes. */
-    suspend fun estimate(withDownloads: Boolean): Long = withContext(Dispatchers.IO) { filesToBackUp(withDownloads).sumOf { it.length() } }
+    /** About how big a backup of [parts] would be, in bytes. */
+    suspend fun estimate(parts: Set<BackupPart>): Long = withContext(Dispatchers.IO) { filesToBackUp(parts).sumOf { it.length() } }
 
-    private fun filesToBackUp(withDownloads: Boolean): List<File> {
+    private fun filesToBackUp(parts: Set<BackupPart>): List<File> {
         val keep = mutableListOf<File>()
         File(data, "databases").listFiles()?.forEach { f ->
-            if (f.name.startsWith(DB) || (withDownloads && f.name.startsWith(EXO_DB))) keep += f
+            if ((BackupPart.HISTORY in parts && f.name.startsWith(DB)) || (BackupPart.DOWNLOADS in parts && f.name.startsWith(EXO_DB))) keep += f
         }
-        File(data, "shared_prefs").listFiles()?.forEach { f ->
-            // Saved animated covers live with the downloads; without them, the list of them would point at nothing.
-            // The Discord sign-in is a key to the whole Discord account: it never goes in a backup file.
-            if (f.name == "discord.xml") return@forEach
-            // Prism Connect's pairings (paired browsers, handoff keys) belong to this phone, not to a copy restored elsewhere.
-            if (f.name == "connect_remote.xml" || f.name == "connect_handoff.xml") return@forEach
-            if (withDownloads || f.name != "canvas_saved.xml") keep += f
-        }
-        File(data, "datastore").walkTopDown().filter { it.isFile }.forEach { keep += it }
+        File(data, "shared_prefs").listFiles()?.forEach { f -> if (prefsPart(f.name.removeSuffix(".xml")) in parts) keep += f }
         ctx.filesDir.walkTopDown()
-            // Downloaded data files (models/) can always be downloaded again: never in a backup.
-            .onEnter { dir -> dir == ctx.filesDir || dir.relativeTo(ctx.filesDir).invariantSeparatorsPath.substringBefore('/').let { top -> top != STAGING && top != "models" && top != "stems" && (withDownloads || top !in MEDIA) } }
-            .filter { it.isFile }
+            .onEnter { dir -> dir == ctx.filesDir || filePart(dir.relativeTo(ctx.filesDir).invariantSeparatorsPath.substringBefore('/')) in parts }
+            .filter { it.isFile && (it.parentFile != ctx.filesDir || filePart(it.name) in parts) }
             .forEach { keep += it }
         return keep
+    }
+
+    /** The parts the backup at [uri] holds (every one for a backup made before 1.7.8), or null when it isn't one. */
+    suspend fun partsOf(uri: Uri): Set<BackupPart>? = withContext(Dispatchers.IO) {
+        runCatching {
+            ZipInputStream((ctx.contentResolver.openInputStream(uri) ?: return@runCatching null).buffered()).use { zip ->
+                while (true) {
+                    val e = zip.nextEntry ?: break
+                    if (e.name != MANIFEST) continue
+                    val m = InnerTube.json.decodeFromString(BackupManifest.serializer(), zip.readBytes().decodeToString())
+                    if (m.app != ctx.packageName) return@runCatching null
+                    return@runCatching m.partSet()
+                }
+                null
+            }
+        }.getOrNull()
     }
 
     /**
@@ -106,7 +136,7 @@ class Backup(private val c: AppContainer) {
                         continue
                     }
                     // Only Prism's own folders, and nothing that climbs out of them.
-                    if (name.contains("..") || name.startsWith("/") || ALLOWED.none { name.startsWith(it) }) continue
+                    if (name.contains("..") || name.startsWith("/") || (name != SETTINGS_ENTRY && ALLOWED.none { name.startsWith(it) })) continue
                     val target = File(staging, name)
                     target.parentFile?.mkdirs()
                     target.outputStream().use { zip.copyTo(it) }
@@ -129,6 +159,17 @@ class Backup(private val c: AppContainer) {
         Runtime.getRuntime().exit(0)
     }
 
+    /** After a restore: puts the backup's settings in place (a backup since 1.7.8 holds them as values; see [export]). */
+    suspend fun applyRestoredSettings() {
+        val s = File(ctx.filesDir, RESTORED_SETTINGS)
+        if (!s.exists()) return
+        runCatching {
+            val r = InnerTube.json.decodeFromString(RestoredSettings.serializer(), s.readText())
+            c.settings.fromBackup(r.values, settings = BackupPart.SETTINGS.name in r.parts, accounts = BackupPart.ACCOUNTS.name in r.parts)
+        }
+        s.delete()
+    }
+
     /** After a restore: fetches the downloads again when their audio wasn't in the backup. */
     fun resumeDownloads() {
         val f = File(ctx.filesDir, REDOWNLOAD)
@@ -138,20 +179,60 @@ class Backup(private val c: AppContainer) {
         c.downloads.downloadAll(songs)
     }
 
+    @Serializable
+    private data class RestoredSettings(val parts: List<String>, val values: Map<String, String>)
+
     companion object {
-        private const val FORMAT = 1
+        /** 2 (1.7.8): settings as values and a list of parts; Prism before 1.7.8 says "update first" to these. */
+        private const val FORMAT = 2
         private const val MANIFEST = "prism-backup.json"
+        private const val SETTINGS_ENTRY = "settings.json"
         private const val STAGING = "restore_pending"
         private const val REDOWNLOAD = "restore_downloads.json"
+        /** A restored backup's settings, waiting for the settings store to open after the restart. */
+        private const val RESTORED_SETTINGS = "restore_settings.json"
         private const val DB = "prism.db"
         private const val EXO_DB = "exoplayer_internal.db"
-        /** Folders under files/ that hold downloaded audio and the animated covers saved with it. */
-        private val MEDIA = setOf("downloads", "canvas_saved")
         private val ALLOWED = listOf("databases/", "shared_prefs/", "datastore/", "files/")
+        private val SETTINGS_MAP = MapSerializer(String.serializer(), String.serializer())
+
+        /** Saved preferences by part; anything not named here counts as Settings. Some never go in a backup (null). */
+        private val PREFS_PARTS: Map<String, BackupPart?> = buildMap {
+            listOf("artist_prefs", "artist_thumbs", "playlist_covers", "library_order", "blend", "liked_playlist", "recent_collections")
+                .forEach { put(it, BackupPart.LIBRARY) }
+            listOf(
+                "dislikes", "exclusions", "for_you", "release_radar", "search", "episode_progress", "episode_played", "best_part_mine",
+                "mix_tempo", "song_loudness", "song_key", "dj_quick", "loudness", "lyric_offsets", "lyrics_choice", "lyrics_search_as",
+                "romanize_songs", "video_sync", "local_album_tags", "local_lengths", "local_no_art",
+            ).forEach { put(it, BackupPart.HISTORY) }
+            listOf(
+                "canvas_saved", "download_lyrics", "download_failures", "download_auto_retry", "download_formats", "smart_downloads",
+                "lossless_links", "lossless_misses", "lossless_hidden",
+            ).forEach { put(it, BackupPart.DOWNLOADS) }
+            // The Discord sign-in is a key to the whole Discord account; Prism Connect's pairings belong to this phone.
+            listOf("discord", "connect_remote", "connect_handoff").forEach { put(it, null) }
+        }
+
+        /** Folders (and files) right under files/ by part; anything else counts as Settings. */
+        private val FILE_PARTS: Map<String, BackupPart?> = buildMap {
+            listOf("library", "blends", "covers", "offline", "artwork").forEach { put(it, BackupPart.LIBRARY) }
+            listOf("rewind", "waves", "queue.json").forEach { put(it, BackupPart.HISTORY) }
+            put("account", BackupPart.ACCOUNTS)
+            listOf("downloads", "canvas_saved").forEach { put(it, BackupPart.DOWNLOADS) }
+            // Downloaded data files (models/) can always be downloaded again; stems are made again; staging is a restore's.
+            listOf(STAGING, "models", "stems", REDOWNLOAD, RESTORED_SETTINGS).forEach { put(it, null) }
+        }
+
+        internal fun prefsPart(name: String): BackupPart? = if (name in PREFS_PARTS) PREFS_PARTS[name] else BackupPart.SETTINGS
+        internal fun filePart(top: String): BackupPart? = if (top in FILE_PARTS) FILE_PARTS[top] else BackupPart.SETTINGS
+
+        private fun BackupManifest.partSet(): Set<BackupPart> =
+            parts?.mapNotNull { n -> BackupPart.entries.firstOrNull { it.name == n } }?.toSet()
+                ?: (BackupPart.entries.toSet() - if (withDownloads) emptySet() else setOf(BackupPart.DOWNLOADS))
 
         /**
          * Puts a staged restore in place. Runs first thing at launch, before Room, DataStore or any
-         * preferences are opened, so nothing holds the old files.
+         * preferences are opened, so nothing holds the old files. Only the parts the backup holds are replaced.
          */
         fun applyPending(context: Context) {
             val files = context.filesDir
@@ -161,16 +242,32 @@ class Backup(private val c: AppContainer) {
             runCatching {
                 val m = InnerTube.json.decodeFromString(BackupManifest.serializer(), manifestFile.readText())
                 val data = files.parentFile!!
-                // Out with what the backup replaces. Downloads stay unless the backup brings its own.
-                File(data, "databases").listFiles()?.forEach { if (it.name.startsWith(DB) || (m.withDownloads && it.name.startsWith(EXO_DB))) it.delete() }
-                File(data, "shared_prefs").listFiles()?.forEach { it.delete() }
-                File(data, "datastore").deleteRecursively()
-                files.listFiles()?.forEach { if (it.name != STAGING && (m.withDownloads || it.name !in MEDIA)) it.deleteRecursively() }
+                val whole = m.parts == null
+                val parts = m.partSet()
+                // Out with what the backup replaces.
+                File(data, "databases").listFiles()?.forEach {
+                    if ((BackupPart.HISTORY in parts && it.name.startsWith(DB)) || (BackupPart.DOWNLOADS in parts && it.name.startsWith(EXO_DB))) it.delete()
+                }
+                File(data, "shared_prefs").listFiles()?.forEach { if (whole || prefsPart(it.name.removeSuffix(".xml")) in parts) it.delete() }
+                // A backup from before 1.7.8 brings the settings store's own file; a newer one, its values (below).
+                if (whole) File(data, "datastore").deleteRecursively()
+                files.listFiles()?.forEach { f ->
+                    if (f.name == STAGING) return@forEach
+                    if (whole) { if (m.withDownloads || filePart(f.name) != BackupPart.DOWNLOADS) f.deleteRecursively() }
+                    else if (filePart(f.name) in parts) f.deleteRecursively()
+                }
                 // In with the backup.
-                staging.walkTopDown().filter { it.isFile && it != manifestFile }.forEach { f ->
+                val settingsFile = File(staging, SETTINGS_ENTRY)
+                staging.walkTopDown().filter { it.isFile && it != manifestFile && it != settingsFile }.forEach { f ->
                     val target = File(data, f.relativeTo(staging).path)
                     target.parentFile?.mkdirs()
                     if (!f.renameTo(target)) { f.copyTo(target, overwrite = true); f.delete() }
+                }
+                // The settings wait for the store to open ([afterRestore]); "Settings" or "Accounts" without any values
+                // still clears what they replace.
+                if (!whole && (BackupPart.SETTINGS in parts || BackupPart.ACCOUNTS in parts)) {
+                    val values = if (settingsFile.exists()) InnerTube.json.decodeFromString(SETTINGS_MAP, settingsFile.readText()) else emptyMap()
+                    File(files, RESTORED_SETTINGS).writeText(InnerTube.json.encodeToString(RestoredSettings.serializer(), RestoredSettings(m.parts.orEmpty(), values)))
                 }
                 if (!m.withDownloads && m.downloads.isNotEmpty()) manifestFile.copyTo(File(files, REDOWNLOAD), overwrite = true)
             }

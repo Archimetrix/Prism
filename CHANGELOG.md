@@ -28,6 +28,10 @@ Every one of these is a choice; nothing changes until you pick it.
   media volume all the way down pauses, up again plays on).
 - **Replay for any dates** (#149): Today, This week and This month beside the usual ones, and "Other dates…" for any
   month you listened in or any days on a calendar, each with its own story.
+- **Choose what goes in a backup** (#149, Reddit): Settings & Looks, Library, Listening history & Replay, Accounts and
+  Downloaded songs, each one ticked or not, so you can share your settings without your listening or your sign-in.
+  Restoring replaces only what the file holds and says what that is first. (Backups from earlier versions restore as
+  before; Prism before 1.7.8 asks to be updated before restoring a new one.)
 - **Recently played as albums and playlists** (#196): Customize Prism → Home & Library → Recently played shows.
 - **Library → Songs** has search, Shuffle and Play, as the Liked songs page does (#184).
 - **Downloads take a music video's song** (#186), with "Songs, not videos" on: the audio, not the video's sound (the

@@ -1873,6 +1873,33 @@ class SettingsRepository(private val context: Context, scope: CoroutineScope) {
         context.dataStore.edit { block(it) }
     }
 
+    // ---- Backups that hold only some parts (1.7.8, #149): settings and the sign-in share this store.
+
+    /** The YouTube Music sign-in's own settings (a backup's "Accounts"). */
+    private val accountKeys = setOf("cookie", "visitor_data", "data_sync_id", "auth_user", "account_name", "account_email", "account_avatar")
+
+    /** Every setting now, as tagged text by name: the settings ([settings]) and/or the sign-in ([accounts]). */
+    suspend fun forBackup(settings: Boolean, accounts: Boolean): Map<String, String> =
+        context.dataStore.data.first().asMap().mapNotNull { (k, v) ->
+            val account = k.name in accountKeys
+            if (if (account) !accounts else !settings) return@mapNotNull null
+            BackupValue.tag(v)?.let { k.name to it }
+        }.toMap()
+
+    /**
+     * Puts a backup's settings in place: those of the parts it holds replace what's here ([settings]: every setting but
+     * the sign-in; [accounts]: the sign-in), the rest stay as they are.
+     */
+    suspend fun fromBackup(values: Map<String, String>, settings: Boolean, accounts: Boolean) = editNow { p ->
+        p.asMap().keys.filter { k -> if (k.name in accountKeys) accounts else settings }.forEach { k ->
+            @Suppress("UNCHECKED_CAST") p.remove(k as Preferences.Key<Any>)
+        }
+        values.forEach { (name, tagged) ->
+            if (if (name in accountKeys) !accounts else !settings) return@forEach
+            BackupValue.put(p, name, tagged)
+        }
+    }
+
     fun setOnboarded(v: Boolean) = edit { it[K.onboarded] = v }
 
     /** Once (1.7): Home layouts saved before "Made for you" and "New releases" existed get them, after Quick picks. */
