@@ -208,7 +208,7 @@ A **Prism Account** is just a name and picture on your phone: no email, no passw
 <img src="docs/screenshots/android-auto-lyrics.jpg" width="600" alt="Prism on Android Auto, the sung line shown in place of the song title">
 
 > [!WARNING]
-> **Android Auto lyrics are for passengers and for use while parked only.** Do not read lyrics while driving. You can turn car lyrics off in Settings → Car & devices → Android Auto, or with the lyrics button on the car's player.
+> **Android Auto lyrics are for passengers and for use while parked only.** Do not read lyrics while driving. You can turn car lyrics off in Settings → Devices & connections → Android Auto, or with the lyrics button on the car's player.
 
 ## Install
 
