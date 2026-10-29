@@ -159,7 +159,8 @@ private fun PartsKey(c: ThemeColors) {
                 }
                 var open by androidx.compose.runtime.saveable.rememberSaveable(p.name) { mutableStateOf(false) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(p.title, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+                    // Whole words only: in the Classic Look's wider type "Background" was split mid-word (1.7.8 check).
+                    WholeWords(p.title, MaterialTheme.typography.labelLarge, scheme.onSurface, maxLines = 1, modifier = Modifier.weight(1f))
                     InfoMark(open, p.title) { open = !open }
                 }
                 InfoText(open, p.detail)

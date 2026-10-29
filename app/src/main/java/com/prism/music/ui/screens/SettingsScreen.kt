@@ -1089,10 +1089,10 @@ private fun AppIconSettings() {
  * not measured ahead (BoxWithConstraints can't sit in the font cards' row, which is sized by its contents).
  */
 @Composable
-private fun WholeWords(text: String, style: TextStyle, color: Color, maxLines: Int = 2) {
+internal fun WholeWords(text: String, style: TextStyle, color: Color, maxLines: Int = 2, modifier: Modifier = Modifier) {
     var fitted by remember(text, style) { mutableStateOf(style) }
     Text(
-        text, style = fitted, color = color, maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        text, modifier, style = fitted, color = color, maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         onTextLayout = { l ->
             val whole = !l.hasVisualOverflow && (0 until l.lineCount - 1).all { i -> text.getOrNull(l.getLineEnd(i) - 1).let { it == ' ' || it == '-' } }
             if (!whole && fitted.fontSize.value > style.fontSize.value * 0.5f) fitted = fitted.copy(fontSize = fitted.fontSize * 0.9f)
