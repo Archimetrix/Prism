@@ -43,7 +43,8 @@ class Backup(private val c: AppContainer) {
         // Fold Room's write-ahead log into the main file so the copy is complete.
         runCatching { c.db.query(androidx.sqlite.db.SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)")).close() }
         val manifest = BackupManifest(
-            app = ctx.packageName, versionCode = BuildConfig.VERSION_CODE, versionName = BuildConfig.VERSION_NAME,
+            // Keep backup identity stable across Prism's Vivo-compatible package-name build.
+            app = BACKUP_APP_ID, versionCode = BuildConfig.VERSION_CODE, versionName = BuildConfig.VERSION_NAME,
             createdAt = System.currentTimeMillis(), withDownloads = withDownloads,
             downloads = c.downloads.completedSongs(),
         )
@@ -113,7 +114,7 @@ class Backup(private val c: AppContainer) {
                 }
             }
             val m = manifest ?: error("That file isn't a Prism backup")
-            if (m.app != ctx.packageName) error("That backup is from a different app")
+            if (m.app !in ACCEPTED_BACKUP_APP_IDS && m.app != ctx.packageName) error("That backup is from a different app")
             if (m.format > FORMAT) error("That backup is from a newer Prism; update first")
             File(staging, MANIFEST).writeText(InnerTube.json.encodeToString(BackupManifest.serializer(), m))
         } catch (e: Throwable) {
@@ -141,6 +142,9 @@ class Backup(private val c: AppContainer) {
     companion object {
         private const val FORMAT = 1
         private const val MANIFEST = "prism-backup.json"
+        /** Stable identity lets the QQ Music package variant read Prism backups and keeps its exports portable. */
+        private const val BACKUP_APP_ID = "com.prism.music"
+        private val ACCEPTED_BACKUP_APP_IDS = setOf(BACKUP_APP_ID, "com.tencent.qqmusic")
         private const val STAGING = "restore_pending"
         private const val REDOWNLOAD = "restore_downloads.json"
         private const val DB = "prism.db"
