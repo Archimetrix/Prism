@@ -57,6 +57,7 @@ object SettingsIndex {
     private val B = SettingsSection.ABOUT
     private val C = SettingsSection.CONNECT
     private val DC = SettingsSection.DISCORD
+    private val LF = SettingsSection.LASTFM
     private val YL = SettingsSection.LYRICS_LOOK
     private val CT = SettingsSection.CONTROLS
     private val DV = SettingsSection.DEVICES
@@ -247,11 +248,12 @@ object SettingsIndex {
         SettingEntry(S, "Playback", "Skip silence in podcasts", "trim silence episodes pauses talk"),
         SettingEntry(S, "Playback", "Stop when swiped away", "recents background"),
         SettingEntry(S, "Playback", "Pause when muted", "volume zero mute pause resume"),
-        SettingEntry(R, "Last.fm", "Connect Last.fm", "lastfm last.fm scrobble scrobbling account"),
-        SettingEntry(R, "Last.fm", "Scrobble", "lastfm scrobble send plays"),
-        SettingEntry(R, "Last.fm", "First artist only", "lastfm featured artists main artist"),
-        SettingEntry(R, "Last.fm", "Love when I like a song", "lastfm love like heart"),
-        SettingEntry(R, "Last.fm", "Disconnect", "lastfm sign out"),
+        SettingEntry(R, "Last.fm", "Last.fm scrobbling", "lastfm last.fm scrobble"),
+        SettingEntry(LF, "Last.fm", "Connect Last.fm", "lastfm last.fm scrobble scrobbling account"),
+        SettingEntry(LF, "Last.fm", "Scrobble", "lastfm scrobble send plays"),
+        SettingEntry(LF, "Last.fm", "First artist only", "lastfm featured artists main artist"),
+        SettingEntry(LF, "Last.fm", "Love when I like a song", "lastfm love like heart"),
+        SettingEntry(LF, "Last.fm", "Disconnect", "lastfm sign out"),
         SettingEntry(H, "Home", "Recently played shows", "recently played albums playlists songs home section"),
         SettingEntry(P, "Lyrics and the queue", "Lyrics and the queue", "player controls hide full screen lyrics queue always shown"),
         SettingEntry(P, "Show on the player", "Hide controls over videos", "music video controls hide tap full"),
@@ -340,8 +342,9 @@ object SettingsIndex {
         SettingEntry(DV, "Android Auto", "On this phone too", "lock screen notification", needs = carLyrics),
         SettingEntry(DV, "Android Auto", "Covers in a grid", "android auto car home tiles grid spotify layout tabs"),
         SettingEntry(DV, "Android Auto", "Buttons in the car", "android auto car buttons shuffle like radio"),
-        SettingEntry(DV, "Other devices", "Speakers, TVs & browser", "prism connect cast remote handoff"),
-        SettingEntry(DV, "Other devices", "Discord", "rich presence status"),
+        SettingEntry(DV, "Connections", "Speakers, TVs & browser", "prism connect cast remote handoff"),
+        SettingEntry(DV, "Connections", "Discord", "rich presence status"),
+        SettingEntry(DV, "Connections", "Last.fm", "lastfm last.fm scrobble scrobbling"),
         SettingEntry(DV, "Sharing and links", "Sharing and links", "share link"),
         SettingEntry(DV, "Sharing and links", "Links you share", "share link youtube youtu.be youtube music url send copy"),
         SettingEntry(DV, "Sharing and links", "Open YouTube Music links in Prism", "open by default supported links music.youtube.com default app handle"),

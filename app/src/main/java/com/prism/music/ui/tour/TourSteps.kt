@@ -304,7 +304,7 @@ object Tour {
                 "Everything about how Prism looks is under Customize Prism",
                 "Gestures and buttons in Controls & gestures",
                 "Every mobile data choice on one page",
-                "Android Auto, speakers and Discord in Car & devices",
+                "Android Auto, speakers, Discord and Last.fm in Devices & connections",
                 "Performance mode, at the top, for slower phones",
             ),
             listOf(PrismIcons.Settings, PrismIcons.Speed),
@@ -363,7 +363,7 @@ object Tour {
             V1_7_8, PrismIcons.QueueMusic, "Also new",
             "From your requests.",
             listOf(
-                "Last.fm scrobbling, and Replay for any dates",
+                "Last.fm scrobbling (Devices & connections), and Replay for any dates",
                 "Pick several songs in the queue to move or remove together, or lock its order",
                 "Choose what goes in a backup",
                 "Swipe up on the player for the queue, lock to portrait, pause when muted",

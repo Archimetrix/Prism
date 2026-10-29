@@ -119,11 +119,12 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
     CONTROLS("controls", "Controls & gestures", PrismIcons.Touch),
     LIBRARY("library", "Recommendations & Replay", PrismIcons.Library),
     DOWNLOADS("downloads", "Downloads, storage & data", PrismIcons.DownloadCircle),
-    DEVICES("devices", "Car & devices", PrismIcons.Car),
+    DEVICES("devices", "Devices & connections", PrismIcons.Car),
     ABOUT("about", "Backup & about", PrismIcons.Info),
-    /** Not on the hub: Car & devices' own pages. */
+    /** Not on the hub: Devices & connections' own pages. */
     CONNECT("connect", "Speakers, TVs & browser", PrismIcons.Cast),
     DISCORD("discord", "Discord", PrismIcons.Groups),
+    LASTFM("lastfm", "Last.fm", PrismIcons.Replay),
     /** Not on the hub: opened from About. */
     LICENSES("licenses", "Open-source licenses", PrismIcons.Info),
     /** Not on the hub: Customize Prism's pages. */
@@ -146,11 +147,12 @@ enum class SettingsSection(val key: String, val title: String, val icon: ImageVe
         LYRICS_LOOK -> "${s.lyricsStyle.label} style · ${s.lyricsPosition.label}"
         CONTROLS -> "Swipes and taps on the player, buttons in the notification and car"
         DOWNLOADS -> listOfNotNull("Smart Downloads ${formatGb(s.offlineGb)}", if (s.downloadWifiOnly) "Wi-Fi only" else "Any network", if (s.dataSaver) "Data saver" else null).joinToString(" · ")
-        DEVICES -> listOfNotNull("Android Auto", "speakers & TVs", if (s.discordPresence) "Discord" else null).joinToString(" · ")
+        DEVICES -> "Android Auto · speakers & TVs · Discord & Last.fm"
         CONNECT -> listOfNotNull("Speakers & TVs", if (s.webRemote) "Browser remote on" else null, if (s.handoffAvailable) "Available for handoff" else null).joinToString(" · ")
         HOME -> "Home's sections and top, Library's views"
         LIBRARY -> listOfNotNull("Your artists, new releases", if (s.contentCountry.isNotBlank()) countryName(s.contentCountry) else null, "Replay").joinToString(" · ")
         DISCORD -> if (s.discordPresence) "Showing what you play on your profile" else "Show what you're playing on your profile"
+        LASTFM -> "Scrobble what you play to your Last.fm"
         ABOUT -> "Prism ${com.prism.music.BuildConfig.VERSION_NAME} · backup, updates, diagnostics"
         LICENSES -> "GPL-3.0-or-later"
         COLOR -> listOfNotNull(
@@ -357,6 +359,7 @@ private fun SettingsPage(
             SettingsSection.HOME -> item { HomeLibraryLook() }
             SettingsSection.LIBRARY -> item { RecommendationsPage() }
             SettingsSection.DISCORD -> item { DiscordGroup() }
+            SettingsSection.LASTFM -> item { LastFmGroup() }
             SettingsSection.ABOUT -> item {
                 Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
                 BackupGroup()
@@ -2089,8 +2092,9 @@ private fun LyricSourcesOrder() {
 }
 
 /**
- * Settings → Car & devices (1.7.6): Android Auto (its lyrics and its look, from Lyrics before), then speakers, TVs and
- * the browser remote, and Discord, each a page of its own.
+ * Settings → Devices & connections (1.7.6, "Car & devices" until 1.7.8): Android Auto (its lyrics and its look, from
+ * Lyrics before), then speakers, TVs and the browser remote, Discord and Last.fm (owner, 1.7.8: beside Discord, the
+ * other account Prism tells what you play), each a page of its own.
  */
 @Composable
 private fun DevicesPage() {
@@ -2116,9 +2120,9 @@ private fun DevicesPage() {
             ) { prefs.setAutoGrid(it) }
             Item("Buttons in the car", "Beside play, in the order the car shows them", onClick = { nav.go(Routes.settings(SettingsSection.CONTROLS.key, "Notification and car")) }) { Chevron() }
         }
-        Group("Other devices") {
+        Group("Connections") {
             val dark = com.prism.music.ui.theme.LocalIsDark.current
-            listOf(SettingsSection.CONNECT, SettingsSection.DISCORD).forEach { sec ->
+            listOf(SettingsSection.CONNECT, SettingsSection.DISCORD, SettingsSection.LASTFM).forEach { sec ->
                 NavRow(sec.icon, sec.title, sec.summary(s, dark)) { nav.go(Routes.settings(sec.key)) }
             }
         }
@@ -2360,7 +2364,10 @@ private fun RecommendationsPage() {
                 info = "When you've liked a song and its music video, Liked songs, Library and the car show just the song. The video stays liked: unlike the song and it shows again. Nothing changes on YouTube Music.",
             ) { prefs.setMergeLikedVideos(it) }
         }
-        LastFmGroup()
+        // Last.fm's own page is in Devices & connections, beside Discord; a way there for whoever looks for it here.
+        Group("Last.fm") {
+            Item("Last.fm scrobbling", "In Devices & connections", onClick = { nav.go(Routes.settings(SettingsSection.LASTFM.key)) }) { Chevron() }
+        }
         Group("Replay") {
             Toggle("Show time in hours", if (s.replayHours) "Like \"20h 4m\"" else "Like \"1,204 min\"", s.replayHours) { prefs.setReplayHours(it) }
             Toggle("Use theme colors", "Your accent instead of Prism's gradient", s.replayThemeColors) { prefs.setReplayThemeColors(it) }

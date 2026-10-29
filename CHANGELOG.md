@@ -78,7 +78,7 @@ Every one of these is a choice; nothing changes until you pick it.
   Downloaded songs, each one ticked or not, so you can share your settings without your listening or your sign-in.
   Restoring replaces only what the file holds and says what that is first. (Backups from earlier versions restore as
   before; Prism before 1.7.8 asks to be updated before restoring a new one.)
-- **Last.fm scrobbling** (#133, #160): Settings → Recommendations & Replay → Last.fm. Connect your account on
+- **Last.fm scrobbling** (#133, #160): Settings → Devices & connections → Last.fm, beside Discord (the Car & devices page, renamed). Connect your account on
   Last.fm's own page (Prism never sees your password); songs count once you've heard half of them or four minutes,
   "Now playing" shows as each starts, and scrobbles made offline are sent later. Options: send only a song's first
   artist (#160), and love songs on Last.fm when you like them here.
